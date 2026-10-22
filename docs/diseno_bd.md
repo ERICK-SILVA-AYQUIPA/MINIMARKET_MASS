@@ -202,10 +202,15 @@ Apertura, fondo inicial de sencillo y cierre de caja por sesión de un cajero (R
 - `id_caja` (INT UNSIGNED, NOT NULL, FK → `caja.id_caja`)
 - `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
 - `fecha_apertura` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `monto_apertura` (DECIMAL(10,2), NOT NULL, DEFAULT 0, CHECK >= 0)
+- `monto_apertura` (DECIMAL(12,2), NOT NULL, DEFAULT 0, CHECK >= 0)
 - `fecha_cierre` (DATETIME, NULL)
-- `monto_cierre` (DECIMAL(10,2), NULL, CHECK >= 0)
+- `monto_cierre` (DECIMAL(12,2), NULL, CHECK >= 0)
 - `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ABIERTO', CHECK IN ('ABIERTO', 'CERRADO'))
+- `abierto_caja` (INT UNSIGNED AS (CASE WHEN estado = 'ABIERTO' THEN id_caja END) VIRTUAL)
+- `abierto_usuario` (INT UNSIGNED AS (CASE WHEN estado = 'ABIERTO' THEN id_usuario END) VIRTUAL)
+- UNIQUE (`abierto_caja`) (RN-17: una caja solo admite un turno abierto a la vez)
+- UNIQUE (`abierto_usuario`) (RN-17: un cajero solo admite un turno abierto a la vez)
+
 
 ---
 
