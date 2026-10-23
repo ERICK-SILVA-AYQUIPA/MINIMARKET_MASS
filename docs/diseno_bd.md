@@ -25,7 +25,250 @@ El diseño se organiza en **7 niveles de integridad referencial**, garantizando 
 
 ---
 
-## 2. Diccionario de Datos Detallado (26 Tablas)
+## 2. Diagrama Entidad-Relación (EER)
+
+El repositorio incluye el diagrama visual de alta resolución generado a partir de las 26 tablas:
+
+![Diagrama Entidad-Relación](./diagrama-er.png)
+
+### Diagrama ER en Notación Mermaid
+
+A continuación se presenta la definición vectorial e interactiva de las 26 entidades y sus relaciones:
+
+```mermaid
+erDiagram
+    %% NIVEL 1 - Independientes
+    distrito {
+        SMALLINT id_distrito PK
+        VARCHAR nombre_distrito UK
+    }
+    rol {
+        TINYINT id_rol PK
+        VARCHAR nombre_rol UK
+    }
+    cliente {
+        INT id_cliente PK
+        CHAR dni UK
+        CHAR ruc UK
+    }
+    categoria {
+        SMALLINT id_categoria PK
+        VARCHAR nombre_categoria UK
+    }
+    marca {
+        SMALLINT id_marca PK
+        VARCHAR nombre_marca UK
+        CHAR es_marca_propia
+    }
+    unidad_medida {
+        TINYINT id_unidad PK
+        VARCHAR abreviatura UK
+        VARCHAR nombre_unidad UK
+    }
+    tipo_comprobante {
+        TINYINT id_tipo_comprobante PK
+        VARCHAR nombre_comprobante UK
+        CHAR letra_serie UK
+    }
+    metodo_pago {
+        TINYINT id_metodo_pago PK
+        VARCHAR nombre_metodo UK
+    }
+    tipo_movimiento {
+        TINYINT id_tipo_movimiento PK
+        VARCHAR nombre_movimiento UK
+        CHAR efecto
+    }
+
+    %% NIVEL 2
+    tienda {
+        SMALLINT id_tienda PK
+        SMALLINT id_distrito FK
+        VARCHAR nombre_tienda UK
+        VARCHAR direccion
+        VARCHAR telefono
+        VARCHAR estado
+    }
+    producto {
+        INT id_producto PK
+        SMALLINT id_categoria FK
+        SMALLINT id_marca FK
+        TINYINT id_unidad FK
+        VARCHAR nombre_producto
+        VARCHAR codigo_barras UK
+        DECIMAL precio_venta
+        CHAR se_vende_por_peso
+        VARCHAR estado
+    }
+
+    %% NIVEL 3
+    empleado {
+        MEDIUMINT id_empleado PK
+        SMALLINT id_tienda FK
+        TINYINT id_rol FK
+        VARCHAR nombres
+        VARCHAR apellidos
+        CHAR dni UK
+        VARCHAR estado
+    }
+    caja {
+        SMALLINT id_caja PK
+        SMALLINT id_tienda FK
+        TINYINT numero_caja
+        VARCHAR estado
+    }
+    serie_comprobante {
+        SMALLINT id_serie PK
+        SMALLINT id_tienda FK
+        TINYINT id_tipo_comprobante FK
+        CHAR serie
+        INT ultimo_numero
+    }
+    stock {
+        SMALLINT id_tienda PK,FK
+        INT id_producto PK,FK
+        DECIMAL cantidad_actual
+        DECIMAL stock_minimo
+    }
+
+    %% NIVEL 4
+    caja_turno {
+        INT id_caja_turno PK
+        SMALLINT id_caja FK
+        MEDIUMINT id_empleado FK
+        DATETIME fecha_hora_apertura
+        DECIMAL monto_inicial
+        DATETIME fecha_hora_cierre
+        DECIMAL monto_cierre
+        VARCHAR estado
+    }
+    traslado_mercaderia {
+        INT id_traslado PK
+        SMALLINT id_tienda_origen FK
+        SMALLINT id_tienda_destino FK
+        MEDIUMINT id_empleado FK
+        DATETIME fecha_hora
+        VARCHAR observacion
+    }
+    merma {
+        INT id_merma PK
+        MEDIUMINT id_empleado FK
+        DATETIME fecha_hora
+        VARCHAR motivo
+        VARCHAR observacion
+    }
+
+    %% NIVEL 5
+    venta {
+        BIGINT id_venta PK
+        SMALLINT id_serie FK
+        INT id_caja_turno FK
+        INT id_cliente FK
+        INT numero_correlativo
+        DATETIME fecha_hora
+        DECIMAL total
+        VARCHAR estado
+    }
+
+    %% NIVEL 6
+    detalle_venta {
+        BIGINT id_detalle_venta PK
+        BIGINT id_venta FK
+        INT id_producto FK
+        DECIMAL cantidad
+        DECIMAL precio_unitario
+        DECIMAL importe
+    }
+    anulacion_venta {
+        INT id_anulacion PK
+        BIGINT id_venta FK,UK
+        MEDIUMINT id_empleado FK
+        DATETIME fecha_hora
+        VARCHAR motivo
+    }
+    pago_venta {
+        BIGINT id_pago PK
+        BIGINT id_venta FK
+        TINYINT id_metodo_pago FK
+        DECIMAL monto_pagado
+        DATETIME fecha_hora
+        VARCHAR estado
+    }
+
+    %% NIVEL 7
+    efectivo {
+        BIGINT id_pago PK,FK
+        DECIMAL monto_recibido
+        DECIMAL vuelto
+    }
+    tarjeta {
+        BIGINT id_pago PK,FK
+        VARCHAR tipo_tarjeta
+        VARCHAR marca_tarjeta
+        CHAR ultimos_4_digitos
+        VARCHAR codigo_autorizacion
+    }
+    billetera_digital_sip {
+        BIGINT id_pago PK,FK
+        VARCHAR modalidad_pago
+        VARCHAR codigo_operacion UK
+    }
+    movimiento_stock {
+        BIGINT id_movimiento PK
+        SMALLINT id_tienda FK
+        INT id_producto FK
+        TINYINT id_tipo_movimiento FK
+        MEDIUMINT id_empleado FK
+        BIGINT id_venta FK
+        INT id_traslado FK
+        INT id_merma FK
+        DECIMAL cantidad
+        DECIMAL stock_nuevo
+        DATETIME fecha_hora
+        VARCHAR observacion
+    }
+
+    %% RELACIONES
+    distrito ||--o{ tienda : "ubica"
+    rol ||--o{ empleado : "define"
+    tienda ||--o{ empleado : "asigna"
+    tienda ||--o{ caja : "opera"
+    tienda ||--o{ serie_comprobante : "emite"
+    tipo_comprobante ||--o{ serie_comprobante : "clasifica"
+    categoria ||--o{ producto : "agrupa"
+    marca ||--o{ producto : "fabrica"
+    unidad_medida ||--o{ producto : "mide"
+    tienda ||--o{ stock : "mantiene"
+    producto ||--o{ stock : "disponible_en"
+    caja ||--o{ caja_turno : "habilita"
+    empleado ||--o{ caja_turno : "atiende"
+    tienda ||--o{ traslado_mercaderia : "origen"
+    tienda ||--o{ traslado_mercaderia : "destino"
+    empleado ||--o{ traslado_mercaderia : "autoriza"
+    empleado ||--o{ merma : "registra"
+    serie_comprobante ||--o{ venta : "correlativo"
+    caja_turno ||--o{ venta : "procesa"
+    cliente ||--o{ venta : "compra"
+    venta ||--o{ detalle_venta : "contiene"
+    producto ||--o{ detalle_venta : "vendido_en"
+    venta ||--o| anulacion_venta : "anulada_por"
+    empleado ||--o{ anulacion_venta : "valida"
+    venta ||--o{ pago_venta : "liquida"
+    metodo_pago ||--o{ pago_venta : "medio"
+    pago_venta ||--o| efectivo : "subtipo"
+    pago_venta ||--o| tarjeta : "subtipo"
+    pago_venta ||--o| billetera_digital_sip : "subtipo"
+    stock ||--o{ movimiento_stock : "actualiza"
+    tipo_movimiento ||--o{ movimiento_stock : "tipifica"
+    empleado ||--o{ movimiento_stock : "ejecuta"
+    venta ||--o{ movimiento_stock : "origen_venta"
+    traslado_mercaderia ||--o{ movimiento_stock : "origen_traslado"
+    merma ||--o{ movimiento_stock : "origen_merma"
+```
+
+---
+
+## 3. Diccionario de Datos Detallado (26 Tablas)
 
 ### Nivel 1: Tablas Independientes
 
@@ -267,7 +510,7 @@ Kardex inmutable que audita cada variación de existencias vinculada a su docume
 
 ---
 
-## 3. Objetos de Programación
+## 4. Objetos de Programación
 
 ### Vista `vw_comprobante`
 Desnormaliza la cabecera, cliente, cajero, tienda y detalle de venta para facilitar reportes y emisiones formateadas de boletas y facturas.

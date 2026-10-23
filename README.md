@@ -21,6 +21,12 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 
 ---
 
+## Diagrama Entidad-Relación (EER)
+
+![Diagrama Entidad-Relación](./docs/diagrama-er.png)
+
+---
+
 ## Tablas del Sistema (26 Tablas en 7 Niveles)
 
 El diseño está optimizado y estructurado por niveles de integridad referencial:
