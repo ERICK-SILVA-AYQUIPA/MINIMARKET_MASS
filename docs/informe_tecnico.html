@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Técnico - Minimarket Mass (SENATI)</title>
+  
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  
+  @page {
+    size: A4;
+    margin: 20mm 15mm 20mm 15mm;
+  }
+  
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #f8fafc;
+    line-height: 1.6;
+    margin: 0;
+    padding: 40px;
+  }
+
+  .container {
+    max-width: 950px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 60px 70px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .cover {
+    text-align: center;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+  }
+
+  .cover-badge {
+    display: inline-block;
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-top: 0;
+    margin-bottom: 10px;
+    letter-spacing: -0.5px;
+  }
+
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1e3a8a;
+    border-bottom: 2px solid #3b82f6;
+    padding-bottom: 6px;
+    margin-top: 40px;
+    margin-bottom: 15px;
+  }
+
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-top: 25px;
+    margin-bottom: 10px;
+  }
+
+  p, li {
+    font-size: 14px;
+    color: #334155;
+  }
+
+  ul, ol {
+    padding-left: 24px;
+    margin-bottom: 16px;
+  }
+
+  li {
+    margin-bottom: 6px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 13px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  th {
+    background-color: #0f172a;
+    color: #ffffff;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border: 1px solid #334155;
+  }
+
+  td {
+    padding: 9px 14px;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+  }
+
+  tr:nth-child(even) td {
+    background-color: #f8fafc;
+  }
+
+  tr:hover td {
+    background-color: #f1f5f9;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 20px 0;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: #f1f5f9;
+    color: #0f172a;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border: none;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    margin: 20px 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .team-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin: 20px 0;
+  }
+
+  .team-item {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+  }
+
+  .footer-note {
+    text-align: center;
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 50px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 20px;
+  }
+
+  @media print {
+    body {
+      background: #ffffff;
+      padding: 0;
+    }
+    .container {
+      box-shadow: none;
+      border: none;
+      padding: 0;
+    }
+    h2 {
+      page-break-before: auto;
+    }
+  }
+</style>
+
+</head>
+<body>
+  <div class="container">
+    <div class="cover">
+      <div class="cover-badge">SENATI · CFP AREQUIPA · OCTUBRE 2026</div>
+      <h1>INFORME TÉCNICO DE PROYECTO</h1>
+      <p style="font-size: 16px; color: #475569; font-weight: 500;">Sistema de Gestión Comercial, Facturación Electrónica e Inventario Multitienda</p>
+      <p style="font-size: 14px; color: #0284c7; font-weight: 600;">Caso de Estudio: Tiendas Mass (Grupo Intercorp - Sede Arequipa)</p>
+    </div>
+    <h1>SENATI · ISMA</h1><h3>Escuela de Tecnologías de la Información</h3><p><strong>Carrera:</strong> Backend Developer Web / Ingeniería de Software con IA  </p><p><strong>Curso:</strong> Desarrollo de Sistemas y Gestión de Bases de Datos Relacionales  </p><p><strong>Sede:</strong> CFP Arequipa  </p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h1>INFORME TÉCNICO DE PROYECTO</h1><h2>Sistema de Gestión Comercial, Facturación Electrónica e Inventario Multitienda</h2><h3>Caso de Estudio: Minimarket Mass (Grupo Intercorp - Cadena Arequipa)</h3><pre><code>        __  __ ___ _   _ ___ __  __    _    ____  _  _______ _____   __  __    _    ____ ____         |  \/  |_ _| \ | |_ _|  \/  |  / \  |  _ \| |/ / ____|_   _| |  \/  |  / \  / ___/ ___|        | |\/| || ||  \| || || |\/| | / _ \ | |_) | ' /|  _|   | |   | |\/| | / _ \ \___ \___ \        | |  | || || |\  || || |  | |/ ___ \|  _ &lt;| . \| |___  | |   | |  | |/ ___ \ ___) |__) |       |_|  |_|___|_| \_|___|_|  |_/_/   \_\_| \_\_|\_\_____| |_|   |_|  |_/_/   \_\____/____/  </pre><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h3>Integrantes del Equipo de Desarrollo</h3><li><strong>Erick Silva Ayquipa</strong></li><li><strong>Gerald Anderson Condori Quispe</strong></li><li><strong>Alexander Emmanuel Moreno Flores</strong></li><li><strong>Jhon Alexandro Apaza Belizario</strong></li><li><strong>Suhaily Luana Huaypar Quijhua</strong></li><li><strong>Keymer Cesar Machaca Puma</strong></li><p><strong>Fecha de Entrega:</strong> Octubre de 2026  </p><p><strong>Repositorio Oficial:</strong> <code>https://github.com/RICK-BACK/MINIMARKET_MASS</code>  </p><p><strong>Estado del Proyecto:</strong> Implementado, normalizado en 3FN y validado en MySQL 8.0+  </p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>Tabla de Contenidos</h2><p>1. <a href="#1-introducción-y-objetivos">Introducción y Objetivos</a></p><p>2. <a href="#2-descripción-general-del-negocio-y-actores">Descripción General del Negocio y Actores</a></p><p>3. <a href="#3-modelado-de-software-con-diagramas-uml">Modelado de Software con Diagramas UML</a></p><p>   - 3.1. Diagrama de Casos de Uso (24 Casos en 5 Módulos)</p><p>   - 3.2. Diagrama de Secuencia (Flujo Transaccional de Venta)</p><p>   - 3.3. Diagrama de Actividades (Bifurcaciones de Cobro)</p><p>   - 3.4. Diagrama de Componentes (Módulos de Software e Interfaces)</p><p>   - 3.5. Diagrama de Despliegue (Infraestructura Local y Servidor Central)</p><p>4. <a href="#4-diseño-y-arquitectura-de-la-base-de-datos-relacional">Diseño y Arquitectura de la Base de Datos Relacional</a></p><p>   - 4.1. Normalización en Tercera Forma Normal (3FN)</p><p>   - 4.2. Estructura Jerárquica en 7 Niveles de Integridad Referencial</p><p>   - 4.3. Diagrama Entidad-Relación Físico (26 Tablas)</p><p>   - 4.4. Diccionario de Datos Completo</p><p>5. <a href="#5-lógica-de-negocio-y-restricciones-de-integridad">Lógica de Negocio y Restricciones de Integridad</a></p><p>   - 5.1. Matriz de Reglas de Negocio (RN-01 a RN-10)</p><p>   - 5.2. Objetos de Programación: Vista <code>vw_comprobante</code> y Procedimiento <code>sp_boleta</code></p><p>6. <a href="#6-pruebas-de-validación-y-consultas-estratégicas">Pruebas de Validación y Consultas Estratégicas</a></p><p>   - 6.1. Reporte de Catálogo Comercial y Precios Centralizados</p><p>   - 6.2. Auditoría de Existencias y Sugerido de Reposición de Inventario</p><p>   - 6.3. Facturación Consolidada y Arqueo de Cajas Registradoras</p><p>7. <a href="#7-gestión-del-proyecto-y-tablero-kanban">Gestión del Proyecto y Tablero Kanban</a></p><p>   - 7.1. Evolución del Tablero: De Planificación a Despliegue Completo</p><p>   - 7.2. Matriz de Trazabilidad Requerimientos vs. Base de Datos</p><p>8. <a href="#8-conclusiones-y-recomendaciones">Conclusiones y Recomendaciones</a></p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>1. Introducción y Objetivos</h2><h3>1.1. Contexto Empresarial</h3><p><strong>Tiendas Mass</strong>, cadena del modelo *hard-discount* perteneciente al consorcio <strong>Intercorp</strong>, basa su estrategia operativa en ofrecer productos de primera necesidad al menor costo operativo posible, operando locales de formato compacto, catálogo optimizado (marcas propias como Mass y Bell's combinadas con marcas líderes de terceros) y una política de pagos directos que excluye billeteras informales sujetas a sobrecostos.</p><p>El presente proyecto documenta la especificación de requisitos, el modelado formal con el <strong>Lenguaje Unificado de Modelado (UML)</strong> y el diseño e implementación física de una base de datos relacional para la gestión integral de <strong>3 sedes de Tiendas Mass en la ciudad de Arequipa (distritos de Cayma, Cerro Colorado y Yanahuara)</strong>.</p><h3>1.2. Objetivos del Proyecto</h3><li><strong>Objetivo General:</strong> Diseñar, modelar e implementar un sistema integral de información y base de datos relacional optimizada para soportar las operaciones de caja (POS), ventas, emisión de boletas/facturas electrónicas, inventario valorizado por sedes y auditoría inmutable de movimientos para Minimarket Mass.</li><li><strong>Objetivos Específicos:</strong></li><p>  1. Formalizar los procesos de negocio mediante 5 diagramas UML estándar: Casos de Uso, Secuencia, Actividades, Componentes y Despliegue.</p><p>  2. Implementar un esquema relacional normalizado en 3FN estricta sobre <strong>MySQL 8.0+</strong>, estructurado en 26 tablas y 7 niveles jerárquicos de integridad referencial.</p><p>  3. Garantizar la consistencia fiscal y operativa mediante restricciones <code>CHECK</code>, <code>UNIQUE</code>, claves foráneas unívocas y tipos de datos precisos (<code>DECIMAL(10,2)</code> y <code>DECIMAL(10,3)</code>).</p><p>  4. Implementar la pasarela multipago de Tienda Mass: pagos en Efectivo con vuelto, Tarjeta de crédito/débito y la Billetera Digital Sip propia de la cadena.</p><p>  5. Asegurar la trazabilidad total del stock mediante un Kardex centralizado (<code>movimiento_stock</code>) donde cada entrada o salida proviene de exactamente una fuente (venta, traslado intertiendas o merma).</p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>2. Descripción General del Negocio y Actores</h2><p>El sistema opera bajo un modelo de red distribuida con soporte para trabajo fuera de línea en cada tienda física y sincronización con el servidor central de la cadena.</p><h3>Actores del Sistema</h3><table>
+<tr><th>Actor</th><th>Categoría</th><th>Rol y Responsabilidad Operativa</th></tr>
+<tr><td><strong>Cliente</strong></td><td>Humano / Externo</td><td>Adquiere productos en tienda, solicita consulta de precios, elige el medio de pago (Efectivo, Tarjeta o Billetera Sip) y requiere comprobante fiscal (Boleta o Factura con RUC).</td></tr>
+<tr><td><strong>Colaborador (Cajero)</strong></td><td>Humano / Interno</td><td>Inicia sesión con su DNI, realiza la apertura de turno de caja registradora, escanea artículos, registra pagos, entrega vuelto y emite comprobantes.</td></tr>
+<tr><td><strong>Administrador (Jefe de Tienda)</strong></td><td>Humano / Interno</td><td>Supervisa la operación de la sede, autoriza formalmente anulaciones de ventas, programa turnos de colaboradores y valida auditorías de mermas y traslados.</td></tr>
+<tr><td><strong>Almacenero</strong></td><td>Humano / Interno</td><td>Registra la recepción física de mercadería, genera transferencias hacia otras sedes y reporta mermas por vencimiento o rotura.</td></tr>
+<tr><td><strong>Pasarela de Pago Bancaria</strong></td><td>Sistema Externo</td><td>Servicio financiero externo que valida, autoriza o rechaza transacciones electrónicas de tarjetas Visa, Mastercard o American Express.</td></tr>
+<tr><td><strong>Servidor Central Mass</strong></td><td>Sistema Interno</td><td>Centraliza los precios unificados nacionales, consolida las ventas emitidas y sincroniza existencias para la cadena.</td></tr>
+</table><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>3. Modelado de Software con Diagramas UML</h2><p>Para garantizar un entendimiento integral de la solución, se construyeron 5 diagramas UML complementarios:</p><h3>3.1. Diagrama de Casos de Uso (24 Casos en 5 Módulos)</h3><p>Define el alcance funcional del sistema agrupado en 5 módulos operativos:</p><p>1. <strong>Módulo Ventas (6 Casos):</strong> <code>Realizar compra</code>, <code>Registrar venta</code> (incluye <code>Consultar precio</code>), <code>Anular venta</code> (extendido por <code>Autorizar anulación</code>) y <code>Cobrar en caja</code>.</p><p>2. <strong>Módulo Pagos (5 Casos):</strong> <code>Procesar pago</code>, <code>Pagar con tarjeta</code>, <code>Pagar en efectivo</code>, <code>Pagar con Billetera Sip</code> y <code>Autorizar transacción</code>.</p><p>3. <strong>Módulo Comprobantes y Registro Central (3 Casos):</strong> <code>Emitir comprobante fiscal</code>, <code>Solicitar boleta/factura</code> y <code>Registrar venta central</code>.</p><p>4. <strong>Módulo Inventario y Gestión (8 Casos):</strong> <code>Consultar stock</code>, <code>Gestionar inventario</code>, <code>Registrar merma</code>, <code>Trasladar mercadería</code>, <code>Aperturar turno de caja</code>, <code>Cerrar turno de caja</code>, <code>Generar arqueo</code> y <code>Sincronizar existencias</code>.</p><p>5. <strong>Módulo Distribución (2 Casos):</strong> <code>Enviar despacho central</code> y <code>Confirmar recepción en sede</code>.</p><h3>3.2. Diagrama de Secuencia (Flujo Transaccional de Venta)</h3><p>Modela la interacción temporal entre los 6 participantes (<code>:Cliente</code>, <code>:Colaborador</code>, <code>:AppCaja</code>, <code>:PasarelaPago</code>, <code>:ServTienda</code>, <code>:ServCentral</code>):</p><li>El cajero escanea productos en <code>:AppCaja</code>.</li><li><code>:AppCaja</code> solicita validación de precio unitario a <code>:ServTienda</code>.</li><li>Si el cliente paga en <strong>Efectivo</strong>, <code>:AppCaja</code> calcula el vuelto exacto y registra la venta localmente.</li><li>Si el cliente paga con <strong>Tarjeta</strong> o <strong>Billetera Sip</strong>, se envía la solicitud al componente de pasarela; si la transacción es aprobada (<code>[autorizada]</code>), se descuenta el stock en el servidor y se emite la boleta/factura; si es <code>[rechazada]</code>, la venta no se liquida y el inventario permanece inalterado.</li><h3>3.3. Diagrama de Actividades (Bifurcaciones de Cobro)</h3><p>Estructura el proceso en 4 carriles de responsabilidad (Cliente, Colaborador, Sistema Mass y Pasarela):</p><li>Inicio con lectura de código de barras.</li><li>Rombo de decisión: ¿Boleta o Factura? $\rightarrow$ Si es factura, validación obligatoria de RUC (11 dígitos).</li><li>Rombo de bifurcación de pago:</li><p>  - *Efectivo:* Ingreso de monto recibido $\rightarrow$ Cálculo y validación: <code>vuelto = monto_recibido - monto_pagado</code> $\rightarrow$ Entrega de efectivo.</p><p>  - *Tarjeta / Sip:* Comunicación TLS $\rightarrow$ Aprobación de pasarela $\rightarrow$ Captura de código de autorización y últimos 4 dígitos.</p><li>Finalización: Impresión del ticket fiscal, actualización del kardex y cierre de la transacción.</li><h3>3.4. Diagrama de Componentes</h3><p>Organiza el software en módulos desacoplados:</p><li><strong><code>AppCaja</code> (Frontend POS):</strong> Interfaz táctil de cobro ejecutada en las cajas registradoras de cada tienda.</li><li><strong><code>ServTienda</code> (Backend Local):</strong> Servicio transaccional local que garantiza la operatividad autónoma aunque exista caída de enlace de datos.</li><li><strong><code>PasarelaPago</code> (Componente de Integración Externa):</strong> Controlador de terminales POS físicos y pasarela Sip.</li><li><strong><code>ServCentral</code> y <code>BDCentral</code> (MySQL 8.0):</strong> Núcleo corporativo que consolida la data de las 3 sedes.</li><h3>3.5. Diagrama de Despliegue</h3><p>Detalla la infraestructura de red física:</p><li><strong>Estaciones POS (Cajas 1 a 3):</strong> Dispositivos cliente conectados vía LAN interna segura a 100/1000 Mbps con IP estática al servidor de tienda.</li><li><strong>Servidor de Sede Física:</strong> Máquina local con Linux/Windows ejecutando el servicio transaccional con redundancia.</li><li><strong>Canal Seguro VPN / TLS:</strong> Conexión cifrada hacia el Data Center central de Intercorp en Lima para replicación asíncrona de comprobantes y sincronización de precios.</li><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>4. Diseño y Arquitectura de la Base de Datos Relacional</h2><h3>4.1. Normalización en Tercera Forma Normal (3FN)</h3><p>La base de datos fue diseñada cumpliendo rigurosamente las tres formas normales:</p><li><strong>1FN:</strong> Cada columna contiene valores atómicos indivisibles; no existen arreglos repetitivos ni campos multivaluados.</li><li><strong>2FN:</strong> Todas las columnas sin clave dependen de manera completa y directa de la clave primaria (eliminando dependencias parciales en tablas con clave compuesta como <code>stock</code>).</li><li><strong>3FN:</strong> Ninguna columna no clave depende transitivamente de otra columna no clave; todas las relaciones indirectas fueron segregadas en entidades independientes (por ejemplo, <code>distrito</code> separado de <code>tienda</code>, o <code>rol</code> separado de <code>empleado</code>).</li><h3>4.2. Estructura Jerárquica en 7 Niveles de Integridad Referencial</h3><p>Para garantizar la creación ordenada y la carga de datos sin conflictos de clave foránea, las <strong>26 tablas</strong> se agrupan en 7 niveles de dependencia:</p><pre><code>[ Nivel 1: Catálogos Independientes ]  ├── distrito, rol, cliente, categoria, marca, unidad_medida, tipo_comprobante, metodo_pago, tipo_movimiento  │[ Nivel 2: Sedes y Catálogo Unificado ]  ├── tienda (FK a distrito)  └── producto (FK a categoria, marca, unidad_medida)  │[ Nivel 3: Personal, Cajas, Series y Stock ]  ├── empleado (FK a tienda, rol)  ├── caja (FK a tienda)  ├── serie_comprobante (FK a tienda, tipo_comprobante)  └── stock (PK compuesta: id_tienda, id_producto)  │[ Nivel 4: Turnos, Traslados y Mermas ]  ├── caja_turno (FK a caja, empleado)  ├── traslado_mercaderia (FK a tienda_origen, tienda_destino, empleado)  └── merma (FK a empleado)  │[ Nivel 5: Ventas de Comprobante ]  └── venta (FK a serie_comprobante, caja_turno, cliente)  │[ Nivel 6: Detalle, Anulaciones y Pagos ]  ├── detalle_venta (FK a venta, producto)  ├── anulacion_venta (FK a venta, empleado)  └── pago_venta (FK a venta, metodo_pago)  │[ Nivel 7: Subtipos Especializados y Kardex ]  ├── efectivo (PK/FK a pago_venta)  ├── tarjeta (PK/FK a pago_venta)  ├── billetera_digital_sip (PK/FK a pago_venta)  └── movimiento_stock (FK a stock, tipo_movimiento, empleado, venta/traslado/merma)</pre><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h3>4.3. Diagrama Entidad-Relación Físico (26 Tablas)</h3><p>El diagrama de alta resolución fue construido asegurando <strong>cero intersecciones entre líneas y tablas</strong>, utilizando canaletas libres de ruteo ortogonal:</p><div style="text-align:center;"><img src="./diagrama-er.png" alt="Diagrama Entidad-Relación"><div style="font-size:12px; color:#64748b; margin-top:-10px;">Diagrama Entidad-Relación</div></div><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h3>4.4. Diccionario de Datos Completo (26 Tablas)</h3><table>
+<tr><th>N°</th><th>Tabla</th><th>Módulo</th><th>Clave Primaria (PK)</th><th>Claves Foráneas (FK)</th><th>Restricciones de Integridad y Reglas</th></tr>
+<tr><td>1</td><td><code>distrito</code></td><td>Ubicación</td><td><code>id_distrito</code> (SMALLINT)</td><td>Ninguna</td><td><code>nombre_distrito</code> UNIQUE.</td></tr>
+<tr><td>2</td><td><code>tienda</code></td><td>Ubicación</td><td><code>id_tienda</code> (SMALLINT)</td><td><code>id_distrito</code></td><td><code>nombre_tienda</code> UNIQUE. <code>CHECK (estado IN ('ACTIVA','INACTIVA'))</code>.</td></tr>
+<tr><td>3</td><td><code>rol</code></td><td>Personal</td><td><code>id_rol</code> (TINYINT)</td><td>Ninguna</td><td><code>nombre_rol</code> UNIQUE ('ADMINISTRADOR', 'CAJERO', 'ALMACENERO').</td></tr>
+<tr><td>4</td><td><code>empleado</code></td><td>Personal</td><td><code>id_empleado</code> (MEDIUMINT)</td><td><code>id_tienda</code>, <code>id_rol</code></td><td><code>dni</code> CHAR(8) UNIQUE con <code>CHECK (dni REGEXP '^[0-9]{8}$')</code>.</td></tr>
+<tr><td>5</td><td><code>cliente</code></td><td>Ventas</td><td><code>id_cliente</code> (INT)</td><td>Ninguna</td><td><code>dni</code> CHAR(8) UNIQUE opcional, <code>ruc</code> CHAR(11) UNIQUE opcional. <code>CHECK (dni IS NOT NULL OR ruc IS NOT NULL)</code>.</td></tr>
+<tr><td>6</td><td><code>categoria</code></td><td>Catálogo</td><td><code>id_categoria</code> (SMALLINT)</td><td>Ninguna</td><td><code>nombre_categoria</code> UNIQUE.</td></tr>
+<tr><td>7</td><td><code>marca</code></td><td>Catálogo</td><td><code>id_marca</code> (SMALLINT)</td><td>Ninguna</td><td><code>nombre_marca</code> UNIQUE. <code>CHECK (es_marca_propia IN ('S','N'))</code>.</td></tr>
+<tr><td>8</td><td><code>unidad_medida</code></td><td>Catálogo</td><td><code>id_unidad</code> (TINYINT)</td><td>Ninguna</td><td><code>abreviatura</code> UNIQUE ('und', 'kg', 'lt'), <code>nombre_unidad</code> UNIQUE.</td></tr>
+<tr><td>9</td><td><code>producto</code></td><td>Catálogo</td><td><code>id_producto</code> (INT)</td><td><code>id_categoria</code>, <code>id_marca</code>, <code>id_unidad</code></td><td><code>codigo_barras</code> UNIQUE opcional. <code>CHECK (precio_venta > 0)</code>. <code>CHECK (se_vende_por_peso IN ('S','N'))</code>.</td></tr>
+<tr><td>10</td><td><code>caja</code></td><td>Cajas</td><td><code>id_caja</code> (SMALLINT)</td><td><code>id_tienda</code></td><td><code>UNIQUE (id_tienda, numero_caja)</code>. <code>CHECK (estado IN ('ACTIVA','INACTIVA'))</code>.</td></tr>
+<tr><td>11</td><td><code>caja_turno</code></td><td>Cajas</td><td><code>id_caja_turno</code> (INT)</td><td><code>id_caja</code>, <code>id_empleado</code></td><td><code>CHECK (monto_inicial >= 0)</code>. Consistencia de apertura vs. cierre.</td></tr>
+<tr><td>12</td><td><code>tipo_comprobante</code></td><td>Ventas</td><td><code>id_tipo_comprobante</code> (TINYINT)</td><td>Ninguna</td><td><code>nombre_comprobante</code> UNIQUE ('BOLETA','FACTURA'). <code>letra_serie</code> UNIQUE ('B','F').</td></tr>
+<tr><td>13</td><td><code>serie_comprobante</code></td><td>Ventas</td><td><code>id_serie</code> (SMALLINT)</td><td><code>id_tienda</code>, <code>id_tipo_comprobante</code></td><td><code>UNIQUE (id_tienda, serie)</code>. <code>CHECK (serie REGEXP '^[BF][0-9]{3}$')</code>.</td></tr>
+<tr><td>14</td><td><code>stock</code></td><td>Inventario</td><td><code>(id_tienda, id_producto)</code></td><td><code>id_tienda</code>, <code>id_producto</code></td><td>PK compuesta. <code>CHECK (cantidad_actual >= 0)</code>. <code>CHECK (stock_minimo >= 0)</code>.</td></tr>
+<tr><td>15</td><td><code>traslado_mercaderia</code></td><td>Inventario</td><td><code>id_traslado</code> (INT)</td><td><code>id_tienda_origen</code>, <code>id_tienda_destino</code>, <code>id_empleado</code></td><td><code>CHECK (id_tienda_origen <> id_tienda_destino)</code>.</td></tr>
+<tr><td>16</td><td><code>merma</code></td><td>Inventario</td><td><code>id_merma</code> (INT)</td><td><code>id_empleado</code></td><td><code>CHECK (motivo IN ('VENCIDO','DAÑADO','ROBO','OTRO'))</code>.</td></tr>
+<tr><td>17</td><td><code>venta</code></td><td>Ventas</td><td><code>id_venta</code> (BIGINT)</td><td><code>id_serie</code>, <code>id_caja_turno</code>, <code>id_cliente</code></td><td><code>UNIQUE (id_serie, numero_correlativo)</code>. <code>CHECK (total > 0)</code>. <code>CHECK (estado IN ('EMITIDA','ANULADA'))</code>.</td></tr>
+<tr><td>18</td><td><code>detalle_venta</code></td><td>Ventas</td><td><code>id_detalle_venta</code> (BIGINT)</td><td><code>id_venta</code>, <code>id_producto</code></td><td><code>CHECK (cantidad > 0)</code>. <code>CHECK (precio_unitario > 0)</code>. <code>CHECK (importe = ROUND(cantidad * precio_unitario, 2))</code>.</td></tr>
+<tr><td>19</td><td><code>anulacion_venta</code></td><td>Ventas</td><td><code>id_anulacion</code> (INT)</td><td><code>id_venta</code>, <code>id_empleado</code></td><td><code>id_venta</code> UNIQUE (máximo 1 anulación por comprobante).</td></tr>
+<tr><td>20</td><td><code>metodo_pago</code></td><td>Pagos</td><td><code>id_metodo_pago</code> (TINYINT)</td><td>Ninguna</td><td><code>nombre_metodo</code> UNIQUE ('EFECTIVO', 'TARJETA', 'BILLETERA DIGITAL SIP').</td></tr>
+<tr><td>21</td><td><code>pago_venta</code></td><td>Pagos</td><td><code>id_pago</code> (BIGINT)</td><td><code>id_venta</code>, <code>id_metodo_pago</code></td><td><code>CHECK (monto_pagado > 0)</code>. <code>CHECK (estado IN ('VALIDO','ANULADO'))</code>.</td></tr>
+<tr><td>22</td><td><code>efectivo</code></td><td>Pagos</td><td><code>id_pago</code> (BIGINT)</td><td><code>id_pago</code> (PK/FK a <code>pago_venta</code>)</td><td>Subtipo especializado. <code>CHECK (monto_recibido > 0)</code>. <code>CHECK (vuelto >= 0 AND vuelto < monto_recibido)</code>.</td></tr>
+<tr><td>23</td><td><code>tarjeta</code></td><td>Pagos</td><td><code>id_pago</code> (BIGINT)</td><td><code>id_pago</code> (PK/FK a <code>pago_venta</code>)</td><td>Subtipo especializado. <code>CHECK (tipo_tarjeta IN ('CREDITO','DEBITO'))</code>. <code>CHECK (ultimos_4_digitos REGEXP '^[0-9]{4}$')</code>.</td></tr>
+<tr><td>24</td><td><code>billetera_digital_sip</code></td><td>Pagos</td><td><code>id_pago</code> (BIGINT)</td><td><code>id_pago</code> (PK/FK a <code>pago_venta</code>)</td><td>Subtipo especializado. <code>codigo_operacion</code> UNIQUE. <code>CHECK (modalidad_pago IN ('QR','TARJETA_SIP'))</code>.</td></tr>
+<tr><td>25</td><td><code>tipo_movimiento</code></td><td>Inventario</td><td><code>id_tipo_movimiento</code> (TINYINT)</td><td>Ninguna</td><td><code>nombre_movimiento</code> UNIQUE. <code>CHECK (efecto IN ('E','S'))</code>.</td></tr>
+<tr><td>26</td><td><code>movimiento_stock</code></td><td>Inventario</td><td><code>id_movimiento</code> (BIGINT)</td><td><code>stock(id_tienda, id_producto)</code>, <code>tipo_movimiento</code>, <code>empleado</code>, <code>venta</code>, <code>traslado</code>, <code>merma</code></td><td>Kardex central. <code>CHECK (cantidad > 0)</code>. <code>CHECK (stock_nuevo >= 0)</code>. <code>CHECK (un solo origen no nulo)</code>.</td></tr>
+</table><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>5. Lógica de Negocio y Restricciones de Integridad</h2><h3>5.1. Matriz de Reglas de Negocio Implementadas</h3><pre><code>+--------+-------------------------------+--------------------------------------------------------------+| Regla  | Denominación Operativa        | Implementación Técnica en MySQL DDL                          |+--------+-------------------------------+--------------------------------------------------------------+| RN-01  | Una tienda por distrito       | UNIQUE en columna distrito / tienda                          || RN-02  | Acceso de personal por DNI    | CHECK (dni REGEXP '^[0-9]{8}$') y UNIQUE en tabla empleado   || RN-03  | Facturación RUC obligatoria   | Validado en cliente: DNI (8 dígitos) o RUC (11 dígitos)      || RN-04  | Precio unificado con IGV      | precio_venta &gt; 0 centralizado en catálogo producto           || RN-05  | Inventario nunca negativo     | CHECK (cantidad_actual &gt;= 0) y CHECK (stock_nuevo &gt;= 0)      || RN-06  | Traslados intersedes reales   | CHECK (id_tienda_origen &lt;&gt; id_tienda_destino)                || RN-07  | Consistencia de turno de caja | CHECK compuesto: estado ABIERTO vs CERRADO con montos        || RN-08  | Origen exclusivo de Kardex    | CHECK ((id_venta IS NOT NULL) + (traslado) + (merma) = 1)    || RN-09  | Medios de pago autorizados    | Especialización relacional: efectivo, tarjeta, billetera_sip || RN-10  | Control de vuelto en caja     | CHECK (vuelto &gt;= 0 AND vuelto &lt; monto_recibido)              |+--------+-------------------------------+--------------------------------------------------------------+</pre><h3>5.2. Objetos de Base de Datos Implementados</h3><h4>Vista Desnormalizada <code>vw_comprobante</code></h4><p>Permite consultar en una sola estructura relacional el comprobante formateado (<code>B001-00000001</code>), la fecha, la razón comercial de la tienda, la dirección fiscal, el cajero responsable, el cliente identificado o anónimo (<code>CLIENTE VARIOS</code>), y el detalle de ítems numerados con sus cantidades, precios unitarios e importe total.</p><h4>Procedimiento Almacenado <code>sp_boleta(p_serie, p_correlativo)</code></h4><p>Diseñado para la terminal de punto de venta (POS). Al recibir la serie y el número correlativo de comprobante, ejecuta una transacción de lectura que emite <strong>tres conjuntos de resultados coordinados</strong>:</p><p>1. <strong>Bloque 1 (Cabecera):</strong> Datos fiscales de la tienda, número de caja registradora, nombre completo del cajero y cliente.</p><p>2. <strong>Bloque 2 (Detalle del ticket):</strong> Desglose ítem por ítem con cantidad (en unidades o kilogramos), precio unitario e importe parcial.</p><p>3. <strong>Bloque 3 (Liquidación de Pagos):</strong> Detalle de cada medio de pago utilizado (Efectivo con monto recibido y vuelto devuelto, Tarjeta bancaria con código de aprobación y voucher de Billetera Digital Sip con código de operación).</p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>6. Pruebas de Validación y Consultas Estratégicas</h2><p>El script <a href="file:///Users/erick/Desktop/MINIMARKET_MASS/database/consultas.sql">database/consultas.sql</a> implementa un set exhaustivo de consultas que dan respuesta a las preguntas clave del negocio:</p><h3>6.1. Catálogo Comercial y Precios Centralizados</h3><pre><code>SELECT p.id_producto, p.nombre_producto, c.nombre_categoria AS categoria,        m.nombre_marca AS marca, u.abreviatura AS unidad, p.precio_venta  FROM producto p  JOIN categoria c     ON c.id_categoria = p.id_categoria  JOIN marca m         ON m.id_marca = p.id_marca  JOIN unidad_medida u ON u.id_unidad = p.id_unidad ORDER BY c.nombre_categoria, p.nombre_producto;</pre><p>*Garantiza que el precio de venta de cada producto es uniforme e inmutable para las 3 sedes de Arequipa.*</p><h3>6.2. Auditoría de Existencias y Sugerido de Reposición</h3><pre><code>SELECT t.nombre_tienda AS tienda, p.nombre_producto AS producto,       s.cantidad_actual, s.stock_minimo,       (s.stock_minimo * 2 - s.cantidad_actual) AS sugerido_reponer  FROM stock s  JOIN tienda t   ON t.id_tienda = s.id_tienda  JOIN producto p ON p.id_producto = s.id_producto WHERE s.cantidad_actual &lt;= s.stock_minimo;</pre><p>*Identifica de forma proactiva qué artículos se encuentran en quiebre de stock en cada local y calcula la orden de compra sugerida para el centro de distribución.*</p><h3>6.3. Facturación Consolidada y Arqueo de Turnos de Caja</h3><pre><code>SELECT ct.id_caja_turno, t.nombre_tienda, c.numero_caja,       CONCAT(e.nombres, ' ', e.apellidos) AS cajero,       ct.monto_inicial,       IFNULL(SUM(ef.monto_recibido - ef.vuelto), 0) AS total_efectivo_ventas,       (ct.monto_inicial + IFNULL(SUM(ef.monto_recibido - ef.vuelto), 0)) AS efectivo_esperado,       ct.monto_cierre,       (ct.monto_cierre - (ct.monto_inicial + IFNULL(SUM(ef.monto_recibido - ef.vuelto), 0))) AS diferencia  FROM caja_turno ct  JOIN caja c     ON c.id_caja = ct.id_caja  JOIN tienda t   ON t.id_tienda = c.id_tienda  JOIN empleado e ON e.id_empleado = ct.id_empleado  LEFT JOIN venta v      ON v.id_caja_turno = ct.id_caja_turno AND v.estado = 'EMITIDA'  LEFT JOIN pago_venta p ON p.id_venta = v.id_venta AND p.estado = 'VALIDO'  LEFT JOIN efectivo ef  ON ef.id_pago = p.id_pago WHERE ct.estado = 'CERRADO' GROUP BY ct.id_caja_turno, t.nombre_tienda, c.numero_caja, e.nombres, e.apellidos,           ct.monto_inicial, ct.monto_cierre;</pre><p>*Realiza el balance matemático de cierre de caja, contrastando el efectivo real reportado por el colaborador contra el monto esperado según las ventas del turno.*</p><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>7. Gestión del Proyecto y Tablero Kanban</h2><h3>7.1. Evolución del Tablero: De Borrador a Implementación Completa</h3><p>En las etapas iniciales del proyecto (borrador del informe), el equipo mantenía un tablero Kanban preliminar con tarjetas en estado "Por hacer" y especulaciones sobre tablas pendientes. </p><p>Con el cierre del presente ciclo de ingeniería, el tablero alcanza su <strong>estado final consolidado (100% Hecho)</strong>:</p><pre><code>+----------------------------------------------------------------------------------------------------------+|                                  TABLERO KANBAN FINAL: MINIMARKET MASS                                   |+--------------------+--------------------+--------------------+-------------------------------------------+| POR HACER (0)      | EN CURSO (0)       | EN REVISIÓN (0)    | HECHO (100% COMPLETADO)                   |+--------------------+--------------------+--------------------+-------------------------------------------+|                    |                    |                    | [✓] Diagramas UML (5/5 diagramas)         ||                    |                    |                    | [✓] Módulo Ubicación y Tiendas (2/2)      ||                    |                    |                    | [✓] Módulo Personal y Roles (2/2)         ||                    |                    |                    | [✓] Módulo Catálogo Comercial (4/4)       ||                    |                    |                    | [✓] Módulo Cajas Registradoras (2/2)      ||                    |                    |                    | [✓] Módulo Facturación y Ventas (6/6)     ||                    |                    |                    | [✓] Módulo Pasarela Multipago (4/4)       ||                    |                    |                    | [✓] Módulo Inventario y Kardex (6/6)      ||                    |                    |                    | [✓] Normalización 3FN en MySQL (26/26)    ||                    |                    |                    | [✓] Diagrama ER Profesional sin cruces    ||                    |                    |                    | [✓] Datos de Prueba y Consultas de Negocio|+--------------------+--------------------+--------------------+-------------------------------------------+</pre><h3>7.2. Matriz de Trazabilidad: Requerimientos $\rightarrow$ UML $\rightarrow$ Base de Datos</h3><table>
+<tr><th>Requerimiento del Negocio</th><th>Caso de Uso UML</th><th>Componente</th><th>Tabla en MySQL</th></tr>
+<tr><td>Control de personal por tienda y acceso</td><td><code>Programar turnos</code></td><td><code>AppCaja</code></td><td><code>rol</code>, <code>empleado</code></td></tr>
+<tr><td>Apertura y arqueo de caja registradora</td><td><code>Supervisar caja</code></td><td><code>AppCaja</code></td><td><code>caja</code>, <code>caja_turno</code></td></tr>
+<tr><td>Registro de artículos y precio nacional</td><td><code>Consultar precio</code></td><td><code>ServTienda</code></td><td><code>categoria</code>, <code>marca</code>, <code>unidad_medida</code>, <code>producto</code></td></tr>
+<tr><td>Existencias en tienda y stock mínimo</td><td><code>Consultar stock</code></td><td><code>ServTienda</code></td><td><code>stock</code></td></tr>
+<tr><td>Facturación con boleta y factura electrónica</td><td><code>Emitir comprobante</code></td><td><code>ServCentral</code></td><td><code>tipo_comprobante</code>, <code>serie_comprobante</code>, <code>cliente</code>, <code>venta</code>, <code>detalle_venta</code></td></tr>
+<tr><td>Anulación autorizada por Administrador</td><td><code>Autorizar anulación</code></td><td><code>AppCaja</code></td><td><code>anulacion_venta</code></td></tr>
+<tr><td>Pasarela multipago (Efectivo, Tarjeta, Sip)</td><td><code>Procesar pago</code></td><td><code>PasarelaPago</code></td><td><code>metodo_pago</code>, <code>pago_venta</code>, <code>efectivo</code>, <code>tarjeta</code>, <code>billetera_digital_sip</code></td></tr>
+<tr><td>Trazabilidad de entradas, salidas y mermas</td><td><code>Gestionar inventario</code></td><td><code>ServDistribucion</code></td><td><code>tipo_movimiento</code>, <code>traslado_mercaderia</code>, <code>merma</code>, <code>movimiento_stock</code></td></tr>
+</table><hr style="border:0; border-top:1px solid #e2e8f0; margin:30px 0;"><h2>8. Conclusiones y Recomendaciones</h2><h3>8.1. Conclusiones Técnicas</h3><p>1. <strong>Integridad y Robustez Relacional:</strong> La base de datos garantiza la consistencia transaccional gracias al motor <code>InnoDB</code> y la estricta normalización en <strong>Tercera Forma Normal (3FN)</strong> en sus 26 tablas, eliminando riesgos de redundancia de datos, anomalías de inserción y borrados en cascada no deseados.</p><p>2. <strong>Protección Fiscal y Auditoría Inmutable:</strong> La prohibición de borrado físico en ventas y la incorporación del Kardex <code>movimiento_stock</code> con origen unívoco aseguran que cada variación en el inventario o caja cuenta con una justificación auditable.</p><p>3. <strong>Modelo Fiel a la Operación Hard-Discount:</strong> La arquitectura refleja con precisión la operatividad de Tiendas Mass en Arequipa: precios centralizados, pasarela multipago especializada (incorporando la billetera digital Sip) y autonomía operativa local con sincronización central.</p><p>4. <strong>Coherencia Documental Total:</strong> Se ha alcanzado una alineación del 100% entre el código fuente SQL (<a href="file:///Users/erick/Desktop/MINIMARKET_MASS/database/schema.sql">database/schema.sql</a>), el modelo visual (<a href="file:///Users/erick/Desktop/MINIMARKET_MASS/docs/diagrama-er.png">docs/diagrama-er.png</a>), los diagramas UML del informe y el repositorio en GitHub.</p><h3>8.2. Recomendaciones para Fases Posteriores</h3><p>1. <strong>Desarrollo del Backend:</strong> Implementar una capa de servicios API RESTful utilizando Node.js/Express o Java Spring Boot, exponiendo endpoints seguros para los terminales de caja POS.</p><p>2. <strong>Indexación y Rendimiento:</strong> Monitorear los índices en <code>movimiento_stock(fecha_hora)</code> y <code>venta(id_serie, numero_correlativo)</code> conforme el volumen histórico de tickets supere los millones de registros.</p><p>3. <strong>Integración con Facturación Electrónica SUNAT:</strong> Desarrollar un microservicio encargado de firmar digitalmente el XML de los comprobantes emitidos y gestionar la comunicación asíncrona con el Operador de Servicios Electrónicos (OSE).</p>
+    <div class="footer-note">
+      Documento técnico generado para evaluación académica · SENATI ISMA CFP Arequipa · Octubre 2026
+    </div>
+  </div>
+</body>
+</html>
