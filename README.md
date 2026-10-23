@@ -16,8 +16,10 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
 - **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`docs/informe_tecnico.md`**: Informe técnico académico completo del proyecto (análisis del negocio, 5 diagramas UML, justificación de diseño 3FN, diccionario de datos, reglas de negocio y conclusiones).
+- **`docs/informe_tecnico.html`**: Versión web e imprimible del informe técnico en formato ejecutivo profesional.
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
-- **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de la base de datos.
+- **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 
 ---
 
