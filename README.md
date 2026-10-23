@@ -1,6 +1,5 @@
-# Sistema Minimarket Mass
-Proyecto de base de datos relacional y lógica de negocio para la administración de ventas, inventario y facturación de la cadena Minimarket Mass en Arequipa.
-Desarrollado como entrega académica para el curso Backend Developer Web en SENATI CFP Arequipa.
+# Minimarket Mass - Sistema de Base de Datos y Facturación
+Sistema relacional y lógica de negocio para la administración de ventas, inventario y facturación de la cadena Minimarket Mass en Arequipa (SENATI CFP Arequipa).
 
 ## Integrantes del Grupo
 - ERICK SILVA AYQUIPA
@@ -10,114 +9,105 @@ Desarrollado como entrega académica para el curso Backend Developer Web en SENA
 - Suhaily Luana Huaypar Quijhua
 - Keymer Cesar Machaca Puma
 
-## Archivos del Repositorio
-- `database/schema.sql`: Script DDL que crea la base de datos `minimarket_mass` y sus 29 tablas, procedimientos, funciones, triggers y vista de control.
-- `database/datos.sql`: Script DML con datos iniciales de catálogos, sedes, personal, catálogo de productos, existencias y operaciones de prueba.
-- `database/consultas.sql`: Consultas de verificación del modelo, reportes de ventas, arqueos de caja y pruebas de validación de reglas de negocio.
-- `database/boleta.sql`: Consulta estructurada que emite de forma formateada una boleta de venta electrónica completa con desglose tributario y pagos.
-- `docs/diagrama-er.png`: Diagrama Entidad-Relación visual de alta resolución con las 29 entidades normalizadas y sus relaciones de clave foránea.
+## Estructura del Repositorio
+El repositorio cuenta con una arquitectura modular en scripts SQL y documentación técnica:
 
-## Tablas del Diseño
+- **`database/schema.sql`**: Script DDL que crea la base de datos `minimarket_mass` y sus **26 tablas relacionales** organizadas en 7 niveles de dependencia, con claves foráneas, restricciones de unicidad y validaciones `CHECK`.
+- **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
+- **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
+- **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
+- **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de la base de datos.
 
-| N° | Tabla | Descripción |
+---
+
+## Tablas del Sistema (26 Tablas en 7 Niveles)
+
+El diseño está optimizado y estructurado por niveles de integridad referencial:
+
+| N° | Nivel | Tabla | Descripción |
+|---|---|---|---|
+| 1 | **Nivel 1** | `distrito` | Distritos de Arequipa con sedes de Tiendas Mass (Cayma, Cerro Colorado, Yanahuara). |
+| 2 | **Nivel 1** | `rol` | Roles operativos del personal: ADMINISTRADOR, CAJERO y ALMACENERO. |
+| 3 | **Nivel 1** | `cliente` | Registro de clientes con validación estricta de DNI (8 dígitos) y/o RUC (11 dígitos). |
+| 4 | **Nivel 1** | `categoria` | Familias del catálogo (Abarrotes, Lácteos, Bebidas, Frutas y verduras, Limpieza). |
+| 5 | **Nivel 1** | `marca` | Marcas comerciales, identificando si es marca propia de la cadena (S/N). |
+| 6 | **Nivel 1** | `unidad_medida` | Unidades de cuantificación (unidad `und`, kilogramo `kg`, litro `lt`). |
+| 7 | **Nivel 1** | `tipo_comprobante` | Comprobantes de pago autorizados: BOLETA (serie B) y FACTURA (serie F). |
+| 8 | **Nivel 1** | `metodo_pago` | Medios de pago aceptados: EFECTIVO, TARJETA y BILLETERA DIGITAL SIP. |
+| 9 | **Nivel 1** | `tipo_movimiento` | Catálogo de tipos de kardex con efecto de Entrada (`E`) o Salida (`S`). |
+| 10 | **Nivel 2** | `tienda` | Sedes físicas de Tienda Mass en Arequipa vinculadas a su respectivo distrito. |
+| 11 | **Nivel 2** | `producto` | Catálogo con precio único unificado para todas las tiendas, código de barras y venta por peso. |
+| 12 | **Nivel 3** | `empleado` | Personal con DNI de acceso, tienda asignada y rol operativo. |
+| 13 | **Nivel 3** | `caja` | Puntos de venta físicos (cajas registradoras POS) por tienda. |
+| 14 | **Nivel 3** | `serie_comprobante` | Series fiscales por tienda (`B001`, `F001`, etc.) y control de su último correlativo emitido. |
+| 15 | **Nivel 3** | `stock` | Existencias actuales y stock mínimo por tienda y producto (clave compuesta `id_tienda, id_producto`). |
+| 16 | **Nivel 4** | `caja_turno` | Aperturas y cierres de sesión de caja con montos iniciales y control por cajero. |
+| 17 | **Nivel 4** | `traslado_mercaderia` | Registro de transferencias de mercadería entre sedes físicas distintas. |
+| 18 | **Nivel 4** | `merma` | Bajas de mercadería clasificadas por motivo (VENCIDO, DAÑADO, ROBO, OTRO). |
+| 19 | **Nivel 5** | `venta` | Cabecera del comprobante fiscal (serie, correlativo, total, turno de caja y cliente). |
+| 20 | **Nivel 6** | `detalle_venta` | Líneas de venta con cantidad, precio unitario histórico al momento de venta e importe calculado. |
+| 21 | **Nivel 6** | `anulacion_venta` | Registro único de auditoría para anulación de comprobantes por el personal autorizado. |
+| 22 | **Nivel 6** | `pago_venta` | Pagos aplicados a la venta que garantizan la liquidación total o combinada. |
+| 23 | **Nivel 7** | `efectivo` | Subtipo de pago en efectivo con registro de monto recibido y vuelto entregado. |
+| 24 | **Nivel 7** | `tarjeta` | Subtipo de pago bancario (Débito/Crédito), marca y resguardo de últimos 4 dígitos. |
+| 25 | **Nivel 7** | `billetera_digital_sip` | Subtipo de cobro por billetera Sip mediante código QR o Tarjeta Sip con código de operación. |
+| 26 | **Nivel 7** | `movimiento_stock` | Kardex permanente que audita cada variación de existencias vinculado a venta, traslado o merma. |
+
+---
+
+## Reglas de Negocio Implementadas
+
+| Regla | Descripción | Mecanismo en la Base de Datos |
 |---|---|---|
-| 1 | `distrito` | Catálogo de distritos de la provincia de Arequipa donde se ubican las tiendas de la cadena. |
-| 2 | `tienda` | Sedes físicas de Tienda Mass, una por distrito (RN-01). |
-| 3 | `rol` | Roles del personal: Administrador (Jefe de tienda), Cajero y Almacenero (RN-02, RN-03). |
-| 4 | `usuario` | Personal colaborador asignado a una tienda con su rol y credenciales de acceso (RN-02). |
-| 5 | `tipo_documento_identidad` | Catálogo de documentos admitidos: DNI (8 dígitos) o RUC (11 dígitos) (RN-04, RN-06). |
-| 6 | `cliente` | Datos de clientes para emisión fiscal; opcional en boleta y obligatorio en factura (RN-04, RN-05). |
-| 7 | `categoria` | Familias comerciales para clasificación del catálogo (Abarrotes, Lácteos, Bebidas, etc.). |
-| 8 | `marca` | Marcas de productos, distinguiendo marcas propias de la cadena frente a las de terceros. |
-| 9 | `unidad_medida` | Unidades de cuantificación para comercialización e inventario (unidad, kilogramo, litro). |
-| 10 | `producto` | Catálogo general de artículos con precio único para todas las tiendas e IGV incluido (RN-07, RN-08). |
-| 11 | `stock` | Control de existencias físicas disponibles y stock mínimo por tienda y producto; nunca negativo (RN-09, RN-10). |
-| 12 | `tipo_movimiento` | Tipos de movimiento de stock catalogados por su efecto de entrada o salida (RN-12). |
-| 13 | `movimiento_stock` | Kardex inmutable que audita cada variación de existencias con su documento de origen (RN-11, RN-12). |
-| 14 | `traslado_mercaderia` | Registro de traslados de mercadería entre dos sedes físicas distintas (RN-13). |
-| 15 | `detalle_traslado` | Artículos y cantidades asignadas a cada traslado de mercadería intertiendas. |
-| 16 | `merma` | Registro de bajas de mercadería causadas por vencimiento, deterioro, rotura o robo (RN-14). |
-| 17 | `detalle_merma` | Artículos y cantidades exactas dadas de baja en cada evento de merma. |
-| 18 | `caja` | Puntos de cobro físicos (estaciones POS) habilitados en cada tienda (RN-15). |
-| 19 | `caja_turno` | Registro de apertura, fondo de sencillo inicial y cierre de caja por sesión de un cajero (RN-16, RN-17). |
-| 20 | `tipo_comprobante` | Comprobantes autorizados: Boleta de venta (serie B) o Factura electrónica (serie F) (RN-18). |
-| 21 | `serie_comprobante` | Series por tienda y tipo de comprobante con seguimiento correlativo secuencial (RN-19). |
-| 22 | `venta` | Cabecera de venta con importes (subtotal, IGV y total); estado emitida o anulada (RN-19 a RN-22). |
-| 23 | `detalle_venta` | Artículos, cantidades (por unidad o kilogramo), precio unitario e importe de cada venta (RN-21, RN-22). |
-| 24 | `anulacion_venta` | Auditoría de anulación de una venta con motivo formal, autorizada por el Administrador (RN-23). |
-| 25 | `metodo_pago` | Medios de pago aceptados en caja: Efectivo, Tarjeta y Billetera digital Sip (RN-24, RN-25). |
-| 26 | `pago_venta` | Registro de pagos aplicados a una venta para soportar pagos completos o combinados (RN-24, RN-28). |
-| 27 | `efectivo` | Detalle de pagos en efectivo con registro de monto recibido y vuelto entregado (RN-27). |
-| 28 | `tarjeta` | Detalle de cobros con tarjeta bancaria, resguardando datos con solo los últimos 4 dígitos. |
-| 29 | `billetera_digital_sip` | Detalle de cobros mediante la billetera digital Sip por código QR o tarjeta Sip (RN-25, RN-26). |
+| **RN-01: Documentos de Cliente** | DNI debe tener 8 dígitos numéricos, RUC 11 dígitos. Debe existir al menos uno. | `CHECK (dni REGEXP '^[0-9]{8}$')`, `CHECK (ruc REGEXP '^[0-9]{11}$')` y `CHECK (dni IS NOT NULL OR ruc IS NOT NULL)`. |
+| **RN-02: Serie de Comprobante** | Boletas inician con letra `B` y Facturas con letra `F`, seguidas de 3 dígitos. | `CHECK (serie REGEXP '^[BF][0-9]{3}$')` en `serie_comprobante`. |
+| **RN-03: Correlativo Secuencial** | Serie y número correlativo forman una combinación única irrepetible. | `UNIQUE (id_serie, numero_correlativo)` en tabla `venta`. |
+| **RN-04: Precio Centralizado** | El precio es uniforme en todas las tiendas y estrictamente positivo. | Columna `precio_venta` en `producto` con `CHECK (precio_venta > 0)`. |
+| **RN-05: Existencias No Negativas** | El stock disponible en tienda nunca puede ser inferior a 0. | `CHECK (cantidad_actual >= 0)` en `stock` y `CHECK (stock_nuevo >= 0)` en `movimiento_stock`. |
+| **RN-06: Traslados Intertiendas** | Un traslado no puede tener como origen y destino la misma sede física. | `CHECK (id_tienda_origen <> id_tienda_destino)` en `traslado_mercaderia`. |
+| **RN-07: Turnos de Caja Coherentes** | Si el turno está abierto, fecha y monto de cierre son nulos. Si está cerrado, son obligatorios y válidos. | `CHECK` compuesto en `caja_turno`. |
+| **RN-08: Origen Único de Kardex** | Cada movimiento de inventario procede de exactamente una fuente (venta, traslado o merma). | `CHECK ((id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) = 1)` en `movimiento_stock`. |
+| **RN-09: Medios de Pago Oficiales** | Tienda Mass opera exclusivamente con Efectivo, Tarjeta y Billetera Digital Sip. | Subtipos relacionales `efectivo`, `tarjeta` y `billetera_digital_sip` vinculados a `pago_venta`. |
+| **RN-10: Vuelto en Efectivo** | El vuelto entregado no puede ser negativo ni igual o superior al dinero recibido. | `CHECK (vuelto >= 0 AND vuelto < monto_recibido)` en `efectivo`. |
 
-## Reglas de Negocio
+---
 
-| Código | Regla | Implementación en la Base de Datos |
-|---|---|---|
-| **RN-01** | Una tienda por distrito | Restricción `UNIQUE` en la columna `tienda.id_distrito`. |
-| **RN-02** | Asignación de colaboradores | Todo personal está vinculado obligatoriamente a una tienda (`id_tienda`) y a un rol (`id_rol`). |
-| **RN-03** | Administrador como Jefe de tienda | El rol `ADMINISTRADOR` ejerce la jefatura del local, responsable exclusivo de autorizaciones de anulación. |
-| **RN-04** | Factura electrónica con RUC | Toda venta con serie de factura exige asociar un cliente con documento tipo RUC (11 dígitos). |
-| **RN-05** | Cliente anónimo en boleta | Las boletas de venta permiten registrar `cliente.id_cliente NULL` (público general). |
-| **RN-06** | Validación de formato de documento | El catálogo `tipo_documento_identidad` y los triggers validan DNI con 8 dígitos y RUC con 11 dígitos. |
-| **RN-07** | Precio centralizado único | El catálogo `producto` define un precio único de venta válido en todas las tiendas con IGV incluido. |
-| **RN-08** | Desglose constante de IGV 18% | En cada venta se registra `subtotal`, `igv` y `total`, validando la ecuación fiscal `total = subtotal + igv`. |
-| **RN-09** | Existencias por sede física | El inventario se segrega por tienda y producto mediante la clave compuesta de la tabla `stock(id_tienda, id_producto)`. |
-| **RN-10** | Inventario nunca negativo | Ninguna salida de stock puede reducir la cantidad disponible de un artículo por debajo de cero (`cantidad >= 0`). |
-| **RN-11** | Kardex inmutable | Toda entrada o salida de inventario genera un registro de auditoría permanente en `movimiento_stock`. |
-| **RN-12** | Efecto neto del movimiento | Cada movimiento clasifica obligatoriamente su impacto operativo como Entrada (`E`) o Salida (`S`). |
-| **RN-13** | Traslado entre sedes distintas | El origen y destino de un traslado intertiendas deben ser obligatoriamente tiendas diferentes (`origen <> destino`). |
-| **RN-14** | Control estricto de mermas | Las bajas por vencimiento, deterioro o robo registran el motivo, responsable y descuentan stock. |
-| **RN-15** | Estaciones de cobro físicas | Las cajas físicas pertenecen a una sede y están numeradas de forma única por tienda (`UNIQUE(id_tienda, numero)`). |
-| **RN-16** | Turno de caja obligatorio | No se pueden procesar ventas sin un turno en estado `ABIERTO` asignado al cajero en sesión. |
-| **RN-17** | Exclusividad de turno operativo | Una caja y un cajero no pueden mantener más de un turno en estado `ABIERTO` en simultáneo. |
-| **RN-18** | Prefijo de comprobante fiscal | Las series de boletas inician obligatoriamente con `B` y las de factura inician con `F`. |
-| **RN-19** | Correlativo único y secuencial | El correlativo numérico se autoincrementa por serie sin duplicidad (`UNIQUE(id_serie, correlativo)`). |
-| **RN-20** | Prohibición de eliminación física | Las ventas emitidas no pueden borrarse físicamente de la base de datos (trigger `trg_venta_bd` bloquea `DELETE`). |
-| **RN-21** | Descuento automático de stock | Cada artículo vendido descuenta existencias en la tienda correspondiente mediante el kardex. |
-| **RN-22** | Consistencia de importes | La sumatoria de las líneas de `detalle_venta` debe coincidir exactamente con el campo `total` de cabecera. |
-| **RN-23** | Autorización de anulación | Solo un usuario con rol `ADMINISTRADOR` de la tienda puede registrar la `anulacion_venta` mediante `sp_anular_venta`. |
-| **RN-24** | Cobertura total de pago | La venta se liquida cuando la sumatoria de abonos en `pago_venta` cubre el importe total de la venta. |
-| **RN-25** | Medios de pago autorizados | Tienda Mass no admite transferencias informales (Yape/Plin); solo acepta Efectivo, Tarjeta y Billetera Sip. |
-| **RN-26** | Billetera digital Sip | Soporta transacciones mediante código QR o tarjeta Sip vinculadas a su código de operación único. |
-| **RN-27** | Vuelto en efectivo exacto | En pagos en efectivo, el monto devuelto satisface estrictamente: `monto_aplicado = monto_recibido - vuelto`. |
-| **RN-28** | Pagos fraccionados y mixtos | Una venta puede cancelarse mediante múltiples abonos combinando distintos métodos de pago. |
+## Cómo Ejecutar la Base de Datos (MySQL)
 
-## Cómo Crear la Base de Datos
+Para recrear y probar la base de datos en Laragon (puerto `3307`) o MySQL estándar (puerto `3306`), abre tu terminal o PowerShell y ejecuta los scripts en el orden indicado:
 
-Para desplegar la base de datos en Windows utilizando PowerShell y el servicio MySQL de Laragon (puerto 3307), ejecuta los siguientes comandos en orden. Reemplaza `C:/ruta/al/repo` por la ruta absoluta de tu clon local del repositorio.
-
-1. Crear la base de datos, tablas, procedimientos y triggers:
 ```powershell
-mysql -u root -h 127.0.0.1 -P 3307 -e "source C:/ruta/al/repo/database/schema.sql"
+# 1. Crear base de datos y las 26 tablas
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/schema.sql"
+
+# 2. Cargar datos de prueba
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/datos.sql"
+
+# 3. Ejecutar consultas y reportes de negocio
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/consultas.sql"
+
+# 4. Probar vista y emisión de boleta formateada
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
 ```
 
-2. Cargar los datos iniciales y transacciones de prueba:
-```powershell
-mysql -u root -h 127.0.0.1 -P 3307 -e "source C:/ruta/al/repo/database/datos.sql"
-```
+---
 
-3. Ejecutar las consultas de verificación y reportes de negocio:
-```powershell
-mysql -u root -h 127.0.0.1 -P 3307 -e "source C:/ruta/al/repo/database/consultas.sql"
-```
+## Cómo Sincronizar Cambios con Git y GitHub
 
-4. Consultar la emisión formateada de la boleta de venta electrónica:
-```powershell
-mysql -u root -h 127.0.0.1 -P 3307 -e "source C:/ruta/al/repo/database/boleta.sql"
-```
+Si realizaste cambios directos en GitHub o tus compañeros subieron modificaciones, sigue estos pasos para mantener tu copia local actualizada:
 
-5. Comprobar las tablas creadas en MySQL:
-```powershell
-mysql -u root -h 127.0.0.1 -P 3307 -e "USE minimarket_mass; SHOW TABLES;"
-```
-
-## Decisiones de Diseño
-
-- **Traducción integral de Oracle a MySQL 8.0+:** El esquema parte del DDL original del grupo desarrollado en Oracle SQL Developer Data Modeler y fue adaptado a MySQL con motor `InnoDB` transaccional y juego de caracteres `utf8mb4_unicode_ci`.
-- **Precios e IGV incluido:** El IGV del 18 % es constante y está incluido en el precio de venta al público en `producto`. La venta desglosa `subtotal`, `igv` y `total` sin requerir una tabla adicional de impuestos.
-- **Medios de pago autorizados de Tienda Mass:** Solo se modelan Efectivo, Tarjeta bancaria y la billetera digital Sip propia de la cadena. No se contemplan transferencias informales (Yape/Plin) al no ser admitidas en caja.
-- **Segregación de existencias e inmutabilidad:** El inventario se controla mediante `stock` con clave primaria compuesta `(id_tienda, id_producto)`. Todo cambio impacta obligatoriamente en `movimiento_stock` (kardex) mediante el procedimiento centralizado `sp_mover_stock`.
-- **Inmutabilidad de ventas y auditoría:** Se prohíbe el borrado físico (`DELETE`) de ventas emitidas mediante un trigger restrictivo (`trg_venta_bd`). La anulación se gestiona exclusivamente a través de `sp_anular_venta` y queda registrada en `anulacion_venta`, revirtiendo pagos y reponiendo el inventario.
-- **Especialización de pagos por subtipos:** La entidad `pago_venta` centraliza la relación con la venta, mientras que `efectivo`, `tarjeta` y `billetera_digital_sip` actúan como subtipos compartiendo el mismo `id_pago` como clave primaria y foránea simultánea.
+1. **Descargar los últimos cambios desde GitHub:**
+   ```bash
+   git pull origin main
+   ```
+2. **Revisar el estado de tus archivos locales:**
+   ```bash
+   git status
+   ```
+3. **Guardar y subir nuevos cambios a GitHub:**
+   ```bash
+   git add .
+   git commit -m "docs: actualizar README y documentacion segun nuevo schema"
+   git push origin main
+   ```
