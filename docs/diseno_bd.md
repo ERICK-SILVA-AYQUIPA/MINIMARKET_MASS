@@ -1,357 +1,279 @@
 # Diseño de Base de Datos - Minimarket Mass
 
-Documento técnico de especificación y diccionario de datos del sistema relacional de ventas, inventario y facturación para la cadena Minimarket Mass (Arequipa).
+Documento técnico de especificación y diccionario de datos del sistema relacional de ventas, inventario y facturación para la cadena **Minimarket Mass** (Arequipa).
 
-- **Motor de Base de Datos:** MySQL 8.0+ / 8.4 (InnoDB Engine en Laragon, puerto 3307)
+- **Motor de Base de Datos:** MySQL 8.0.16+ (compatible con Laragon, InnoDB)
 - **Codificación / Collation:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Total de tablas:** 29 tablas relacionales normalizadas en 3FN
-- **Objetos de programación:** 6 procedimientos almacenados, 1 función, 15 triggers y 1 vista de control
+- **Total de tablas:** 26 tablas relacionales normalizadas en Tercera Forma Normal (3FN)
+- **Objetos de programación:** 1 vista (`vw_comprobante`) y 1 procedimiento almacenado (`sp_boleta`)
 
 ---
 
-## 1. Módulos y Entidades del Sistema
+## 1. Organización del Esquema por Niveles de Dependencia
 
-| Módulo | Tablas | Descripción |
+El diseño se organiza en **7 niveles de integridad referencial**, garantizando que las tablas se creen y pueblen sin conflictos de clave foránea:
+
+| Nivel | Tablas | Descripción |
 |---|---|---|
-| **1. Ubicación y organización** | `distrito`, `tienda`, `rol`, `usuario` | Gestión de sedes de Tiendas Mass en Arequipa y asignación de personal con roles funcionales. |
-| **2. Clientes** | `tipo_documento_identidad`, `cliente` | Registro de clientes con validación estricta de documentos (DNI 8 dígitos, RUC 11 dígitos). |
-| **3. Catálogo** | `categoria`, `marca`, `unidad_medida`, `producto` | Jerarquía comercial, marcas propias (Mass, Bell's) o de terceros, y catálogo con precio unificado. |
-| **4. Inventario** | `stock`, `tipo_movimiento`, `movimiento_stock`, `traslado_mercaderia`, `detalle_traslado`, `merma`, `detalle_merma` | Existencias por tienda, kardex valorizado, traslados entre sedes y bajas por vencimiento o merma. |
-| **5. Cajas** | `caja`, `caja_turno` | Puntos de venta POS y control de turnos de apertura, fondo de caja y cierre por cajero. |
-| **6. Ventas** | `tipo_comprobante`, `serie_comprobante`, `venta`, `detalle_venta`, `anulacion_venta` | Facturación de boletas/facturas, cálculo de IGV, control de correlativos y anulaciones por Administrador. |
-| **7. Pagos** | `metodo_pago`, `pago_venta`, `efectivo`, `tarjeta`, `billetera_digital_sip` | Pasarela multipago, detalle de efectivo con vuelto, cobros con tarjeta y billetera digital Sip. |
+| **Nivel 1 (Independientes)** | `distrito`, `rol`, `cliente`, `categoria`, `marca`, `unidad_medida`, `tipo_comprobante`, `metodo_pago`, `tipo_movimiento` | Catálogos base sin claves foráneas hacia otras entidades. |
+| **Nivel 2** | `tienda`, `producto` | Sedes físicas y catálogo comercial con precio único. |
+| **Nivel 3** | `empleado`, `caja`, `serie_comprobante`, `stock` | Personal con DNI, cajas registradoras, series fiscales e inventario por tienda. |
+| **Nivel 4** | `caja_turno`, `traslado_mercaderia`, `merma` | Apertura/cierre de turnos de caja, traslados intertiendas y registro de mermas. |
+| **Nivel 5** | `venta` | Cabecera de venta con comprobante fiscal correlativo. |
+| **Nivel 6** | `detalle_venta`, `anulacion_venta`, `pago_venta` | Líneas de artículos vendidos, auditoría de anulación y pagos recibidos. |
+| **Nivel 7** | `efectivo`, `tarjeta`, `billetera_digital_sip`, `movimiento_stock` | Subtipos especializados de pago y kardex general de auditoría de inventario. |
 
 ---
 
-## 2. Diccionario de Datos Detallado (29 Tablas)
+## 2. Diccionario de Datos Detallado (26 Tablas)
 
-### Módulo 1: Ubicación y Organización
+### Nivel 1: Tablas Independientes
 
 #### `distrito`
-Distritos de la provincia de Arequipa donde se ubican las tiendas.
-- `id_distrito` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `nombre` (VARCHAR(60), NOT NULL, UNIQUE)
-
-#### `tienda`
-Sedes físicas de Tienda Mass, una por distrito (RN-01).
-- `id_tienda` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_distrito` (INT UNSIGNED, NOT NULL, FK → `distrito.id_distrito`, UNIQUE)
-- `codigo` (VARCHAR(10), NOT NULL, UNIQUE)
-- `nombre` (VARCHAR(80), NOT NULL)
-- `direccion` (VARCHAR(150), NOT NULL)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVA', CHECK IN ('ACTIVA', 'INACTIVA'))
+Distritos de Arequipa donde operan las tiendas de la cadena.
+- `id_distrito` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_distrito` (VARCHAR(40), NOT NULL, UNIQUE)
 
 #### `rol`
-Roles de colaboradores: ADMINISTRADOR (Jefe de tienda), CAJERO, ALMACENERO (RN-02, RN-03).
-- `id_rol` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `nombre` (VARCHAR(20), NOT NULL, UNIQUE, CHECK IN ('ADMINISTRADOR', 'CAJERO', 'ALMACENERO'))
-
-#### `usuario`
-Personal de tienda asignado a una sede y con un rol específico (RN-02).
-- `id_usuario` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_rol` (INT UNSIGNED, NOT NULL, FK → `rol.id_rol`)
-- `nombres` (VARCHAR(80), NOT NULL)
-- `apellidos` (VARCHAR(80), NOT NULL)
-- `dni` (CHAR(8), NOT NULL, UNIQUE, CHECK REGEXP '^[0-9]{8}$')
-- `login` (VARCHAR(40), NOT NULL, UNIQUE)
-- `clave_hash` (VARCHAR(255), NOT NULL)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'INACTIVO'))
-
----
-
-### Módulo 2: Clientes
-
-#### `tipo_documento_identidad`
-Catálogo de documentos de identidad oficiales (RN-04, RN-06).
-- `id_tipo_documento` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `codigo` (VARCHAR(5), NOT NULL, UNIQUE, CHECK IN ('DNI', 'RUC'))
-- `nombre` (VARCHAR(60), NOT NULL)
-- `longitud` (TINYINT UNSIGNED, NOT NULL, CHECK IN (8, 11))
+Roles operativos del personal de tienda: ADMINISTRADOR, CAJERO, ALMACENERO.
+- `id_rol` (TINYINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_rol` (VARCHAR(20), NOT NULL, UNIQUE)
 
 #### `cliente`
-Datos de clientes para comprobantes. Opcional en boletas, obligatorio en facturas (RN-04, RN-05).
+Datos de clientes para comprobantes fiscales. Soporta boletas anónimas (registro nulo) o identificadas por DNI y/o RUC.
 - `id_cliente` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tipo_documento` (INT UNSIGNED, NOT NULL, FK → `tipo_documento_identidad.id_tipo_documento`)
-- `numero_documento` (VARCHAR(11), NOT NULL)
-- `nombre_razon_social` (VARCHAR(150), NOT NULL)
-- `direccion` (VARCHAR(150), NULL)
-- `telefono` (VARCHAR(15), NULL)
-- `correo` (VARCHAR(100), NULL)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'INACTIVO'))
-- UNIQUE (`id_tipo_documento`, `numero_documento`)
-
----
-
-### Módulo 3: Catálogo de Productos
+- `dni` (CHAR(8), NULL, UNIQUE, CHECK `dni REGEXP '^[0-9]{8}$'`)
+- `ruc` (CHAR(11), NULL, UNIQUE, CHECK `ruc REGEXP '^[0-9]{11}$'`)
+- CHECK: Al menos uno de los dos documentos debe ser no nulo: `dni IS NOT NULL OR ruc IS NOT NULL`.
 
 #### `categoria`
-Clasificación de familias de productos (Abarrotes, Lácteos, Bebidas, Limpieza, etc.).
-- `id_categoria` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `nombre` (VARCHAR(60), NOT NULL, UNIQUE)
-- `descripcion` (VARCHAR(150), NULL)
+Clasificación de familias de productos del catálogo.
+- `id_categoria` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_categoria` (VARCHAR(50), NOT NULL, UNIQUE)
 
 #### `marca`
-Marcas comerciales, distinguiendo si son marcas propias de la cadena (Mass, Bell's) o de terceros (S/N).
-- `id_marca` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `nombre` (VARCHAR(60), NOT NULL, UNIQUE)
+Marcas comerciales, distinguiendo si es marca propia de la cadena (Mass, Bell's) o de terceros.
+- `id_marca` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_marca` (VARCHAR(50), NOT NULL, UNIQUE)
 - `es_marca_propia` (CHAR(1), NOT NULL, DEFAULT 'N', CHECK IN ('S', 'N'))
 
 #### `unidad_medida`
-Unidades físicas de comercialización (Unidad, Kilogramo, Litro, Paquete).
-- `id_unidad` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `codigo` (VARCHAR(5), NOT NULL, UNIQUE)
-- `nombre` (VARCHAR(40), NOT NULL)
-
-#### `producto`
-Catálogo unificado de artículos con precio único para todas las tiendas, IGV incluido (RN-07, RN-08).
-- `id_producto` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_categoria` (INT UNSIGNED, NOT NULL, FK → `categoria.id_categoria`)
-- `id_marca` (INT UNSIGNED, NOT NULL, FK → `marca.id_marca`)
-- `id_unidad` (INT UNSIGNED, NOT NULL, FK → `unidad_medida.id_unidad`)
-- `codigo_barras` (VARCHAR(20), NOT NULL, UNIQUE)
-- `nombre` (VARCHAR(120), NOT NULL)
-- `precio_venta` (DECIMAL(10,2), NOT NULL, CHECK > 0)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'INACTIVO'))
-
----
-
-### Módulo 4: Inventario
-
-#### `stock`
-Existencias físicas por tienda y producto; nunca negativas (RN-09, RN-10).
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
-- `cantidad` (DECIMAL(12,3), NOT NULL, DEFAULT 0, CHECK >= 0)
-- `stock_minimo` (DECIMAL(12,3), NOT NULL, DEFAULT 0, CHECK >= 0)
-- PRIMARY KEY (`id_tienda`, `id_producto`)
-
-#### `tipo_movimiento`
-Catálogo de tipos de movimientos de inventario con su efecto neto: Entrada (E) o Salida (S) (RN-12).
-- `id_tipo_movimiento` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `codigo` (VARCHAR(20), NOT NULL, UNIQUE)
-- `nombre` (VARCHAR(60), NOT NULL)
-- `efecto` (CHAR(1), NOT NULL, CHECK IN ('E', 'S'))
-
-#### `movimiento_stock`
-Kardex que audita cada entrada o salida de inventario con su documento origen (RN-11, RN-12).
-- `id_movimiento` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
-- `id_tipo_movimiento` (INT UNSIGNED, NOT NULL, FK → `tipo_movimiento.id_tipo_movimiento`)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `cantidad` (DECIMAL(12,3), NOT NULL, CHECK > 0)
-- `stock_resultante` (DECIMAL(12,3), NOT NULL, CHECK >= 0)
-- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `id_venta` (INT UNSIGNED, NULL, FK → `venta.id_venta`)
-- `id_traslado` (INT UNSIGNED, NULL, FK → `traslado_mercaderia.id_traslado`)
-- `id_merma` (INT UNSIGNED, NULL, FK → `merma.id_merma`)
-- `observacion` (VARCHAR(200), NULL)
-
-#### `traslado_mercaderia`
-Traslado físico de mercadería entre dos tiendas distintas (RN-13).
-- `id_traslado` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda_origen` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_tienda_destino` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `observacion` (VARCHAR(200), NULL)
-- CHECK (`id_tienda_origen` <> `id_tienda_destino`)
-
-#### `detalle_traslado`
-Productos y cantidades trasladadas entre tiendas.
-- `id_detalle_traslado` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_traslado` (INT UNSIGNED, NOT NULL, FK → `traslado_mercaderia.id_traslado`)
-- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
-- `cantidad` (DECIMAL(12,3), NOT NULL, CHECK > 0)
-- UNIQUE (`id_traslado`, `id_producto`)
-
-#### `merma`
-Registro de bajas de mercadería por vencimiento, deterioro, rotura o robo (RN-14).
-- `id_merma` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `motivo` (VARCHAR(20), NOT NULL, CHECK IN ('VENCIMIENTO', 'DETERIORO', 'ROBO', 'OTRO'))
-- `observacion` (VARCHAR(200), NULL)
-
-#### `detalle_merma`
-Productos y cantidades dadas de baja en cada merma.
-- `id_detalle_merma` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_merma` (INT UNSIGNED, NOT NULL, FK → `merma.id_merma`)
-- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
-- `cantidad` (DECIMAL(12,3), NOT NULL, CHECK > 0)
-- UNIQUE (`id_merma`, `id_producto`)
-
----
-
-### Módulo 5: Cajas
-
-#### `caja`
-Puntos de cobro físicos (estaciones POS) habilitados en la tienda (RN-15).
-- `id_caja` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `numero` (TINYINT UNSIGNED, NOT NULL)
-- `descripcion` (VARCHAR(60), NULL)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVA', CHECK IN ('ACTIVA', 'INACTIVA'))
-- UNIQUE (`id_tienda`, `numero`)
-
-#### `caja_turno`
-Apertura, fondo inicial de sencillo y cierre de caja por sesión de un cajero (RN-16, RN-17).
-- `id_caja_turno` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_caja` (INT UNSIGNED, NOT NULL, FK → `caja.id_caja`)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `fecha_apertura` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `monto_apertura` (DECIMAL(12,2), NOT NULL, DEFAULT 0, CHECK >= 0)
-- `fecha_cierre` (DATETIME, NULL)
-- `monto_cierre` (DECIMAL(12,2), NULL, CHECK >= 0)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ABIERTO', CHECK IN ('ABIERTO', 'CERRADO'))
-- `abierto_caja` (INT UNSIGNED AS (CASE WHEN estado = 'ABIERTO' THEN id_caja END) VIRTUAL)
-- `abierto_usuario` (INT UNSIGNED AS (CASE WHEN estado = 'ABIERTO' THEN id_usuario END) VIRTUAL)
-- UNIQUE (`abierto_caja`) (RN-17: una caja solo admite un turno abierto a la vez)
-- UNIQUE (`abierto_usuario`) (RN-17: un cajero solo admite un turno abierto a la vez)
-
-
----
-
-### Módulo 6: Ventas y Comprobantes
+Unidades físicas de cuantificación y comercialización.
+- `id_unidad` (TINYINT UNSIGNED, AUTO_INCREMENT, PK)
+- `abreviatura` (VARCHAR(5), NOT NULL, UNIQUE: `und`, `kg`, `lt`)
+- `nombre_unidad` (VARCHAR(30), NOT NULL, UNIQUE)
 
 #### `tipo_comprobante`
-Definición de comprobantes: Boleta de venta (serie B) o Factura (serie F) (RN-18).
-- `id_tipo_comprobante` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `codigo` (VARCHAR(10), NOT NULL, UNIQUE, CHECK IN ('BOLETA', 'FACTURA'))
-- `nombre` (VARCHAR(40), NOT NULL)
-- `prefijo_serie` (CHAR(1), NOT NULL, UNIQUE, CHECK IN ('B', 'F'))
-
-#### `serie_comprobante`
-Series correlativas por tienda y tipo con seguimiento del último correlativo (RN-19).
-- `id_serie` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_tienda` (INT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
-- `id_tipo_comprobante` (INT UNSIGNED, NOT NULL, FK → `tipo_comprobante.id_tipo_comprobante`)
-- `serie` (VARCHAR(4), NOT NULL, UNIQUE)
-- `ultimo_correlativo` (INT UNSIGNED, NOT NULL, DEFAULT 0)
-- UNIQUE (`id_tienda`, `id_tipo_comprobante`)
-
-#### `venta`
-Cabecera de transacción comercial: subtotal, IGV y total; estado EMITIDA o ANULADA (RN-19 a RN-22).
-- `id_venta` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_serie` (INT UNSIGNED, NOT NULL, FK → `serie_comprobante.id_serie`)
-- `correlativo` (INT UNSIGNED, NOT NULL, DEFAULT 0)
-- `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `id_cliente` (INT UNSIGNED, NULL, FK → `cliente.id_cliente`)
-- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `subtotal` (DECIMAL(12,2), NOT NULL, CHECK >= 0)
-- `igv` (DECIMAL(12,2), NOT NULL, CHECK >= 0)
-- `total` (DECIMAL(12,2), NOT NULL, CHECK > 0)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'EMITIDA', CHECK IN ('EMITIDA', 'ANULADA'))
-- UNIQUE (`id_serie`, `correlativo`)
-- CHECK (`total` = `subtotal` + `igv`)
-
-#### `detalle_venta`
-Productos, cantidades (unidades o kilogramos) y precios de cada venta (RN-21, RN-22).
-- `id_detalle_venta` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_venta` (INT UNSIGNED, NOT NULL, FK → `venta.id_venta`)
-- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
-- `cantidad` (DECIMAL(12,3), NOT NULL, CHECK > 0)
-- `precio_unitario` (DECIMAL(10,2), NOT NULL, CHECK > 0)
-- `total_linea` (DECIMAL(12,2), NOT NULL)
-- UNIQUE (`id_venta`, `id_producto`)
-- CHECK (`total_linea` = ROUND(`cantidad` * `precio_unitario`, 2))
-
-#### `anulacion_venta`
-Registro de anulación de una venta, autorizada únicamente por el Administrador (RN-23).
-- `id_anulacion` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_venta` (INT UNSIGNED, NOT NULL, FK → `venta.id_venta`, UNIQUE)
-- `id_usuario` (INT UNSIGNED, NOT NULL, FK → `usuario.id_usuario`)
-- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `motivo` (VARCHAR(200), NOT NULL)
-
----
-
-### Módulo 7: Pagos
+Tipos autorizados de comprobante de venta electrónica.
+- `id_tipo_comprobante` (TINYINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_comprobante` (VARCHAR(20), NOT NULL, UNIQUE: 'BOLETA', 'FACTURA')
+- `letra_serie` (CHAR(1), NOT NULL, UNIQUE, CHECK IN ('B', 'F'))
 
 #### `metodo_pago`
-Métodos de pago autorizados: Efectivo, Tarjeta o Billetera digital Sip (RN-24, RN-25).
-- `id_metodo_pago` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `codigo` (VARCHAR(10), NOT NULL, UNIQUE, CHECK IN ('EFECTIVO', 'TARJETA', 'SIP'))
-- `nombre` (VARCHAR(40), NOT NULL)
+Medios de pago oficiales aceptados en caja.
+- `id_metodo_pago` (TINYINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_metodo` (VARCHAR(30), NOT NULL, UNIQUE: 'EFECTIVO', 'TARJETA', 'BILLETERA DIGITAL SIP')
+
+#### `tipo_movimiento`
+Catálogo de tipos de kardex con clasificación de impacto sobre el stock.
+- `id_tipo_movimiento` (TINYINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_movimiento` (VARCHAR(30), NOT NULL, UNIQUE)
+- `efecto` (CHAR(1), NOT NULL, CHECK IN ('E', 'S'))
+
+---
+
+### Nivel 2: Dependientes de Nivel 1
+
+#### `tienda`
+Sedes físicas de Tienda Mass en Arequipa.
+- `id_tienda` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_tienda` (VARCHAR(60), NOT NULL, UNIQUE)
+- `direccion` (VARCHAR(120), NOT NULL)
+- `telefono` (VARCHAR(15), NULL)
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVA', CHECK IN ('ACTIVA', 'INACTIVA'))
+- `id_distrito` (SMALLINT UNSIGNED, NOT NULL, FK → `distrito.id_distrito`)
+
+#### `producto`
+Catálogo de artículos con precio único nacional y especificación de venta por peso.
+- `id_producto` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombre_producto` (VARCHAR(100), NOT NULL)
+- `codigo_barras` (VARCHAR(14), NULL, UNIQUE, CHECK `codigo_barras IS NULL OR codigo_barras REGEXP '^[0-9]{8,14}$'`)
+- `precio_venta` (DECIMAL(10,2), NOT NULL, CHECK `precio_venta > 0`)
+- `se_vende_por_peso` (CHAR(1), NOT NULL, DEFAULT 'N', CHECK IN ('S', 'N'))
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'DESCONTINUADO'))
+- `id_categoria` (SMALLINT UNSIGNED, NOT NULL, FK → `categoria.id_categoria`)
+- `id_marca` (SMALLINT UNSIGNED, NOT NULL, FK → `marca.id_marca`)
+- `id_unidad` (TINYINT UNSIGNED, NOT NULL, FK → `unidad_medida.id_unidad`)
+
+---
+
+### Nivel 3: Personal, Cajas, Series y Stock
+
+#### `empleado`
+Personal de tienda asignado a una sede física con rol y acceso por DNI.
+- `id_empleado` (MEDIUMINT UNSIGNED, AUTO_INCREMENT, PK)
+- `nombres` (VARCHAR(60), NOT NULL)
+- `apellidos` (VARCHAR(60), NOT NULL)
+- `dni` (CHAR(8), NOT NULL, UNIQUE, CHECK `dni REGEXP '^[0-9]{8}$'`)
 - `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'INACTIVO'))
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_rol` (TINYINT UNSIGNED, NOT NULL, FK → `rol.id_rol`)
+
+#### `caja`
+Cajas registradoras físicas asignadas a una tienda específica.
+- `id_caja` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `numero_caja` (TINYINT UNSIGNED, NOT NULL)
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVA', CHECK IN ('ACTIVA', 'INACTIVA'))
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- UNIQUE (`id_tienda`, `numero_caja`)
+
+#### `serie_comprobante`
+Series asignadas a cada tienda para boletas (`B001`...) o facturas (`F001`...) y seguimiento de correlativos.
+- `id_serie` (SMALLINT UNSIGNED, AUTO_INCREMENT, PK)
+- `serie` (CHAR(4), NOT NULL, CHECK `serie REGEXP '^[BF][0-9]{3}$'`)
+- `ultimo_numero` (INT UNSIGNED, NOT NULL, DEFAULT 0, CHECK `ultimo_numero <= 99999999`)
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_tipo_comprobante` (TINYINT UNSIGNED, NOT NULL, FK → `tipo_comprobante.id_tipo_comprobante`)
+- UNIQUE (`id_tienda`, `serie`)
+
+#### `stock`
+Control de existencias físicas disponibles y stock mínimo por producto y sede.
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
+- `cantidad_actual` (DECIMAL(10,3), NOT NULL, DEFAULT 0, CHECK `cantidad_actual >= 0`)
+- `stock_minimo` (DECIMAL(10,3), NOT NULL, DEFAULT 0, CHECK `stock_minimo >= 0`)
+- PRIMARY KEY (`id_tienda`, `id_producto`)
+
+---
+
+### Nivel 4: Turnos, Traslados y Mermas
+
+#### `caja_turno`
+Control de sesión operativa de un cajero con registro de fondo inicial y cierre.
+- `id_caja_turno` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora_apertura` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `monto_inicial` (DECIMAL(10,2), NOT NULL, CHECK `monto_inicial >= 0`)
+- `fecha_hora_cierre` (DATETIME, NULL)
+- `monto_cierre` (DECIMAL(10,2), NULL)
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ABIERTO')
+- `id_caja` (SMALLINT UNSIGNED, NOT NULL, FK → `caja.id_caja`)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- CHECK: Consistencia entre estado (`ABIERTO` / `CERRADO`) y los datos de cierre.
+
+#### `traslado_mercaderia`
+Transferencias de artículos entre dos tiendas diferentes de la cadena.
+- `id_traslado` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `observacion` (VARCHAR(200), NULL)
+- `id_tienda_origen` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_tienda_destino` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- CHECK: `id_tienda_origen <> id_tienda_destino`.
+
+#### `merma`
+Registro de bajas de mercadería por causas no operativas.
+- `id_merma` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `motivo` (VARCHAR(20), NOT NULL, CHECK IN ('VENCIDO', 'DAÑADO', 'ROBO', 'OTRO'))
+- `observacion` (VARCHAR(200), NULL)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+
+---
+
+### Nivel 5: Ventas
+
+#### `venta`
+Cabecera fiscal de la transacción de venta.
+- `id_venta` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `numero_correlativo` (INT UNSIGNED, NOT NULL, CHECK `numero_correlativo BETWEEN 1 AND 99999999`)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `total` (DECIMAL(10,2), NOT NULL, CHECK `total > 0`)
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'EMITIDA', CHECK IN ('EMITIDA', 'ANULADA'))
+- `id_serie` (SMALLINT UNSIGNED, NOT NULL, FK → `serie_comprobante.id_serie`)
+- `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`)
+- `id_cliente` (INT UNSIGNED, NULL, FK → `cliente.id_cliente`)
+- UNIQUE (`id_serie`, `numero_correlativo`)
+
+---
+
+### Nivel 6: Detalle, Anulación y Pagos
+
+#### `detalle_venta`
+Líneas de productos incluidos en cada venta.
+- `id_detalle_venta` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `cantidad` (DECIMAL(10,3), NOT NULL, CHECK `cantidad > 0`)
+- `precio_unitario` (DECIMAL(10,2), NOT NULL, CHECK `precio_unitario > 0`)
+- `importe` (DECIMAL(10,2), NOT NULL, CHECK `importe = ROUND(cantidad * precio_unitario, 2)`)
+- `id_venta` (BIGINT UNSIGNED, NOT NULL, FK → `venta.id_venta`)
+- `id_producto` (INT UNSIGNED, NOT NULL, FK → `producto.id_producto`)
+
+#### `anulacion_venta`
+Auditoría formal de anulación de comprobante fiscal.
+- `id_anulacion` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `motivo` (VARCHAR(150), NOT NULL)
+- `id_venta` (BIGINT UNSIGNED, NOT NULL, UNIQUE, FK → `venta.id_venta`)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
 
 #### `pago_venta`
-Registro de cada pago o abono aplicado a una venta (soporta pagos combinados: RN-24, RN-28).
-- `id_pago` (INT UNSIGNED, AUTO_INCREMENT, PK)
-- `id_venta` (INT UNSIGNED, NOT NULL, FK → `venta.id_venta`)
-- `id_metodo_pago` (INT UNSIGNED, NOT NULL, FK → `metodo_pago.id_metodo_pago`)
-- `monto` (DECIMAL(12,2), NOT NULL, CHECK > 0)
+Registro de abonos monetarios asociados a una venta.
+- `id_pago` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `monto_pagado` (DECIMAL(10,2), NOT NULL, CHECK `monto_pagado > 0`)
 - `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'APLICADO', CHECK IN ('APLICADO', 'ANULADO'))
+- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'VALIDO', CHECK IN ('VALIDO', 'ANULADO'))
+- `id_venta` (BIGINT UNSIGNED, NOT NULL, FK → `venta.id_venta`)
+- `id_metodo_pago` (TINYINT UNSIGNED, NOT NULL, FK → `metodo_pago.id_metodo_pago`)
+
+---
+
+### Nivel 7: Subtipos de Pago y Kardex
 
 #### `efectivo`
-Subtipo de pago en efectivo: monto recibido y vuelto entregado (RN-27).
-- `id_pago` (INT UNSIGNED, PK, FK → `pago_venta.id_pago`)
-- `monto_recibido` (DECIMAL(12,2), NOT NULL, CHECK > 0)
-- `vuelto` (DECIMAL(12,2), NOT NULL, DEFAULT 0, CHECK >= 0 AND `vuelto` < `monto_recibido`)
+Detalle especializado de pago en moneda física.
+- `id_pago` (BIGINT UNSIGNED, NOT NULL, PK, FK → `pago_venta.id_pago`)
+- `monto_recibido` (DECIMAL(10,2), NOT NULL, CHECK `monto_recibido > 0`)
+- `vuelto` (DECIMAL(10,2), NOT NULL, DEFAULT 0, CHECK `vuelto >= 0 AND vuelto < monto_recibido`)
 
 #### `tarjeta`
-Subtipo de pago con tarjeta bancaria; almacena únicamente los últimos 4 dígitos según norma PCI.
-- `id_pago` (INT UNSIGNED, PK, FK → `pago_venta.id_pago`)
-- `tipo_tarjeta` (VARCHAR(10), NOT NULL, CHECK IN ('DEBITO', 'CREDITO'))
-- `marca` (VARCHAR(20), NOT NULL, CHECK IN ('VISA', 'MASTERCARD', 'AMERICAN_EXPRESS', 'DINERS', 'OTRA'))
-- `ultimos_4` (CHAR(4), NOT NULL, CHECK REGEXP '^[0-9]{4}$')
-- `codigo_autorizacion` (VARCHAR(20), NOT NULL)
+Detalle de pago con tarjeta de crédito o débito con protección de datos sensibles.
+- `id_pago` (BIGINT UNSIGNED, NOT NULL, PK, FK → `pago_venta.id_pago`)
+- `tipo_tarjeta` (VARCHAR(10), NOT NULL, CHECK IN ('CREDITO', 'DEBITO'))
+- `marca_tarjeta` (VARCHAR(20), NOT NULL)
+- `ultimos_4_digitos` (CHAR(4), NOT NULL, CHECK `ultimos_4_digitos REGEXP '^[0-9]{4}$'`)
+- `codigo_autorizacion` (VARCHAR(10), NOT NULL)
 
 #### `billetera_digital_sip`
-Subtipo de pago mediante la billetera digital Sip por código QR o Tarjeta virtual Sip (RN-25, RN-26).
-- `id_pago` (INT UNSIGNED, PK, FK → `pago_venta.id_pago`)
-- `modalidad` (VARCHAR(15), NOT NULL, CHECK IN ('QR', 'TARJETA_SIP'))
+Detalle de pago mediante la billetera digital Sip propia de Tienda Mass.
+- `id_pago` (BIGINT UNSIGNED, NOT NULL, PK, FK → `pago_venta.id_pago`)
+- `modalidad_pago` (VARCHAR(15), NOT NULL, CHECK IN ('QR', 'TARJETA_SIP'))
 - `codigo_operacion` (VARCHAR(30), NOT NULL, UNIQUE)
 
+#### `movimiento_stock`
+Kardex inmutable que audita cada variación de existencias vinculada a su documento de origen.
+- `id_movimiento` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `cantidad` (DECIMAL(10,3), NOT NULL, CHECK `cantidad > 0`)
+- `stock_nuevo` (DECIMAL(10,3), NOT NULL, CHECK `stock_nuevo >= 0`)
+- `observacion` (VARCHAR(200), NULL)
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL)
+- `id_producto` (INT UNSIGNED, NOT NULL)
+- `(id_tienda, id_producto)` (FK → `stock(id_tienda, id_producto)`)
+- `id_tipo_movimiento` (TINYINT UNSIGNED, NOT NULL, FK → `tipo_movimiento.id_tipo_movimiento`)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- `id_venta` (BIGINT UNSIGNED, NULL, FK → `venta.id_venta`)
+- `id_traslado` (INT UNSIGNED, NULL, FK → `traslado_mercaderia.id_traslado`)
+- `id_merma` (INT UNSIGNED, NULL, FK → `merma.id_merma`)
+- CHECK: Exactamente un origen no nulo: `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) = 1`.
+
 ---
 
-## 3. Objetos de Programación Almacenados
+## 3. Objetos de Programación
 
-| Objeto | Tipo | Propósito |
-|---|---|---|
-| `sp_mover_stock` | Procedimiento | Único punto para alterar el inventario: valida existencias, actualiza `stock` y genera el registro en `movimiento_stock`. |
-| `fn_codigo_metodo_pago` | Función | Retorna el código textual (`EFECTIVO`, `TARJETA`, `SIP`) a partir de un `id_pago`. |
-| `sp_valida_documento_cliente` | Procedimiento | Valida la longitud exacta del documento del cliente según su tipo (DNI = 8, RUC = 11). |
-| `sp_valida_prefijo_serie` | Procedimiento | Valida que las series comiencen con el prefijo oficial de su comprobante (`B` o `F`). |
-| `sp_valida_factura` | Procedimiento | Comprueba que toda venta con factura esté vinculada a un cliente con documento RUC. |
-| `sp_valida_efectivo` | Procedimiento | Verifica que el vuelto entregado sea exactamente igual a la diferencia: `monto_recibido - monto_pago`. |
-| `sp_anular_venta` | Procedimiento | Proceso seguro de anulación: valida Administrador, registra `anulacion_venta`, anula pagos y retorna existencias. |
-| `vw_control_ventas` | Vista | Audita cada venta comparando su cabecera con el detalle y los pagos aplicados (`OK`, `DESCUADRE` o `ANULADA`). |
-| 15 Triggers | Triggers | Ejecución automática de las reglas de negocio sobre inserciones, modificaciones y borrados en las tablas clave. |
+### Vista `vw_comprobante`
+Desnormaliza la cabecera, cliente, cajero, tienda y detalle de venta para facilitar reportes y emisiones formateadas de boletas y facturas.
 
----
-
-## 4. Reglas de Negocio Implementadas
-
-1. **RN-01 (Una tienda por distrito):** Restricción de unicidad en `tienda.id_distrito`.
-2. **RN-02 (Asignación de personal):** Todo usuario pertenece obligatoriamente a una tienda física y a un rol funcional.
-3. **RN-03 (Administrador como Jefe de tienda):** El rol `ADMINISTRADOR` representa a la máxima autoridad operativa de la sede.
-4. **RN-04 (Factura con RUC):** Las ventas emitidas con factura exigen asociar un cliente con documento RUC de 11 dígitos.
-5. **RN-05 (Cliente anónimo en boleta):** Las boletas de venta permiten asociar `cliente.id_cliente NULL` (público general).
-6. **RN-06 (Longitud documental estricta):** El DNI debe contener exactamente 8 dígitos y el RUC 11 dígitos numéricos.
-7. **RN-07 (Precio único central):** Cada artículo tiene un único `precio_venta` para todas las tiendas, con IGV incluido.
-8. **RN-08 (Desglose fiscal constante de IGV 18%):** Toda venta registra `subtotal`, `igv` y `total` respetando `total = subtotal + igv`.
-9. **RN-09 (Segregación de existencias):** El inventario se controla de forma independiente por local en `stock(id_tienda, id_producto)`.
-10. **RN-10 (No stock negativo):** Ninguna transacción puede reducir la cantidad disponible de un producto por debajo de cero.
-11. **RN-11 (Kardex obligatorio):** Toda variación física de existencias genera un registro inmutable en `movimiento_stock`.
-12. **RN-12 (Efecto de movimiento):** Cada movimiento clasifica formalmente su impacto como Entrada (`E`) o Salida (`S`).
-13. **RN-13 (Traslados intertiendas):** El origen y destino de un traslado deben ser obligatoriamente tiendas distintas.
-14. **RN-14 (Control de mermas):** Las bajas por vencimiento o deterioro registran el motivo, usuario responsable y descuentan stock.
-15. **RN-15 (Estaciones POS):** Las cajas físicas pertenecen a una sede y están numeradas de forma única por tienda.
-16. **RN-16 (Turno de caja obligatorio):** Solo un cajero de la misma tienda puede abrir turno; no se puede vender sin turno abierto.
-17. **RN-17 (Exclusividad de turno):** Una caja y un cajero no pueden mantener más de un turno en estado `ABIERTO` simultáneamente.
-18. **RN-18 (Prefijo de serie fiscal):** Las series de boletas inician con la letra `B` y las de factura con la letra `F`.
-19. **RN-19 (Correlativo correlativo y único):** El correlativo se autoincrementa por serie y es inmutable (`UNIQUE(id_serie, correlativo)`).
-20. **RN-20 (Inmutabilidad de ventas):** Está terminantemente prohibido borrar ventas emitidas mediante `DELETE` (bloqueado por trigger).
-21. **RN-21 (Descuento de stock en venta):** Cada línea de `detalle_venta` rebaja existencias en la tienda correspondiente vía kardex.
-22. **RN-22 (Consistencia de importes):** La sumatoria de las líneas del detalle debe ser idéntica al importe total de la venta.
-23. **RN-23 (Autorización de anulación):** Solo un usuario con rol `ADMINISTRADOR` de la tienda puede registrar la anulación de una venta.
-24. **RN-24 (Cobro total):** Una venta se considera pagada cuando la suma de pagos aplicados cubre la totalidad de la venta.
-25. **RN-25 (Medios de pago autorizados):** Tienda Mass no acepta transferencias informales (Yape/Plin no se modelan); solo Efectivo, Tarjeta y Sip.
-26. **RN-26 (Billetera Sip):** Soporta transacciones vía código QR y Tarjeta Sip con código de operación único.
-27. **RN-27 (Vuelto exacto en efectivo):** El vuelto registrado debe satisfacer: `monto_aplicado = monto_recibido - vuelto`.
-28. **RN-28 (Pagos combinados):** Una venta puede liquidarse mediante múltiples abonos en distintos métodos de pago.
+### Procedimiento `sp_boleta(p_serie, p_correlativo)`
+Genera el comprobante electrónico completo en tres conjuntos de resultados:
+1. **Cabecera:** Comprobante formateado (`B001-00000001`), fecha, tienda, cajero, caja y cliente.
+2. **Detalle:** Ítems numerados, descripción de producto, unidad, cantidad, precio e importe.
+3. **Pagos:** Desglose de abonos (efectivo, tarjeta o billetera digital Sip) y comprobación del importe total cancelado.
