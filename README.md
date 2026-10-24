@@ -101,6 +101,26 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
 
 ---
 
+## Aplicación PHP con POO y MVC (Sesión 4)
+
+Primera versión de la aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador. Por ahora los datos salen de listas fijas copiadas de `database/datos.sql`; en la sesión 5 el `ProductoRepository` leerá de MySQL con PDO sin cambiar el controlador ni las vistas.
+
+- **`models/`**: `Producto`, `Stock` (regla REPONER), `ProductoRepository` y los roles `Usuario` → `Administrador`, `Cajero`, `Almacenero`.
+- **`controllers/ProductoController.php`**: valida la entrada, llama al Repository y elige la vista.
+- **`views/`**: layout, catálogo, ficha de producto y página 404.
+- **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_producto.php`, `poo_roles.php` y `poo_repository.php`.
+- **`docs/mvc.md`**: guía completa (rutas, reglas de negocio, reparto de ramas en el grupo y seguridad).
+- **`docs/bitacora_ia.md`**: bitácora del uso de IA.
+
+```powershell
+php -S localhost:8000 -t public
+# Abrir http://localhost:8000  (catálogo de Mass Cayma)
+# http://localhost:8000/?ruta=productos&tienda=3      (Mass Yanahuara, la leche sale REPONER)
+# http://localhost:8000/?ruta=producto&codigo=7750000000011
+```
+
+---
+
 ## Cómo Sincronizar Cambios con Git y GitHub
 
 Si realizaste cambios directos en GitHub o tus compañeros subieron modificaciones, sigue estos pasos para mantener tu copia local actualizada:

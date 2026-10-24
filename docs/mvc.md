@@ -1,0 +1,78 @@
+# Minimarket Mass · POO y MVC (Sesión 4, HO-09)
+
+PHP 8.3 sin framework. Hoy los datos salen de listas fijas copiadas de `database/datos.sql`;
+en la sesión 5 el Repository leerá de MySQL (puerto 3307) con PDO y el controlador y las vistas no cambian.
+
+## Cómo correrlo
+
+```powershell
+php -v                                  # PHP 8.3...
+php -S localhost:8000 -t public         # déjalo abierto
+```
+
+| URL | Qué muestra |
+|---|---|
+| http://localhost:8000 | Catálogo con stock de Mass Cayma |
+| http://localhost:8000/?ruta=productos&tienda=3 | Catálogo con stock de Mass Yanahuara (la leche sale REPONER) |
+| http://localhost:8000/?ruta=producto&codigo=7750000000011 | Ficha de un producto por código de barras |
+| http://localhost:8000/?ruta=producto&id=8 | Ficha de un producto al peso (no tiene código de barras) |
+| http://localhost:8000/?ruta=xyz | Página 404 |
+| /poo_producto.php · /poo_roles.php · /poo_repository.php | Páginas de prueba de los pasos 1, 2 y 3 |
+
+## Estructura
+
+```
+MinimarketMass/
+├── controllers/ProductoController.php  C: valida la entrada, llama al Repository y elige la vista
+├── models/
+│   ├── Producto.php                    M: tabla producto + reglas (al peso, importe, estado)
+│   ├── Stock.php                       M: tabla stock + regla REPONER (cantidad_actual <= stock_minimo)
+│   ├── ProductoRepository.php          M: de dónde salen los datos (hoy lista fija)
+│   ├── Usuario.php                     M: clase base abstracta (tabla empleado)
+│   ├── Administrador.php               id_rol 1: anula ventas de su tienda
+│   ├── Cajero.php                      id_rol 2: vende
+│   └── Almacenero.php                  id_rol 3: traslados y mermas
+├── views/
+│   ├── layout_inicio.php / layout_fin.php   cabecera, estilos y e() = htmlspecialchars
+│   ├── productos/lista.php · productos/detalle.php
+│   └── errores/404.php
+├── public/index.php                    único punto de entrada (switch de rutas + 404)
+├── database/                           schema.sql, datos.sql, consultas.sql, boleta.sql (sesión 3, sin cambios)
+└── docs/bitacora_ia.md
+```
+
+## Reglas de negocio que salen del diseño
+
+- **Producto al peso** (`se_vende_por_peso = 'S'`): se vende en kg con hasta 3 decimales y no tiene código de barras. Por unidad, solo cantidades enteras.
+- **Importe** = `ROUND(cantidad * precio_venta, 2)`, igual que el CHECK `ck_detalle_importe` de `detalle_venta`.
+- **REPONER** cuando `cantidad_actual <= stock_minimo` en la tienda.
+- **Roles**: solo el CAJERO vende; solo el ADMINISTRADOR anula, y solo ventas de su tienda; el ALMACENERO registra traslados y mermas (consultas 25 y 27 de `consultas.sql`).
+- El diseño no guarda IGV ni subtotal (lo dice `boleta.sql`), así que el código no lo calcula.
+
+## Reparto en el grupo (4 integrantes)
+
+| Integrante | Pasos | Rama | Archivos | Commit sugerido |
+|---|---|---|---|---|
+| 1 | 1 · Modelo | `feature/<nombre>-modelo` | models/Producto.php, models/Stock.php, public/poo_producto.php | `feat: clase Producto y Stock con reglas de peso, importe y reposicion` |
+| 2 | 2 · Roles | `feature/<nombre>-roles` | models/Usuario.php, Administrador.php, Cajero.php, Almacenero.php, public/poo_roles.php | `feat: roles con herencia desde Usuario y permisos por rol` |
+| 3 | 3 y 4 · Repository y controlador | `feature/<nombre>-repository` | models/ProductoRepository.php, controllers/ProductoController.php, public/poo_repository.php | `feat: ProductoRepository con datos de prueba y ProductoController` |
+| 4 | 5 y 6 · Vista e index | `feature/<nombre>-vista` | views/, public/index.php | `feat: vistas del catalogo, ficha, 404 y punto de entrada` |
+
+Cada uno, desde `main` actualizado:
+
+```powershell
+git pull
+git switch -c feature/<nombre>-modelo
+git add models/Producto.php models/Stock.php public/poo_producto.php
+git commit -m "feat: clase Producto y Stock con reglas de peso, importe y reposicion"
+git push -u origin feature/<nombre>-modelo
+```
+
+Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesita al 3). Después de cada merge, todos hacen `git pull`.
+
+## Seguridad aplicada
+
+- `declare(strict_types=1)`, tipos en parámetros y retornos, propiedades `private`.
+- Todo lo que se imprime pasa por `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`.
+- `index.php` solo acepta strings de `$_GET`; el código de barras se valida con `^[0-9]{8,14}$` y el id de tienda contra la lista de tiendas.
+- Sin contraseñas ni datos reales: DNI, códigos y precios son los ficticios de `datos.sql`, y en pantalla el DNI se muestra oculto.
