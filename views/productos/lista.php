@@ -3,25 +3,16 @@ declare(strict_types=1);
 /**
  * V: tabla HTML del catalogo. Solo muestra; no calcula reglas ni busca datos.
  * @var array<int, array{producto: Producto, stock: ?Stock}> $filas
- * @var array<int, string> $tiendas
- * @var int $idTienda
- * @var string $nombreTienda
+ * @var array<int, Tienda> $tiendas
+ * @var Tienda $tienda
+ * @var string $rutaSelector
  */
 $titulo = 'Catálogo';
 require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>Catálogo de productos</h1>
 
-<nav class="tiendas">
-    Stock de:
-    <?php foreach ($tiendas as $id => $nombre): ?>
-        <?php if ($id === $idTienda): ?>
-            <strong><?= e($nombre) ?></strong>
-        <?php else: ?>
-            <a href="/?ruta=productos&amp;tienda=<?= $id ?>"><?= e($nombre) ?></a>
-        <?php endif; ?>
-    <?php endforeach; ?>
-</nav>
+<?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <div class="tabla">
 <table>
@@ -31,7 +22,7 @@ require __DIR__ . '/../layout_inicio.php';
             <th>Producto</th>
             <th>Precio</th>
             <th>Se vende</th>
-            <th>Stock en <?= e($nombreTienda) ?></th>
+            <th>Stock en <?= e($tienda->getNombreTienda()) ?></th>
             <th>Estado</th>
         </tr>
     </thead>
@@ -43,7 +34,7 @@ require __DIR__ . '/../layout_inicio.php';
         $enlace = $p->getCodigoBarras() !== null
             ? '/?ruta=producto&codigo=' . urlencode($p->getCodigoBarras())
             : '/?ruta=producto&id=' . $p->getIdProducto();
-        $enlace .= '&tienda=' . $idTienda;
+        $enlace .= '&tienda=' . $tienda->getIdTienda();
         ?>
         <tr>
             <td><?= e($p->getCodigoBarras() ?? '(al peso)') ?></td>

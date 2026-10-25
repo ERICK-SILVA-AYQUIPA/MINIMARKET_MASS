@@ -47,6 +47,14 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **OBJETIVO:** Un index.php que lea `?ruta=` y llame al controlador.
 - **REGLAS:** Solo acepta las rutas `productos` y `producto` (switch con default 404) y solo valores string de `$_GET`.
 
+### Paso 7 · Sistema completo de las 3 tiendas (25/10/2026)
+- **OBJETIVO:** Ampliar el MVC a tiendas, clientes, ventas con detalle, pagos y comprobante, con las mismas reglas de la guía y sin conectar todavía a MySQL.
+- **ENTRADAS Y SALIDAS:** Las columnas exactas de `tienda`, `caja`, `caja_turno`, `cliente`, `serie_comprobante`, `venta`, `detalle_venta`, `anulacion_venta`, `pago_venta`, `efectivo`, `tarjeta` y `billetera_digital_sip` de `schema.sql`. Las filas son las de `datos.sql`.
+- **REGLAS:** Los mismos CHECK de la tabla en cada constructor. Los importes y los pagos válidos suman el total, y en una venta anulada todos los pagos están anulados. El documento del cliente se imprime como en `vw_comprobante`. El comprobante se busca por serie + correlativo como en `sp_boleta`. Solo el ADMINISTRADOR activo de la tienda de la venta puede anularla.
+- **Pantallas:** `?ruta=stock`, `?ruta=ventas&tienda=`, `?ruta=comprobante&serie=&numero=` y `?ruta=tiendas`, además del catálogo y la ficha.
+- **Prueba:** `public/poo_ventas.php` y las 14 boletas y facturas de `datos.sql`.
+- **Cambio al código anterior:** las tiendas pasaron de `ProductoRepository` a `TiendaRepository`, y `leerTienda()` y `noEncontrado()` pasaron a la clase base `Controller`.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -60,11 +68,18 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | Vender solo CAJERO | Consulta 25 de `consultas.sql` marca las ventas hechas por un empleado que no es cajero | ☑ |
 | Tienda por defecto: Mass Cayma (id 1) | `datos.sql`: id_tienda 1 = 'Mass Cayma'. Elegirla como defecto es decisión del grupo **[Grupo]** | ☑ |
 | `se_vende_por_peso` y `estado` se guardan como el texto de la columna ('S'/'N', 'ACTIVO') | `schema.sql`: CHAR(1) con CHECK IN ('S','N') y VARCHAR(10) con CHECK IN ('ACTIVO','DESCONTINUADO') | ☑ |
+| Cada subtipo de pago es una clase hija de `PagoVenta` | `efectivo`, `tarjeta` y `billetera_digital_sip` tienen como llave `id_pago`, que es foránea a `pago_venta` | ☑ |
+| El id de método de pago va fijo en cada clase (1, 2, 3) | `datos.sql`: 1 EFECTIVO, 2 TARJETA, 3 BILLETERA DIGITAL SIP | ☑ |
+| Boleta o factura según la letra de la serie | `tipo_comprobante.letra_serie` es B o F, y `serie_comprobante` tiene un CHECK `^[BF][0-9]{3}$` | ☑ |
+| Sin cliente se imprime "CLIENTE VARIOS" | Rama `ELSE` de la columna `cliente` de `vw_comprobante` | ☑ |
+| Las fechas van como texto `'AAAA-MM-DD HH:MM:SS'` | Es como PDO devuelve un DATETIME; se puede cambiar a `DateTimeImmutable` en la sesión 5 **[Grupo]** | ☑ |
+| Los montos se comparan en céntimos | Un float no suma exacto (0.1 + 0.2); DECIMAL(10,2) sí | ☑ |
 
 ## Qué corregimos del código generado
 
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
+- 25/10/2026, paso 7: el `ProductoController` ya no recibe las tiendas de `ProductoRepository`, ahora vienen de `TiendaRepository`. `poo_repository.php` se ajustó a ese cambio.
 - **[Grupo]** Anoten aquí lo que cada integrante cambió a mano al revisar su parte. Si nadie cambió nada, escriban "sin cambios manuales".
 
 ## Auditoría de seguridad (25/10/2026)
@@ -84,7 +99,12 @@ Prompt de auditor usado:
 
 Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden abrir desde el navegador. Sirven para la sesión, pero en una versión real se quitarían de `public/`.
 
+## Pendientes del diseño que todavía no tienen pantalla
+
+**[Grupo]** decidan si se agregan: traslados de mercadería, mermas, kardex (`movimiento_stock`) y arqueo de turnos de caja. Las tablas y los datos ya existen. Emitir o anular una venta de verdad necesita guardar en MySQL (sesión 5) y login (sesión 6).
+
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
+- 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.

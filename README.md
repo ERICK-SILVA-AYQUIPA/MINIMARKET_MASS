@@ -103,22 +103,24 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
 
 ## Aplicación PHP con POO y MVC (Sesión 4)
 
-Primera versión de la aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador. Por ahora los datos salen de listas fijas copiadas de `database/datos.sql`; en la sesión 5 el `ProductoRepository` leerá de MySQL con PDO sin cambiar el controlador ni las vistas.
+Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador, que cubre las 3 tiendas. Por ahora los datos salen de listas fijas copiadas de `database/datos.sql`; en la sesión 5 los Repository leerán de MySQL con PDO sin cambiar los controladores ni las vistas.
 
-- **`models/`**: `Producto`, `Stock` (regla REPONER), `ProductoRepository` y los roles `Usuario` → `Administrador`, `Cajero`, `Almacenero`.
-- **`controllers/ProductoController.php`**: valida la entrada, llama al Repository y elige la vista.
-- **`views/`**: layout, catálogo, ficha de producto y página 404.
-- **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_producto.php`, `poo_roles.php` y `poo_repository.php`.
-- **`docs/mvc.md`**: guía completa (rutas, reglas de negocio, reparto de ramas en el grupo y seguridad).
-- **`docs/bitacora_ia.md`**: bitácora del uso de IA.
+- **`models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
+- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController` y `TiendaController`. Validan la entrada, piden datos y eligen la vista.
+- **`views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
+- **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
+- **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
 - **`docs/explicacion_archivos.md`**: qué hace cada archivo, para estudiar antes de la entrega.
 - **`docs/reparto.md`**: comandos git por integrante si se pide un Pull Request por persona.
+- **`docs/bitacora_ia.md`**: bitácora del uso de IA.
 
 ```powershell
 php -S localhost:8000 -t public
-# Abrir http://localhost:8000  (catálogo de Mass Cayma)
-# http://localhost:8000/?ruta=productos&tienda=3      (Mass Yanahuara, la leche sale REPONER)
-# http://localhost:8000/?ruta=producto&codigo=7750000000011
+# http://localhost:8000                                   catálogo de Mass Cayma
+# http://localhost:8000/?ruta=stock                       stock de las 3 tiendas (REPONER)
+# http://localhost:8000/?ruta=ventas&tienda=2             ventas de Mass Cerro Colorado
+# http://localhost:8000/?ruta=comprobante&serie=F001&numero=1   factura con pago mixto
+# http://localhost:8000/?ruta=tiendas                     tiendas, cajas, series y personal
 ```
 
 ---
