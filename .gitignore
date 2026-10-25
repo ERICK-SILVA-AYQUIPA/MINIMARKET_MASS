@@ -11,3 +11,6 @@ Thumbs.db
 # Temporary and local log files
 *.log
 scratch/
+
+# Configuracion local con claves (usar .env.example como plantilla)
+.env

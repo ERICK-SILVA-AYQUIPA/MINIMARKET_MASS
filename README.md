@@ -83,7 +83,7 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 
 ## Cómo Ejecutar la Base de Datos (MySQL)
 
-Para recrear y probar la base de datos en Laragon (puerto `3307`) o MySQL estándar (puerto `3306`), abre tu terminal o PowerShell y ejecuta los scripts en el orden indicado:
+Si no usas Docker, puedes recrear la base de datos en Laragon (puerto `3307`) o MySQL estándar (puerto `3306`) ejecutando los scripts en el orden indicado. En ese caso pon en `.env` el usuario y la clave de tu MySQL:
 
 ```powershell
 # 1. Crear base de datos y las 26 tablas
@@ -101,10 +101,45 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
 
 ---
 
+## Cómo Levantar la Base de Datos con Docker (MySQL 8.4.11)
+
+La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas Docker Desktop abierto.
+
+```powershell
+# 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
+copy .env.example .env
+
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql y boleta.sql
+docker compose up -d
+
+# 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
+docker compose ps
+
+# 4. Levantar la aplicación
+php -S localhost:8000 -t public
+```
+
+| Variable de `.env` | Para qué sirve | Valor por defecto |
+|---|---|---|
+| `DB_HOST` | Dónde está MySQL | `127.0.0.1` |
+| `DB_PORT` | Puerto de tu PC que apunta al 3306 del contenedor | `3307` |
+| `DB_NAME` | Base de datos | `minimarket_mass` |
+| `DB_USER` / `DB_PASSWORD` | Usuario que usa la aplicación (lo crea el contenedor) | `mass_app` |
+| `DB_ROOT_PASSWORD` | Clave de root dentro del contenedor | sin valor por defecto |
+
+- El `.env` tiene claves, por eso está en `.gitignore` y **no se sube a GitHub**. En el repositorio solo va `.env.example`.
+- Los scripts solo se ejecutan cuando el volumen está vacío. Para volver a cargar `schema.sql` y `datos.sql` desde cero: `docker compose down -v` y luego `docker compose up -d`.
+- Si Laragon ya usa el puerto 3307, detén su MySQL o cambia `DB_PORT` en `.env` (por ejemplo a `3308`).
+- Para entrar a la consola de MySQL: `docker exec -it minimarket_mass_db mysql -u mass_app -p minimarket_mass`.
+- Si MySQL no está corriendo, la aplicación responde 503 con un mensaje, sin mostrar usuario ni claves.
+
+---
+
 ## Aplicación PHP con POO y MVC (Sesión 4)
 
-Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador, que cubre las 3 tiendas. Por ahora los datos salen de listas fijas copiadas de `database/datos.sql`; en la sesión 5 los Repository leerán de MySQL con PDO sin cambiar los controladores ni las vistas.
+Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador, que cubre las 3 tiendas. Los Repository leen de MySQL con PDO y consultas preparadas (`config/Database.php`). Al pasar de listas fijas a MySQL no cambió ningún controlador ni ninguna vista.
 
+- **`config/Database.php`**: conexión PDO única; lee host, puerto, base, usuario y clave del `.env`.
 - **`models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
 - **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController` y `TiendaController`. Validan la entrada, piden datos y eligen la vista.
 - **`views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
@@ -115,6 +150,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 - **`docs/bitacora_ia.md`**: bitácora del uso de IA.
 
 ```powershell
+docker compose up -d                 # MySQL 8.4.11 (ver la sección de Docker)
 php -S localhost:8000 -t public
 # http://localhost:8000                                   catálogo de Mass Cayma
 # http://localhost:8000/?ruta=stock                       stock de las 3 tiendas (REPONER)
