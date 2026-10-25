@@ -111,6 +111,8 @@ Primera versión de la aplicación en PHP 8.3 sin framework, organizada en Model
 - **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_producto.php`, `poo_roles.php` y `poo_repository.php`.
 - **`docs/mvc.md`**: guía completa (rutas, reglas de negocio, reparto de ramas en el grupo y seguridad).
 - **`docs/bitacora_ia.md`**: bitácora del uso de IA.
+- **`docs/explicacion_archivos.md`**: qué hace cada archivo, para estudiar antes de la entrega.
+- **`docs/reparto.md`**: comandos git por integrante si se pide un Pull Request por persona.
 
 ```powershell
 php -S localhost:8000 -t public
