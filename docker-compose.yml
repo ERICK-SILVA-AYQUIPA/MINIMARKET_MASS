@@ -1,0 +1,31 @@
+# Base de datos de Minimarket Mass: MySQL 8.4.11 en Docker.
+# Al crear el contenedor por primera vez, MySQL ejecuta en orden los scripts
+# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql.
+# Las claves salen del archivo .env (copia de .env.example, no se sube a GitHub).
+services:
+  mysql:
+    image: mysql:8.4.11
+    container_name: minimarket_mass_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Falta DB_ROOT_PASSWORD en .env}
+      MYSQL_DATABASE: ${DB_NAME:-minimarket_mass}
+      MYSQL_USER: ${DB_USER:-mass_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+      TZ: America/Lima
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    ports:
+      - "${DB_PORT:-3307}:3306"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/datos.sql:/docker-entrypoint-initdb.d/02_datos.sql:ro
+      - "./database/boleta (1).sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro"
+      - mysql_datos:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  mysql_datos:

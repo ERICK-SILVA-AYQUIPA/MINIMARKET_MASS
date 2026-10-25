@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 
-// Paso 3: prueba del Repository (lista fija de datos.sql)
+// Paso 3: prueba del Repository, ahora leyendo de MySQL
+require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../models/ProductoRepository.php';
 require __DIR__ . '/../models/TiendaRepository.php';
 
-$repo = new ProductoRepository();
-$tiendas = new TiendaRepository();
+$db = Database::conexion();
+$repo = new ProductoRepository($db);
+$tiendas = new TiendaRepository($db);
 $encontrado = $repo->buscarPorCodigo('7750000000011');
 $noExiste = $repo->buscarPorCodigo('0000000000000');
 

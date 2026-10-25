@@ -55,6 +55,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **Prueba:** `public/poo_ventas.php` y las 14 boletas y facturas de `datos.sql`.
 - **Cambio al código anterior:** las tiendas pasaron de `ProductoRepository` a `TiendaRepository`, y `leerTienda()` y `noEncontrado()` pasaron a la clase base `Controller`.
 
+### Paso 8 · Conexión a MySQL 8.4.11 en Docker (25/10/2026)
+- **OBJETIVO:** Que los Repository lean de MySQL 8.4.11 en Docker en vez de listas fijas, sin cambiar controladores ni vistas.
+- **ENTRADAS Y SALIDAS:** `docker-compose.yml` con `mysql:8.4.11` que ejecuta `schema.sql`, `datos.sql` y `boleta (1).sql` al crear el contenedor. `config/Database.php` con PDO, que lee `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD` del entorno o de `.env`. Los Repository mantienen los mismos métodos.
+- **SEGURIDAD:** consultas preparadas con marcadores y `ATTR_EMULATE_PREPARES = false`. El `.env` está en `.gitignore` y en el repo solo va `.env.example`. Si la base falla, el navegador ve 503 o 500 sin detalle técnico.
+- **Prueba:** contenedor creado desde cero con `docker compose down -v` y `up -d`; todas las pantallas contra la base real.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -74,11 +80,15 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | Sin cliente se imprime "CLIENTE VARIOS" | Rama `ELSE` de la columna `cliente` de `vw_comprobante` | ☑ |
 | Las fechas van como texto `'AAAA-MM-DD HH:MM:SS'` | Es como PDO devuelve un DATETIME; se puede cambiar a `DateTimeImmutable` en la sesión 5 **[Grupo]** | ☑ |
 | Los montos se comparan en céntimos | Un float no suma exacto (0.1 + 0.2); DECIMAL(10,2) sí | ☑ |
+| Los DECIMAL se convierten a `float` en el Repository | PDO con MySQL entrega DECIMAL como texto (`"4.50"`); comprobado contra el contenedor | ☑ |
+| Puerto 3307 en la PC | Es el que ya usaba el README para Laragon; se cambia con `DB_PORT` **[Grupo]** | ☑ |
+| La aplicación entra con un usuario propio (`mass_app`), no con root | Lo crea el contenedor con `MYSQL_USER`; tiene permisos solo sobre `minimarket_mass` | ☑ |
 
 ## Qué corregimos del código generado
 
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
+- 25/10/2026, paso 8: los Repository dejaron las listas fijas y ahora usan PDO. Reciben la conexión en el constructor, así que `index.php`, `poo_repository.php` y `poo_ventas.php` se ajustaron para pasarla. Ningún controlador ni vista existente cambió; solo se agregó la vista `errores/500.php`.
 - 25/10/2026, paso 7: el `ProductoController` ya no recibe las tiendas de `ProductoRepository`, ahora vienen de `TiendaRepository`. `poo_repository.php` se ajustó a ese cambio.
 - **[Grupo]** Anoten aquí lo que cada integrante cambió a mano al revisar su parte. Si nadie cambió nada, escriban "sin cambios manuales".
 
@@ -101,10 +111,11 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 ## Pendientes del diseño que todavía no tienen pantalla
 
-**[Grupo]** decidan si se agregan: traslados de mercadería, mermas, kardex (`movimiento_stock`) y arqueo de turnos de caja. Las tablas y los datos ya existen. Emitir o anular una venta de verdad necesita guardar en MySQL (sesión 5) y login (sesión 6).
+**[Grupo]** decidan si se agregan: traslados de mercadería, mermas, kardex (`movimiento_stock`) y arqueo de turnos de caja. Las tablas y los datos ya existen. Emitir o anular una venta de verdad necesita escribir en MySQL con transacciones y login (sesión 6).
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 25/10/2026, paso 8, contra MySQL 8.4.11 en Docker: las mismas pantallas responden 200 y dan los mismos resultados (14 comprobantes cuadran, S/ 323.00, 2 casos REPONER). Al cambiar un stock en MySQL, la página lo refleja al instante. `' OR 1=1--` en la serie y en el código devuelve 404, y llamado directo al Repository devuelve `null`. Con el contenedor detenido, la página responde 503 sin mostrar usuario ni host.
