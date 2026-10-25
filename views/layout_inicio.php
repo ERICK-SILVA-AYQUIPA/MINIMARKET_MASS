@@ -32,9 +32,21 @@ function soles(float $monto): string
         .ok { background: #d9f2e1; color: #1d6b36; }
         .reponer { background: #fde2e1; color: #a12622; }
         nav.tiendas a { margin-right: 12px; }
+        header nav a { font-weight: 400; margin-left: 16px; }
+        .anulada { background: #e3e6ea; color: #52606d; }
+        .comprobante { background: #fff; padding: 16px; max-width: 640px; }
+        .comprobante h2 { margin-top: 0; }
         .tabla { overflow-x: auto; }
     </style>
 </head>
 <body>
-<header><a href="/?ruta=productos">Minimarket Mass</a></header>
+<header>
+    <a href="/?ruta=productos">Minimarket Mass</a>
+    <nav>
+        <a href="/?ruta=productos">Catálogo</a>
+        <a href="/?ruta=stock">Stock 3 tiendas</a>
+        <a href="/?ruta=ventas">Ventas</a>
+        <a href="/?ruta=tiendas">Tiendas</a>
+    </nav>
+</header>
 <main>

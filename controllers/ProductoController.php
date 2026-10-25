@@ -1,33 +1,35 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 
 /**
  * C: recibe el pedido, valida la entrada, pide datos al Repository
  * y elige la vista. Aqui no hay HTML ni SQL.
  */
-class ProductoController
+class ProductoController extends Controller
 {
-    private const TIENDA_POR_DEFECTO = 1; // Mass Cayma
-
-    public function __construct(private ProductoRepository $repo) {}
+    public function __construct(TiendaRepository $tiendas, private ProductoRepository $repo)
+    {
+        parent::__construct($tiendas);
+    }
 
     // GET /?ruta=productos&tienda=1
     public function lista(?string $tiendaPedida): void
     {
-        $tiendas = $this->repo->tiendas();
-        $idTienda = $this->leerTienda($tiendaPedida, $tiendas);
+        $tienda = $this->leerTienda($tiendaPedida);
+        $tiendas = $this->tiendas->todas();
+        $rutaSelector = 'productos';
 
         $filas = [];
         foreach ($this->repo->todos() as $producto) {
             $filas[] = [
                 'producto' => $producto,
-                'stock'    => $this->repo->stockEnTienda($producto->getIdProducto(), $idTienda),
+                'stock'    => $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
             ];
         }
 
-        $nombreTienda = $tiendas[$idTienda];
         require __DIR__ . '/../views/productos/lista.php';
     }
 
@@ -46,25 +48,30 @@ class ProductoController
             return;
         }
 
-        $tiendas = $this->repo->tiendas();
-        $idTienda = $this->leerTienda($tiendaPedida, $tiendas);
-        $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $idTienda);
-        $nombreTienda = $tiendas[$idTienda];
+        $tienda = $this->leerTienda($tiendaPedida);
+        $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda());
         require __DIR__ . '/../views/productos/detalle.php';
     }
 
-    public function noEncontrado(string $mensaje = 'La pagina no existe.'): void
+    // GET /?ruta=stock: el stock de cada producto en las 3 tiendas, lado a lado
+    public function stockTiendas(): void
     {
-        http_response_code(404);
-        require __DIR__ . '/../views/errores/404.php';
-    }
+        $tiendas = $this->tiendas->todas();
 
-    // Solo acepta un id de tienda que exista; si no, usa la tienda por defecto
-    private function leerTienda(?string $valor, array $tiendas): int
-    {
-        if ($valor !== null && ctype_digit($valor) && isset($tiendas[(int) $valor])) {
-            return (int) $valor;
+        $filas = [];
+        $porReponer = 0;
+        foreach ($this->repo->todos() as $producto) {
+            $stocks = [];
+            foreach ($tiendas as $idTienda => $tienda) {
+                $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $idTienda);
+                $stocks[$idTienda] = $stock;
+                if ($stock !== null && $stock->necesitaReponer()) {
+                    $porReponer++;
+                }
+            }
+            $filas[] = ['producto' => $producto, 'stocks' => $stocks];
         }
-        return self::TIENDA_POR_DEFECTO;
+
+        require __DIR__ . '/../views/productos/stock.php';
     }
 }
