@@ -17,7 +17,13 @@ php -S localhost:8000 -t public         # déjalo abierto
 | http://localhost:8000/?ruta=producto&codigo=7750000000011 | Ficha de un producto por código de barras |
 | http://localhost:8000/?ruta=producto&id=8 | Ficha de un producto al peso (no tiene código de barras) |
 | http://localhost:8000/?ruta=xyz | Página 404 |
-| /poo_producto.php · /poo_roles.php · /poo_repository.php | Páginas de prueba de los pasos 1, 2 y 3 |
+| http://localhost:8000/?ruta=stock | Stock de los 12 productos en las 3 tiendas |
+| http://localhost:8000/?ruta=ventas&tienda=1 | Ventas de Mass Cayma (B001-00000002 sale ANULADA) |
+| http://localhost:8000/?ruta=comprobante&serie=F001&numero=1 | Factura con pago mixto (tarjeta + efectivo) |
+| http://localhost:8000/?ruta=tiendas | Las 3 tiendas con cajas, series y personal |
+| /poo_producto.php · /poo_roles.php · /poo_repository.php · /poo_ventas.php | Páginas de prueba |
+
+La lista completa de archivos está en `docs/explicacion_archivos.md`.
 
 ## Estructura
 

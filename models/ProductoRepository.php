@@ -5,7 +5,7 @@ require_once __DIR__ . '/Producto.php';
 require_once __DIR__ . '/Stock.php';
 
 /**
- * De donde salen los datos de producto y stock.
+ * De donde salen los datos de producto y stock (las tiendas estan en TiendaRepository).
  * Hoy: listas fijas copiadas de database/datos.sql.
  * Sesion 5: estos mismos metodos leeran de MySQL (puerto 3307) con PDO,
  * y el controlador y la vista no cambian.
@@ -18,11 +18,11 @@ class ProductoRepository
     /** @var Stock[] */
     private array $stocks;
 
-    /** @var array<int, string> id_tienda => nombre_tienda */
-    private array $tiendas = [
-        1 => 'Mass Cayma',
-        2 => 'Mass Cerro Colorado',
-        3 => 'Mass Yanahuara',
+    /** @var array<int, string> id_unidad => abreviatura (tabla unidad_medida) */
+    private array $unidades = [
+        1 => 'und',
+        2 => 'kg',
+        3 => 'lt',
     ];
 
     public function __construct()
@@ -122,9 +122,8 @@ class ProductoRepository
         return null;
     }
 
-    /** @return array<int, string> */
-    public function tiendas(): array
+    public function abreviaturaUnidad(int $idUnidad): string
     {
-        return $this->tiendas;
+        return $this->unidades[$idUnidad] ?? '-';
     }
 }
