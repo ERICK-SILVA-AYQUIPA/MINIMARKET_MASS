@@ -4,8 +4,7 @@ declare(strict_types=1);
  * V: ficha de un producto.
  * @var Producto $producto
  * @var ?Stock $stock
- * @var int $idTienda
- * @var string $nombreTienda
+ * @var Tienda $tienda
  */
 $titulo = $producto->getNombreProducto();
 require __DIR__ . '/../layout_inicio.php';
@@ -13,7 +12,7 @@ require __DIR__ . '/../layout_inicio.php';
 // Ejemplo de importe: 1 unidad, o 1.250 kg si es al peso
 $cantidadEjemplo = $producto->esAlPeso() ? 1.25 : 1.0;
 ?>
-<p><a href="/?ruta=productos&amp;tienda=<?= $idTienda ?>">← Volver al catálogo</a></p>
+<p><a href="/?ruta=productos&amp;tienda=<?= $tienda->getIdTienda() ?>">← Volver al catálogo</a></p>
 <h1><?= e($producto->getNombreProducto()) ?></h1>
 
 <table>
@@ -24,7 +23,7 @@ $cantidadEjemplo = $producto->esAlPeso() ? 1.25 : 1.0;
         <td><?= e(number_format($cantidadEjemplo, $producto->esAlPeso() ? 3 : 0)) ?> × <?= e(soles($producto->getPrecioVenta())) ?>
             = <?= e(soles($producto->importe($cantidadEjemplo))) ?></td></tr>
     <tr><th>Estado</th><td><?= e($producto->getEstado()) ?></td></tr>
-    <tr><th>Stock en <?= e($nombreTienda) ?></th>
+    <tr><th>Stock en <?= e($tienda->getNombreTienda()) ?></th>
         <td>
             <?php if ($stock === null): ?>
                 Sin registro de stock
