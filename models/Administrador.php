@@ -19,4 +19,16 @@ class Administrador extends Usuario
     {
         return $this->estaActivo() && $idTienda === $this->getIdTienda();
     }
+
+    // Cualquier administrador activo mantiene el catalogo comun
+    public function puedeAdministrarCatalogo(): bool
+    {
+        return $this->estaActivo();
+    }
+
+    // El jefe de tienda maneja el personal, los minimos y los reportes de SU tienda
+    public function puedeAdministrarTienda(int $idTienda): bool
+    {
+        return $this->estaActivo() && $idTienda === $this->getIdTienda();
+    }
 }

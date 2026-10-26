@@ -16,6 +16,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
 - **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`docs/informe_tecnico.md`**: Informe técnico académico completo del proyecto (análisis del negocio, 5 diagramas UML, justificación de diseño 3FN, diccionario de datos, reglas de negocio y conclusiones).
 - **`docs/informe_tecnico.html`**: Versión web e imprimible del informe técnico en formato ejecutivo profesional.
@@ -110,7 +111,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql y login.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql y seguridad.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -142,7 +143,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 
 - **`config/Database.php`**: conexión PDO única; lee host, puerto, base, usuario y clave del `.env`.
 - **`models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
-- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController` y `CajaController`. Validan la entrada, piden datos y eligen la vista.
+- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController`, `CajaController`, `EmpleadoController`, `ClienteController` y `ReporteController`. Validan la entrada, piden datos y eligen la vista.
 - **`views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
 - **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
 - **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
@@ -167,7 +168,7 @@ Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave 
 | Rol | Ejemplo (Cayma) | Qué puede hacer |
 |---|---|---|
 | Cajero | Luis · `70000002` | Abrir y cerrar su turno de caja y registrar boletas y facturas |
-| Administrador | Rosa · `70000001` | Anular ventas de su tienda y ver el arqueo de caja |
+| Administrador | Rosa · `70000001` | Anular ventas de su tienda, ver el arqueo y los reportes, manejar su personal, el catálogo y el stock mínimo |
 | Almacenero | Carmen · `70000003` | Trasladar mercadería a otra tienda y registrar mermas |
 
 Cada operación escribe en MySQL dentro de una **transacción** (`models/servicios/`): si un paso falla, no queda nada a medias. Toda salida o entrada de stock deja su fila en el kardex (`movimiento_stock`).
@@ -179,14 +180,24 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 | `?ruta=comprobante&...` | Botón **Anular** para el administrador: devuelve el stock y anula los pagos |
 | `?ruta=traslados` | Trasladar mercadería entre tiendas (salida y entrada en el kardex) |
 | `?ruta=mermas` | Registrar productos vencidos, dañados o robados |
-| `?ruta=kardex&tienda=1` | Movimientos de stock de la tienda |
+| `?ruta=kardex&tienda=1` | Movimientos de stock de la tienda (de 50 en 50) |
+| `?ruta=ventas&desde=...&hasta=...&estado=...` | Ventas filtradas por fecha y estado, de 25 en 25 |
+| `?ruta=producto_form` | Administrador: crear o editar un producto (nombre, código, precio, categoría, marca) |
+| `?ruta=producto&id=8` | Administrador: descontinuar o reactivar, y fijar el stock mínimo de su tienda |
+| `?ruta=catalogo` | Categorías, marcas y unidades; el administrador agrega nuevas |
+| `?ruta=empleados` | Administrador: registrar, editar, desactivar y poner clave al personal de su tienda |
+| `?ruta=clientes` | Cajero y administrador: buscar clientes por DNI o RUC, ver sus compras y completar el documento que falta |
+| `?ruta=reportes` | Administrador: vendido, ticket promedio, ventas por día, más vendidos, por categoría, cajero y método de pago, con descarga CSV |
+| `?ruta=mi_clave` | Cada empleado cambia su propia clave |
 
-**Importante:** `login.sql` agrega la columna `clave_hash`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`).
+
+**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` agrega la tabla `intento_login` y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 40 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 72 comprobaciones; solo con la base recién creada
 ```
 
 ---

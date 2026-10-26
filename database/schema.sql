@@ -136,7 +136,7 @@ CREATE TABLE producto (
     codigo_barras     VARCHAR(14)       NULL,                    -- opcional (productos al peso)
     precio_venta      DECIMAL(10,2)     NOT NULL,                -- precio unico para todas las tiendas
     se_vende_por_peso CHAR(1)           NOT NULL DEFAULT 'N',
-    estado            VARCHAR(10)       NOT NULL DEFAULT 'ACTIVO',
+    estado            VARCHAR(13)       NOT NULL DEFAULT 'ACTIVO',   -- 'DESCONTINUADO' tiene 13 letras
     id_categoria      SMALLINT UNSIGNED NOT NULL,
     id_marca          SMALLINT UNSIGNED NOT NULL,
     id_unidad         TINYINT UNSIGNED  NOT NULL,

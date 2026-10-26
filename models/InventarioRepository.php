@@ -17,22 +17,36 @@ class InventarioRepository
     public function __construct(private PDO $db) {}
 
     /**
-     * Kardex de una tienda, del mas reciente al mas antiguo. Con producto, solo ese producto.
+     * Una pagina del kardex de una tienda, del mas reciente al mas antiguo. Con producto, solo ese producto.
      * @return MovimientoStock[]
      */
-    public function kardex(int $idTienda, ?int $idProducto, int $limite = 200): array
+    public function kardex(int $idTienda, ?int $idProducto, int $limite = 50, int $offset = 0): array
     {
-        $sql = 'SELECT ' . self::COLUMNAS_MOVIMIENTO . ' FROM movimiento_stock m WHERE m.id_tienda = :tienda';
-        $parametros = ['tienda' => $idTienda];
-        if ($idProducto !== null) {
-            $sql .= ' AND m.id_producto = :producto';
-            $parametros['producto'] = $idProducto;
-        }
-        $sql .= ' ORDER BY m.id_movimiento DESC LIMIT ' . max(1, min($limite, 1000));
-
-        $consulta = $this->db->prepare($sql);
+        [$donde, $parametros] = $this->dondeKardex($idTienda, $idProducto);
+        // LIMIT y OFFSET son enteros calculados en PHP
+        $consulta = $this->db->prepare(
+            'SELECT ' . self::COLUMNAS_MOVIMIENTO . ' FROM movimiento_stock m WHERE ' . $donde
+            . ' ORDER BY m.id_movimiento DESC LIMIT ' . max(1, min($limite, 1000)) . ' OFFSET ' . max(0, $offset)
+        );
         $consulta->execute($parametros);
         return array_map(fn(array $f): MovimientoStock => $this->crearMovimiento($f), $consulta->fetchAll());
+    }
+
+    public function contarKardex(int $idTienda, ?int $idProducto): int
+    {
+        [$donde, $parametros] = $this->dondeKardex($idTienda, $idProducto);
+        $consulta = $this->db->prepare('SELECT COUNT(*) FROM movimiento_stock m WHERE ' . $donde);
+        $consulta->execute($parametros);
+        return (int) $consulta->fetchColumn();
+    }
+
+    /** @return array{0: string, 1: array<string, int>} */
+    private function dondeKardex(int $idTienda, ?int $idProducto): array
+    {
+        if ($idProducto === null) {
+            return ['m.id_tienda = :tienda', ['tienda' => $idTienda]];
+        }
+        return ['m.id_tienda = :tienda AND m.id_producto = :producto', ['tienda' => $idTienda, 'producto' => $idProducto]];
     }
 
     /** @return MovimientoStock[] */

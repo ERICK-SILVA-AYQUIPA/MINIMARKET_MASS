@@ -67,6 +67,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **SEGURIDAD:** login con `password_hash`/`password_verify`, cookie `httponly` y `SameSite=Lax`, id de sesión nuevo al entrar, token CSRF en cada POST, 403 si el rol no corresponde. Cada escritura en una transacción con `FOR UPDATE` (primero la serie, luego el stock por id de producto, para no trabar dos ventas).
 - **Prueba:** `php tests/integracion.php` contra la base recién creada (40 correctas, 0 fallas) y las consultas 20 a 28 de `consultas.sql` en 0 filas después de vender, anular, trasladar y registrar mermas desde el navegador.
 
+### Paso 10 · Mantenimiento, clientes, reportes y seguridad del ingreso (26/10/2026)
+- **OBJETIVO:** Que el administrador mantenga el catálogo, el stock mínimo y su personal; que cajero y administrador consulten clientes; reportes de venta; listas con páginas; y un ingreso más seguro. Sin proveedores, por decisión del grupo.
+- **ENTRADAS Y SALIDAS:** servicios `ProductoServicio`, `EmpleadoServicio` y `ClienteServicio`; `ReporteRepository` con las consultas 10 a 16 filtradas por tienda y fecha; `Paginacion`; `database/seguridad.sql` (tabla `intento_login`).
+- **SEGURIDAD:** permisos nuevos en `Usuario` (`puedeAdministrarCatalogo()`, `puedeAdministrarTienda()`); bloqueo de 15 minutos tras 5 claves erradas por DNI o 20 por IP; sesión que vence a los 30 minutos sin uso; claves de 8 a 72 caracteres con letras y números; cabecera `Content-Security-Policy` sin scripts; el CSV antepone `'` a un texto que empieza con `=`, `+`, `-` o `@` (Excel no lo ejecuta como fórmula).
+- **Prueba:** `php tests/integracion.php` con la base recién creada: 72 correctas, 0 fallas.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -79,7 +85,7 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | Anular solo ADMINISTRADOR de la misma tienda | Consulta 27 de `consultas.sql` marca como incoherente la anulación hecha por alguien que no es administrador de su tienda | ☑ |
 | Vender solo CAJERO | Consulta 25 de `consultas.sql` marca las ventas hechas por un empleado que no es cajero | ☑ |
 | Tienda por defecto: Mass Cayma (id 1) | `datos.sql`: id_tienda 1 = 'Mass Cayma'. Elegirla como defecto es decisión del grupo **[Grupo]** | ☑ |
-| `se_vende_por_peso` y `estado` se guardan como el texto de la columna ('S'/'N', 'ACTIVO') | `schema.sql`: CHAR(1) con CHECK IN ('S','N') y VARCHAR(10) con CHECK IN ('ACTIVO','DESCONTINUADO') | ☑ |
+| `se_vende_por_peso` y `estado` se guardan como el texto de la columna ('S'/'N', 'ACTIVO') | `schema.sql`: CHAR(1) con CHECK IN ('S','N') y VARCHAR(13) con CHECK IN ('ACTIVO','DESCONTINUADO') | ☑ |
 | Cada subtipo de pago es una clase hija de `PagoVenta` | `efectivo`, `tarjeta` y `billetera_digital_sip` tienen como llave `id_pago`, que es foránea a `pago_venta` | ☑ |
 | El id de método de pago va fijo en cada clase (1, 2, 3) | `datos.sql`: 1 EFECTIVO, 2 TARJETA, 3 BILLETERA DIGITAL SIP | ☑ |
 | Boleta o factura según la letra de la serie | `tipo_comprobante.letra_serie` es B o F, y `serie_comprobante` tiene un CHECK `^[BF][0-9]{3}$` | ☑ |
@@ -96,12 +102,19 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | Una factura exige RUC; una boleta acepta DNI o nada (CLIENTE VARIOS) | `vw_comprobante` imprime el RUC en la factura | ☑ |
 | Anular devuelve el stock con movimientos ANULACION_VENTA y deja los pagos ANULADO | Consultas 21 y 23 de `consultas.sql` | ☑ |
 | Un traslado deja dos movimientos: salida en el origen y entrada en el destino | `tipo_movimiento` 3 y 4 de `datos.sql` | ☑ |
+| Cualquier administrador mantiene el catálogo; el personal, el mínimo y los reportes, solo el de esa tienda | El precio es único para las 3 tiendas (`schema.sql`, tabla `producto`) **[Grupo]** | ☑ |
+| Un producto nuevo nace con stock 0 en las 3 tiendas | Sin proveedores no hay cómo ingresar stock; la fila existe para fijar su mínimo | ☑ |
+| Un producto por unidad necesita código de barras; uno al peso usa la unidad kg | Comentario de `codigo_barras` en `schema.sql` ("opcional (productos al peso)") y datos de `datos.sql` **[Grupo]** | ☑ |
+| La forma de venta (al peso o por unidad) no se cambia al editar | El stock y las ventas guardadas dependen de ella | ☑ |
+| Del cliente solo se completa el documento que falta | `vw_comprobante` lee el documento en vivo: cambiarlo cambiaría comprobantes pasados | ☑ |
+| El administrador no cambia su propio rol ni se desactiva | Así la tienda nunca se queda sin administrador | ☑ |
 
 ## Qué corregimos del código generado
 
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
 - 25/10/2026, paso 8: los Repository dejaron las listas fijas y ahora usan PDO. Reciben la conexión en el constructor, así que `index.php`, `poo_repository.php` y `poo_ventas.php` se ajustaron para pasarla. Ningún controlador ni vista existente cambió; solo se agregó la vista `errores/500.php`.
+- 26/10/2026, paso 10: `producto.estado` era `VARCHAR(10)` pero `'DESCONTINUADO'` tiene 13 letras, así que nunca se podía descontinuar un producto (MySQL respondía "Data too long"). Se cambió a `VARCHAR(13)` en `schema.sql` y en `diseno_bd.md`. La prueba del reporte comparaba solo el 17/10; el total de S/ 323.00 es del 17 al 19/10.
 - 26/10/2026, paso 9: `Catalogo.php` tenía varias clases en un archivo; se separó en una clase por archivo como pide la guía. El layout se podía incluir dos veces y redeclarar `e()`; se protegió con `function_exists`. La prueba fallaba al correrla dos veces (código Sip repetido); ahora se detiene si la base no está recién creada.
 - 25/10/2026, paso 7: el `ProductoController` ya no recibe las tiendas de `ProductoRepository`, ahora vienen de `TiendaRepository`. `poo_repository.php` se ajustó a ese cambio.
 - **[Grupo]** Anoten aquí lo que cada integrante cambió a mano al revisar su parte. Si nadie cambió nada, escriban "sin cambios manuales".
@@ -125,17 +138,18 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 ## Pendientes del diseño que todavía no tienen pantalla
 
-Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones.
+Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
 **[Grupo]** decidan si se agregan:
-- **Ingreso de mercadería de proveedores:** el esquema de 26 tablas no tiene proveedor ni compra, y `movimiento_stock` solo acepta venta, traslado o merma como origen. Hace falta cambiar el diseño.
-- **Mantenimiento de productos y precios** (crear, editar, descontinuar) y de empleados.
-- Cambiar la clave de cada empleado desde la aplicación.
+- **Ingreso de mercadería de proveedores:** quedó fuera por decisión del grupo. El esquema no tiene proveedor ni compra, y `movimiento_stock` solo acepta venta, traslado o merma como origen. Por eso un producto nuevo queda en stock 0.
+- **Ajuste de inventario** (conteo físico que corrige el stock): tampoco tiene tipo de movimiento ni origen en el diseño.
+- Mantenimiento de tiendas, cajas y series (hoy se cargan con `datos.sql`).
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 26/10/2026, paso 10: con Rosa, las 19 pantallas nuevas o cambiadas responden 200 (empleado de otra tienda 404). Crear un producto sin código da 422 y el nombre con `<b>` sale escapado. Luis recibe 403 en personal, reportes, CSV y formulario de producto, y su POST de producto o empleado da 403. Carmen recibe 403 en clientes. Un cajero nuevo entra y cambia su clave. Al sexto intento con clave errada el login responde 429. El CSV abre con tildes. Consultas 20 a 28 en 0 filas y `tests/integracion.php` 72 correctas, 0 fallas.
 - 26/10/2026, paso 9: sin sesión toda pantalla lleva al login; clave errada 401; POST sin token 403. Luis vende B001-7 y una venta sin stock responde 422 sin guardar nada. Luis no puede trasladar (403) ni anular; Rosa anula B001-7 y el stock vuelve. Carmen traslada y registra una merma; no puede abrir caja (403). Miguel abre y cierra su turno. Las consultas 20 a 28 siguen en 0 filas y `tests/integracion.php` da 40 correctas, 0 fallas.
 - 25/10/2026, paso 8, contra MySQL 8.4.11 en Docker: las mismas pantallas responden 200 y dan los mismos resultados (14 comprobantes cuadran, S/ 323.00, 2 casos REPONER). Al cambiar un stock en MySQL, la página lo refleja al instante. `' OR 1=1--` en la serie y en el código devuelve 404, y llamado directo al Repository devuelve `null`. Con el contenedor detenido, la página responde 503 sin mostrar usuario ni host.

@@ -156,6 +156,22 @@ abstract class Servicio
         ]);
     }
 
+    // Texto obligatorio del formulario: sin espacios a los lados, de 1 al maximo de la columna
+    protected function textoObligatorio(?string $texto, int $maximo, string $campo): string
+    {
+        $texto = $this->textoOpcional($texto, $maximo, $campo);
+        if ($texto === null) {
+            throw new ReglaNegocioException($campo . ' es obligatorio.');
+        }
+        return $texto;
+    }
+
+    // Error 1062 de MySQL: el valor ya existe en una columna UNIQUE
+    protected function esDuplicado(PDOException $ex): bool
+    {
+        return ($ex->errorInfo[1] ?? null) === 1062;
+    }
+
     // Texto opcional del formulario: vacio -> null; mas largo que la columna -> error
     protected function textoOpcional(?string $texto, int $maximo, string $campo): ?string
     {
