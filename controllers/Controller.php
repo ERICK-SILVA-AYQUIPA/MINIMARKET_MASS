@@ -2,24 +2,60 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../models/TiendaRepository.php';
+require_once __DIR__ . '/../models/Usuario.php';
+require_once __DIR__ . '/../models/ReglaNegocioException.php';
+require_once __DIR__ . '/../config/Sesion.php';
 
 /**
- * Lo comun a todos los controladores: leer la tienda pedida y responder 404.
+ * Lo comun a todos los controladores: la sesion, quien entro, leer la tienda pedida,
+ * mostrar una vista y responder 403, 404 o redirigir.
  * Es abstract: no se usa solo, cada controlador hereda de el.
  */
 abstract class Controller
 {
     protected const TIENDA_POR_DEFECTO = 1; // Mass Cayma
 
-    public function __construct(protected TiendaRepository $tiendas) {}
+    public function __construct(
+        protected TiendaRepository $tiendas,
+        protected Sesion $sesion,
+        protected ?Usuario $usuario
+    ) {}
 
     public function noEncontrado(string $mensaje = 'La pagina no existe.'): void
     {
         http_response_code(404);
-        require __DIR__ . '/../views/errores/404.php';
+        $this->vista('errores/404', ['mensaje' => $mensaje]);
     }
 
-    // Solo acepta un id de tienda que exista; si no, usa la tienda por defecto
+    // El usuario entro, pero su rol no le permite esto. El permiso se revisa aqui, en PHP.
+    public function prohibido(string $mensaje): void
+    {
+        http_response_code(403);
+        $this->vista('errores/403', ['mensaje' => $mensaje]);
+    }
+
+    /**
+     * Muestra una vista con sus datos, mas lo que necesita el layout:
+     * el usuario actual, el token CSRF y el aviso pendiente.
+     */
+    protected function vista(string $__vista, array $__datos = []): void
+    {
+        unset($__datos['this']);
+        extract($__datos, EXTR_SKIP);
+        $usuarioActual = $this->usuario;
+        $csrf = $this->sesion->tokenCsrf();
+        $aviso = $this->sesion->tomarAviso();
+        require __DIR__ . '/../views/' . $__vista . '.php';
+    }
+
+    // Despues de un POST que guardo algo: aviso + redireccion (asi F5 no repite la operacion)
+    protected function redirigir(string $url, string $mensaje): void
+    {
+        $this->sesion->avisar('ok', $mensaje);
+        header('Location: ' . $url, true, 303);
+    }
+
+    // Solo acepta un id de tienda que exista; si no, usa la del usuario o la tienda por defecto
     protected function leerTienda(?string $valor): Tienda
     {
         if ($valor !== null && ctype_digit($valor)) {
@@ -28,6 +64,30 @@ abstract class Controller
                 return $tienda;
             }
         }
-        return $this->tiendas->buscarPorId(self::TIENDA_POR_DEFECTO);
+        return $this->tiendas->buscarPorId($this->usuario?->getIdTienda() ?? self::TIENDA_POR_DEFECTO);
+    }
+
+    /**
+     * Lineas de producto de un formulario: producto[] y cantidad[] -> [[id_producto, cantidad], ...]
+     * @return array<int, array{id_producto: string, cantidad: string}>
+     */
+    protected function lineasDelFormulario(array $post): array
+    {
+        $productos = is_array($post['producto'] ?? null) ? $post['producto'] : [];
+        $cantidades = is_array($post['cantidad'] ?? null) ? $post['cantidad'] : [];
+        $lineas = [];
+        foreach ($productos as $i => $idProducto) {
+            $lineas[] = [
+                'id_producto' => is_string($idProducto) ? $idProducto : '',
+                'cantidad'    => is_string($cantidades[$i] ?? null) ? $cantidades[$i] : '',
+            ];
+        }
+        return $lineas;
+    }
+
+    // Un campo de texto del POST; si no es texto (por ejemplo un arreglo) se toma como vacio
+    protected function campo(array $post, string $nombre): string
+    {
+        return is_string($post[$nombre] ?? null) ? $post[$nombre] : '';
     }
 }

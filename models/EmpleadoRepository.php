@@ -30,6 +30,19 @@ class EmpleadoRepository
         return $fila === false ? null : $this->crear($fila);
     }
 
+    /**
+     * Para el login: id y hash de la clave del empleado con ese DNI. null si el DNI no existe.
+     * El hash nunca sale de aqui hacia una vista.
+     * @return array{idEmpleado: int, claveHash: ?string}|null
+     */
+    public function credencialesPorDni(string $dni): ?array
+    {
+        $consulta = $this->db->prepare('SELECT id_empleado, clave_hash FROM empleado WHERE dni = :dni');
+        $consulta->execute(['dni' => $dni]);
+        $f = $consulta->fetch();
+        return $f === false ? null : ['idEmpleado' => (int) $f['id_empleado'], 'claveHash' => $f['clave_hash']];
+    }
+
     /** @return Usuario[] */
     public function deTienda(int $idTienda): array
     {
