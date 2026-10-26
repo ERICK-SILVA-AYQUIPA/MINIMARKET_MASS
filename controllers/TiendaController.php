@@ -12,10 +12,12 @@ class TiendaController extends Controller
 {
     public function __construct(
         TiendaRepository $tiendas,
+        Sesion $sesion,
+        ?Usuario $usuario,
         private EmpleadoRepository $empleados,
         private VentaRepository $ventas
     ) {
-        parent::__construct($tiendas);
+        parent::__construct($tiendas, $sesion, $usuario);
     }
 
     // GET /?ruta=tiendas
@@ -32,6 +34,6 @@ class TiendaController extends Controller
             ];
         }
 
-        require __DIR__ . '/../views/tiendas/lista.php';
+        $this->vista('tiendas/lista', get_defined_vars());
     }
 }

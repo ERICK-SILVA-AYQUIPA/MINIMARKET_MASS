@@ -66,4 +66,16 @@ abstract class Usuario
     {
         return false;
     }
+
+    // Abrir y cerrar su propio turno de caja
+    public function puedeManejarCaja(): bool
+    {
+        return false;
+    }
+
+    // Ver el arqueo (cuadre) de los turnos de una tienda
+    public function puedeVerArqueo(int $idTienda): bool
+    {
+        return false;
+    }
 }

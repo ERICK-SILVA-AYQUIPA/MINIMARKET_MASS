@@ -55,6 +55,18 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **Prueba:** `public/poo_ventas.php` y las 14 boletas y facturas de `datos.sql`.
 - **Cambio al código anterior:** las tiendas pasaron de `ProductoRepository` a `TiendaRepository`, y `leerTienda()` y `noEncontrado()` pasaron a la clase base `Controller`.
 
+### Paso 8 · Conexión a MySQL 8.4.11 en Docker (25/10/2026)
+- **OBJETIVO:** Que los Repository lean de MySQL 8.4.11 en Docker en vez de listas fijas, sin cambiar controladores ni vistas.
+- **ENTRADAS Y SALIDAS:** `docker-compose.yml` con `mysql:8.4.11` que ejecuta `schema.sql`, `datos.sql` y `boleta (1).sql` al crear el contenedor. `config/Database.php` con PDO, que lee `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD` del entorno o de `.env`. Los Repository mantienen los mismos métodos.
+- **SEGURIDAD:** consultas preparadas con marcadores y `ATTR_EMULATE_PREPARES = false`. El `.env` está en `.gitignore` y en el repo solo va `.env.example`. Si la base falla, el navegador ve 503 o 500 sin detalle técnico.
+- **Prueba:** contenedor creado desde cero con `docker compose down -v` y `up -d`; todas las pantallas contra la base real.
+
+### Paso 9 · Backend completo: login, ventas, anulaciones, inventario y caja (26/10/2026)
+- **OBJETIVO:** Que cada tabla del esquema tenga su clase y su Repository, y que la aplicación escriba en MySQL: registrar y anular ventas, traslados, mermas, kardex y turnos de caja, con login por rol.
+- **ENTRADAS Y SALIDAS:** `database/login.sql` (columna `clave_hash`). Servicios en `models/servicios/` que reciben el `Usuario` y las líneas del formulario y devuelven el comprobante creado o lanzan `ReglaNegocioException` con un mensaje para la pantalla. Nuevas rutas `login`, `caja`, `venta_nueva`, `kardex`, `traslados` y `mermas`.
+- **SEGURIDAD:** login con `password_hash`/`password_verify`, cookie `httponly` y `SameSite=Lax`, id de sesión nuevo al entrar, token CSRF en cada POST, 403 si el rol no corresponde. Cada escritura en una transacción con `FOR UPDATE` (primero la serie, luego el stock por id de producto, para no trabar dos ventas).
+- **Prueba:** `php tests/integracion.php` contra la base recién creada (40 correctas, 0 fallas) y las consultas 20 a 28 de `consultas.sql` en 0 filas después de vender, anular, trasladar y registrar mermas desde el navegador.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -74,11 +86,23 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | Sin cliente se imprime "CLIENTE VARIOS" | Rama `ELSE` de la columna `cliente` de `vw_comprobante` | ☑ |
 | Las fechas van como texto `'AAAA-MM-DD HH:MM:SS'` | Es como PDO devuelve un DATETIME; se puede cambiar a `DateTimeImmutable` en la sesión 5 **[Grupo]** | ☑ |
 | Los montos se comparan en céntimos | Un float no suma exacto (0.1 + 0.2); DECIMAL(10,2) sí | ☑ |
+| Los DECIMAL se convierten a `float` en el Repository | PDO con MySQL entrega DECIMAL como texto (`"4.50"`); comprobado contra el contenedor | ☑ |
+| Puerto 3307 en la PC | Es el que ya usaba el README para Laragon; se cambia con `DB_PORT` **[Grupo]** | ☑ |
+| La aplicación entra con un usuario propio (`mass_app`), no con root | Lo crea el contenedor con `MYSQL_USER`; tiene permisos solo sobre `minimarket_mass` | ☑ |
+| La clave va en una columna nueva `empleado.clave_hash` | El esquema no tenía dónde guardarla; se agrega con `login.sql` sin tocar `schema.sql` **[Grupo]** | ☑ |
+| Clave de prueba `Mass2026!` para los 9 empleados | Solo para el aula; en la base va el hash bcrypt **[Grupo]** | ☑ |
+| El cajero vende solo con un turno ABIERTO de su tienda, y la venta toma la caja de ese turno | `venta.id_caja_turno` es obligatorio; consulta 24 revisa que caja y venta sean de la misma tienda | ☑ |
+| Tarjeta y Sip cobran el monto escrito; el efectivo cubre el resto y calcula el vuelto | `efectivo.monto_recibido` y `vuelto`; consulta 22 exige que los pagos sumen el total | ☑ |
+| Una factura exige RUC; una boleta acepta DNI o nada (CLIENTE VARIOS) | `vw_comprobante` imprime el RUC en la factura | ☑ |
+| Anular devuelve el stock con movimientos ANULACION_VENTA y deja los pagos ANULADO | Consultas 21 y 23 de `consultas.sql` | ☑ |
+| Un traslado deja dos movimientos: salida en el origen y entrada en el destino | `tipo_movimiento` 3 y 4 de `datos.sql` | ☑ |
 
 ## Qué corregimos del código generado
 
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
+- 25/10/2026, paso 8: los Repository dejaron las listas fijas y ahora usan PDO. Reciben la conexión en el constructor, así que `index.php`, `poo_repository.php` y `poo_ventas.php` se ajustaron para pasarla. Ningún controlador ni vista existente cambió; solo se agregó la vista `errores/500.php`.
+- 26/10/2026, paso 9: `Catalogo.php` tenía varias clases en un archivo; se separó en una clase por archivo como pide la guía. El layout se podía incluir dos veces y redeclarar `e()`; se protegió con `function_exists`. La prueba fallaba al correrla dos veces (código Sip repetido); ahora se detiene si la base no está recién creada.
 - 25/10/2026, paso 7: el `ProductoController` ya no recibe las tiendas de `ProductoRepository`, ahora vienen de `TiendaRepository`. `poo_repository.php` se ajustó a ese cambio.
 - **[Grupo]** Anoten aquí lo que cada integrante cambió a mano al revisar su parte. Si nadie cambió nada, escriban "sin cambios manuales".
 
@@ -101,10 +125,17 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 ## Pendientes del diseño que todavía no tienen pantalla
 
-**[Grupo]** decidan si se agregan: traslados de mercadería, mermas, kardex (`movimiento_stock`) y arqueo de turnos de caja. Las tablas y los datos ya existen. Emitir o anular una venta de verdad necesita guardar en MySQL (sesión 5) y login (sesión 6).
+Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones.
+
+**[Grupo]** decidan si se agregan:
+- **Ingreso de mercadería de proveedores:** el esquema de 26 tablas no tiene proveedor ni compra, y `movimiento_stock` solo acepta venta, traslado o merma como origen. Hace falta cambiar el diseño.
+- **Mantenimiento de productos y precios** (crear, editar, descontinuar) y de empleados.
+- Cambiar la clave de cada empleado desde la aplicación.
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 26/10/2026, paso 9: sin sesión toda pantalla lleva al login; clave errada 401; POST sin token 403. Luis vende B001-7 y una venta sin stock responde 422 sin guardar nada. Luis no puede trasladar (403) ni anular; Rosa anula B001-7 y el stock vuelve. Carmen traslada y registra una merma; no puede abrir caja (403). Miguel abre y cierra su turno. Las consultas 20 a 28 siguen en 0 filas y `tests/integracion.php` da 40 correctas, 0 fallas.
+- 25/10/2026, paso 8, contra MySQL 8.4.11 en Docker: las mismas pantallas responden 200 y dan los mismos resultados (14 comprobantes cuadran, S/ 323.00, 2 casos REPONER). Al cambiar un stock en MySQL, la página lo refleja al instante. `' OR 1=1--` en la serie y en el código devuelve 404, y llamado directo al Repository devuelve `null`. Con el contenedor detenido, la página responde 503 sin mostrar usuario ni host.

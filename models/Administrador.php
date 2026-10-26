@@ -13,4 +13,10 @@ class Administrador extends Usuario
     {
         return $this->estaActivo() && $idTiendaDeLaVenta === $this->getIdTienda();
     }
+
+    // El jefe de tienda revisa el cuadre de las cajas de su tienda
+    public function puedeVerArqueo(int $idTienda): bool
+    {
+        return $this->estaActivo() && $idTienda === $this->getIdTienda();
+    }
 }

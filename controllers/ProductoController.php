@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
+require_once __DIR__ . '/../models/CatalogoRepository.php';
 
 /**
  * C: recibe el pedido, valida la entrada, pide datos al Repository
@@ -10,9 +11,15 @@ require_once __DIR__ . '/../models/ProductoRepository.php';
  */
 class ProductoController extends Controller
 {
-    public function __construct(TiendaRepository $tiendas, private ProductoRepository $repo)
+    public function __construct(
+        TiendaRepository $tiendas,
+        Sesion $sesion,
+        ?Usuario $usuario,
+        private ProductoRepository $repo,
+        private CatalogoRepository $catalogo
+    )
     {
-        parent::__construct($tiendas);
+        parent::__construct($tiendas, $sesion, $usuario);
     }
 
     // GET /?ruta=productos&tienda=1
@@ -30,7 +37,7 @@ class ProductoController extends Controller
             ];
         }
 
-        require __DIR__ . '/../views/productos/lista.php';
+        $this->vista('productos/lista', get_defined_vars());
     }
 
     // GET /?ruta=producto&codigo=7750000000011  o  /?ruta=producto&id=8
@@ -50,7 +57,10 @@ class ProductoController extends Controller
 
         $tienda = $this->leerTienda($tiendaPedida);
         $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda());
-        require __DIR__ . '/../views/productos/detalle.php';
+        $categoria = $this->catalogo->buscarCategoria($producto->getIdCategoria());
+        $marca = $this->catalogo->buscarMarca($producto->getIdMarca());
+        $unidad = $this->catalogo->buscarUnidad($producto->getIdUnidad());
+        $this->vista('productos/detalle', get_defined_vars());
     }
 
     // GET /?ruta=stock: el stock de cada producto en las 3 tiendas, lado a lado
@@ -72,6 +82,6 @@ class ProductoController extends Controller
             $filas[] = ['producto' => $producto, 'stocks' => $stocks];
         }
 
-        require __DIR__ . '/../views/productos/stock.php';
+        $this->vista('productos/stock', get_defined_vars());
     }
 }
