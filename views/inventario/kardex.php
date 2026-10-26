@@ -10,6 +10,8 @@ declare(strict_types=1);
  * @var array<int, TipoMovimiento> $tipos
  * @var array<int, string> $nombresEmpleado
  * @var MovimientoStock[] $movimientos
+ * @var Paginacion $paginacion
+ * @var string $urlPagina
  */
 $titulo = 'Kardex';
 require __DIR__ . '/../layout_inicio.php';
@@ -57,5 +59,6 @@ require __DIR__ . '/../layout_inicio.php';
     <?php endforeach; ?>
 </table>
 </div>
-<p><?= count($movimientos) ?> movimientos (máximo 200).</p>
+<?php require __DIR__ . '/../parciales/paginacion.php'; ?>
+<p><?= $paginacion->getTotalFilas() ?> movimientos.</p>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

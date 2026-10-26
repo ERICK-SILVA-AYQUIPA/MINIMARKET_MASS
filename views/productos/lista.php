@@ -6,11 +6,15 @@ declare(strict_types=1);
  * @var array<int, Tienda> $tiendas
  * @var Tienda $tienda
  * @var string $rutaSelector
+ * @var bool $puedeEditar
  */
 $titulo = 'Catálogo';
 require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>Catálogo de productos</h1>
+<?php if ($puedeEditar): ?>
+    <p><a href="/?ruta=producto_form"><strong>+ Nuevo producto</strong></a> · <a href="/?ruta=catalogo">Categorías y marcas</a></p>
+<?php endif; ?>
 
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 

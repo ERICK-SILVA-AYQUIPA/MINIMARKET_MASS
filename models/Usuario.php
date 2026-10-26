@@ -78,4 +78,16 @@ abstract class Usuario
     {
         return false;
     }
+
+    // Crear y editar productos, categorias y marcas (el catalogo y el precio son de las 3 tiendas)
+    public function puedeAdministrarCatalogo(): bool
+    {
+        return false;
+    }
+
+    // Personal, stock minimo y reportes de una tienda
+    public function puedeAdministrarTienda(int $idTienda): bool
+    {
+        return false;
+    }
 }

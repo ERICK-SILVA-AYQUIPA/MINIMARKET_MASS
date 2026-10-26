@@ -343,7 +343,7 @@ Catálogo de artículos con precio único nacional y especificación de venta po
 - `codigo_barras` (VARCHAR(14), NULL, UNIQUE, CHECK `codigo_barras IS NULL OR codigo_barras REGEXP '^[0-9]{8,14}$'`)
 - `precio_venta` (DECIMAL(10,2), NOT NULL, CHECK `precio_venta > 0`)
 - `se_vende_por_peso` (CHAR(1), NOT NULL, DEFAULT 'N', CHECK IN ('S', 'N'))
-- `estado` (VARCHAR(10), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'DESCONTINUADO'))
+- `estado` (VARCHAR(13), NOT NULL, DEFAULT 'ACTIVO', CHECK IN ('ACTIVO', 'DESCONTINUADO'))
 - `id_categoria` (SMALLINT UNSIGNED, NOT NULL, FK → `categoria.id_categoria`)
 - `id_marca` (SMALLINT UNSIGNED, NOT NULL, FK → `marca.id_marca`)
 - `id_unidad` (TINYINT UNSIGNED, NOT NULL, FK → `unidad_medida.id_unidad`)

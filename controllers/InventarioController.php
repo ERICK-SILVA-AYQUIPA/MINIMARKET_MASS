@@ -6,6 +6,7 @@ require_once __DIR__ . '/../models/InventarioRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
+require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/InventarioServicio.php';
 
 /**
@@ -26,8 +27,8 @@ class InventarioController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=kardex&tienda=1&producto=8
-    public function kardex(?string $tiendaPedida, ?string $productoPedido): void
+    // GET /?ruta=kardex&tienda=1&producto=8&pagina=2
+    public function kardex(?string $tiendaPedida, ?string $productoPedido, ?string $pagina): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
@@ -38,7 +39,9 @@ class InventarioController extends Controller
 
         $tipos = $this->catalogo->tiposMovimiento();
         $nombresEmpleado = $this->nombresEmpleado();
-        $movimientos = $this->inventario->kardex($tienda->getIdTienda(), $idProducto);
+        $paginacion = new Paginacion($this->inventario->contarKardex($tienda->getIdTienda(), $idProducto), $pagina, 50);
+        $movimientos = $this->inventario->kardex($tienda->getIdTienda(), $idProducto, $paginacion->getPorPagina(), $paginacion->offset());
+        $urlPagina = '/?' . http_build_query(['ruta' => 'kardex', 'tienda' => $tienda->getIdTienda(), 'producto' => $idProducto]);
         $this->vista('inventario/kardex', get_defined_vars());
     }
 

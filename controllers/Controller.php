@@ -85,6 +85,21 @@ abstract class Controller
         return $lineas;
     }
 
+    // Fecha AAAA-MM-DD que existe en el calendario (2026-02-30 no). null si no es valida.
+    protected function leerFecha(?string $valor): ?string
+    {
+        if ($valor === null || preg_match('/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/', $valor, $m) !== 1) {
+            return null;
+        }
+        return checkdate((int) $m[2], (int) $m[3], (int) $m[1]) ? $valor : null;
+    }
+
+    // Id numerico de la URL o del formulario; 0 si no es un numero (ningun id vale 0)
+    protected function leerId(?string $valor): int
+    {
+        return $valor !== null && preg_match('/^[0-9]{1,9}$/', $valor) === 1 ? (int) $valor : 0;
+    }
+
     // Un campo de texto del POST; si no es texto (por ejemplo un arreglo) se toma como vacio
     protected function campo(array $post, string $nombre): string
     {
