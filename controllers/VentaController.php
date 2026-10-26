@@ -7,6 +7,7 @@ require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/ClienteRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
+require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
 
 /**
@@ -28,16 +29,26 @@ class VentaController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=ventas&tienda=1
-    public function lista(?string $tiendaPedida): void
+    // GET /?ruta=ventas&tienda=1&desde=2026-10-01&hasta=2026-10-31&estado=EMITIDA&pagina=2
+    public function lista(?string $tiendaPedida, ?string $desde, ?string $hasta, ?string $estado, ?string $pagina): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
         $rutaSelector = 'ventas';
 
+        // Lo que no es valido se ignora (se muestra sin ese filtro)
+        $filtro = [
+            'desde'  => $this->leerFecha($desde),
+            'hasta'  => $this->leerFecha($hasta),
+            'estado' => in_array($estado, ['EMITIDA', 'ANULADA'], true) ? $estado : null,
+        ];
+        $resumen = $this->ventas->resumenVentas($tienda->getIdTienda(), $filtro);
+        $paginacion = new Paginacion($resumen['cantidad'], $pagina);
+        $totalEmitido = $resumen['totalEmitido'];
+
         $filas = [];
-        $totalEmitido = 0.0;
-        foreach ($this->ventas->ventasDeTienda($tienda->getIdTienda()) as $venta) {
+        $ventas = $this->ventas->buscarVentas($tienda->getIdTienda(), $filtro, $paginacion->getPorPagina(), $paginacion->offset());
+        foreach ($ventas as $venta) {
             $serie = $this->ventas->buscarSerie($venta->getIdSerie());
             $turno = $this->ventas->buscarTurno($venta->getIdCajaTurno());
             $cajero = $turno !== null ? $this->empleados->buscarPorId($turno->getIdEmpleado()) : null;
@@ -48,11 +59,10 @@ class VentaController extends Controller
                 'cliente'     => $this->documentoCliente($venta, $serie),
                 'pagosCuadran' => $venta->pagosCuadran($this->ventas->pagosDeVenta($venta->getIdVenta())),
             ];
-            if (!$venta->estaAnulada()) {
-                $totalEmitido += $venta->getTotal();
-            }
         }
 
+        // Los enlaces de pagina conservan la tienda y los filtros
+        $urlPagina = '/?' . http_build_query(['ruta' => 'ventas', 'tienda' => $tienda->getIdTienda()] + array_filter($filtro));
         $this->vista('ventas/lista', get_defined_vars());
     }
 

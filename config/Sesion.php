@@ -24,10 +24,26 @@ final class Sesion
         session_start();
     }
 
+    // Minutos sin usar la aplicacion antes de pedir el login otra vez
+    public const MINUTOS_INACTIVIDAD = 30;
+
     public function idEmpleado(): ?int
     {
         $id = $_SESSION['id_empleado'] ?? null;
-        return is_int($id) ? $id : null;
+        if (!is_int($id)) {
+            return null;
+        }
+        // Una sesion olvidada abierta en la caja se cierra sola
+        $ultima = $_SESSION['ultima_actividad'] ?? 0;
+        if (!is_int($ultima) || time() - $ultima > self::MINUTOS_INACTIVIDAD * 60) {
+            // Se vacia y se cambia el id, pero la sesion sigue viva para el formulario de login
+            $_SESSION = [];
+            session_regenerate_id(true);
+            $this->avisar('error', 'Tu sesión venció por inactividad. Ingresa otra vez.');
+            return null;
+        }
+        $_SESSION['ultima_actividad'] = time();
+        return $id;
     }
 
     // Despues del login se cambia el id de sesion (evita robar una sesion fijada antes)
@@ -35,6 +51,7 @@ final class Sesion
     {
         session_regenerate_id(true);
         $_SESSION['id_empleado'] = $idEmpleado;
+        $_SESSION['ultima_actividad'] = time();
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
     }
 

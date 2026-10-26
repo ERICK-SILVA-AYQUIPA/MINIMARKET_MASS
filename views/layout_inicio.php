@@ -63,6 +63,13 @@ if (!function_exists('e')) {
         button { padding: 8px 14px; background: #2d3a4a; color: #fff; border: 0; border-radius: 4px; cursor: pointer; }
         button.peligro { background: #a12622; }
         button.enlace { background: none; color: #1f2933; padding: 0; text-decoration: underline; }
+        nav.paginas { margin: 12px 0; }
+        nav.paginas a, nav.paginas span { margin-right: 10px; }
+        form.filtros { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin: 12px 0; }
+        form.filtros label { display: flex; flex-direction: column; font-size: .9em; }
+        .tarjetas { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+        .tarjetas div { background: #fff; padding: 12px 16px; min-width: 150px; }
+        .tarjetas strong { display: block; font-size: 1.4em; }
     </style>
 </head>
 <body>
@@ -79,9 +86,16 @@ if (!function_exists('e')) {
             <a href="/?ruta=mermas">Mermas</a>
             <a href="/?ruta=kardex">Kardex</a>
             <a href="/?ruta=tiendas">Tiendas</a>
+            <?php if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($usuarioActual->getIdTienda())): ?><a href="/?ruta=clientes">Clientes</a><?php endif; ?>
+            <?php if ($usuarioActual->puedeAdministrarTienda($usuarioActual->getIdTienda())): ?>
+                <a href="/?ruta=reportes">Reportes</a>
+                <a href="/?ruta=empleados">Personal</a>
+            <?php endif; ?>
+            <?php if ($usuarioActual->puedeAdministrarCatalogo()): ?><a href="/?ruta=catalogo">Categorías y marcas</a><?php endif; ?>
         </nav>
         <span class="usuario">
             <?= e($usuarioActual->nombreCompleto()) ?> · <?= e($usuarioActual->getNombreRol()) ?>
+            · <a href="/?ruta=mi_clave">Mi clave</a>
             <form method="post" action="/?ruta=salir"><?= campoCsrf($csrf) ?><button class="enlace" type="submit">Salir</button></form>
         </span>
     <?php endif; ?>

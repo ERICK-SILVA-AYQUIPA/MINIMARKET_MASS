@@ -6,13 +6,33 @@ declare(strict_types=1);
  * @var Tienda $tienda
  * @var string $rutaSelector
  * @var array<int, array{venta: Venta, serie: SerieComprobante, cajero: ?Usuario, cliente: string, pagosCuadran: bool}> $filas
- * @var float $totalEmitido
+ * @var float $totalEmitido  de todas las paginas, sin anuladas
+ * @var array{desde: ?string, hasta: ?string, estado: ?string} $filtro
+ * @var Paginacion $paginacion
+ * @var string $urlPagina
  */
 $titulo = 'Ventas';
 require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>Ventas de <?= e($tienda->getNombreTienda()) ?></h1>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
+
+<form class="filtros" method="get" action="/">
+    <input type="hidden" name="ruta" value="ventas">
+    <input type="hidden" name="tienda" value="<?= $tienda->getIdTienda() ?>">
+    <label>Desde <input type="date" name="desde" value="<?= e($filtro['desde'] ?? '') ?>"></label>
+    <label>Hasta <input type="date" name="hasta" value="<?= e($filtro['hasta'] ?? '') ?>"></label>
+    <label>Estado
+        <select name="estado">
+            <option value="">Todos</option>
+            <?php foreach (['EMITIDA', 'ANULADA'] as $opcion): ?>
+                <option value="<?= $opcion ?>" <?= $filtro['estado'] === $opcion ? 'selected' : '' ?>><?= $opcion ?></option>
+            <?php endforeach; ?>
+        </select>
+    </label>
+    <button type="submit">Filtrar</button>
+    <a href="/?ruta=ventas&amp;tienda=<?= $tienda->getIdTienda() ?>">Quitar filtros</a>
+</form>
 
 <div class="tabla">
 <table>
@@ -39,5 +59,6 @@ require __DIR__ . '/../layout_inicio.php';
     </tbody>
 </table>
 </div>
-<p><?= count($filas) ?> comprobantes. Total emitido (sin anuladas): <strong><?= e(soles($totalEmitido)) ?></strong></p>
+<?php require __DIR__ . '/../parciales/paginacion.php'; ?>
+<p><?= $paginacion->getTotalFilas() ?> comprobantes. Total emitido (sin anuladas): <strong><?= e(soles($totalEmitido)) ?></strong></p>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

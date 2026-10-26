@@ -83,6 +83,75 @@ class VentaRepository
         return array_map(fn(array $fila): Venta => $this->crearVenta($fila), $consulta->fetchAll());
     }
 
+    /**
+     * Una pagina de ventas de una tienda, de la mas reciente a la mas antigua.
+     * @param array{desde?: ?string, hasta?: ?string, estado?: ?string} $filtro fechas AAAA-MM-DD ya validadas
+     * @return Venta[]
+     */
+    public function buscarVentas(int $idTienda, array $filtro, int $limite, int $offset): array
+    {
+        [$donde, $parametros] = $this->donde($idTienda, $filtro);
+        // LIMIT y OFFSET son enteros calculados en PHP: se pegan ya convertidos con (int)
+        $consulta = $this->db->prepare(
+            'SELECT ' . self::COLUMNAS_VENTA . '
+               FROM venta v
+               JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE ' . $donde . '
+              ORDER BY v.fecha_hora DESC, v.id_venta DESC
+              LIMIT ' . (int) $limite . ' OFFSET ' . (int) $offset
+        );
+        $consulta->execute($parametros);
+        return array_map(fn(array $fila): Venta => $this->crearVenta($fila), $consulta->fetchAll());
+    }
+
+    /**
+     * Cuantas ventas cumplen el filtro y cuanto suman las EMITIDAS.
+     * @return array{cantidad: int, totalEmitido: float}
+     */
+    public function resumenVentas(int $idTienda, array $filtro): array
+    {
+        [$donde, $parametros] = $this->donde($idTienda, $filtro);
+        $consulta = $this->db->prepare(
+            "SELECT COUNT(*) AS cantidad, COALESCE(SUM(CASE WHEN v.estado = 'EMITIDA' THEN v.total END), 0) AS total
+               FROM venta v
+               JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE " . $donde
+        );
+        $consulta->execute($parametros);
+        $f = $consulta->fetch();
+        return ['cantidad' => (int) $f['cantidad'], 'totalEmitido' => (float) $f['total']];
+    }
+
+    /** @return Venta[] compras de un cliente en las 3 tiendas, la mas reciente primero */
+    public function ventasDeCliente(int $idCliente): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT ' . self::COLUMNAS_VENTA . ' FROM venta v WHERE v.id_cliente = :cliente ORDER BY v.fecha_hora DESC, v.id_venta DESC'
+        );
+        $consulta->execute(['cliente' => $idCliente]);
+        return array_map(fn(array $fila): Venta => $this->crearVenta($fila), $consulta->fetchAll());
+    }
+
+    /** @return array{0: string, 1: array<string, int|string>} condicion WHERE y sus parametros */
+    private function donde(int $idTienda, array $filtro): array
+    {
+        $condiciones = ['s.id_tienda = :tienda'];
+        $parametros = ['tienda' => $idTienda];
+        if (($filtro['desde'] ?? null) !== null) {
+            $condiciones[] = 'v.fecha_hora >= :desde';
+            $parametros['desde'] = $filtro['desde'] . ' 00:00:00';
+        }
+        if (($filtro['hasta'] ?? null) !== null) {
+            $condiciones[] = 'v.fecha_hora < :hasta + INTERVAL 1 DAY';
+            $parametros['hasta'] = $filtro['hasta'];
+        }
+        if (in_array($filtro['estado'] ?? null, ['EMITIDA', 'ANULADA'], true)) {
+            $condiciones[] = 'v.estado = :estado';
+            $parametros['estado'] = $filtro['estado'];
+        }
+        return [implode(' AND ', $condiciones), $parametros];
+    }
+
     // Serie + correlativo identifican una sola venta. null si no existe.
     public function buscarPorComprobante(string $serie, int $numeroCorrelativo): ?Venta
     {
