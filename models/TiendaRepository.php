@@ -5,78 +5,73 @@ require_once __DIR__ . '/Tienda.php';
 require_once __DIR__ . '/Caja.php';
 
 /**
- * Tiendas, distritos y cajas. Hoy: listas fijas copiadas de database/datos.sql.
- * Sesion 5: los mismos metodos leeran de MySQL con PDO.
+ * Tiendas, distritos y cajas, leidos de MySQL con consultas preparadas.
  */
 class TiendaRepository
 {
-    /** @var array<int, string> id_distrito => nombre_distrito */
-    private array $distritos = [
-        1 => 'Cayma',
-        2 => 'Cerro Colorado',
-        3 => 'Yanahuara',
-    ];
+    private const COLUMNAS = 'id_tienda, nombre_tienda, direccion, telefono, estado, id_distrito';
 
-    /** @var array<int, Tienda> */
-    private array $tiendas = [];
-
-    /** @var Caja[] */
-    private array $cajas;
-
-    public function __construct()
-    {
-        // INSERT INTO tienda ... (datos.sql)
-        foreach ([
-            new Tienda(1, 'Mass Cayma', 'Direccion de ejemplo, Cayma', null, 'ACTIVA', 1),
-            new Tienda(2, 'Mass Cerro Colorado', 'Direccion de ejemplo, Cerro Colorado', '054000002', 'ACTIVA', 2),
-            new Tienda(3, 'Mass Yanahuara', 'Direccion de ejemplo, Yanahuara', null, 'ACTIVA', 3),
-        ] as $tienda) {
-            $this->tiendas[$tienda->getIdTienda()] = $tienda;
-        }
-
-        // INSERT INTO caja ... (datos.sql): dos cajas por tienda
-        $this->cajas = [
-            new Caja(1, 1, 'ACTIVA', 1),
-            new Caja(2, 2, 'ACTIVA', 1),
-            new Caja(3, 1, 'ACTIVA', 2),
-            new Caja(4, 2, 'ACTIVA', 2),
-            new Caja(5, 1, 'ACTIVA', 3),
-            new Caja(6, 2, 'ACTIVA', 3),
-        ];
-    }
+    public function __construct(private PDO $db) {}
 
     /** @return array<int, Tienda> id_tienda => Tienda */
     public function todas(): array
     {
-        return $this->tiendas;
+        $tiendas = [];
+        foreach ($this->db->query('SELECT ' . self::COLUMNAS . ' FROM tienda ORDER BY id_tienda') as $fila) {
+            $tienda = $this->crear($fila);
+            $tiendas[$tienda->getIdTienda()] = $tienda;
+        }
+        return $tiendas;
     }
 
     public function buscarPorId(int $idTienda): ?Tienda
     {
-        return $this->tiendas[$idTienda] ?? null;
+        $consulta = $this->db->prepare('SELECT ' . self::COLUMNAS . ' FROM tienda WHERE id_tienda = :id');
+        $consulta->execute(['id' => $idTienda]);
+        $fila = $consulta->fetch();
+        return $fila === false ? null : $this->crear($fila);
     }
 
     public function nombreDistrito(int $idDistrito): ?string
     {
-        return $this->distritos[$idDistrito] ?? null;
+        $consulta = $this->db->prepare('SELECT nombre_distrito FROM distrito WHERE id_distrito = :id');
+        $consulta->execute(['id' => $idDistrito]);
+        $nombre = $consulta->fetchColumn();
+        return $nombre === false ? null : (string) $nombre;
     }
 
     public function buscarCaja(int $idCaja): ?Caja
     {
-        foreach ($this->cajas as $caja) {
-            if ($caja->getIdCaja() === $idCaja) {
-                return $caja;
-            }
-        }
-        return null;
+        $consulta = $this->db->prepare('SELECT id_caja, numero_caja, estado, id_tienda FROM caja WHERE id_caja = :id');
+        $consulta->execute(['id' => $idCaja]);
+        $fila = $consulta->fetch();
+        return $fila === false ? null : $this->crearCaja($fila);
     }
 
     /** @return Caja[] */
     public function cajasDeTienda(int $idTienda): array
     {
-        return array_values(array_filter(
-            $this->cajas,
-            fn(Caja $caja): bool => $caja->getIdTienda() === $idTienda
-        ));
+        $consulta = $this->db->prepare(
+            'SELECT id_caja, numero_caja, estado, id_tienda FROM caja WHERE id_tienda = :tienda ORDER BY numero_caja'
+        );
+        $consulta->execute(['tienda' => $idTienda]);
+        return array_map(fn(array $fila): Caja => $this->crearCaja($fila), $consulta->fetchAll());
+    }
+
+    private function crear(array $fila): Tienda
+    {
+        return new Tienda(
+            (int) $fila['id_tienda'],
+            $fila['nombre_tienda'],
+            $fila['direccion'],
+            $fila['telefono'],
+            $fila['estado'],
+            (int) $fila['id_distrito']
+        );
+    }
+
+    private function crearCaja(array $fila): Caja
+    {
+        return new Caja((int) $fila['id_caja'], (int) $fila['numero_caja'], $fila['estado'], (int) $fila['id_tienda']);
     }
 }

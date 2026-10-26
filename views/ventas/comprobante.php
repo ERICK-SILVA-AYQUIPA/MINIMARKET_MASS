@@ -13,6 +13,7 @@ declare(strict_types=1);
  * @var ?AnulacionVenta $anulacion
  * @var ?Usuario $anuladaPor
  * @var Usuario[] $puedenAnular
+ * @var bool $puedeAnular  el usuario actual puede anular esta venta
  * @var bool $detalleCuadra
  * @var bool $pagosCuadran
  */
@@ -73,6 +74,17 @@ require __DIR__ . '/../layout_inicio.php';
         <h3>¿Quién puede anularla?</h3>
         <p>Solo un ADMINISTRADOR activo de <?= e($tienda->getNombreTienda()) ?>:
             <?= e(implode(', ', array_map(fn(Usuario $u): string => $u->nombreCompleto(), $puedenAnular)) ?: 'nadie') ?></p>
+        <?php if ($puedeAnular): ?>
+            <form class="formulario" method="post" action="/?ruta=venta_anular">
+                <?= campoCsrf($csrf) ?>
+                <input type="hidden" name="serie" value="<?= e($serie->getSerie()) ?>">
+                <input type="hidden" name="numero" value="<?= $venta->getNumeroCorrelativo() ?>">
+                <label for="motivo">Motivo de la anulación</label>
+                <input id="motivo" name="motivo" maxlength="150" required size="50">
+                <p><button class="peligro" type="submit">Anular venta</button>
+                   <small>Devuelve el stock al kardex y anula sus pagos.</small></p>
+            </form>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

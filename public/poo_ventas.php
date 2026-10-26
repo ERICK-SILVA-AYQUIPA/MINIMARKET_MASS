@@ -2,10 +2,11 @@
 declare(strict_types=1);
 
 // Prueba de Venta, pagos (herencia de PagoVenta) y Cliente con casos normales y limite
+require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../models/VentaRepository.php';
 require __DIR__ . '/../models/Cliente.php';
 
-$repo = new VentaRepository();
+$repo = new VentaRepository(Database::conexion());
 $venta2 = $repo->buscarPorComprobante('F001', 1);   // factura con pago mixto: tarjeta + efectivo
 $pagos2 = $repo->pagosDeVenta($venta2->getIdVenta());
 

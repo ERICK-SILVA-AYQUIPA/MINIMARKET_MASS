@@ -1,12 +1,14 @@
 # Minimarket Mass · POO y MVC (Sesión 4, HO-09)
 
-PHP 8.3 sin framework. Hoy los datos salen de listas fijas copiadas de `database/datos.sql`;
-en la sesión 5 el Repository leerá de MySQL (puerto 3307) con PDO y el controlador y las vistas no cambian.
+PHP 8.3 sin framework. Los Repository leen de MySQL 8.4.11 en Docker (puerto 3307) con PDO y consultas preparadas.
+Al pasar de listas fijas a MySQL, los controladores y las vistas no cambiaron: esa es la ventaja de separar.
 
 ## Cómo correrlo
 
 ```powershell
 php -v                                  # PHP 8.3...
+copy .env.example .env                  # solo la primera vez; cambia las claves
+docker compose up -d                    # MySQL 8.4.11 con schema.sql, datos.sql y boleta.sql
 php -S localhost:8000 -t public         # déjalo abierto
 ```
 
@@ -33,7 +35,7 @@ MinimarketMass/
 ├── models/
 │   ├── Producto.php                    M: tabla producto + reglas (al peso, importe, estado)
 │   ├── Stock.php                       M: tabla stock + regla REPONER (cantidad_actual <= stock_minimo)
-│   ├── ProductoRepository.php          M: de dónde salen los datos (hoy lista fija)
+│   ├── ProductoRepository.php          M: de dónde salen los datos (MySQL con PDO)
 │   ├── Usuario.php                     M: clase base abstracta (tabla empleado)
 │   ├── Administrador.php               id_rol 1: anula ventas de su tienda
 │   ├── Cajero.php                      id_rol 2: vende
@@ -81,4 +83,10 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - `declare(strict_types=1)`, tipos en parámetros y retornos, propiedades `private`.
 - Todo lo que se imprime pasa por `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`.
 - `index.php` solo acepta strings de `$_GET`; el código de barras se valida con `^[0-9]{8,14}$` y el id de tienda contra la lista de tiendas.
+- Consultas preparadas con marcadores (`:codigo`, `:serie`) y `ATTR_EMULATE_PREPARES = false`: lo que llega en la URL nunca se pega al SQL.
+- Las claves de la base van en `.env`, que está en `.gitignore`. Si la base falla, el navegador ve un mensaje genérico (503 o 500) y el detalle va al log.
 - Sin contraseñas ni datos reales: DNI, códigos y precios son los ficticios de `datos.sql`, y en pantalla el DNI se muestra oculto.
+- Login con DNI y `password_verify()`; en la base solo va el hash. La cookie de sesión es `httponly` y `SameSite=Lax`, y el id cambia al entrar.
+- Cada formulario lleva un token CSRF que se compara con `hash_equals()`. Después de un POST se redirige (303) para que F5 no repita la venta.
+- Los permisos se preguntan al objeto del rol (`puedeVender()`, `puedeAnularVenta()`, `puedeMoverMercaderia()`, `puedeManejarCaja()`); si responde no, 403.
+- Las escrituras van en transacciones con `SELECT ... FOR UPDATE`: no se vende stock que no hay ni se repite un número de comprobante.
