@@ -26,13 +26,18 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `/?ruta=venta_nueva` | Formulario de venta del cajero (productos, cliente, pagos) |
 | `/?ruta=kardex&tienda=1` | Movimientos de stock de la tienda |
 | `/?ruta=traslados` y `/?ruta=mermas` | Formularios e historial del almacenero |
+| `/?ruta=producto_form` y `/?ruta=catalogo` | Administrador: crear y editar productos, categorías y marcas |
+| `/?ruta=empleados` y `/?ruta=empleado&id=2` | Administrador: personal de su tienda y clave nueva |
+| `/?ruta=clientes` y `/?ruta=cliente&id=1` | Cajero y administrador: clientes, sus compras y completar el documento |
+| `/?ruta=reportes` y `/?ruta=reporte_csv&tipo=productos` | Administrador: reportes de venta y su descarga en CSV |
+| `/?ruta=mi_clave` | Cambiar la clave propia |
 | cualquier otra | 404 |
 
 ## Base de datos y configuración
 
 | Archivo | Qué hace |
 |---|---|
-| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql` y `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash). Los datos quedan en el volumen `mysql_datos`. |
+| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql` y `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash) y `seguridad.sql` (tabla `intento_login`). Los datos quedan en el volumen `mysql_datos`. |
 | `.env.example` | Plantilla de la configuración. Se copia como `.env` (que no se sube) y se cambian las claves. |
 | `config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
 | `config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
@@ -78,6 +83,13 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `servicios/VentaServicio.php` | `registrar()`: cliente por DNI o RUC, siguiente número de la serie, detalle, stock y pagos con vuelto. `anular()`: solo el administrador de esa tienda; devuelve el stock y anula los pagos. |
 | `servicios/InventarioServicio.php` | `trasladar()` y `registrarMerma()` del almacenero. |
 | `servicios/CajaServicio.php` | `abrirTurno()` y `cerrarTurno()` del cajero. |
+| `servicios/ProductoServicio.php` | Crear y editar productos (código, precio, unidad kg si es al peso), descontinuar, stock mínimo, categorías y marcas. |
+| `servicios/EmpleadoServicio.php` | Alta, cambios y baja de personal de la tienda; clave nueva y cambio de la clave propia. |
+| `servicios/ClienteServicio.php` | Agrega el DNI o RUC que le falta a un cliente (no cambia uno existente). |
+| `ReporteRepository.php` | Consultas 10 a 16 de `consultas.sql` filtradas por tienda y fechas. |
+| `IntentoLoginRepository.php` | Cuenta las claves erradas recientes y dice si el DNI o la IP deben esperar. |
+| `Paginacion.php` | Calcula la página, el `LIMIT` y el `OFFSET` de una lista larga. |
+| `Clave.php` | Regla de la clave (8 a 72 caracteres, letras y números) y su hash. |
 
 ## controllers/ (C · coordina)
 
@@ -90,6 +102,9 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `AuthController.php` | Login con `password_verify()`. Si el DNI no existe igual compara contra un hash de relleno, para que tarde lo mismo. |
 | `InventarioController.php` | Kardex, traslados y mermas. Solo el almacenero puede registrar. |
 | `CajaController.php` | Panel de caja: abrir y cerrar turno, y arqueo para el administrador. |
+| `EmpleadoController.php` | Personal de la tienda del administrador. |
+| `ClienteController.php` | Lista paginada, búsqueda por documento, compras del cliente. |
+| `ReporteController.php` | Reportes en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. |
 
 ## views/ (V · muestra)
 
@@ -109,6 +124,12 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado y merma. |
 | `inventario/kardex.php`, `traslados.php`, `mermas.php` | Tablas e historial de inventario. |
 | `caja/panel.php` | Turno abierto, botones y arqueo. |
+| `productos/formulario.php`, `productos/catalogo.php` | Formulario de producto; categorías, marcas y unidades. |
+| `empleados/lista.php`, `empleados/formulario.php` | Personal y su edición. |
+| `clientes/lista.php`, `clientes/detalle.php` | Clientes y sus compras. |
+| `reportes/ventas.php` | Tarjetas de resumen y tablas de reporte. |
+| `auth/mi_clave.php` | Cambiar la clave propia. |
+| `parciales/paginacion.php` | Enlaces Anterior / Siguiente. |
 | `errores/403.php` | "No tienes permiso". |
 | `errores/404.php` | Página "No encontrado" con un mensaje fijo, que no copia nada de la URL. |
 | `errores/500.php` | Página de error cuando la base no responde (503) o algo falla (500). No muestra el detalle técnico. |
@@ -139,3 +160,5 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 - **FOR UPDATE:** bloquea la fila mientras dura la transacción, así dos cajeros no toman el mismo número de boleta ni venden el mismo último yogurt.
 - **password_hash / password_verify:** en la base solo va el hash; la clave nunca se guarda.
 - **CSRF:** cada formulario lleva un token secreto de la sesión; un sitio ajeno no puede enviar una venta en tu nombre.
+- **LIMIT y OFFSET:** traen una página de filas (por ejemplo 25 desde la 26) en vez de toda la tabla.
+- **Bloqueo por intentos:** frena a quien prueba claves al azar; el mensaje es el mismo exista o no el DNI.

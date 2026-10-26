@@ -13,11 +13,16 @@ require __DIR__ . '/../controllers/VentaController.php';
 require __DIR__ . '/../controllers/TiendaController.php';
 require __DIR__ . '/../controllers/InventarioController.php';
 require __DIR__ . '/../controllers/CajaController.php';
+require __DIR__ . '/../controllers/EmpleadoController.php';
+require __DIR__ . '/../controllers/ClienteController.php';
+require __DIR__ . '/../controllers/ReporteController.php';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
+// Las paginas no usan JavaScript: el navegador no ejecuta ningun script, aunque alguien lograra inyectar uno
+header("Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
 
 try {
     $db = Database::conexion();
@@ -42,6 +47,8 @@ $clientes   = new ClienteRepository($db);
 $catalogo   = new CatalogoRepository($db);
 $inventario = new InventarioRepository($db);
 $cajas      = new CajaRepository($db);
+$reportes   = new ReporteRepository($db);
+$empleadoServicio = new EmpleadoServicio($db);
 
 // Quien entro: el empleado de la sesion, si sigue ACTIVO
 $idEmpleado = $sesion->idEmpleado();
@@ -51,14 +58,17 @@ if ($usuario !== null && !$usuario->estaActivo()) {
     $usuario = null;
 }
 
-$auth = new AuthController($tiendas, $sesion, $usuario, $empleados);
-$productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo);
+$auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
+$productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
     new VentaServicio($db));
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
     new InventarioServicio($db));
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
+$empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
+$clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
+$reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
 $leer = static function (string $clave): ?string {
@@ -70,7 +80,12 @@ $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $ruta = $leer('ruta') ?? 'productos';
 
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
-$rutasPost = ['login', 'salir', 'venta_registrar', 'venta_anular', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar'];
+$rutasPost = [
+    'login', 'salir', 'mi_clave_guardar',
+    'venta_registrar', 'venta_anular', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
+    'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
+    'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
+];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
 ob_start();
@@ -94,6 +109,16 @@ try {
                 'merma_registrar'    => $inventarioController->registrarMerma($_POST),
                 'turno_abrir'        => $cajaController->abrir($_POST),
                 'turno_cerrar'       => $cajaController->cerrar($_POST),
+                'mi_clave_guardar'   => $auth->cambiarClave($_POST),
+                'producto_guardar'   => $productoController->guardar($_POST),
+                'producto_estado'    => $productoController->cambiarEstado($_POST),
+                'stock_minimo'       => $productoController->fijarMinimo($_POST),
+                'categoria_crear'    => $productoController->crearCategoria($_POST),
+                'marca_crear'        => $productoController->crearMarca($_POST),
+                'empleado_crear'     => $empleadoController->crear($_POST),
+                'empleado_guardar'   => $empleadoController->guardar($_POST),
+                'empleado_clave'     => $empleadoController->reiniciarClave($_POST),
+                'cliente_documento'  => $clienteController->completarDocumento($_POST),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -118,7 +143,7 @@ try {
                 break;
 
             case 'ventas':
-                $ventaController->lista($leer('tienda'));
+                $ventaController->lista($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('estado'), $leer('pagina'));
                 break;
 
             case 'comprobante':
@@ -134,7 +159,7 @@ try {
                 break;
 
             case 'kardex':
-                $inventarioController->kardex($leer('tienda'), $leer('producto'));
+                $inventarioController->kardex($leer('tienda'), $leer('producto'), $leer('pagina'));
                 break;
 
             case 'traslados':
@@ -147,6 +172,42 @@ try {
 
             case 'caja':
                 $cajaController->panel();
+                break;
+
+            case 'producto_form':
+                $productoController->formulario($leer('id'));
+                break;
+
+            case 'catalogo':
+                $productoController->catalogo();
+                break;
+
+            case 'empleados':
+                $empleadoController->lista();
+                break;
+
+            case 'empleado':
+                $empleadoController->editar($leer('id'));
+                break;
+
+            case 'clientes':
+                $clienteController->lista($leer('documento'), $leer('pagina'));
+                break;
+
+            case 'cliente':
+                $clienteController->detalle($leer('id'));
+                break;
+
+            case 'reportes':
+                $reporteController->ventas($leer('desde'), $leer('hasta'));
+                break;
+
+            case 'reporte_csv':
+                $reporteController->csv($leer('tipo'), $leer('desde'), $leer('hasta'));
+                break;
+
+            case 'mi_clave':
+                $auth->formularioClave();
                 break;
 
             default:

@@ -37,6 +37,36 @@ class CatalogoRepository
         return $f === false ? null : new UnidadMedida((int) $f['id_unidad'], $f['abreviatura'], $f['nombre_unidad']);
     }
 
+    /** @return array<int, Categoria> id_categoria => Categoria, por nombre */
+    public function categorias(): array
+    {
+        $lista = [];
+        foreach ($this->db->query('SELECT id_categoria, nombre_categoria FROM categoria ORDER BY nombre_categoria') as $f) {
+            $lista[(int) $f['id_categoria']] = new Categoria((int) $f['id_categoria'], $f['nombre_categoria']);
+        }
+        return $lista;
+    }
+
+    /** @return array<int, Marca> id_marca => Marca, por nombre */
+    public function marcas(): array
+    {
+        $lista = [];
+        foreach ($this->db->query('SELECT id_marca, nombre_marca, es_marca_propia FROM marca ORDER BY nombre_marca') as $f) {
+            $lista[(int) $f['id_marca']] = new Marca((int) $f['id_marca'], $f['nombre_marca'], $f['es_marca_propia']);
+        }
+        return $lista;
+    }
+
+    /** @return array<int, UnidadMedida> id_unidad => UnidadMedida */
+    public function unidades(): array
+    {
+        $lista = [];
+        foreach ($this->db->query('SELECT id_unidad, abreviatura, nombre_unidad FROM unidad_medida ORDER BY id_unidad') as $f) {
+            $lista[(int) $f['id_unidad']] = new UnidadMedida((int) $f['id_unidad'], $f['abreviatura'], $f['nombre_unidad']);
+        }
+        return $lista;
+    }
+
     /** @return array<int, TipoMovimiento> id_tipo_movimiento => TipoMovimiento */
     public function tiposMovimiento(): array
     {

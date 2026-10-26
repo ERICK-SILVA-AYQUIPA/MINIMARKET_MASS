@@ -8,6 +8,8 @@ declare(strict_types=1);
  * @var ?Categoria $categoria
  * @var ?Marca $marca
  * @var ?UnidadMedida $unidad
+ * @var bool $puedeEditar       administrador: editar y descontinuar
+ * @var bool $puedeFijarMinimo  administrador de esta tienda
  */
 $titulo = $producto->getNombreProducto();
 require __DIR__ . '/../layout_inicio.php';
@@ -43,5 +45,35 @@ $cantidadEjemplo = $producto->esAlPeso() ? 1.25 : 1.0;
             <?php endif; ?>
         </td></tr>
 </table>
+<?php if ($puedeEditar || $puedeFijarMinimo): ?>
+<div class="panel">
+    <?php if ($puedeEditar): ?>
+        <p>
+            <a href="/?ruta=producto_form&amp;id=<?= $producto->getIdProducto() ?>">Editar nombre, código o precio</a>
+        </p>
+        <form method="post" action="/?ruta=producto_estado">
+            <?= campoCsrf($csrf) ?>
+            <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
+            <?php if ($producto->estaActivo()): ?>
+                <input type="hidden" name="estado" value="DESCONTINUADO">
+                <button class="peligro" type="submit">Descontinuar (ya no se vende)</button>
+            <?php else: ?>
+                <input type="hidden" name="estado" value="ACTIVO">
+                <button type="submit">Volver a activar</button>
+            <?php endif; ?>
+        </form>
+    <?php endif; ?>
+    <?php if ($puedeFijarMinimo): ?>
+        <form class="formulario" method="post" action="/?ruta=stock_minimo">
+            <?= campoCsrf($csrf) ?>
+            <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
+            <label for="minimo">Stock mínimo en <?= e($tienda->getNombreTienda()) ?> (<?= $producto->esAlPeso() ? 'kg' : 'unidades' ?>)</label>
+            <input id="minimo" name="minimo" inputmode="decimal" size="10" required
+                   value="<?= e($stock !== null ? number_format($stock->getStockMinimo(), $producto->esAlPeso() ? 3 : 0, '.', '') : '0') ?>">
+            <button type="submit">Guardar mínimo</button>
+        </form>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 <p><a href="/?ruta=kardex&amp;tienda=<?= $tienda->getIdTienda() ?>&amp;producto=<?= $producto->getIdProducto() ?>">Ver kardex de este producto en <?= e($tienda->getNombreTienda()) ?></a></p>
 <?php require __DIR__ . '/../layout_fin.php'; ?>
