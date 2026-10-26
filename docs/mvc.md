@@ -86,3 +86,7 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Consultas preparadas con marcadores (`:codigo`, `:serie`) y `ATTR_EMULATE_PREPARES = false`: lo que llega en la URL nunca se pega al SQL.
 - Las claves de la base van en `.env`, que está en `.gitignore`. Si la base falla, el navegador ve un mensaje genérico (503 o 500) y el detalle va al log.
 - Sin contraseñas ni datos reales: DNI, códigos y precios son los ficticios de `datos.sql`, y en pantalla el DNI se muestra oculto.
+- Login con DNI y `password_verify()`; en la base solo va el hash. La cookie de sesión es `httponly` y `SameSite=Lax`, y el id cambia al entrar.
+- Cada formulario lleva un token CSRF que se compara con `hash_equals()`. Después de un POST se redirige (303) para que F5 no repita la venta.
+- Los permisos se preguntan al objeto del rol (`puedeVender()`, `puedeAnularVenta()`, `puedeMoverMercaderia()`, `puedeManejarCaja()`); si responde no, 403.
+- Las escrituras van en transacciones con `SELECT ... FOR UPDATE`: no se vende stock que no hay ni se repite un número de comprobante.

@@ -13,4 +13,10 @@ class Cajero extends Usuario
     {
         return $this->estaActivo();
     }
+
+    // Abre su turno con un monto inicial y lo cierra con lo que cuenta en caja
+    public function puedeManejarCaja(): bool
+    {
+        return $this->estaActivo();
+    }
 }

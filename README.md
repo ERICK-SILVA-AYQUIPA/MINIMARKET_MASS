@@ -16,6 +16,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
 - **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`docs/informe_tecnico.md`**: Informe técnico académico completo del proyecto (análisis del negocio, 5 diagramas UML, justificación de diseño 3FN, diccionario de datos, reglas de negocio y conclusiones).
 - **`docs/informe_tecnico.html`**: Versión web e imprimible del informe técnico en formato ejecutivo profesional.
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
@@ -109,7 +110,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql y boleta.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql y login.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -141,7 +142,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 
 - **`config/Database.php`**: conexión PDO única; lee host, puerto, base, usuario y clave del `.env`.
 - **`models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
-- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController` y `TiendaController`. Validan la entrada, piden datos y eligen la vista.
+- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController` y `CajaController`. Validan la entrada, piden datos y eligen la vista.
 - **`views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
 - **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
 - **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
@@ -157,6 +158,35 @@ php -S localhost:8000 -t public
 # http://localhost:8000/?ruta=ventas&tienda=2             ventas de Mass Cerro Colorado
 # http://localhost:8000/?ruta=comprobante&serie=F001&numero=1   factura con pago mixto
 # http://localhost:8000/?ruta=tiendas                     tiendas, cajas, series y personal
+```
+
+### Backend completo: login, ventas, anulaciones, inventario y caja
+
+Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave de prueba de los 9 empleados es `Mass2026!` (está en `database/login.sql` solo como hash; cámbienla fuera del aula).
+
+| Rol | Ejemplo (Cayma) | Qué puede hacer |
+|---|---|---|
+| Cajero | Luis · `70000002` | Abrir y cerrar su turno de caja y registrar boletas y facturas |
+| Administrador | Rosa · `70000001` | Anular ventas de su tienda y ver el arqueo de caja |
+| Almacenero | Carmen · `70000003` | Trasladar mercadería a otra tienda y registrar mermas |
+
+Cada operación escribe en MySQL dentro de una **transacción** (`models/servicios/`): si un paso falla, no queda nada a medias. Toda salida o entrada de stock deja su fila en el kardex (`movimiento_stock`).
+
+| Ruta | Qué hace |
+|---|---|
+| `?ruta=caja` | Abrir o cerrar el turno; el administrador ve el arqueo (esperado vs. contado) |
+| `?ruta=venta_nueva` | Registrar una venta: descuenta stock, toma el siguiente número de la serie y guarda los pagos |
+| `?ruta=comprobante&...` | Botón **Anular** para el administrador: devuelve el stock y anula los pagos |
+| `?ruta=traslados` | Trasladar mercadería entre tiendas (salida y entrada en el kardex) |
+| `?ruta=mermas` | Registrar productos vencidos, dañados o robados |
+| `?ruta=kardex&tienda=1` | Movimientos de stock de la tienda |
+
+**Importante:** `login.sql` agrega la columna `clave_hash`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+
+```powershell
+docker compose down -v
+docker compose up -d
+php tests/integracion.php   # 40 comprobaciones; solo con la base recién creada
 ```
 
 ---
