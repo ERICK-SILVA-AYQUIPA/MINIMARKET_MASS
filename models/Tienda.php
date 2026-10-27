@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Una fila de la tabla `tienda`: las 3 tiendas de Tienda Mass en Arequipa.
+ * Una fila de la tabla `tienda`: las tiendas de Tienda Mass en Arequipa (3 en datos.sql).
  */
 class Tienda
 {

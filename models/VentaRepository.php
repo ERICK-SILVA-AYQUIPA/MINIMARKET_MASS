@@ -105,7 +105,7 @@ class VentaRepository
         return ['cantidad' => (int) $f['cantidad'], 'totalEmitido' => (float) $f['total']];
     }
 
-    /** @return Venta[] compras de un cliente en las 3 tiendas, la mas reciente primero */
+    /** @return Venta[] compras de un cliente en todas las tiendas, la mas reciente primero */
     public function ventasDeCliente(int $idCliente): array
     {
         $consulta = $this->db->prepare(

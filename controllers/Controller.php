@@ -21,7 +21,7 @@ abstract class Controller
         protected ?Usuario $usuario
     ) {}
 
-    public function noEncontrado(string $mensaje = 'La pagina no existe.'): void
+    public function noEncontrado(string $mensaje = 'La página no existe.'): void
     {
         http_response_code(404);
         $this->vista('errores/404', ['mensaje' => $mensaje]);

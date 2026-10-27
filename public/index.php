@@ -96,8 +96,10 @@ ob_start();
 try {
     if ($metodo === 'POST') {
         if (!in_array($ruta, $rutasPost, true)) {
-            http_response_code(405);
+            // noEncontrado() pone 404: se vuelve a poner 405 despues de armar la pagina
+            header('Allow: GET');
             $productoController->noEncontrado('Esa ruta no acepta formularios.');
+            http_response_code(405);
         } elseif (!$sesion->csrfValido(is_string($_POST['csrf'] ?? null) ? $_POST['csrf'] : null)) {
             // Formulario vencido o enviado desde otro sitio
             $productoController->prohibido('El formulario venció. Vuelve a la página y envíalo otra vez.');

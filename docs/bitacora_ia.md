@@ -85,6 +85,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **SEGURIDAD:** el panel solo lee la tienda del usuario (no acepta `?tienda=`). El gráfico es HTML y CSS, sin JavaScript, así la `Content-Security-Policy` sigue sin permitir scripts. La ruta del menú activo solo se compara, no se imprime. En CI el `.env` sale de `.env.example` y vive solo en el runner.
 - **Prueba:** `php tests/unitarios.php`: 51 correctas, 0 fallas. `php tests/integracion.php` con la base recién creada: 91 correctas, 0 fallas.
 
+### Paso 13 · Revisión completa de coherencia y pruebas web (27/10/2026)
+- **OBJETIVO:** Revisar cada controlador, servicio y vista contra el esquema y la documentación, y dejar el sistema coherente de punta a punta.
+- **ENTRADAS Y SALIDAS:** `tests/web.php` levanta su propio `php -S`, entra como Rosa, Luis, Carmen y Jorge y revisa qué responde cada pantalla y cada formulario. No guarda datos: todo lo que envía es rechazado a propósito.
+- **SEGURIDAD:** todos los POST que cambian datos revisan el permiso en el controlador (403) además del servicio. Se agregaron topes de las columnas DECIMAL. El CSV cubre también tabulador y retorno. Un POST a una ruta de lectura responde 405 (antes salía 404).
+- **Prueba:** unitarias 51, web 93 e integración 96 correctas, 0 fallas, con la base recién creada.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -130,6 +136,13 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
 - 25/10/2026, paso 8: los Repository dejaron las listas fijas y ahora usan PDO. Reciben la conexión en el constructor, así que `index.php`, `poo_repository.php` y `poo_ventas.php` se ajustaron para pasarla. Ningún controlador ni vista existente cambió; solo se agregó la vista `errores/500.php`.
+- 27/10/2026, paso 13, lo que encontró la revisión:
+  - Varios formularios (producto, estado, mínimo, categoría, marca, tienda, cajas, distrito, personal, cliente y anular venta) dejaban que otro rol llegara al servicio. El servicio igual lo rechazaba, pero la respuesta era 303 o 422 en vez de 403. Ahora el controlador responde 403 antes.
+  - Un traslado o un conteo que dejaba el stock por encima de 9 999 999.999, o una venta de más de S/ 99 999 999.99, daba error 500 de MySQL. Ahora sale un mensaje claro.
+  - El POST a una ruta de lectura respondía 404, porque la página de error pisaba el 405.
+  - El mínimo "0.000" se rechazaba aunque "0" sí pasaba.
+  - El traslado ofrecía tiendas inactivas como destino.
+  - Algunos mensajes no tenían tilde ("valido", "pagina") y otros decían "las 3 tiendas" aunque ya se pueden abrir más.
 - 27/10/2026, paso 11: la prueba de "no se desactiva una caja con turno abierto" usaba la caja 2, pero el turno abierto de Luis está en la caja 1 (`datos.sql`); se corrigió la prueba, no el código. Se quitó `VentaRepository::ventasDeTienda()`, que ya nadie usaba desde la paginación.
 - 26/10/2026, paso 10: `producto.estado` era `VARCHAR(10)` pero `'DESCONTINUADO'` tiene 13 letras, así que nunca se podía descontinuar un producto (MySQL respondía "Data too long"). Se cambió a `VARCHAR(13)` en `schema.sql` y en `diseno_bd.md`. La prueba del reporte comparaba solo el 17/10; el total de S/ 323.00 es del 17 al 19/10.
 - 26/10/2026, paso 9: `Catalogo.php` tenía varias clases en un archivo; se separó en una clase por archivo como pide la guía. El layout se podía incluir dos veces y redeclarar `e()`; se protegió con `function_exists`. La prueba fallaba al correrla dos veces (código Sip repetido); ahora se detiene si la base no está recién creada.
@@ -168,6 +181,7 @@ Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, ca
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 27/10/2026, paso 13: `tests/web.php` da 93 correctas. Por rol: Luis recibe 403 en 17 formularios de administrador o almacenero, Carmen en 4 de caja y clientes, Rosa en vender y trasladar, y Jorge al anular una venta de Cayma. Un nombre con `<b>` vuelve escapado. Consultas 20 a 28 en 0 filas.
 - 27/10/2026, paso 12: después de entrar, Rosa, Luis, Carmen y Miguel llegan a `?ruta=inicio` (200) con el menú "Inicio" resaltado. Luis ve su turno 5 abierto y Miguel el aviso de abrir turno. El gráfico tiene 14 barras y el total de Cayma del 17 al 19/10 es S/ 323.00. Sin sesión, `/` lleva al login. Revisado en 1200 px y 390 px (celular). En `views/` todo lo impreso pasa por `e()` o es un entero o un texto fijo.
 - 27/10/2026, paso 11: con Rosa, tiendas, mi tienda, tienda nueva y conteo responden 200. Un conteo con texto da 422; uno válido aparece en el kardex como "Ajuste". Un teléfono con letras da 422. Rosa agrega una caja, un distrito y abre "Mass Socabaya" con B005/F005; su administradora entra y ve sus series. Luis recibe 403 en mi tienda, tienda nueva, agregar caja y conteo; Carmen ve la hoja de conteo con los 13 productos. Consultas 20 a 28 en 0 filas.
 - 26/10/2026, paso 10: con Rosa, las 19 pantallas nuevas o cambiadas responden 200 (empleado de otra tienda 404). Crear un producto sin código da 422 y el nombre con `<b>` sale escapado. Luis recibe 403 en personal, reportes, CSV y formulario de producto, y su POST de producto o empleado da 403. Carmen recibe 403 en clientes. Un cajero nuevo entra y cambia su clave. Al sexto intento con clave errada el login responde 429. El CSV abre con tildes. Consultas 20 a 28 en 0 filas y `tests/integracion.php` 72 correctas, 0 fallas.

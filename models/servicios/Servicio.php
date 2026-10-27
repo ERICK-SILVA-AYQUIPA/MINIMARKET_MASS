@@ -75,6 +75,9 @@ abstract class Servicio
             $id = (int) $producto['id_producto'];
             if (isset($resultado[$id])) {
                 $resultado[$id]['milesimas'] += $milesimas;
+                if ($resultado[$id]['milesimas'] > Cantidad::MAXIMO_MILESIMAS) {
+                    throw new ReglaNegocioException($producto['nombre_producto'] . ': la cantidad total es demasiado grande.');
+                }
             } else {
                 $resultado[$id] = [
                     'milesimas' => $milesimas,
@@ -124,6 +127,9 @@ abstract class Servicio
         }
 
         $nuevo = Cantidad::deDecimal((string) $actual) + $milesimas;
+        if ($nuevo > Cantidad::MAXIMO_MILESIMAS) {
+            throw new ReglaNegocioException('El stock pasaría de ' . Cantidad::aTexto(Cantidad::MAXIMO_MILESIMAS) . ', el máximo que se puede guardar.');
+        }
         if ($nuevo < 0) {
             throw new ReglaNegocioException(sprintf(
                 'Stock insuficiente: hay %s y se necesitan %s.',

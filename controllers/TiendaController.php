@@ -44,7 +44,7 @@ class TiendaController extends Controller
     // GET /?ruta=tienda_editar: datos, cajas y series de la tienda del administrador
     public function editar(array $viejo = [], ?string $error = null): void
     {
-        if ($this->usuario === null || !$this->usuario->puedeAdministrarTienda($this->usuario->getIdTienda())) {
+        if (!$this->esAdministradorDeSuTienda()) {
             $this->prohibido('Solo el administrador de la tienda cambia sus datos.');
             return;
         }
@@ -59,6 +59,10 @@ class TiendaController extends Controller
     // POST /?ruta=tienda_guardar
     public function guardar(array $post): void
     {
+        if (!$this->esAdministradorDeSuTienda()) {
+            $this->prohibido('Solo el administrador de la tienda cambia sus datos.');
+            return;
+        }
         try {
             $this->servicio->editar($this->usuario, $this->usuario->getIdTienda(), $this->datosTienda($post), $this->campo($post, 'estado'));
         } catch (ReglaNegocioException $ex) {
@@ -83,6 +87,10 @@ class TiendaController extends Controller
     // POST /?ruta=tienda_abrir
     public function abrir(array $post): void
     {
+        if ($this->usuario?->puedeAbrirTiendas() !== true) {
+            $this->prohibido('Solo un administrador abre tiendas nuevas.');
+            return;
+        }
         try {
             $id = $this->servicio->abrir($this->usuario, $this->datosTienda($post), [
                 'nombres'   => $this->campo($post, 'admin_nombres'),
@@ -102,6 +110,10 @@ class TiendaController extends Controller
     // POST /?ruta=caja_crear
     public function agregarCaja(): void
     {
+        if (!$this->esAdministradorDeSuTienda()) {
+            $this->prohibido('Solo el administrador de la tienda agrega cajas.');
+            return;
+        }
         try {
             $numero = $this->servicio->agregarCaja($this->usuario);
         } catch (ReglaNegocioException $ex) {
@@ -115,6 +127,10 @@ class TiendaController extends Controller
     // POST /?ruta=caja_estado
     public function estadoCaja(array $post): void
     {
+        if (!$this->esAdministradorDeSuTienda()) {
+            $this->prohibido('Solo el administrador de la tienda cambia sus cajas.');
+            return;
+        }
         try {
             $this->servicio->cambiarEstadoCaja($this->usuario, $this->leerId($this->campo($post, 'id')), $this->campo($post, 'estado'));
         } catch (ReglaNegocioException $ex) {
@@ -128,6 +144,10 @@ class TiendaController extends Controller
     // POST /?ruta=distrito_crear (desde el formulario de tienda nueva)
     public function crearDistrito(array $post): void
     {
+        if ($this->usuario?->puedeAbrirTiendas() !== true) {
+            $this->prohibido('Solo un administrador agrega distritos.');
+            return;
+        }
         try {
             $this->servicio->crearDistrito($this->usuario, $this->campo($post, 'nombre'));
         } catch (ReglaNegocioException $ex) {
@@ -147,5 +167,10 @@ class TiendaController extends Controller
             'telefono'  => $this->campo($post, 'telefono'),
             'distrito'  => $this->campo($post, 'distrito'),
         ];
+    }
+
+    private function esAdministradorDeSuTienda(): bool
+    {
+        return $this->usuario !== null && $this->usuario->puedeAdministrarTienda($this->usuario->getIdTienda());
     }
 }

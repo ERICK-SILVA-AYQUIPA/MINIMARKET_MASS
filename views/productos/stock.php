@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: stock de cada producto en las 3 tiendas.
+ * V: stock de cada producto en cada tienda.
  * @var array<int, Tienda> $tiendas
  * @var array<int, array{producto: Producto, stocks: array<int, ?Stock>}> $filas
  * @var int $porReponer
@@ -9,7 +9,7 @@ declare(strict_types=1);
 $titulo = 'Stock por tienda';
 require __DIR__ . '/../layout_inicio.php';
 ?>
-<h1>Stock en las 3 tiendas</h1>
+<h1>Stock por tienda</h1>
 <p><?= $porReponer ?> casos para reponer. REPONER = la cantidad actual llegó al stock mínimo de esa tienda.</p>
 
 <div class="tabla">
