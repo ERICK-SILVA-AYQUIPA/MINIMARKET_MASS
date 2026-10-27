@@ -68,6 +68,10 @@ class VentaServicio extends Servicio
             if ($totalCentimos <= 0) {
                 throw new ReglaNegocioException('El total de la venta debe ser mayor que 0.');
             }
+            // Cada importe y el total van en columnas DECIMAL(10,2)
+            if ($totalCentimos > Dinero::MAXIMO_CENTIMOS) {
+                throw new ReglaNegocioException('El total pasa de S/ ' . Dinero::aTexto(Dinero::MAXIMO_CENTIMOS) . ': divide la venta.');
+            }
 
             // 4. Pagos: tarjeta y Sip por su monto; el efectivo cubre el resto
             $pagos = $this->armarPagos($pago, $totalCentimos);

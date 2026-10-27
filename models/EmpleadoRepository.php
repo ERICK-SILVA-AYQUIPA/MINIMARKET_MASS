@@ -6,7 +6,7 @@ require_once __DIR__ . '/Cajero.php';
 require_once __DIR__ . '/Almacenero.php';
 
 /**
- * Empleados de las 3 tiendas, leidos de MySQL. Cada fila se convierte
+ * Empleados de todas las tiendas, leidos de MySQL. Cada fila se convierte
  * en el objeto de su rol segun id_rol: 1 Administrador, 2 Cajero, 3 Almacenero.
  */
 class EmpleadoRepository

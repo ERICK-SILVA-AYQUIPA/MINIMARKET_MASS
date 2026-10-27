@@ -56,6 +56,10 @@ class EmpleadoController extends Controller
     // POST /?ruta=empleado_crear
     public function crear(array $post): void
     {
+        if (!$this->esAdministrador()) {
+            $this->prohibido('Solo el administrador de la tienda ve y cambia su personal.');
+            return;
+        }
         try {
             $this->servicio->crear(
                 $this->usuario,
@@ -77,6 +81,10 @@ class EmpleadoController extends Controller
     // POST /?ruta=empleado_guardar
     public function guardar(array $post): void
     {
+        if (!$this->esAdministrador()) {
+            $this->prohibido('Solo el administrador de la tienda ve y cambia su personal.');
+            return;
+        }
         $id = $this->campo($post, 'id');
         try {
             $this->servicio->editar(
@@ -98,6 +106,10 @@ class EmpleadoController extends Controller
     // POST /?ruta=empleado_clave
     public function reiniciarClave(array $post): void
     {
+        if (!$this->esAdministrador()) {
+            $this->prohibido('Solo el administrador de la tienda ve y cambia su personal.');
+            return;
+        }
         $id = $this->campo($post, 'id');
         try {
             $this->servicio->reiniciarClave($this->usuario, $this->leerId($id), $this->campo($post, 'clave'));

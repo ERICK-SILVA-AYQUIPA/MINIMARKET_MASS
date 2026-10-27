@@ -212,17 +212,20 @@ Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 91 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 96 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
 php tests/unitarios.php     # 51 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/integracion.php   # 91 comprobaciones contra MySQL, con la base recién creada
+php tests/web.php           # 93 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422 y escapado; no cambia datos
+php tests/integracion.php   # 96 comprobaciones contra MySQL, con la base recién creada
 ```
 
-En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias y las de integración contra un MySQL 8.4.11 nuevo. El resultado sale en la pestaña **Actions** y en el pull request.
+En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, las web y las de integración contra un MySQL 8.4.11 nuevo.
+
+`tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
 
 ---
 

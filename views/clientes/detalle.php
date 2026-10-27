@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: un cliente, sus compras en las 3 tiendas y el formulario para completar su documento.
+ * V: un cliente, sus compras en todas las tiendas y el formulario para completar su documento.
  * @var Cliente $cliente
  * @var array<int, array{venta: Venta, serie: SerieComprobante, tienda: ?Tienda}> $compras
  * @var ?string $error

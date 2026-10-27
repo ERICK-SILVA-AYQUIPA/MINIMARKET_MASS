@@ -79,7 +79,7 @@ abstract class Usuario
         return false;
     }
 
-    // Crear y editar productos, categorias y marcas (el catalogo y el precio son de las 3 tiendas)
+    // Crear y editar productos, categorias y marcas (el catalogo y el precio son de toda la cadena)
     public function puedeAdministrarCatalogo(): bool
     {
         return false;
