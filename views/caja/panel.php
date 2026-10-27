@@ -59,7 +59,7 @@ require __DIR__ . '/../layout_inicio.php';
         </section>
         <section class="panel">
             <h2>Cerrar turno</h2>
-            <form class="formulario" method="post" action="/?ruta=turno_cerrar">
+            <form class="formulario" method="post" action="/?ruta=turno_cerrar" data-confirmar="¿Cerrar tu turno? Después ya no podrás vender con él." data-confirmar-boton="Sí, cerrar turno">
                 <?= campoCsrf($csrf) ?>
                 <label for="monto_cierre">Efectivo contado al cerrar (S/)</label>
                 <span class="ayuda">Cuenta billetes y monedas de la gaveta. El sistema calcula la diferencia con lo esperado.</span>

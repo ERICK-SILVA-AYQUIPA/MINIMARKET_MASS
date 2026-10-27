@@ -66,7 +66,7 @@ $estadoElegido = $valor('estado', $tienda->getEstado());
                         <input type="hidden" name="id" value="<?= $caja->getIdCaja() ?>">
                         <?php if ($caja->getEstado() === 'ACTIVA'): ?>
                             <input type="hidden" name="estado" value="INACTIVA">
-                            <button class="peligro chico" type="submit">Desactivar</button>
+                            <button class="peligro chico" type="submit" data-confirmar="¿Desactivar esta caja? No se podrán abrir turnos en ella." data-confirmar-boton="Sí, desactivar">Desactivar</button>
                         <?php else: ?>
                             <input type="hidden" name="estado" value="ACTIVA">
                             <button class="chico" type="submit">Activar</button>

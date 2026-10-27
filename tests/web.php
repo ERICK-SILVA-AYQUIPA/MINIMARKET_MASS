@@ -131,7 +131,9 @@ $anonimo = new Navegador();
 revisar('/ lleva al login (303)', $anonimo->get('') === 303 && str_contains($anonimo->cabeceras['location'] ?? '', 'ruta=login'));
 revisar('Cualquier pantalla lleva al login', $anonimo->get('ruta=reportes') === 303);
 revisar('El login responde 200', $anonimo->get('ruta=login') === 200);
-revisar('Cabecera CSP sin scripts', str_contains($anonimo->cabeceras['content-security-policy'] ?? '', "script-src 'none'"));
+$csp = $anonimo->cabeceras['content-security-policy'] ?? '';
+revisar('Cabecera CSP: solo scripts del propio sitio, nada inline', str_contains($csp, "script-src 'self';")
+    && !preg_match("/script-src[^;]*('unsafe-inline'|'unsafe-eval'|https?:)/", $csp) && str_contains($csp, "object-src 'none'"));
 revisar('Cabeceras X-Frame-Options DENY y nosniff', ($anonimo->cabeceras['x-frame-options'] ?? '') === 'DENY'
     && ($anonimo->cabeceras['x-content-type-options'] ?? '') === 'nosniff');
 $sinCookie = new Navegador();
@@ -221,6 +223,8 @@ revisar('Ingresos está en el menú del almacenero y del administrador, no del c
 revisar('Los ingresos se descargan en CSV con sus costos', $rosa->get('ruta=ingresos_csv') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_contains($rosa->cuerpo, 'costo_unitario'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
+revisar('Las pantallas cargan solo /app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/app.js')
+    && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));
 revisar('La ficha del producto se abre en el panel lateral', $rosa->get('ruta=productos&ver=8') === 200
     && $rosa->tiene('id="ficha-producto"') && $rosa->tiene('drawer abierto'));
 revisar('Un panel pedido con un id que no existe no se abre', $rosa->get('ruta=productos&ver=99999') === 200 && !$rosa->tiene('drawer abierto')

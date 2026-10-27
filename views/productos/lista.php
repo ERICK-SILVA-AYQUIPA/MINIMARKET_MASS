@@ -38,6 +38,11 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
     require __DIR__ . '/../parciales/vacio.php';
     ?>
 <?php else: ?>
+<?php
+$buscadorTabla = 'filas-productos';
+$buscadorTexto = 'Buscar por nombre o código de barras';
+require __DIR__ . '/../parciales/buscador.php';
+?>
 <div class="tabla">
 <table>
     <caption class="visualmente-oculto">Productos y su stock en <?= e($tienda->getNombreTienda()) ?></caption>
@@ -50,7 +55,7 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
             <th scope="col">Estado</th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="filas-productos">
     <?php foreach ($filas as $fila): ?>
         <?php
         $p = $fila['producto'];

@@ -72,7 +72,7 @@ require __DIR__ . '/../layout_inicio.php';
     $drawerAncho = true;
     require __DIR__ . '/../parciales/drawer_abrir.php';
     ?>
-    <form class="formulario" method="post" action="/?ruta=traslado_registrar">
+    <form class="formulario" method="post" action="/?ruta=traslado_registrar" data-confirmar="¿Enviar esta mercadería? El stock sale de tu tienda y entra a la de destino." data-confirmar-boton="Sí, enviar">
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <?= campoCsrf($csrf) ?>
         <label for="destino">Tienda de destino</label>
