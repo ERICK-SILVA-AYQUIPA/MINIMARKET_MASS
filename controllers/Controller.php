@@ -77,18 +77,20 @@ abstract class Controller
     }
 
     /**
-     * Lineas de producto de un formulario: producto[] y cantidad[] -> [[id_producto, cantidad], ...]
-     * @return array<int, array{id_producto: string, cantidad: string}>
+     * Lineas de producto de un formulario: producto[], cantidad[] y costo[] -> [[id_producto, cantidad, costo], ...]
+     * @return array<int, array{id_producto: string, cantidad: string, costo: string}>
      */
     protected function lineasDelFormulario(array $post): array
     {
         $productos = is_array($post['producto'] ?? null) ? $post['producto'] : [];
         $cantidades = is_array($post['cantidad'] ?? null) ? $post['cantidad'] : [];
+        $costos = is_array($post['costo'] ?? null) ? $post['costo'] : [];   // solo el ingreso de mercaderia
         $lineas = [];
         foreach ($productos as $i => $idProducto) {
             $lineas[] = [
                 'id_producto' => is_string($idProducto) ? $idProducto : '',
                 'cantidad'    => is_string($cantidades[$i] ?? null) ? $cantidades[$i] : '',
+                'costo'       => is_string($costos[$i] ?? null) ? $costos[$i] : '',
             ];
         }
         return $lineas;

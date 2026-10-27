@@ -108,6 +108,7 @@ require_once __DIR__ . '/parciales/funciones.php';
         $menu = ['inicio' => 'Inicio', 'productos' => 'Catálogo', 'stock' => 'Stock', 'ventas' => 'Ventas'];
         if ($usuarioActual->puedeVender()) { $menu['venta_nueva'] = 'Nueva venta'; }
         if ($usuarioActual->puedeManejarCaja() || $usuarioActual->puedeVerArqueo($idTiendaActual)) { $menu['caja'] = 'Caja'; }
+        if ($usuarioActual->puedeVerIngresos($idTiendaActual)) { $menu['ingresos'] = 'Ingresos'; }
         $menu += ['traslados' => 'Traslados', 'mermas' => 'Mermas'];
         if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $menu['ajustes'] = 'Conteo'; }
         $menu += ['kardex' => 'Kardex', 'tiendas' => 'Tiendas'];

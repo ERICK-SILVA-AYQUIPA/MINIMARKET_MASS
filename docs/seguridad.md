@@ -10,9 +10,9 @@ php tests/seguridad.php    # 16 comprobaciones, sin base de datos, en menos de 1
 
 | Protección | Qué evita | Dónde está | Cómo se comprueba |
 |---|---|---|---|
-| Token CSRF en todo POST | Que otra página mande formularios con la sesión del empleado | `Sesion::csrfValido()` en `public/index.php`, antes del `match` de rutas POST; `campoCsrf()` en las vistas | `seguridad.php` sección 1 (24 rutas POST y 24 formularios) y `web.php` (POST sin token = 403) |
-| Escapado de salida | XSS: que un nombre de producto con `<script>` se ejecute | `e()` = `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')` en `views/parciales/funciones.php` | `seguridad.php` sección 2 (las 476 salidas `<?=` de las vistas) y `web.php` (un `<b>` en la búsqueda sale escapado) |
-| Consultas preparadas | Inyección SQL | Todos los Repository y Servicios usan `prepare()` con `?`; `PDO::ATTR_EMULATE_PREPARES = false` en `config/Database.php` | `seguridad.php` sección 3 (las 123 llamadas a `prepare()`/`query()`) |
+| Token CSRF en todo POST | Que otra página mande formularios con la sesión del empleado | `Sesion::csrfValido()` en `public/index.php`, antes del `match` de rutas POST; `campoCsrf()` en las vistas | `seguridad.php` sección 1 (25 rutas POST y 25 formularios) y `web.php` (POST sin token = 403) |
+| Escapado de salida | XSS: que un nombre de producto con `<script>` se ejecute | `e()` = `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')` en `views/parciales/funciones.php` | `seguridad.php` sección 2 (las 504 salidas `<?=` de las vistas) y `web.php` (un `<b>` en la búsqueda sale escapado) |
+| Consultas preparadas | Inyección SQL | Todos los Repository y Servicios usan `prepare()` con `?`; `PDO::ATTR_EMULATE_PREPARES = false` en `config/Database.php` | `seguridad.php` sección 3 (las 130 llamadas a `prepare()`/`query()`) |
 | Permisos por rol | Que un cajero anule ventas o vea reportes | `Usuario::puede...()` en cada rol; el controlador responde 403 y el servicio vuelve a revisar | `web.php` (matriz de rutas × 3 roles) e `integracion.php` |
 | Bloqueo por claves erradas | Probar claves por fuerza bruta | 5 claves erradas de un DNI, o 20 desde una misma IP, = 15 minutos de espera (`database/seguridad.sql`, `IntentoLoginRepository`) | `web.php` y `integracion.php` |
 | Sesión | Robo o fijación de sesión | Cookie `HttpOnly`, `SameSite=Lax`, `Secure` con HTTPS, `use_strict_mode`, `session_regenerate_id()` al entrar, cierre tras 30 minutos sin uso (`config/Sesion.php`) | Revisión del código; `web.php` usa una cookie por rol |
@@ -44,6 +44,7 @@ La tabla `auditoria` (`database/auditoria.sql`) guarda quién hizo cada cambio s
 | `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA` | Personal y claves (nunca se guarda la clave) |
 | `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO` | Tiendas y cajas |
 | `CLIENTE_DOCUMENTO` | Se completa el DNI o RUC de un cliente (no se guarda el número) |
+| `INGRESO_REGISTRADO` | El almacenero registra mercadería recibida (documento, emisor, número de productos y total) |
 
 El administrador la ve en `?ruta=auditoria`, filtrada por acción y de 50 en 50; solo ve la de su tienda. Ventas, traslados, mermas y ajustes no se repiten aquí porque ya quedan en el kardex (`movimiento_stock`) con empleado y fecha.
 

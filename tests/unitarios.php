@@ -20,6 +20,8 @@ require __DIR__ . '/../models/Stock.php';
 require __DIR__ . '/../models/Administrador.php';
 require __DIR__ . '/../models/Cajero.php';
 require __DIR__ . '/../models/Almacenero.php';
+require __DIR__ . '/../models/IngresoMercaderia.php';
+require __DIR__ . '/../models/DetalleIngreso.php';
 
 $ok = 0;
 $fallas = 0;
@@ -94,6 +96,14 @@ revisar('Hay stock para 5 kg pero no para 5.5', $s->hayStock(5.0) && !$s->haySto
 revisar('Stock en 0 está agotado', (new Stock(1, 8, 0.0, 10.0))->estaAgotado());
 rechazaDato('El stock nunca es negativo', fn() => new Stock(1, 8, -1.0, 10.0));
 
+echo "Ingreso de mercadería\n";
+$ingreso = new IngresoMercaderia(1, '2026-10-27 10:00:00', 'FACTURA', 'F001-00012345', '2026-10-27', '20100055237', 'Distribuidora', 106.88, null, 1, 3);
+revisar('El documento se muestra con su tipo', $ingreso->documento() === 'FACTURA F001-00012345');
+rechazaDato('Tipo de documento fuera de la lista', fn() => new IngresoMercaderia(1, 'x', 'TICKET', 'T1-1', 'x', '20100055237', 'D', 1.0, null, 1, 3));
+rechazaDato('RUC del emisor con 10 dígitos', fn() => new IngresoMercaderia(1, 'x', 'GUIA', 'T001-1', 'x', '2010005523', 'D', 1.0, null, 1, 3));
+revisar('Costo total 10.5 kg x S/ 1.95 = 20.48 (redondeo como MySQL)', (new DetalleIngreso(1, 8, 10.5, 1.95, 20.48))->getCostoTotal() === 20.48);
+rechazaDato('Costo total que no es cantidad x costo', fn() => new DetalleIngreso(1, 8, 10.5, 1.95, 20.47));
+
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);
 $luis = new Cajero(2, 'Luis', 'Caceres', '70000002', 'ACTIVO', 1);
@@ -106,6 +116,10 @@ revisar('El cajero no anula', !$luis->puedeAnularVenta(1));
 revisar('Solo el almacenero mueve mercadería', $carmen->puedeMoverMercaderia() && !$luis->puedeMoverMercaderia() && !$rosa->puedeMoverMercaderia());
 revisar('Conteo: almacenero y administrador de SU tienda', $carmen->puedeAjustarStock(1) && !$carmen->puedeAjustarStock(2)
     && $rosa->puedeAjustarStock(1) && !$luis->puedeAjustarStock(1));
+revisar('Ingreso de mercadería: lo registra el almacenero de SU tienda', $carmen->puedeRegistrarIngreso(1) && !$carmen->puedeRegistrarIngreso(2)
+    && !$rosa->puedeRegistrarIngreso(1) && !$luis->puedeRegistrarIngreso(1));
+revisar('Ingresos: los ven el almacenero y el administrador de la tienda', $carmen->puedeVerIngresos(1) && $rosa->puedeVerIngresos(1)
+    && !$rosa->puedeVerIngresos(2) && !$luis->puedeVerIngresos(1));
 revisar('Administra la tienda solo su administrador', $rosa->puedeAdministrarTienda(1) && !$rosa->puedeAdministrarTienda(3)
     && !$carmen->puedeAdministrarTienda(1));
 revisar('Catálogo y nuevas tiendas: solo administradores', $rosa->puedeAdministrarCatalogo() && $rosa->puedeAbrirTiendas()
