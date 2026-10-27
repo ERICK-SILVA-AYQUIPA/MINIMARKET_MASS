@@ -14,6 +14,12 @@ class Almacenero extends Usuario
         return $this->estaActivo();
     }
 
+    // Recibe la mercaderia que llega a SU tienda, con su documento
+    public function puedeRegistrarIngreso(int $idTienda): bool
+    {
+        return $this->estaActivo() && $idTienda === $this->getIdTienda();
+    }
+
     // Cuenta la mercaderia de SU tienda y corrige las diferencias
     public function puedeAjustarStock(int $idTienda): bool
     {

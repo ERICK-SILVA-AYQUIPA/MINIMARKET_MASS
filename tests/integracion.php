@@ -27,6 +27,7 @@ require __DIR__ . '/../models/servicios/TiendaServicio.php';
 require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/Paginacion.php';
+require __DIR__ . '/../models/IngresoRepository.php';
 
 $db = Database::conexion();
 
@@ -136,6 +137,51 @@ $leche = $stock(1, 1);
 $id = $inventario->registrarMerma($carmen, 'VENCIDO', 'Prueba', [['id_producto' => '1', 'cantidad' => '2']]);
 revisar("Merma $id descuenta 2 leches", $stock(1, 1) === number_format((float) $leche - 2, 3, '.', ''));
 rechaza('Motivo de merma no válido', fn() => $inventario->registrarMerma($carmen, 'PERDIDO', null, [['id_producto' => '1', 'cantidad' => '1']]));
+
+echo "Ingreso de mercadería\n";
+$documento = ['tipo' => 'FACTURA', 'numero' => 'f001-00012345', 'fecha' => date('Y-m-d'), 'ruc' => '20100055237',
+    'razon_social' => 'Distribuidora de Prueba S.A.C.', 'observacion' => 'Pedido semanal'];
+$lecheAntes = $stock(1, 1);
+$papaAntes = $stock(1, 8);
+$idIngreso = $inventario->registrarIngreso($carmen, $documento, [
+    ['id_producto' => '1', 'cantidad' => '24', 'costo' => '3.60'],
+    ['id_producto' => '8', 'cantidad' => '10.5', 'costo' => '1.95'],
+    ['id_producto' => '', 'cantidad' => '', 'costo' => ''],
+]);
+revisar("Ingreso $idIngreso suma 24 leches y 10.5 kg de papa", $stock(1, 1) === number_format((float) $lecheAntes + 24, 3, '.', '')
+    && $stock(1, 8) === number_format((float) $papaAntes + 10.5, 3, '.', ''));
+revisar('...con el número en mayúsculas y total = 24 x 3.60 + 10.5 x 1.95 = 106.88', valor($db,
+    'SELECT CONCAT(numero_documento, \'/\', total) FROM ingreso_mercaderia WHERE id_ingreso = ?', [$idIngreso]) === 'F001-00012345/106.88');
+revisar('...el kardex anota 2 entradas INGRESO con el documento', valor($db,
+    'SELECT COUNT(*) FROM movimiento_stock WHERE id_ingreso = ? AND id_tipo_movimiento = 8 AND observacion = ?',
+    [$idIngreso, 'FACTURA F001-00012345']) === '2');
+revisar('...y la auditoría el ingreso', (int) valor($db,
+    "SELECT COUNT(*) FROM auditoria WHERE accion = 'INGRESO_REGISTRADO' AND detalle LIKE ?", ["Ingreso $idIngreso: FACTURA F001-00012345%S/ 106.88"]) === 1);
+rechaza('El mismo documento dos veces', fn() => $inventario->registrarIngreso($carmen, $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('Un cajero no registra ingresos', fn() => $inventario->registrarIngreso($luis, ['numero' => 'F001-1'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('El administrador tampoco: lo revisa', fn() => $inventario->registrarIngreso($rosa, ['numero' => 'F001-2'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('RUC de 10 dígitos', fn() => $inventario->registrarIngreso($carmen, ['ruc' => '2010005523', 'numero' => 'F001-3'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('Fecha del documento futura', fn() => $inventario->registrarIngreso($carmen,
+    ['fecha' => date('Y-m-d', strtotime('+1 day')), 'numero' => 'F001-4'] + $documento, [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('Número sin serie', fn() => $inventario->registrarIngreso($carmen, ['numero' => '12345'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
+rechaza('Costo con 3 decimales', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-5'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.605']]));
+rechaza('Un producto en dos líneas', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-6'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60'], ['id_producto' => '1', 'cantidad' => '2', 'costo' => '3.50']]));
+rechaza('Media leche (se vende por unidad)', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-7'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '0.5', 'costo' => '3.60']]));
+revisar('...los rechazados no dejaron ingreso ni stock', valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia') === '1'
+    && $stock(1, 1) === number_format((float) $lecheAntes + 24, 3, '.', ''));
+$ingresosRepo = new IngresoRepository($db);
+$detalle = $ingresosRepo->detalle($idIngreso);
+revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->contar(1) === 1
+    && $ingresosRepo->pagina(1, 25, 0)[0]->documento() === 'FACTURA F001-00012345'
+    && count($detalle) === 2 && $detalle[1]->getCostoTotal() === 20.48);
 
 echo "Caja\n";
 rechaza('Abrir con un turno ya abierto', fn() => $caja->abrirTurno($luis, 2, '100'));
@@ -286,6 +332,9 @@ $raul = $empleados->buscarPorId($cajeroSachaca);
 rechaza('En una tienda inactiva no se abre caja', fn() => $caja->abrirTurno($raul, (int) valor($db,
     'SELECT id_caja FROM caja WHERE id_tienda = ? AND numero_caja = 1', [$idTienda]), '50'));
 rechaza('Ni se le traslada mercadería', fn() => $inventario->trasladar($carmen, $idTienda, [['id_producto' => '2', 'cantidad' => '1']], null));
+$almaceneroSachaca = $empleados->buscarPorId($personal->crear($elena, 'Nora', 'Vela', '70000044', 3, 'Nora2026x'));
+rechaza('Ni recibe un ingreso de mercadería', fn() => $inventario->registrarIngreso($almaceneroSachaca, ['numero' => 'G001-1'] + $documento,
+    [['id_producto' => '2', 'cantidad' => '1', 'costo' => '1.00']]));
 
 echo "Auditoría\n";
 $auditado = fn(string $accion, string $parte): bool => (int) valor($db,
