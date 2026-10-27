@@ -29,7 +29,7 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <?php if ($puedeRegistrar): ?>
-    <form class="formulario panel" method="post" action="/?ruta=ajuste_registrar">
+    <form class="formulario panel" method="post" action="/?ruta=ajuste_registrar" data-confirmar="¿Guardar el conteo? Lo contado reemplaza al stock del sistema." data-confirmar-boton="Sí, guardar">
         <h2>Hoja de conteo</h2>
         <div class="aviso info">Escribe solo lo que contaste. Lo que dejes vacío no se toca; si escribes 0, el producto queda en 0.</div>
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>

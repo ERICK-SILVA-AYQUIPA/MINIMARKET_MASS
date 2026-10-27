@@ -389,6 +389,46 @@ summary { cursor: pointer; font-weight: 600; padding: var(--e3) 0; color: var(--
 summary:focus-visible { outline: 3px solid rgba(29, 78, 216, .35); border-radius: 4px; }
 @media (max-width: 960px) { .venta { grid-template-columns: minmax(0, 1fr); } .venta .resumen { position: static; } .venta .lineas select { min-width: 160px; } }
 
+/* ---------- 14b. Lo que agrega public/app.js (sin JavaScript no aparece) ---------- */
+[hidden] { display: none !important; }
+.buscador {
+    display: flex; align-items: center; gap: var(--e2); margin: 0 0 var(--e3); max-width: 520px;
+    background: var(--superficie); border: 1px solid var(--borde-fuerte); border-radius: var(--radio-chico); padding: 0 var(--e3);
+}
+.buscador:focus-within { border-color: var(--foco); outline: 3px solid rgba(29, 78, 216, .25); }
+.buscador .icono { color: var(--suave); flex: none; }
+.buscador input { border: 0; outline: 0; flex: 1; min-width: 0; padding-left: 0; padding-right: 0; background: transparent; }
+kbd { font: 600 .75rem/1 ui-monospace, monospace; padding: 3px 6px; border: 1px solid var(--borde-fuerte); border-bottom-width: 2px; border-radius: 4px; color: var(--suave); background: var(--superficie-2); }
+.total-vivo { background: var(--tinta); color: #fff; border-radius: var(--radio); padding: var(--e4); margin-bottom: var(--e3); }
+.total-vivo .total-grande { display: flex; justify-content: space-between; align-items: baseline; }
+.total-vivo .total-grande span { font-weight: 600; color: #cbd5e1; }
+.total-vivo .total-grande strong { font-size: 2rem; color: var(--marca); font-variant-numeric: tabular-nums; }
+.total-vivo dl { display: grid; grid-template-columns: 1fr auto; gap: 4px var(--e3); margin: var(--e2) 0; font-size: .9rem; }
+.total-vivo dt { color: #cbd5e1; }
+.total-vivo dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.total-vivo .ayuda { color: #94a3b8; margin: 0; }
+.avisos-vivo { list-style: none; margin: 0 0 var(--e2); padding: 0; display: grid; gap: 4px; }
+.avisos-vivo li { background: var(--ambar-fondo); color: var(--ambar); border-radius: var(--radio-chico); padding: 6px 10px; font-size: .85rem; font-weight: 600; }
+input.campo-error, [aria-invalid=true] { border-color: var(--rojo) !important; background: var(--rojo-fondo); }
+.error-campo { display: block; color: var(--rojo); font-size: .82rem; font-weight: 600; margin-top: 4px; }
+dialog.confirmacion {
+    border: 0; border-radius: var(--radio); padding: var(--e5); max-width: min(440px, calc(100% - 32px));
+    box-shadow: var(--sombra-alta); color: var(--texto);
+}
+dialog.confirmacion::backdrop { background: rgba(16, 24, 40, .55); }
+dialog.confirmacion p { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--tinta); }
+dialog.confirmacion .botones-formulario { justify-content: flex-end; }
+.aviso { position: relative; transition: opacity .4s, transform .4s; }
+.aviso.saliendo { opacity: 0; transform: translateY(-6px); }
+.aviso-cerrar {
+    margin-left: auto; background: none; border: 0; color: inherit; min-height: 0; padding: 0 4px;
+    font-size: 1.3rem; line-height: 1; opacity: .7;
+}
+.aviso-cerrar:hover { background: none; opacity: 1; }
+button.cargando { opacity: .75; cursor: progress; }
+button.cargando .icono { animation: girar 1s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
 /* ---------- 15. Ingreso al sistema ---------- */
 body.acceso { background: linear-gradient(160deg, var(--lateral) 0 45%, var(--fondo) 45% 100%); }
 .acceso main { max-width: 420px; padding-top: 8vh; }

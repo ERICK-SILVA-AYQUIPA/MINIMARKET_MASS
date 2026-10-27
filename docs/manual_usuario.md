@@ -28,6 +28,10 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 - **Paneles laterales**: al tocar un producto, un cliente, un comprobante, un turno de caja, un movimiento del kardex, un ingreso o una fila de la auditoría, su detalle se abre a la derecha sin salir de la lista. Se cierra con la **X**, tocando el fondo oscuro o con **Atrás** del navegador.
 - **Botón amarillo**: la acción principal de cada pantalla (Nueva venta, Registrar ingreso, Enviar mercadería, Registrar merma, Nuevo producto, Registrar empleado).
 - Si una lista está vacía, la pantalla dice por qué y qué hacer.
+- **Buscador en vivo**: en Catálogo, Stock, Kardex, Personal y Auditoría, escribir en **Buscar** deja solo las filas que coinciden. La tecla `/` lleva al buscador y `Esc` lo limpia.
+- **Teclado**: `Esc` cierra un panel lateral o el menú del celular.
+- **Confirmación**: anular una venta, descontinuar un producto, cerrar el turno, desactivar una caja, y registrar una merma, un traslado, un ingreso o un conteo piden confirmar antes de guardar.
+- Si falta un dato o tiene mal formato, el mensaje sale debajo del campo. Mientras se guarda, el botón dice **Guardando…** para no registrar dos veces lo mismo.
 
 ## 2. Lo que ven todos
 
@@ -46,7 +50,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 | Tarea | Pasos |
 |---|---|
 | Abrir turno | **Caja** → elegir la caja → escribir el monto inicial en efectivo → **Abrir turno**. Sin turno abierto no se puede vender |
-| Registrar una venta | **Nueva venta** → a la izquierda, productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → a la derecha, boleta o factura, el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) y el efectivo que entrega. Si paga una parte con tarjeta o SIP, abrir **Pagar una parte con tarjeta** o **con billetera Sip** → botón amarillo **Registrar venta**. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
+| Registrar una venta | **Nueva venta** → a la izquierda, productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → a la derecha, boleta o factura, el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) y el efectivo que entrega. Si paga una parte con tarjeta o SIP, abrir **Pagar una parte con tarjeta** o **con billetera Sip** → botón amarillo **Registrar venta**. Mientras se escribe, el cuadro oscuro muestra el importe de cada producto, el total, lo que falta en efectivo y el vuelto, y avisa si no alcanza el stock, si un producto por unidad tiene decimales o si la factura no tiene RUC. Al registrar, el servidor vuelve a calcular todo con los precios de la base. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
 | Cerrar turno | **Caja** → escribir el efectivo contado → **Cerrar turno** |
 | Clientes | **Clientes** → buscar por DNI o RUC (o sus primeros dígitos), ver sus compras y completar el documento que falta |
 

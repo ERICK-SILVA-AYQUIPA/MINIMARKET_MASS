@@ -20,10 +20,15 @@ $viejoTexto = static fn(string $campo): string => is_string($viejo[$campo] ?? nu
     <div class="acciones"><a class="boton acento" href="#nuevo-empleado"><?= icono('mas') ?>Registrar empleado</a></div>
 </div>
 
+<?php
+$buscadorTabla = 'filas-personal';
+$buscadorTexto = 'Buscar por nombre o rol';
+require __DIR__ . '/../parciales/buscador.php';
+?>
 <div class="tabla">
 <table>
     <thead><tr><th scope="col">Nombre</th><th scope="col">DNI</th><th scope="col">Rol</th><th scope="col">Estado</th><th scope="col"><span class="visualmente-oculto">Acciones</span></th></tr></thead>
-    <tbody>
+    <tbody id="filas-personal">
     <?php foreach ($personal as $empleado): ?>
         <tr>
             <td><?= e($empleado->nombreCompleto()) ?></td>
