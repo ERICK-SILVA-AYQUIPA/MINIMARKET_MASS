@@ -39,7 +39,7 @@ php -S localhost:8000 -t public
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba (ver `docs/manual_usuario.md`).
 
-Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql` y `auditoria.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
+Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql` e `ingresos.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
 
 ## 4. Opción B: MySQL sin Docker (Laragon)
 
@@ -53,6 +53,7 @@ mysql -u root -p -h 127.0.0.1 -P 3306 < database/login.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/seguridad.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/ajustes.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/auditoria.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < database/ingresos.sql
 ```
 
 Luego crear el usuario de la aplicación con solo los permisos que necesita (no root):
@@ -118,7 +119,7 @@ server {
 | Sacar respaldo | `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` | `bash scripts/respaldo.sh` |
 | Restaurar | `powershell -ExecutionPolicy Bypass -File scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
-- El respaldo guarda todo: las 29 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
+- El respaldo guarda todo: las 31 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo, sin detenerla.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
 - **Restaurar reemplaza todos los datos actuales**. Pide escribir `SI` para seguir.
@@ -137,19 +138,19 @@ bash scripts/respaldo.sh        # o respaldo.ps1: siempre respaldar antes
 git pull origin main
 ```
 
-Si la versión nueva trae un script nuevo en `database/` (por ejemplo `auditoria.sql`), hay dos caminos:
+Si la versión nueva trae un script nuevo en `database/` (por ejemplo `ingresos.sql`), hay dos caminos:
 
 - **Aula, sin datos que cuidar**: `docker compose down -v` y `docker compose up -d` (se vuelve a crear todo).
 - **Con datos reales**: ejecutar solo el script nuevo sobre la base que ya existe:
-  `docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < database/auditoria.sql`
+  `docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < database/ingresos.sql`
 
 ## 9. Comprobar que todo funciona
 
 ```powershell
-php tests/unitarios.php     # 51, sin base de datos
+php tests/unitarios.php     # 58, sin base de datos
 php tests/seguridad.php     # 16, revisa CSRF, escapado y SQL en todo el código
-php tests/web.php           # 103, por HTTP con los 3 roles; no cambia datos
-php tests/integracion.php   # 103, contra MySQL; solo con la base recién creada (cambia datos)
+php tests/web.php           # 112, por HTTP con los 3 roles; no cambia datos
+php tests/integracion.php   # 119, contra MySQL; solo con la base recién creada (cambia datos)
 ```
 
 En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
@@ -162,7 +163,7 @@ En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
 | `docker compose up` dice "Falta DB_PASSWORD en .env" | No existe `.env` o falta la clave: copiar `.env.example` |
 | El puerto 3307 está ocupado | Laragon u otro MySQL lo usa: detenerlo o cambiar `DB_PORT` a `3308` |
 | "could not find driver" | PHP sin `pdo_mysql`: activar `extension=pdo_mysql` en `php.ini` |
-| Falta una tabla (por ejemplo `auditoria`) | El volumen se creó con una versión anterior: ver sección 8 |
+| Falta una tabla (por ejemplo `ingreso_mercaderia`) | El volumen se creó con una versión anterior: ver sección 8 |
 | "Demasiados intentos fallidos" al entrar | 5 claves erradas seguidas con ese DNI (o 20 desde la misma PC). Esperar, o en el aula `docker compose down -v` |
 | La hora de las ventas está corrida 5 horas | MySQL sin `TZ: America/Lima` (ver sección 5) |
 | El CSV se ve con letras raras en Excel | Abrir con doble clic (lleva BOM UTF-8); no copiar y pegar el texto |

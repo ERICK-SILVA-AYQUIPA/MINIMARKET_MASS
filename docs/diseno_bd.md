@@ -4,7 +4,7 @@ Documento técnico de especificación y diccionario de datos del sistema relacio
 
 - **Motor de Base de Datos:** MySQL 8.4.11 en Docker (compatible con MySQL 8.0.16+ y Laragon, InnoDB)
 - **Codificación / Collation:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Total de tablas:** 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 2 tablas de apoyo de la aplicación (sección 5)
+- **Total de tablas:** 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 5 tablas de apoyo de la aplicación (sección 5)
 - **Objetos de programación:** 1 vista (`vw_comprobante`) y 1 procedimiento almacenado (`sp_boleta`)
 
 ---
@@ -27,13 +27,13 @@ El diseño se organiza en **7 niveles de integridad referencial**, garantizando 
 
 ## 2. Diagrama Entidad-Relación (EER)
 
-El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 3 tablas de apoyo de la aplicación (`ajuste_inventario`, `intento_login` y `auditoria`, sección 5):
+El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 5 tablas de apoyo de la aplicación (`ajuste_inventario`, `intento_login`, `auditoria`, `ingreso_mercaderia` y `detalle_ingreso`, sección 5):
 
 ![Diagrama Entidad-Relación](./diagrama-er.png)
 
 ### Diagrama ER en Notación Mermaid
 
-A continuación se presenta la definición vectorial e interactiva de las 26 entidades del diseño, más las 2 de apoyo, y sus relaciones:
+A continuación se presenta la definición vectorial e interactiva de las 26 entidades del diseño, más las 5 de apoyo, y sus relaciones:
 
 ```mermaid
 erDiagram
@@ -214,7 +214,7 @@ erDiagram
         VARCHAR modalidad_pago
         VARCHAR codigo_operacion UK
     }
-    %% EXTENSIONES DE LA APLICACION (ajustes.sql, seguridad.sql y auditoria.sql)
+    %% EXTENSIONES DE LA APLICACION (ajustes.sql, seguridad.sql, auditoria.sql e ingresos.sql)
     ajuste_inventario {
         INT id_ajuste PK
         DATETIME fecha_hora
@@ -238,6 +238,26 @@ erDiagram
         SMALLINT id_tienda FK
         MEDIUMINT id_empleado FK
     }
+    ingreso_mercaderia {
+        INT id_ingreso PK
+        DATETIME fecha_hora
+        VARCHAR tipo_documento UK
+        VARCHAR numero_documento UK
+        DATE fecha_documento
+        CHAR ruc_emisor UK
+        VARCHAR razon_social
+        DECIMAL total
+        VARCHAR observacion
+        SMALLINT id_tienda FK
+        MEDIUMINT id_empleado FK
+    }
+    detalle_ingreso {
+        INT id_ingreso PK,FK
+        INT id_producto PK,FK
+        DECIMAL cantidad
+        DECIMAL costo_unitario
+        DECIMAL costo_total
+    }
     movimiento_stock {
         BIGINT id_movimiento PK
         SMALLINT id_tienda FK
@@ -248,6 +268,7 @@ erDiagram
         INT id_traslado FK
         INT id_merma FK
         INT id_ajuste FK
+        INT id_ingreso FK
         DECIMAL cantidad
         DECIMAL stock_nuevo
         DATETIME fecha_hora
@@ -295,6 +316,11 @@ erDiagram
     empleado ||--o{ ajuste_inventario : "registra"
     tienda ||--o{ auditoria : "bitacora"
     empleado ||--o{ auditoria : "hace"
+    tienda ||--o{ ingreso_mercaderia : "recibe"
+    empleado ||--o{ ingreso_mercaderia : "registra_ingreso"
+    ingreso_mercaderia ||--|{ detalle_ingreso : "contiene"
+    producto ||--o{ detalle_ingreso : "comprado"
+    ingreso_mercaderia ||--o{ movimiento_stock : "origen_ingreso"
 ```
 
 ---
@@ -564,6 +590,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `seguridad.sql` | Tabla `intento_login` | Bloquear 15 minutos tras 5 claves erradas por DNI o 20 por IP |
 | `ajustes.sql` | Tabla `ajuste_inventario`, tipos de movimiento 6 y 7, columna `movimiento_stock.id_ajuste` | Ajuste de stock por conteo físico |
 | `auditoria.sql` | Tabla `auditoria` | Bitácora de acciones delicadas: quién, qué, cuándo y en qué tienda |
+| `ingresos.sql` | Tablas `ingreso_mercaderia` y `detalle_ingreso`, tipo de movimiento 8, columna `movimiento_stock.id_ingreso` | Mercadería recibida con su documento, cantidades y costo |
 
 #### `ajuste_inventario`
 Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.
@@ -584,13 +611,33 @@ Cabecera de un conteo físico o corrección en una tienda; las diferencias por p
 Solo se inserta (la aplicación nunca la cambia ni la borra). La escribe `Servicio::auditar()` dentro de la misma transacción que el cambio.
 - `id_auditoria` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
 - `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `accion` (VARCHAR(30), NOT NULL): `VENTA_ANULADA`, `PRODUCTO_CREADO`, `PRODUCTO_EDITADO`, `PRECIO_CAMBIADO`, `PRODUCTO_ESTADO`, `STOCK_MINIMO`, `CATEGORIA_CREADA`, `MARCA_CREADA`, `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA`, `CLIENTE_DOCUMENTO`, `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO`
+- `accion` (VARCHAR(30), NOT NULL): `VENTA_ANULADA`, `PRODUCTO_CREADO`, `PRODUCTO_EDITADO`, `PRECIO_CAMBIADO`, `PRODUCTO_ESTADO`, `STOCK_MINIMO`, `CATEGORIA_CREADA`, `MARCA_CREADA`, `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA`, `CLIENTE_DOCUMENTO`, `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO`, `INGRESO_REGISTRADO`
 - `detalle` (VARCHAR(250), NULL): qué cambió, en palabras (el DNI o RUC de un cliente no se copia)
 - `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`): la tienda de quien lo hizo
 - `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
 - Índice `(id_tienda, id_auditoria)` para la pantalla del administrador
 
+#### `ingreso_mercaderia`
+Mercadería que llega a una tienda con el documento del emisor. El emisor se guarda como texto (RUC y razón social) porque el grupo decidió no tener tabla de proveedores. La registra el almacenero de la tienda y la revisa su administrador.
+- `id_ingreso` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP): cuándo se registró
+- `tipo_documento` (VARCHAR(7), NOT NULL, CHECK IN ('GUIA', 'FACTURA', 'BOLETA'))
+- `numero_documento` (VARCHAR(13), NOT NULL): SERIE-NÚMERO, por ejemplo `F001-00012345`
+- `fecha_documento` (DATE, NOT NULL): no puede ser futura (lo valida la aplicación)
+- `ruc_emisor` (CHAR(11), NOT NULL, CHECK 11 dígitos), `razon_social` (VARCHAR(100), NOT NULL)
+- `total` (DECIMAL(10,2), NOT NULL, CHECK ≥ 0): suma de `detalle_ingreso.costo_total`
+- `observacion` (VARCHAR(200), NULL)
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`), `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- UNIQUE `(ruc_emisor, tipo_documento, numero_documento)`: el mismo documento no entra dos veces
+- Índice `(id_tienda, id_ingreso)` para la lista de la tienda
+
+#### `detalle_ingreso`
+- PK `(id_ingreso, id_producto)`: cada producto una vez por ingreso, con su costo
+- `cantidad` (DECIMAL(10,3), NOT NULL, CHECK > 0)
+- `costo_unitario` (DECIMAL(10,2), NOT NULL, CHECK ≥ 0): lo que pagó la tienda; no cambia `producto.precio_venta`
+- `costo_total` (DECIMAL(10,2), NOT NULL, CHECK = `ROUND(cantidad * costo_unitario, 2)`, igual que `detalle_venta.importe`)
+
 #### Cambios a tablas existentes
-- `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E) y 7 `AJUSTE DE SALIDA` (S).
-- `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) = 1`.
+- `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E), 7 `AJUSTE DE SALIDA` (S) y 8 `INGRESO DE MERCADERIA` (E).
+- `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`) e `id_ingreso` (INT UNSIGNED, NULL, FK → `ingreso_mercaderia.id_ingreso`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) + (id_ingreso IS NOT NULL) = 1`.
 - `producto.estado`: VARCHAR(13) en `schema.sql` (antes 10, donde `'DESCONTINUADO'` no cabía).

@@ -18,6 +18,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
 - **`database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
 - **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
+- **`database/ingresos.sql`**: Ingreso de mercadería: tablas `ingreso_mercaderia` y `detalle_ingreso` (documento del emisor, cantidades y costo) y su movimiento en el kardex.
 - **`database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
@@ -86,7 +87,7 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 | **RN-09: Medios de Pago Oficiales** | Tienda Mass opera exclusivamente con Efectivo, Tarjeta y Billetera Digital Sip. | Subtipos relacionales `efectivo`, `tarjeta` y `billetera_digital_sip` vinculados a `pago_venta`. |
 | **RN-10: Vuelto en Efectivo** | El vuelto entregado no puede ser negativo ni igual o superior al dinero recibido. | `CHECK (vuelto >= 0 AND vuelto < monto_recibido)` en `efectivo`. |
 | **RN-11: Ajuste por Conteo** | Lo contado reemplaza al stock del sistema y la diferencia queda en el kardex como un cuarto origen. | Tabla `ajuste_inventario` y `CHECK` de RN-08 ampliado a 4 orígenes (`database/ajustes.sql`). |
-| **RN-12: Permisos por Rol** | Cajero vende y maneja su caja; almacenero traslada, registra mermas y cuenta; administrador anula, ve reportes y maneja personal, catálogo, tienda y cajas. | Métodos `puede...()` de `Usuario` y sus hijas, revisados en el controlador y otra vez en el servicio. |
+| **RN-12: Permisos por Rol** | Cajero vende y maneja su caja; almacenero recibe mercadería con su documento, traslada, registra mermas y cuenta; administrador anula, ve reportes y maneja personal, catálogo, tienda y cajas. | Métodos `puede...()` de `Usuario` y sus hijas, revisados en el controlador y otra vez en el servicio. |
 | **RN-13: Tienda Inactiva** | En una tienda o caja INACTIVA no se abre turno ni se vende, y no recibe traslados. No se desactiva con turnos abiertos. | `models/servicios/` (`CajaServicio`, `VentaServicio`, `InventarioServicio`, `TiendaServicio`). |
 | **RN-14: Series sin Huecos** | Cada tienda nueva recibe la siguiente serie libre de la cadena (B004, F004...) y el correlativo solo avanza con cada venta. | `TiendaServicio::abrir()` y `SELECT ... FOR UPDATE` de la serie en `VentaServicio`. |
 
@@ -114,9 +115,10 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/login.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/seguridad.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ajustes.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/auditoria.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ingresos.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 3 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`) y `auditoria` (`auditoria.sql`). Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 5 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), e `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`). Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 
@@ -128,7 +130,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql y auditoria.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql, auditoria.sql e ingresos.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -186,7 +188,7 @@ Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave 
 |---|---|---|
 | Cajero | Luis · `70000002` | Abrir y cerrar su turno de caja y registrar boletas y facturas |
 | Administrador | Rosa · `70000001` | Anular ventas de su tienda, ver el arqueo y los reportes, manejar su personal, el catálogo y el stock mínimo |
-| Almacenero | Carmen · `70000003` | Trasladar mercadería a otra tienda y registrar mermas |
+| Almacenero | Carmen · `70000003` | Recibir mercadería con su guía o factura, trasladarla a otra tienda, registrar mermas y contar el stock |
 
 Cada operación escribe en MySQL dentro de una **transacción** (`models/servicios/`): si un paso falla, no queda nada a medias. Toda salida o entrada de stock deja su fila en el kardex (`movimiento_stock`).
 
@@ -207,6 +209,7 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 | `?ruta=clientes` | Cajero y administrador: buscar clientes por DNI o RUC, ver sus compras y completar el documento que falta |
 | `?ruta=reportes` | Administrador: vendido, ticket promedio, ventas por día, más vendidos, por categoría, cajero y método de pago, con descarga CSV |
 | `?ruta=mi_clave` | Cada empleado cambia su propia clave |
+| `?ruta=ingresos` | Almacenero: registrar la mercadería que llega (documento, RUC del emisor, cantidades y costo); el stock sube y queda en el kardex. El administrador lo revisa y lo descarga en CSV (`?ruta=ingresos_csv`) |
 | `?ruta=ajustes` | Almacenero o administrador: hoja de conteo físico; lo contado reemplaza al stock y la diferencia va al kardex |
 | `?ruta=tienda_editar` | Administrador: datos y estado de su tienda, agregar y activar o desactivar cajas, ver sus series |
 | `?ruta=tienda_nueva` | Administrador: abrir una tienda con su caja 1, sus series, stock en 0 y su primer administrador |
@@ -218,21 +221,21 @@ Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos 
 
 **Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). Para restaurar, programar el respaldo diario o instalar en un servidor, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
-**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 103 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 119 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 51 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/seguridad.php     # 16 comprobaciones leyendo el código: CSRF en los 24 formularios, escapado y SQL preparado
-php tests/web.php           # 103 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422 y escapado; no cambia datos
-php tests/integracion.php   # 103 comprobaciones contra MySQL, con la base recién creada
+php tests/unitarios.php     # 58 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/seguridad.php     # 16 comprobaciones leyendo el código: CSRF en los 25 formularios, escapado y SQL preparado
+php tests/web.php           # 112 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422 y escapado; no cambia datos
+php tests/integracion.php   # 119 comprobaciones contra MySQL, con la base recién creada
 ```
 
 En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.

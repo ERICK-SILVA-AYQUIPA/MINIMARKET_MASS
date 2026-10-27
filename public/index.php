@@ -69,7 +69,7 @@ $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $em
     new VentaServicio($db));
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
-    new InventarioServicio($db));
+    new InventarioServicio($db), new IngresoRepository($db));
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
 $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
@@ -91,7 +91,7 @@ Controller::marcarRuta($ruta);
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
 $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
-    'venta_registrar', 'venta_anular', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
+    'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
     'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
@@ -117,6 +117,7 @@ try {
                 'salir'              => $auth->salir(),
                 'venta_registrar'    => $ventaController->registrar($_POST),
                 'venta_anular'       => $ventaController->anular($_POST),
+                'ingreso_registrar'  => $inventarioController->registrarIngreso($_POST),
                 'traslado_registrar' => $inventarioController->registrarTraslado($_POST),
                 'merma_registrar'    => $inventarioController->registrarMerma($_POST),
                 'turno_abrir'        => $cajaController->abrir($_POST),
@@ -198,6 +199,14 @@ try {
 
             case 'traslados':
                 $inventarioController->traslados($leer('tienda'));
+                break;
+
+            case 'ingresos':
+                $inventarioController->ingresos($leer('pagina'));
+                break;
+
+            case 'ingresos_csv':
+                $inventarioController->ingresosCsv();
                 break;
 
             case 'mermas':

@@ -97,6 +97,13 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **SEGURIDAD:** la auditoría se escribe dentro de la misma transacción que el cambio y nunca guarda claves ni el número de documento del cliente. Los respaldos tienen datos personales: `respaldos/` está en `.gitignore` y la clave de root no aparece en el comando. La revisión automática corre en GitHub en cada push.
 - **Prueba:** ver Verificación, paso 14.
 
+### Paso 15 · Ingreso de mercadería (27/10/2026)
+- **OBJETIVO:** Que la mercadería que llega a la tienda entre al stock de forma formal, con su documento, sus cantidades y su costo. Antes el stock solo subía por un conteo físico, un traslado o una anulación.
+- **ENTRADAS Y SALIDAS:** el almacenero registra en `?ruta=ingresos` el tipo de documento (guía, factura o boleta), su número, su fecha, el RUC y la razón social del emisor, y cada producto con cantidad y costo unitario. Sale: `ingreso_mercaderia` y `detalle_ingreso` (`database/ingresos.sql`), el stock sumado, una entrada INGRESO DE MERCADERIA en el kardex por producto y la acción INGRESO_REGISTRADO en la auditoría. El administrador lo revisa en la misma pantalla y en `?ruta=ingresos_csv`.
+- **SEGURIDAD:** solo el almacenero de la tienda registra (403 en el controlador y otra vez en el servicio); los costos los ven solo el almacenero y el administrador de esa tienda. El mismo documento de un emisor no entra dos veces (UNIQUE en la base). Una tienda inactiva no recibe mercadería.
+- **Decisión del grupo:** sin tabla de proveedores. El emisor queda escrito en cada ingreso (RUC y razón social). **[Grupo]** si después quieren un catálogo de proveedores, se agrega sin rehacer el ingreso.
+- **Prueba:** ver Verificación, paso 15.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -181,17 +188,18 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
-Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos.
+Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos. Desde el paso 15, el ingreso de mercadería con su documento y costo.
 
 **[Grupo]** decidan si se agregan:
-- **Ingreso de mercadería de proveedores:** quedó fuera por decisión del grupo. Mientras tanto, un producto nuevo entra a una tienda con un **conteo físico** (motivo CONTEO_FISICO).
-- El diagrama ER (`docs/diagrama-er.png` y el Mermaid de `docs/diseno_bd.md`) ya tiene las 3 tablas de apoyo (`intento_login`, `ajuste_inventario`, `auditoria`). El informe en Word (`final.docx`) trata los 5 diagramas UML y no se tocó: si el docente pide la base de datos en el informe, agreguen allí el ER nuevo.
+- **Catálogo de proveedores:** quedó fuera por decisión del grupo. Desde el paso 15 la mercadería entra con **Ingresos**, guardando el RUC y la razón social del emisor en cada documento.
+- El diagrama ER (`docs/diagrama-er.png` y el Mermaid de `docs/diseno_bd.md`) ya tiene las 5 tablas de apoyo (`intento_login`, `ajuste_inventario`, `auditoria`, `ingreso_mercaderia`, `detalle_ingreso`). El informe en Word (`final.docx`) trata los 5 diagramas UML y no se tocó: si el docente pide la base de datos en el informe, agreguen allí el ER nuevo.
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 27/10/2026, paso 15: con la base recién creada (31 tablas): unitarias 58, seguridad 16, web 112 e integración 119 correctas, 0 fallas. Carmen registra la FACTURA F001-00012345 con 24 leches a S/ 3.60 y 10.5 kg de papa a S/ 1.95: el stock sube, el total es S/ 106.88 (20.475 se redondea a 20.48, como MySQL), el kardex tiene 2 entradas con el documento y la auditoría el ingreso. Se rechazan el mismo documento otra vez, un cajero, el administrador, un RUC de 10 dígitos, una fecha futura, un número sin serie, un costo con 3 decimales, un producto repetido, media leche y una tienda inactiva, y ninguno deja datos. En el navegador, Carmen registra una GUIA desde el formulario y el kardex la muestra como "Ingreso 2".
 - 27/10/2026, paso 14: con la base recién creada (29 tablas): unitarias 51, seguridad 16, web 103 e integración 103 correctas, 0 fallas; web otra vez después de integración, 103. La revisión de seguridad cuenta 24 formularios POST con token, 476 salidas escapadas y 123 consultas preparadas; al quitar a propósito un token, un `e()` y al pegar una variable en un `prepare()`, falla en las tres. La auditoría registra la anulación, el cambio de precio (S/ 4.50 -> S/ 4.80), personal y cajas, y una acción rechazada no deja fila. El ticket mide 80 mm y marca ANULADA a B001-2. `scripts/respaldo.sh` saca las 29 tablas con `sp_boleta`, y al restaurar se recupera el estado anterior.
 - 27/10/2026, paso 13: `tests/web.php` da 93 correctas. Por rol: Luis recibe 403 en 17 formularios de administrador o almacenero, Carmen en 4 de caja y clientes, Rosa en vender y trasladar, y Jorge al anular una venta de Cayma. Un nombre con `<b>` vuelve escapado. Consultas 20 a 28 en 0 filas.
 - 27/10/2026, paso 12: después de entrar, Rosa, Luis, Carmen y Miguel llegan a `?ruta=inicio` (200) con el menú "Inicio" resaltado. Luis ve su turno 5 abierto y Miguel el aviso de abrir turno. El gráfico tiene 14 barras y el total de Cayma del 17 al 19/10 es S/ 323.00. Sin sesión, `/` lleva al login. Revisado en 1200 px y 390 px (celular). En `views/` todo lo impreso pasa por `e()` o es un entero o un texto fijo.

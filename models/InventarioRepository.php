@@ -13,7 +13,7 @@ require_once __DIR__ . '/AjusteInventario.php';
 class InventarioRepository
 {
     private const COLUMNAS_MOVIMIENTO = 'm.id_movimiento, m.fecha_hora, m.cantidad, m.stock_nuevo, m.observacion,
-        m.id_tienda, m.id_producto, m.id_tipo_movimiento, m.id_empleado, m.id_venta, m.id_traslado, m.id_merma, m.id_ajuste';
+        m.id_tienda, m.id_producto, m.id_tipo_movimiento, m.id_empleado, m.id_venta, m.id_traslado, m.id_merma, m.id_ajuste, m.id_ingreso';
 
     public function __construct(private PDO $db) {}
 
@@ -157,7 +157,8 @@ class InventarioRepository
             $f['id_venta'] === null ? null : (int) $f['id_venta'],
             $f['id_traslado'] === null ? null : (int) $f['id_traslado'],
             $f['id_merma'] === null ? null : (int) $f['id_merma'],
-            $f['id_ajuste'] === null ? null : (int) $f['id_ajuste']
+            $f['id_ajuste'] === null ? null : (int) $f['id_ajuste'],
+            $f['id_ingreso'] === null ? null : (int) $f['id_ingreso']
         );
     }
 }

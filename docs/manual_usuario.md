@@ -49,6 +49,7 @@ Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tie
 
 | Tarea | Pasos |
 |---|---|
+| Recibir mercadería | **Ingresos** → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad y su costo unitario → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
 | Trasladar mercadería | **Traslados** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
 | Registrar una merma | **Mermas** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
 | Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
@@ -69,6 +70,7 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Tienda y cajas | **Tiendas** → **Editar mi tienda, sus cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
 | Abrir una tienda nueva | **Tiendas** → **+ Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |
 | Auditoría | **Auditoría**: quién anuló ventas, cambió precios, editó personal o reinició claves en su tienda, con fecha y detalle. Se filtra por acción |
+| Revisar compras | **Ingresos**: ve lo que recibió su tienda, con documento, emisor, costos y quién lo registró. **Descargar en CSV (Excel)** saca una fila por producto. Cada ingreso también queda en la **Auditoría** |
 | Conteo físico | **Conteo**, igual que el almacenero |
 
 ## 6. Mensajes que pueden salir

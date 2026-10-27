@@ -91,6 +91,18 @@ abstract class Usuario
         return false;
     }
 
+    // Registrar la mercaderia que llega a una tienda (ingresos.sql)
+    public function puedeRegistrarIngreso(int $idTienda): bool
+    {
+        return false;
+    }
+
+    // Ver los ingresos de una tienda, con sus costos: quien los registra y su administrador
+    public function puedeVerIngresos(int $idTienda): bool
+    {
+        return $this->puedeRegistrarIngreso($idTienda) || $this->puedeAdministrarTienda($idTienda);
+    }
+
     // Abrir una tienda nueva de la cadena
     public function puedeAbrirTiendas(): bool
     {

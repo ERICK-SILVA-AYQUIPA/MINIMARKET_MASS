@@ -41,12 +41,7 @@ require __DIR__ . '/../layout_inicio.php';
         $tipo = $tipos[$m->getIdTipoMovimiento()] ?? null;
         $producto = $productos[$m->getIdProducto()] ?? null;
         $decimales = $producto !== null && $producto->esAlPeso() ? 3 : 0;
-        $origen = match (true) {
-            $m->getIdVenta() !== null    => 'Venta ' . $m->getIdVenta(),
-            $m->getIdTraslado() !== null => 'Traslado ' . $m->getIdTraslado(),
-            $m->getIdMerma() !== null    => 'Merma ' . $m->getIdMerma(),
-            default                      => 'Ajuste ' . $m->getIdAjuste(),
-        };
+        $origen = $m->origen();
         ?>
         <tr>
             <td><?= $m->getIdMovimiento() ?></td>
