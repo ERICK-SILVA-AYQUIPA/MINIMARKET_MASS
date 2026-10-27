@@ -26,9 +26,9 @@ $variacion = $ayerResumen['total'] > 0
 $maximo = max(1.0, ...array_values($ventasPorDia));
 $totalPeriodo = array_sum($ventasPorDia);
 ?>
-<div class="cabecera">
+<div class="cabecera bienvenida">
     <div>
-        <h1>Hola, <?= e($usuario->getNombres()) ?></h1>
+        <h1>Hola, <span class="resalte"><?= e($usuario->getNombres()) ?></span></h1>
         <p class="sutil"><?= e($tienda->getNombreTienda()) ?> · <?= e(ucfirst(strtolower($usuario->getNombreRol()))) ?> · <?= e(date('d/m/Y')) ?></p>
     </div>
     <div class="acciones">
