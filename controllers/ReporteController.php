@@ -61,9 +61,9 @@ class ReporteController extends Controller
         fwrite($salida, "\xEF\xBB\xBF"); // BOM: Excel abre bien las tildes
         fputcsv($salida, $encabezado, ',', '"', '');
         foreach ($filas as $fila) {
-            // Un texto que empieza con = + - @ se abre en Excel como formula: se le antepone un apostrofo
+            // Un texto que empieza con = + - @ (o tabulador / retorno) se abre en Excel como formula: se le antepone un apostrofo
             fputcsv($salida, array_map(
-                fn($v): string => preg_match('/^[=+\-@]/', (string) $v) === 1 ? "'" . $v : (string) $v,
+                fn($v): string => preg_match('/^[=+\-@\t\r]/', (string) $v) === 1 ? "'" . $v : (string) $v,
                 array_values($fila)
             ), ',', '"', '');
         }

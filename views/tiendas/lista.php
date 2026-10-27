@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: las 3 tiendas con su distrito, cajas, series y personal.
+ * V: las tiendas con su distrito, cajas, series y personal.
  * @var array<int, array{tienda: Tienda, distrito: string, cajas: Caja[], series: SerieComprobante[], empleados: Usuario[]}> $filas
  * @var bool $puedeAbrir  administrador: abrir tiendas nuevas
  * @var ?Usuario $usuarioActual

@@ -72,7 +72,7 @@ class VentaController extends Controller
         // Validar antes de buscar: serie B o F + 3 digitos, correlativo de 1 a 8 digitos
         if ($serieTexto === null || preg_match('/^[BF][0-9]{3}$/', $serieTexto) !== 1
             || $numeroTexto === null || preg_match('/^[0-9]{1,8}$/', $numeroTexto) !== 1) {
-            $this->noEncontrado('El comprobante pedido no es valido.');
+            $this->noEncontrado('El comprobante pedido no es válido.');
             return;
         }
 
@@ -182,7 +182,7 @@ class VentaController extends Controller
         $serie = $this->campo($post, 'serie');
         $numero = $this->campo($post, 'numero');
         if ($this->usuario === null || preg_match('/^[BF][0-9]{3}$/', $serie) !== 1 || preg_match('/^[0-9]{1,8}$/', $numero) !== 1) {
-            $this->noEncontrado('El comprobante pedido no es valido.');
+            $this->noEncontrado('El comprobante pedido no es válido.');
             return;
         }
         $venta = $this->ventas->buscarPorComprobante($serie, (int) $numero);
@@ -191,6 +191,11 @@ class VentaController extends Controller
             return;
         }
         $url = '/?ruta=comprobante&serie=' . urlencode($serie) . '&numero=' . (int) $numero;
+        $idTienda = $this->ventas->buscarSerie($venta->getIdSerie())->getIdTienda();
+        if (!$this->usuario->puedeAnularVenta($idTienda)) {
+            $this->prohibido('Solo el administrador de la tienda de la venta puede anularla.');
+            return;
+        }
         try {
             $this->servicio->anular($this->usuario, $venta->getIdVenta(), $this->campo($post, 'motivo'));
         } catch (ReglaNegocioException $ex) {

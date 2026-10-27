@@ -7,6 +7,9 @@ declare(strict_types=1);
  */
 final class Cantidad
 {
+    // Lo maximo que cabe en una columna DECIMAL(10,3): 9 999 999.999
+    public const MAXIMO_MILESIMAS = 9_999_999_999;
+
     // Texto del formulario -> milesimas. Al peso: hasta 3 decimales. Por unidad: solo enteros.
     public static function deTexto(string $texto, bool $alPeso): ?int
     {

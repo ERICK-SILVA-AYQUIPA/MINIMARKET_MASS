@@ -58,7 +58,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `SerieComprobante.php` | Serie B001, F001... de cada tienda. `formatear(1)` da `B001-00000001` y `esFactura()` mira la letra. |
 | `Venta.php` | Cabecera de la venta. `detalleCuadra()` comprueba que los importes sumen el total y `pagosCuadran()` que los pagos válidos sumen el total (en una venta anulada, que todos estén anulados). |
 | `DetalleVenta.php` | Una línea de la venta. Rechaza un importe distinto de `ROUND(cantidad × precio, 2)`. |
-| `Dinero.php` | Pasa montos a céntimos enteros para compararlos sin errores de float. |
+| `Dinero.php` | Pasa montos a céntimos enteros para compararlos sin errores de float. `MAXIMO_CENTIMOS` es lo que cabe en DECIMAL(10,2). |
 | `AnulacionVenta.php` | Motivo, fecha y quién anuló la venta. |
 | `pagos/PagoVenta.php` | Clase base `abstract` de un pago (tabla `pago_venta`). Cada hija dice su método y su `detalle()`. |
 | `pagos/PagoEfectivo.php` | Hereda de PagoVenta. Monto recibido y vuelto, con vuelto entre 0 y lo recibido. |
@@ -73,7 +73,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Administrador.php` | Hereda de Usuario. Puede anular ventas, pero solo de su propia tienda. |
 | `Cajero.php` | Hereda de Usuario. Es el único que puede vender. |
 | `Almacenero.php` | Hereda de Usuario. Registra traslados y mermas. |
-| `Cantidad.php` | Pasa cantidades a milésimas enteras (`1.250` kg = 1250) y calcula el importe redondeado como MySQL. |
+| `Cantidad.php` | Pasa cantidades a milésimas enteras (`1.250` kg = 1250) y calcula el importe redondeado como MySQL. `MAXIMO_MILESIMAS` es lo que cabe en DECIMAL(10,3). |
 | `ReglaNegocioException.php` | Error con un mensaje para el usuario ("No hay stock suficiente..."). |
 | `Categoria.php`, `Marca.php`, `UnidadMedida.php` | Catálogo del producto. |
 | `CatalogoRepository.php` | Lee categorías, marcas, unidades y tipos de movimiento. |
@@ -159,8 +159,9 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `tests/unitarios.php` | 51 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol. |
-| `tests/integracion.php` | 91 comprobaciones contra MySQL: ventas, anulaciones, inventario, caja, mantenimiento, reportes y las consultas 20 a 28 en 0 filas. |
-| `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias y las de integración contra un MySQL 8.4.11 nuevo. |
+| `tests/web.php` | 93 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login y cabeceras de seguridad. No cambia datos. |
+| `tests/integracion.php` | 96 comprobaciones contra MySQL: ventas, anulaciones, inventario, caja, mantenimiento, reportes, topes de las columnas y las consultas 20 a 28 en 0 filas. |
+| `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar
 

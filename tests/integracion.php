@@ -172,6 +172,9 @@ $catalogo->fijarStockMinimo($rosa, 8, '12.5');
 revisar('Rosa fija el mínimo de papa en Cayma: 12.500 kg', valor($db, 'SELECT stock_minimo FROM stock WHERE id_tienda = 1 AND id_producto = 8') === '12.500');
 rechaza('Mínimo con decimales en producto por unidad', fn() => $catalogo->fijarStockMinimo($rosa, 1, '2.5'));
 rechaza('Un almacenero no fija mínimos', fn() => $catalogo->fijarStockMinimo($carmen, 1, '5'));
+$catalogo->fijarStockMinimo($rosa, $idProducto, '3');
+$catalogo->fijarStockMinimo($rosa, $idProducto, '0.000');
+revisar('Mínimo "0.000" se acepta como sin mínimo', valor($db, 'SELECT stock_minimo FROM stock WHERE id_tienda = 1 AND id_producto = ?', [$idProducto]) === '0.000');
 $catalogo->crearCategoria($rosa, 'Panadería');
 rechaza('Categoría repetida', fn() => $catalogo->crearCategoria($rosa, 'Panadería'));
 
@@ -232,6 +235,23 @@ rechaza('Producto contado dos veces', fn() => $inventario->ajustarPorConteo($car
     ['id_producto' => '8', 'cantidad' => '1'], ['id_producto' => '8', 'cantidad' => '2']]));
 rechaza('Cantidad negativa', fn() => $inventario->ajustarPorConteo($carmen, 'CONTEO_FISICO', null, [['id_producto' => '8', 'cantidad' => '-1']]));
 rechaza('Un cajero no ajusta stock', fn() => $inventario->ajustarPorConteo($luis, 'CONTEO_FISICO', null, [['id_producto' => '8', 'cantidad' => '1']]));
+
+echo "Topes de las columnas DECIMAL(10,2) y DECIMAL(10,3)\n";
+try {
+    $ventas->registrar($luis, 'B', '', [['id_producto' => '4', 'cantidad' => '9999999']], ['efectivo_recibido' => '99999999']);
+    revisar('Venta de más de S/ 99 999 999.99 (no la rechazó)', false);
+} catch (ReglaNegocioException $ex) {
+    revisar('Venta de más de S/ 99 999 999.99 -> ' . $ex->getMessage(), str_contains($ex->getMessage(), 'divide la venta'));
+}
+$arrozAntes = $stock(1, 2);
+$inventario->ajustarPorConteo($carmen, 'CORRECCION', 'Prueba de tope', [['id_producto' => '2', 'cantidad' => '9999999']]);
+$almaceneroCerro = $empleados->buscarPorId(6); // ALMACENERO Cerro Colorado
+rechaza('Un traslado no deja el stock por encima de 9 999 999.999', fn() => $inventario->trasladar($almaceneroCerro, 1,
+    [['id_producto' => '2', 'cantidad' => '1']], null));
+$inventario->ajustarPorConteo($carmen, 'CORRECCION', 'Fin de la prueba de tope', [['id_producto' => '2', 'cantidad' => (string) (int) $arrozAntes]]);
+revisar('...y el arroz vuelve a su stock', $stock(1, 2) === $arrozAntes);
+rechaza('Dos líneas que suman más que el máximo', fn() => $inventario->registrarMerma($carmen, 'VENCIDO', null, [
+    ['id_producto' => '2', 'cantidad' => '9999999'], ['id_producto' => '2', 'cantidad' => '9999999']]));
 
 echo "Tiendas y cajas\n";
 $tiendas = new TiendaServicio($db);

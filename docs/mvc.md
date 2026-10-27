@@ -25,7 +25,7 @@ php -S localhost:8000 -t public         # déjalo abierto
 | http://localhost:8000/?ruta=tiendas | Las 3 tiendas con cajas, series y personal |
 | /poo_producto.php · /poo_roles.php · /poo_repository.php · /poo_ventas.php | Páginas de prueba |
 
-Pruebas: `php tests/unitarios.php` (sin base) y `php tests/integracion.php` (con la base recién creada). En GitHub las corre `.github/workflows/ci.yml` en cada pull request.
+Pruebas: `php tests/unitarios.php` (sin base), `php tests/web.php` (por HTTP, sin cambiar datos) y `php tests/integracion.php` (con la base recién creada). En GitHub las corre `.github/workflows/ci.yml` en cada pull request.
 
 La lista completa de archivos está en `docs/explicacion_archivos.md`.
 
@@ -95,3 +95,6 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Ingreso: 5 claves erradas seguidas para un DNI (o 20 desde una IP) bloquean 15 minutos (`intento_login`); la sesión vence a los 30 minutos sin uso.
 - `Content-Security-Policy` sin scripts: aunque se colara una etiqueta `<script>`, el navegador no la ejecuta.
 - Listas largas con `LIMIT` y `OFFSET` calculados en PHP como enteros (`Paginacion`); la página fuera de rango se corrige.
+- Cada formulario que cambia datos revisa el permiso en el controlador (403) y otra vez en el servicio. Un dato mal escrito vuelve al formulario con 422 y el mensaje; un POST a una ruta de lectura da 405.
+- Un monto o una cantidad que no cabe en su columna (DECIMAL(10,2) o DECIMAL(10,3)) se rechaza con un mensaje, en vez de un error de MySQL.
+- El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula.
