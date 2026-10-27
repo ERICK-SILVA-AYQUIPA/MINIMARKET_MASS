@@ -20,14 +20,19 @@ require __DIR__ . '/../layout_inicio.php';
 $cantidadesViejas = is_array($viejo['cantidad'] ?? null) ? $viejo['cantidad'] : [];
 $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_FISICO';
 ?>
-<h1>Ajustes de inventario de <?= e($tienda->getNombreTienda()) ?></h1>
+<div class="cabecera">
+    <div>
+        <h1>Conteo físico de <?= e($tienda->getNombreTienda()) ?></h1>
+        <p class="sutil">Si lo contado no coincide con el sistema, el ajuste corrige el stock y deja la diferencia en el kardex.</p>
+    </div>
+</div>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <?php if ($puedeRegistrar): ?>
     <form class="formulario panel" method="post" action="/?ruta=ajuste_registrar">
-        <h2>Registrar conteo físico</h2>
-        <p>Escribe solo lo que contaste. Lo que dejes vacío no se toca; si escribes 0, el producto queda en 0.</p>
-        <?php if ($error !== null): ?><div class="aviso error"><?= e($error) ?></div><?php endif; ?>
+        <h2>Hoja de conteo</h2>
+        <div class="aviso info">Escribe solo lo que contaste. Lo que dejes vacío no se toca; si escribes 0, el producto queda en 0.</div>
+        <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <?= campoCsrf($csrf) ?>
         <label for="motivo">Motivo</label>
         <select id="motivo" name="motivo">
@@ -37,7 +42,8 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
         </select>
         <div class="tabla">
         <table>
-            <tr><th>Producto</th><th>En el sistema</th><th>Contado</th></tr>
+            <thead><tr><th scope="col">Producto</th><th scope="col" class="num">En el sistema</th><th scope="col">Contado</th></tr></thead>
+            <tbody>
             <?php $i = 0; ?>
             <?php foreach ($productos as $id => $p): ?>
                 <?php $decimales = $p->esAlPeso() ? 3 : 0; ?>
@@ -52,27 +58,34 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
                 </tr>
                 <?php $i++; ?>
             <?php endforeach; ?>
+            </tbody>
         </table>
         </div>
-        <label for="observacion">Observación (opcional)</label>
-        <input id="observacion" name="observacion" maxlength="200" size="60"
+        <label for="observacion">Observación <span class="ayuda">opcional</span></label>
+        <input id="observacion" name="observacion" maxlength="200"
                value="<?= e(is_string($viejo['observacion'] ?? null) ? $viejo['observacion'] : '') ?>">
-        <p><button type="submit">Guardar conteo</button></p>
+        <div class="botones-formulario">
+            <button class="acento" type="submit"><?= icono('conteo') ?>Guardar conteo</button>
+            <small>Solo se ajustan los productos cuyo conteo difiere del sistema.</small>
+        </div>
     </form>
+<?php else: ?>
+    <div class="aviso info">El conteo lo registran el almacenero y el administrador de la tienda. Aquí puedes ver los ajustes ya hechos.</div>
 <?php endif; ?>
 
 <h2>Ajustes registrados</h2>
 <div class="tabla">
 <table>
-    <tr><th>#</th><th>Fecha</th><th>Motivo</th><th>Diferencias</th><th>Registró</th><th>Observación</th></tr>
+    <thead><tr><th scope="col">#</th><th scope="col">Fecha</th><th scope="col">Motivo</th><th scope="col">Diferencias</th><th scope="col">Registró</th><th scope="col">Observación</th></tr></thead>
+    <tbody>
     <?php if ($filas === []): ?>
-        <tr><td colspan="6">Todavía no hay ajustes en esta tienda.</td></tr>
+        <tr><td colspan="6" class="sutil centro">Todavía no hay ajustes en esta tienda.</td></tr>
     <?php endif; ?>
     <?php foreach ($filas as $fila): ?>
         <?php $a = $fila['ajuste']; ?>
         <tr>
             <td><?= $a->getIdAjuste() ?></td>
-            <td><?= e($a->getFechaHora()) ?></td>
+            <td class="fecha"><?= e($a->getFechaHora()) ?></td>
             <td><?= e(str_replace('_', ' ', $a->getMotivo())) ?></td>
             <td>
                 <?php foreach ($fila['movimientos'] as $mov): ?>
@@ -88,6 +101,7 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
             <td><?= e($a->getObservacion() ?? '') ?></td>
         </tr>
     <?php endforeach; ?>
+    </tbody>
 </table>
 </div>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

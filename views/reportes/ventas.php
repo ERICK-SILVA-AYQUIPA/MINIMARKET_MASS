@@ -22,13 +22,13 @@ $csv = static fn(string $tipo): string => '/?' . http_build_query(['ruta' => 're
 
 // Dibuja una tabla de reporte: [titulo de columna => [clave de la fila, formato]]
 $tabla = static function (array $filas, array $columnas): void {
-    echo '<div class="tabla"><table><tr>';
-    foreach (array_keys($columnas) as $titulo) {
-        echo '<th>' . e($titulo) . '</th>';
+    echo '<div class="tabla"><table><thead><tr>';
+    foreach ($columnas as $titulo => [, $formato]) {
+        echo '<th scope="col" class="' . e($formato === 'texto' ? '' : 'num') . '">' . e($titulo) . '</th>';
     }
-    echo '</tr>';
+    echo '</tr></thead><tbody>';
     if ($filas === []) {
-        echo '<tr><td colspan="' . count($columnas) . '">Sin ventas en estas fechas.</td></tr>';
+        echo '<tr><td class="sutil centro" colspan="' . count($columnas) . '">Sin ventas en estas fechas.</td></tr>';
     }
     foreach ($filas as $fila) {
         echo '<tr>';
@@ -42,40 +42,54 @@ $tabla = static function (array $filas, array $columnas): void {
         }
         echo '</tr>';
     }
-    echo '</table></div>';
+    echo '</tbody></table></div>';
 };
 ?>
-<h1>Reportes de <?= e($tienda->getNombreTienda()) ?></h1>
+<div class="cabecera">
+    <div>
+        <h1>Reportes de <?= e($tienda->getNombreTienda()) ?></h1>
+        <p class="sutil">Solo ventas EMITIDAS entre <?= e($desde) ?> y <?= e($hasta) ?>. Cada tabla se descarga en CSV para Excel.</p>
+    </div>
+</div>
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="reportes">
     <label>Desde <input type="date" name="desde" value="<?= e($desde) ?>" required></label>
     <label>Hasta <input type="date" name="hasta" value="<?= e($hasta) ?>" required></label>
     <button type="submit">Ver</button>
 </form>
-<?php if ($error !== null): ?><div class="aviso error"><?= e($error) ?></div><?php endif; ?>
+<?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
 
-<div class="tarjetas">
-    <div>Vendido<strong><?= e(soles($resumen['total'])) ?></strong></div>
-    <div>Comprobantes<strong><?= $resumen['comprobantes'] ?></strong></div>
-    <div>Ticket promedio<strong><?= e(soles($resumen['ticketPromedio'])) ?></strong></div>
-    <div>Anuladas<strong><?= $resumen['anuladas'] ?></strong></div>
+<section class="tarjetas" aria-label="Resumen del periodo">
+    <div><span>Vendido</span><strong><?= e(soles($resumen['total'])) ?></strong></div>
+    <div><span>Comprobantes</span><strong><?= (int) $resumen['comprobantes'] ?></strong></div>
+    <div><span>Ticket promedio</span><strong><?= e(soles($resumen['ticketPromedio'])) ?></strong></div>
+    <div><span>Anuladas</span><strong><?= (int) $resumen['anuladas'] ?></strong></div>
+</section>
+<div class="rejilla">
+
+<section class="panel">
+    <div class="titulo-seccion"><h2>Ventas por día</h2><a class="boton secundario chico" href="<?= e($csv('dias')) ?>"><?= icono('descarga') ?>CSV</a></div>
+    <?php $tabla($porDia, ['Día' => ['dia', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
+</section>
+<section class="panel">
+    <div class="titulo-seccion"><h2>Productos más vendidos</h2><a class="boton secundario chico" href="<?= e($csv('productos')) ?>"><?= icono('descarga') ?>CSV</a></div>
+    <?php $tabla($masVendidos, ['Producto' => ['producto', 'texto'], 'Unidad' => ['unidad', 'texto'], 'Cantidad' => ['cantidad', 'numero'], 'Importe' => ['importe', 'soles']]); ?>
+</section>
+<section class="panel">
+    <div class="titulo-seccion"><h2>Por cajero</h2><a class="boton secundario chico" href="<?= e($csv('cajeros')) ?>"><?= icono('descarga') ?>CSV</a></div>
+    <?php $tabla($porCajero, ['Cajero' => ['cajero', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
+</section>
+<section class="panel">
+    <div class="titulo-seccion"><h2>Por método de pago</h2><a class="boton secundario chico" href="<?= e($csv('metodos')) ?>"><?= icono('descarga') ?>CSV</a></div>
+    <?php $tabla($porMetodo, ['Método' => ['metodo', 'texto'], 'Pagos' => ['pagos', 'numero'], 'Monto' => ['monto', 'soles']]); ?>
+</section>
+<section class="panel">
+    <div class="titulo-seccion"><h2>Por categoría</h2></div>
+    <?php $tabla($porCategoria, ['Categoría' => ['categoria', 'texto'], 'Importe' => ['importe', 'soles']]); ?>
+</section>
+<section class="panel">
+    <div class="titulo-seccion"><h2>Boletas y facturas</h2></div>
+    <?php $tabla($porTipo, ['Tipo' => ['tipo', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
+</section>
 </div>
-
-<h2>Ventas por día <small><a href="<?= e($csv('dias')) ?>">CSV</a></small></h2>
-<?php $tabla($porDia, ['Día' => ['dia', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
-
-<h2>Productos más vendidos <small><a href="<?= e($csv('productos')) ?>">CSV</a></small></h2>
-<?php $tabla($masVendidos, ['Producto' => ['producto', 'texto'], 'Unidad' => ['unidad', 'texto'], 'Cantidad' => ['cantidad', 'numero'], 'Importe' => ['importe', 'soles']]); ?>
-
-<h2>Por categoría</h2>
-<?php $tabla($porCategoria, ['Categoría' => ['categoria', 'texto'], 'Importe' => ['importe', 'soles']]); ?>
-
-<h2>Por cajero <small><a href="<?= e($csv('cajeros')) ?>">CSV</a></small></h2>
-<?php $tabla($porCajero, ['Cajero' => ['cajero', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
-
-<h2>Por método de pago <small><a href="<?= e($csv('metodos')) ?>">CSV</a></small></h2>
-<?php $tabla($porMetodo, ['Método' => ['metodo', 'texto'], 'Pagos' => ['pagos', 'numero'], 'Monto' => ['monto', 'soles']]); ?>
-
-<h2>Boletas y facturas</h2>
-<?php $tabla($porTipo, ['Tipo' => ['tipo', 'texto'], 'Comprobantes' => ['comprobantes', 'numero'], 'Total' => ['total', 'soles']]); ?>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

@@ -1,15 +1,10 @@
 <?php
 declare(strict_types=1);
 /**
- * V: boleta o factura completa, en los tres bloques de sp_boleta: cabecera, detalle y pagos.
+ * V: boleta o factura completa: el cuerpo (parciales de detalle_venta.php), la revision y la anulacion.
  * @var Venta $venta
  * @var SerieComprobante $serie
  * @var Tienda $tienda
- * @var ?Caja $caja
- * @var ?Usuario $cajero
- * @var string $cliente
- * @var array<int, array{detalle: DetalleVenta, producto: ?Producto, unidad: string}> $lineas
- * @var PagoVenta[] $pagos
  * @var ?AnulacionVenta $anulacion
  * @var ?Usuario $anuladaPor
  * @var Usuario[] $puedenAnular
@@ -21,58 +16,45 @@ $numero = $serie->formatear($venta->getNumeroCorrelativo());
 $titulo = $numero;
 require __DIR__ . '/../layout_inicio.php';
 ?>
-<p><a href="/?ruta=ventas&amp;tienda=<?= $tienda->getIdTienda() ?>">← Ventas de <?= e($tienda->getNombreTienda()) ?></a>
-   · <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>">Imprimir ticket / PDF</a></p>
+<a class="volver" href="/?ruta=ventas&amp;tienda=<?= $tienda->getIdTienda() ?>"><?= icono('volver') ?>Ventas de <?= e($tienda->getNombreTienda()) ?></a>
+<div class="cabecera">
+    <div>
+        <h1><?= e($serie->nombreComprobante()) ?> <?= e($numero) ?></h1>
+        <p class="sutil">Total <?= e(soles($venta->getTotal())) ?> · <?= e($venta->getFechaHora()) ?></p>
+    </div>
+    <div class="acciones">
+        <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>"><?= icono('imprimir') ?>Imprimir ticket / PDF</a>
+    </div>
+</div>
 
+<?php if ($venta->estaAnulada()): ?>
+    <div class="aviso alerta">Este comprobante está ANULADO: su stock volvió al kardex y sus pagos no cuentan.</div>
+<?php endif; ?>
+
+<div class="rejilla-principal">
 <div class="comprobante">
-    <h2><?= e($serie->nombreComprobante()) ?> <?= e($numero) ?>
-        <span class="etiqueta <?= $venta->estaAnulada() ? 'anulada' : 'ok' ?>"><?= e($venta->getEstado()) ?></span></h2>
-    <p><?= e($tienda->getNombreTienda()) ?> · <?= e($tienda->getDireccion()) ?></p>
-    <p>Fecha: <?= e($venta->getFechaHora()) ?> · Caja <?= $caja?->getNumeroCaja() ?? '-' ?> · Cajero: <?= e($cajero?->nombreCompleto() ?? '-') ?></p>
-    <p>Cliente: <?= e($cliente) ?></p>
+    <?php require __DIR__ . '/detalle_venta.php'; ?>
+</div>
 
-    <table>
-        <tr><th>#</th><th>Producto</th><th>Unidad</th><th>Cantidad</th><th>P. unit.</th><th>Importe</th></tr>
-        <?php foreach ($lineas as $i => $linea): ?>
-            <?php $d = $linea['detalle']; $p = $linea['producto']; ?>
-            <tr>
-                <td><?= $i + 1 ?></td>
-                <td><?= e($p?->getNombreProducto() ?? '(producto no encontrado)') ?></td>
-                <td><?= e($linea['unidad']) ?></td>
-                <td class="num"><?= e(number_format($d->getCantidad(), 3)) ?></td>
-                <td class="num"><?= e(soles($d->getPrecioUnitario())) ?></td>
-                <td class="num"><?= e(soles($d->getImporte())) ?></td>
-            </tr>
-        <?php endforeach; ?>
-        <tr><th colspan="5">TOTAL</th><th class="num"><?= e(soles($venta->getTotal())) ?></th></tr>
-    </table>
-    <p><small>El diseño no guarda subtotal ni IGV aparte (boleta.sql), por eso solo se muestra el total.</small></p>
+<div>
+    <section class="panel">
+        <h2>Revisión</h2>
+        <ul class="lista-revision">
+            <li><span class="etiqueta <?= $detalleCuadra ? 'ok' : 'error' ?>"><?= $detalleCuadra ? 'Sí' : 'No' ?></span> Importes del detalle suman el total</li>
+            <li><span class="etiqueta <?= $pagosCuadran ? 'ok' : 'error' ?>"><?= $pagosCuadran ? 'Sí' : 'No' ?></span> <?= $venta->estaAnulada() ? 'Todos los pagos están anulados' : 'Pagos válidos suman el total' ?></li>
+        </ul>
+    </section>
 
-    <h3>Pagos</h3>
-    <table>
-        <tr><th>Método</th><th>Monto</th><th>Estado</th><th>Detalle</th></tr>
-        <?php foreach ($pagos as $pago): ?>
-            <tr>
-                <td><?= e($pago->getNombreMetodo()) ?></td>
-                <td class="num"><?= e(soles($pago->getMontoPagado())) ?></td>
-                <td><?= e($pago->getEstado()) ?></td>
-                <td><?= e($pago->detalle()) ?></td>
-            </tr>
-        <?php endforeach; ?>
-    </table>
-
-    <h3>Revisión</h3>
-    <ul>
-        <li>Importes del detalle suman el total: <?= $detalleCuadra ? 'Sí' : 'No' ?></li>
-        <li><?= $venta->estaAnulada() ? 'Todos los pagos están anulados' : 'Pagos válidos suman el total' ?>: <?= $pagosCuadran ? 'Sí' : 'No' ?></li>
-    </ul>
-
+    <section class="panel">
     <?php if ($anulacion !== null): ?>
-        <h3>Anulación</h3>
-        <p><?= e($anulacion->getFechaHora()) ?> · <?= e($anulacion->getMotivo()) ?></p>
-        <p>Anulada por: <?= e($anuladaPor?->nombreCompleto() ?? '-') ?> (<?= e($anuladaPor?->getNombreRol() ?? '-') ?>)</p>
+        <h2>Anulación</h2>
+        <dl class="datos">
+            <dt>Fecha</dt><dd><?= e($anulacion->getFechaHora()) ?></dd>
+            <dt>Motivo</dt><dd><?= e($anulacion->getMotivo()) ?></dd>
+            <dt>Anulada por</dt><dd><?= e($anuladaPor?->nombreCompleto() ?? '-') ?> (<?= e($anuladaPor?->getNombreRol() ?? '-') ?>)</dd>
+        </dl>
     <?php else: ?>
-        <h3>¿Quién puede anularla?</h3>
+        <h2>¿Quién puede anularla?</h2>
         <p>Solo un ADMINISTRADOR activo de <?= e($tienda->getNombreTienda()) ?>:
             <?= e(implode(', ', array_map(fn(Usuario $u): string => $u->nombreCompleto(), $puedenAnular)) ?: 'nadie') ?></p>
         <?php if ($puedeAnular): ?>
@@ -81,11 +63,15 @@ require __DIR__ . '/../layout_inicio.php';
                 <input type="hidden" name="serie" value="<?= e($serie->getSerie()) ?>">
                 <input type="hidden" name="numero" value="<?= $venta->getNumeroCorrelativo() ?>">
                 <label for="motivo">Motivo de la anulación</label>
-                <input id="motivo" name="motivo" maxlength="150" required size="50">
-                <p><button class="peligro" type="submit">Anular venta</button>
-                   <small>Devuelve el stock al kardex y anula sus pagos.</small></p>
+                <input id="motivo" name="motivo" maxlength="150" required>
+                <div class="botones-formulario">
+                    <button class="peligro" type="submit">Anular venta</button>
+                    <small>Devuelve el stock al kardex y anula sus pagos. No se puede deshacer.</small>
+                </div>
             </form>
         <?php endif; ?>
     <?php endif; ?>
+    </section>
+</div>
 </div>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

@@ -149,7 +149,7 @@ Si la versión nueva trae un script nuevo en `database/` (por ejemplo `ingresos.
 ```powershell
 php tests/unitarios.php     # 58, sin base de datos
 php tests/seguridad.php     # 16, revisa CSRF, escapado y SQL en todo el código
-php tests/web.php           # 112, por HTTP con los 3 roles; no cambia datos
+php tests/web.php           # 117, por HTTP con los 3 roles; no cambia datos
 php tests/integracion.php   # 119, contra MySQL; solo con la base recién creada (cambia datos)
 ```
 

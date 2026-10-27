@@ -10,11 +10,15 @@ $titulo = 'Abrir tienda';
 require __DIR__ . '/../layout_inicio.php';
 $viejoTexto = static fn(string $campo): string => is_string($viejo[$campo] ?? null) ? $viejo[$campo] : '';
 ?>
-<p><a href="/?ruta=tiendas">← Volver a tiendas</a></p>
-<h1>Abrir una tienda</h1>
-<p>Se crea con la caja 1, una serie de boleta y una de factura (las siguientes libres de la cadena),
-    todos los productos en stock 0 y su administrador, que luego registra a su personal.</p>
-<?php if ($error !== null): ?><div class="aviso error"><?= e($error) ?></div><?php endif; ?>
+<a class="volver" href="/?ruta=tiendas"><?= icono('volver') ?>Volver a tiendas</a>
+<div class="cabecera">
+    <div>
+        <h1>Abrir una tienda</h1>
+        <p class="sutil">Se crea con la caja 1, una serie de boleta y una de factura (las siguientes libres de la cadena),
+            todos los productos en stock 0 y su administrador, que luego registra a su personal.</p>
+    </div>
+</div>
+<?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
 
 <form class="formulario panel" method="post" action="/?ruta=tienda_abrir" autocomplete="off">
     <?= campoCsrf($csrf) ?>
@@ -24,7 +28,7 @@ $viejoTexto = static fn(string $campo): string => is_string($viejo[$campo] ?? nu
         <input id="nombre" name="nombre" maxlength="60" size="40" required value="<?= e($viejoTexto('nombre')) ?>">
         <label for="direccion">Dirección</label>
         <input id="direccion" name="direccion" maxlength="120" size="60" required value="<?= e($viejoTexto('direccion')) ?>">
-        <label for="telefono">Teléfono (opcional)</label>
+        <label for="telefono">Teléfono <span class="ayuda">opcional</span></label>
         <input id="telefono" name="telefono" maxlength="15" value="<?= e($viejoTexto('telefono')) ?>">
         <label for="distrito">Distrito</label>
         <select id="distrito" name="distrito" required>
@@ -40,19 +44,19 @@ $viejoTexto = static fn(string $campo): string => is_string($viejo[$campo] ?? nu
         <input id="admin_nombres" name="admin_nombres" maxlength="60" required value="<?= e($viejoTexto('admin_nombres')) ?>">
         <label for="admin_apellidos">Apellidos</label>
         <input id="admin_apellidos" name="admin_apellidos" maxlength="60" required value="<?= e($viejoTexto('admin_apellidos')) ?>">
-        <label for="admin_dni">DNI (con él ingresa)</label>
+        <label for="admin_dni">DNI <span class="ayuda">8 dígitos; con él ingresa</span></label>
         <input id="admin_dni" name="admin_dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" required value="<?= e($viejoTexto('admin_dni')) ?>">
-        <label for="admin_clave">Clave inicial (8 a 72 caracteres, con letras y números)</label>
+        <label for="admin_clave">Clave inicial <span class="ayuda">8 a 72 caracteres, con letras y números</span></label>
         <input id="admin_clave" name="admin_clave" type="password" minlength="8" maxlength="72" required autocomplete="new-password">
     </fieldset>
-    <p><button type="submit">Abrir tienda</button></p>
+    <div class="botones-formulario"><button class="acento" type="submit"><?= icono('tiendas') ?>Abrir tienda</button></div>
 </form>
 
 <form class="formulario panel" method="post" action="/?ruta=distrito_crear">
     <h2>¿Falta el distrito?</h2>
     <?= campoCsrf($csrf) ?>
     <label for="distrito_nuevo">Nombre del distrito</label>
-    <input id="distrito_nuevo" name="nombre" maxlength="40" required>
-    <button type="submit">Agregar distrito</button>
+    <div class="en-linea"><input id="distrito_nuevo" name="nombre" maxlength="40" required>
+    <button type="submit"><?= icono('mas') ?>Agregar distrito</button></div>
 </form>
 <?php require __DIR__ . '/../layout_fin.php'; ?>
