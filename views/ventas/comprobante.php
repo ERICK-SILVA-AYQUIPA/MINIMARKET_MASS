@@ -58,7 +58,7 @@ require __DIR__ . '/../layout_inicio.php';
         <p>Solo un ADMINISTRADOR activo de <?= e($tienda->getNombreTienda()) ?>:
             <?= e(implode(', ', array_map(fn(Usuario $u): string => $u->nombreCompleto(), $puedenAnular)) ?: 'nadie') ?></p>
         <?php if ($puedeAnular): ?>
-            <form class="formulario" method="post" action="/?ruta=venta_anular">
+            <form class="formulario" method="post" action="/?ruta=venta_anular" data-confirmar="¿Anular esta venta? Devuelve el stock al kardex y anula sus pagos. No se puede deshacer." data-confirmar-boton="Sí, anular">
                 <?= campoCsrf($csrf) ?>
                 <input type="hidden" name="serie" value="<?= e($serie->getSerie()) ?>">
                 <input type="hidden" name="numero" value="<?= $venta->getNumeroCorrelativo() ?>">

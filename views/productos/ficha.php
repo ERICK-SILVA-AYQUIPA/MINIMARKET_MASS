@@ -60,7 +60,7 @@ $decimales = $producto->esAlPeso() ? 3 : 0;
     <a class="boton secundario" href="/?ruta=kardex&amp;tienda=<?= $tienda->getIdTienda() ?>&amp;producto=<?= $producto->getIdProducto() ?>"><?= icono('kardex') ?>Ver kardex en <?= e($tienda->getNombreTienda()) ?></a>
     <?php if ($puedeEditar): ?>
         <a class="boton secundario" href="/?ruta=producto_form&amp;id=<?= $producto->getIdProducto() ?>"><?= icono('editar') ?>Editar nombre, código o precio</a>
-        <form method="post" action="/?ruta=producto_estado">
+        <form method="post" action="/?ruta=producto_estado"<?= $producto->estaActivo() ? ' data-confirmar="¿Descontinuar este producto? Ya no se podrá vender hasta que lo vuelvas a activar." data-confirmar-boton="Sí, descontinuar"' : '' ?>>
             <?= campoCsrf($csrf) ?>
             <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
             <?php if ($producto->estaActivo()): ?>

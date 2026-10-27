@@ -17,6 +17,11 @@ require __DIR__ . '/../layout_inicio.php';
     <div class="acciones"><a class="boton secundario" href="/?ruta=stock_csv"><?= icono('descarga') ?>Descargar CSV</a></div>
 </div>
 
+<?php
+$buscadorTabla = 'filas-stock';
+$buscadorTexto = 'Buscar producto';
+require __DIR__ . '/../parciales/buscador.php';
+?>
 <div class="tabla">
 <table>
     <thead>
@@ -27,7 +32,7 @@ require __DIR__ . '/../layout_inicio.php';
             <?php endforeach; ?>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="filas-stock">
     <?php foreach ($filas as $fila): ?>
         <?php $p = $fila['producto']; ?>
         <tr>

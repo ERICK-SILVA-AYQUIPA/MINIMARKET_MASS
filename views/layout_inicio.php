@@ -56,7 +56,8 @@ if ($usuarioActual !== null) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
-    <link rel="stylesheet" href="/estilos.css?v=3">
+    <link rel="stylesheet" href="/estilos.css?v=4">
+    <script src="/app.js?v=1" defer></script>
 </head>
 <body<?= $usuarioActual === null ? ' class="acceso"' : '' ?>>
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -101,5 +102,5 @@ if ($usuarioActual !== null) {
 <?php endif; ?>
 <main id="contenido" tabindex="-1" class="<?= e($anchoMain) ?>">
 <?php if ($aviso !== null): ?>
-    <div class="aviso <?= $aviso['tipo'] === 'ok' ? 'ok' : 'error' ?>" role="status"><?= e($aviso['mensaje']) ?></div>
+    <div class="aviso <?= $aviso['tipo'] === 'ok' ? 'ok' : 'error' ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
 <?php endif; ?>

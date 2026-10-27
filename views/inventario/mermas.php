@@ -72,7 +72,7 @@ require __DIR__ . '/../layout_inicio.php';
     $drawerAncho = true;
     require __DIR__ . '/../parciales/drawer_abrir.php';
     ?>
-    <form class="formulario" method="post" action="/?ruta=merma_registrar">
+    <form class="formulario" method="post" action="/?ruta=merma_registrar" data-confirmar="¿Registrar la merma? El stock baja y no se puede deshacer." data-confirmar-boton="Sí, registrar">
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <?= campoCsrf($csrf) ?>
         <label for="motivo">Motivo</label>

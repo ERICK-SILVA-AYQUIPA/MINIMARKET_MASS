@@ -14,6 +14,14 @@ require __DIR__ . '/../layout_inicio.php';
 $v = fn(string $campo): string => is_string($viejo[$campo] ?? null) ? $viejo[$campo] : '';
 $opciones = array_column($productos, 'producto');
 $filasLineas = 6;
+$conImporte = true;
+// Stock de la tienda por producto: public/app.js avisa si la cantidad no alcanza (el servidor lo vuelve a validar)
+$stockPorProducto = [];
+foreach ($productos as $fila) {
+    if ($fila['stock'] !== null) {
+        $stockPorProducto[$fila['producto']->getIdProducto()] = $fila['stock']->getCantidadActual();
+    }
+}
 // Los pagos con tarjeta o Sip se muestran abiertos si el cajero ya los habia llenado
 $conTarjeta = $v('tarjeta_monto') !== '';
 $conSip = $v('sip_monto') !== '';
@@ -36,7 +44,7 @@ $conSip = $v('sip_monto') !== '';
 <?php else: ?>
     <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
 
-    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar">
+    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta>
         <?= campoCsrf($csrf) ?>
         <section class="panel">
             <h2>Productos</h2>
@@ -63,6 +71,16 @@ $conSip = $v('sip_monto') !== '';
 
         <aside class="panel resumen" aria-label="Cobro">
             <h2>Cobro</h2>
+            <div class="total-vivo" data-total-vivo hidden aria-live="polite">
+                <div class="total-grande"><span>Total</span><strong data-total>S/ 0.00</strong></div>
+                <dl>
+                    <dt>Tarjeta y Sip</dt><dd data-otros>S/ 0.00</dd>
+                    <dt>A pagar en efectivo</dt><dd data-falta>S/ 0.00</dd>
+                    <dt>Vuelto</dt><dd data-vuelto>S/ 0.00</dd>
+                </dl>
+                <ul class="avisos-vivo" data-avisos></ul>
+                <p class="ayuda">Cálculo de ayuda: al registrar, el servidor vuelve a calcular con los precios de la base.</p>
+            </div>
             <fieldset class="sin-borde">
                 <legend>Comprobante</legend>
                 <div class="opciones">
