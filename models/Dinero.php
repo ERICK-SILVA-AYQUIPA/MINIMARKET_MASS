@@ -7,6 +7,9 @@ declare(strict_types=1);
  */
 final class Dinero
 {
+    // Lo maximo que cabe en una columna DECIMAL(10,2): 99 999 999.99
+    public const MAXIMO_CENTIMOS = 9_999_999_999;
+
     public static function centimos(float $monto): int
     {
         return (int) round($monto * 100);

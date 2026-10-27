@@ -62,6 +62,10 @@ class ClienteController extends Controller
     // POST /?ruta=cliente_documento
     public function completarDocumento(array $post): void
     {
+        if (!$this->puedeVerClientes()) {
+            $this->prohibido('Los clientes los ven el cajero y el administrador.');
+            return;
+        }
         $id = $this->campo($post, 'id');
         try {
             $this->servicio->completarDocumento($this->usuario, $this->leerId($id), $this->campo($post, 'dni'), $this->campo($post, 'ruc'));

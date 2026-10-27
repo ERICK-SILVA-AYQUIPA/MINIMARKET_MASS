@@ -6,7 +6,7 @@ require_once __DIR__ . '/../Usuario.php';
 
 /**
  * Mantenimiento del catalogo: productos, categorias, marcas y el stock minimo de cada tienda.
- * El precio es uno solo para las 3 tiendas; cambiarlo no toca las ventas pasadas,
+ * El precio es uno solo para todas las tiendas; cambiarlo no toca las ventas pasadas,
  * porque detalle_venta guarda su propia copia del precio.
  */
 class ProductoServicio extends Servicio
@@ -35,7 +35,7 @@ class ProductoServicio extends Servicio
             }
             $id = (int) $this->db->lastInsertId();
 
-            // Asi el producto aparece en el stock de las 3 tiendas desde el primer dia
+            // Asi el producto aparece en el stock de cada tienda desde el primer dia
             $this->db->prepare(
                 'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo)
                  SELECT id_tienda, :producto, 0, 0 FROM tienda'
@@ -100,7 +100,8 @@ class ProductoServicio extends Servicio
             throw new ReglaNegocioException('El producto no existe.');
         }
         $minimoTexto = trim($minimoTexto);
-        $milesimas = $minimoTexto === '0' ? 0 : Cantidad::deTexto($minimoTexto, $porPeso === 'S');
+        // 0 = sin minimo ("0" o "0.000"); si no, la misma regla que una cantidad
+        $milesimas = preg_match('/^0+(\.0{1,3})?$/', $minimoTexto) === 1 ? 0 : Cantidad::deTexto($minimoTexto, $porPeso === 'S');
         if ($milesimas === null) {
             throw new ReglaNegocioException('Stock mínimo no válido (' . ($porPeso === 'S' ? 'kg con hasta 3 decimales' : 'unidades enteras') . ').');
         }

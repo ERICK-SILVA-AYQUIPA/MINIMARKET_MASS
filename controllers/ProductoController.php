@@ -30,7 +30,7 @@ class ProductoController extends Controller
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
         $rutaSelector = 'productos';
-        $puedeEditar = $this->usuario?->puedeAdministrarCatalogo() === true;
+        $puedeEditar = $this->puedeEditarCatalogo();
 
         $filas = [];
         foreach ($this->repo->todos() as $producto) {
@@ -63,13 +63,13 @@ class ProductoController extends Controller
         $categoria = $this->catalogo->buscarCategoria($producto->getIdCategoria());
         $marca = $this->catalogo->buscarMarca($producto->getIdMarca());
         $unidad = $this->catalogo->buscarUnidad($producto->getIdUnidad());
-        $puedeEditar = $this->usuario?->puedeAdministrarCatalogo() === true;
+        $puedeEditar = $this->puedeEditarCatalogo();
         // El minimo se fija solo en la tienda propia del administrador
         $puedeFijarMinimo = $this->usuario?->puedeAdministrarTienda($tienda->getIdTienda()) === true;
         $this->vista('productos/detalle', get_defined_vars());
     }
 
-    // GET /?ruta=stock: el stock de cada producto en las 3 tiendas, lado a lado
+    // GET /?ruta=stock: el stock de cada producto en todas las tiendas, lado a lado
     public function stockTiendas(): void
     {
         $tiendas = $this->tiendas->todas();
@@ -94,7 +94,7 @@ class ProductoController extends Controller
     // GET /?ruta=producto_form (nuevo)  o  /?ruta=producto_form&id=8 (editar)
     public function formulario(?string $id, array $viejo = [], ?string $error = null): void
     {
-        if ($this->usuario?->puedeAdministrarCatalogo() !== true) {
+        if (!$this->puedeEditarCatalogo()) {
             $this->prohibido('Solo un administrador cambia el catálogo.');
             return;
         }
@@ -115,6 +115,10 @@ class ProductoController extends Controller
     // POST /?ruta=producto_guardar: con id edita, sin id crea
     public function guardar(array $post): void
     {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
         $id = $this->campo($post, 'id');
         $datos = [];
         foreach (['nombre', 'codigo', 'precio', 'por_peso', 'categoria', 'marca', 'unidad'] as $nombre) {
@@ -123,7 +127,7 @@ class ProductoController extends Controller
         try {
             if ($id === '') {
                 $id = (string) $this->servicio->crear($this->usuario, $datos);
-                $mensaje = 'Producto creado con stock 0 en las 3 tiendas.';
+                $mensaje = 'Producto creado con stock 0 en todas las tiendas.';
             } else {
                 $this->servicio->editar($this->usuario, $this->leerId($id), $datos);
                 $mensaje = 'Producto actualizado.';
@@ -139,6 +143,10 @@ class ProductoController extends Controller
     // POST /?ruta=producto_estado
     public function cambiarEstado(array $post): void
     {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
         $id = $this->leerId($this->campo($post, 'id'));
         $estado = $this->campo($post, 'estado');
         try {
@@ -154,6 +162,10 @@ class ProductoController extends Controller
     // POST /?ruta=stock_minimo
     public function fijarMinimo(array $post): void
     {
+        if ($this->usuario?->puedeAdministrarTienda($this->usuario->getIdTienda()) !== true) {
+            $this->prohibido('Solo el administrador de la tienda fija el stock mínimo.');
+            return;
+        }
         $id = $this->leerId($this->campo($post, 'id'));
         $volver = '/?ruta=producto&id=' . $id . '&tienda=' . $this->usuario->getIdTienda();
         try {
@@ -172,13 +184,17 @@ class ProductoController extends Controller
         $categorias = $this->catalogo->categorias();
         $marcas = $this->catalogo->marcas();
         $unidades = $this->catalogo->unidades();
-        $puedeEditar = $this->usuario?->puedeAdministrarCatalogo() === true;
+        $puedeEditar = $this->puedeEditarCatalogo();
         $this->vista('productos/catalogo', get_defined_vars());
     }
 
     // POST /?ruta=categoria_crear
     public function crearCategoria(array $post): void
     {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
         try {
             $this->servicio->crearCategoria($this->usuario, $this->campo($post, 'nombre'));
         } catch (ReglaNegocioException $ex) {
@@ -192,6 +208,10 @@ class ProductoController extends Controller
     // POST /?ruta=marca_crear
     public function crearMarca(array $post): void
     {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
         try {
             $this->servicio->crearMarca($this->usuario, $this->campo($post, 'nombre'), $this->campo($post, 'propia') === 'S');
         } catch (ReglaNegocioException $ex) {
@@ -200,5 +220,10 @@ class ProductoController extends Controller
             return;
         }
         $this->redirigir('/?ruta=catalogo', 'Marca creada.');
+    }
+
+    private function puedeEditarCatalogo(): bool
+    {
+        return $this->usuario?->puedeAdministrarCatalogo() === true;
     }
 }

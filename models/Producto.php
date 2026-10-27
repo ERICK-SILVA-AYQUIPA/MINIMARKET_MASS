@@ -11,7 +11,7 @@ class Producto
         private int $idProducto,             // id_producto INT UNSIGNED
         private string $nombreProducto,      // nombre_producto VARCHAR(100)
         private ?string $codigoBarras,       // codigo_barras VARCHAR(14) NULL (los productos al peso no tienen)
-        private float $precioVenta,          // precio_venta DECIMAL(10,2), unico para las 3 tiendas
+        private float $precioVenta,          // precio_venta DECIMAL(10,2), unico para todas las tiendas
         private string $seVendePorPeso,      // se_vende_por_peso CHAR(1): 'S' o 'N'
         private string $estado,              // estado VARCHAR(10): 'ACTIVO' o 'DESCONTINUADO'
         private int $idCategoria,            // id_categoria SMALLINT UNSIGNED

@@ -1,5 +1,6 @@
 # Revision automatica en cada push y pull request:
-# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) pruebas de integracion contra MySQL en Docker.
+# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) pruebas web por rol y
+# 4) pruebas de integracion, las dos contra MySQL en Docker.
 name: CI
 
 on:
@@ -35,6 +36,10 @@ jobs:
           cp .env.example .env
           docker compose up -d --wait
           sleep 5
+
+      # No cambian datos: van antes de las de integracion, que piden la base recien creada
+      - name: Pruebas web (cada rol, CSRF, 403 y 422)
+        run: php tests/web.php
 
       - name: Pruebas de integracion
         run: php tests/integracion.php

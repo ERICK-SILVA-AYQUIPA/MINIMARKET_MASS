@@ -31,7 +31,7 @@ require __DIR__ . '/../layout_inicio.php';
         <label for="destino">Tienda de destino</label>
         <select id="destino" name="destino" required>
             <?php foreach ($tiendas as $id => $t): ?>
-                <?php if ($id !== $usuarioActual->getIdTienda()): ?>
+                <?php if ($id !== $usuarioActual->getIdTienda() && $t->estaActiva()): ?>
                     <option value="<?= $id ?>" <?= $destinoViejo === (string) $id ? 'selected' : '' ?>><?= e($t->getNombreTienda()) ?></option>
                 <?php endif; ?>
             <?php endforeach; ?>
