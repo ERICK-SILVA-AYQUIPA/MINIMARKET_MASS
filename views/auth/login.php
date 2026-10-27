@@ -1,7 +1,8 @@
 <?php
 declare(strict_types=1);
 /**
- * V: pantalla de entrada: bienvenida animada (solo CSS) y formulario con DNI y clave.
+ * V: pantalla de entrada: fondo oscuro, presentacion y formulario con DNI y clave.
+ * La bienvenida con el logo sale despues de entrar (ver layout_inicio.php).
  * @var string $dni
  * @var ?string $error
  */
@@ -9,13 +10,6 @@ $titulo = 'Ingresar';
 $paginaEntrada = true;
 require __DIR__ . '/../layout_inicio.php';
 ?>
-<?php if ($error === null): ?>
-<div class="entrada-splash" aria-hidden="true">
-    <div class="splash-marca"><span class="logo">M</span><span>Minimarket <b>Mass</b></span></div>
-    <div class="splash-lema">Ventas e inventario multitienda</div>
-    <div class="splash-barra"><span></span></div>
-</div>
-<?php endif; ?>
 <div class="entrada">
     <section class="entrada-hero" aria-label="Minimarket Mass">
         <span class="entrada-insignia"><span class="punto" aria-hidden="true"></span>Sistema de la tienda · Arequipa</span>

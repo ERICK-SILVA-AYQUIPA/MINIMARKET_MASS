@@ -8,7 +8,8 @@ declare(strict_types=1);
  * @var ?string $rutaActual  la ruta pedida, para resaltar el menu
  * @var ?string $anchoMain   'angosto' para formularios cortos
  * @var ?string $nombreTiendaActual  la tienda del usuario (la pone Controller::vista)
- * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro y bienvenida
+ * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro
+ * @var ?bool $bienvenida  true en la primera pagina despues de entrar: logo con barra de carga
  */
 $usuarioActual ??= null;
 $csrf ??= null;
@@ -17,7 +18,8 @@ $rutaActual ??= 'inicio'; // la opcion del menu que se resalta (solo se compara,
 $anchoMain ??= '';
 $nombreTiendaActual ??= '';
 $paginaEntrada ??= false;
-// Sin sesion (login y errores) el fondo cambia; el login ademas lleva la bienvenida
+$bienvenida ??= false;
+// Sin sesion (login y errores) el fondo cambia; el login ademas va en oscuro
 $claseCuerpo = $usuarioActual !== null ? '' : ($paginaEntrada ? 'acceso entrada-pagina' : 'acceso');
 
 require_once __DIR__ . '/parciales/funciones.php';
@@ -61,11 +63,18 @@ if ($usuarioActual !== null) {
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
     <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/estilos.css?v=5">
+    <link rel="stylesheet" href="/estilos.css?v=6">
     <script src="/app.js?v=1" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
+<?php if ($bienvenida && $usuarioActual !== null): ?>
+<div class="entrada-splash" aria-hidden="true">
+    <div class="splash-marca"><span class="logo">M</span><span>Minimarket <b>Mass</b></span></div>
+    <div class="splash-lema">Bienvenido, <?= e($usuarioActual->getNombres()) ?> · <?= e($nombreTiendaActual) ?></div>
+    <div class="splash-barra"><span></span></div>
+</div>
+<?php endif; ?>
 <?php if ($usuarioActual !== null): ?>
 <input type="checkbox" id="menu-casilla" class="menu-casilla" aria-controls="menu-lateral" aria-label="Abrir el menú">
 <div class="barra-movil">

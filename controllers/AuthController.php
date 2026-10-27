@@ -66,6 +66,7 @@ class AuthController extends Controller
         }
 
         $this->sesion->entrar($empleado->getIdEmpleado());
+        $this->sesion->marcarBienvenida();
         $this->redirigir('/?ruta=inicio', 'Hola, ' . $empleado->getNombres() . '.');
     }
 

@@ -53,6 +53,7 @@ abstract class Controller
         $usuarioActual = $this->usuario;
         $csrf = $this->sesion->tokenCsrf();
         $aviso = $this->sesion->tomarAviso();
+        $bienvenida = $this->usuario !== null && $this->sesion->tomarBienvenida();
         $rutaActual = self::$rutaActual;
         // La tienda del usuario, para el menu lateral
         $nombreTiendaActual = $this->usuario !== null

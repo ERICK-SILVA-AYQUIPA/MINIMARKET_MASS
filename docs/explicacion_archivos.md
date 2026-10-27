@@ -144,7 +144,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `inventario/ingresos.php` | Lista de ingresos; cada uno abre su detalle con costos en un panel (`#ing-ID`). El formulario del almacenero (documento, emisor, productos con costo) está en el panel `#nuevo-ingreso` y vuelve abierto si hubo un error. |
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
-| `auth/login.php` | Pantalla de entrada: bienvenida animada con el logo (solo CSS, se va sola y no sale si el equipo pide menos movimiento) y, al lado, el formulario de DNI y clave sobre fondo oscuro. |
+| `auth/login.php` | Pantalla de entrada: presentación del sistema y, al lado, el formulario de DNI y clave sobre fondo oscuro. Al entrar bien, la primera página muestra un momento el logo con el saludo y una barra de carga (solo CSS, se va sola y no sale si el equipo pide menos movimiento). |
 | `ventas/nueva.php` | Pantalla de caja: productos a la izquierda; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
 | `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado, merma e ingreso (este con costo). |
 | `parciales/drawer_abrir.php`, `parciales/drawer_cerrar.php` | Abren y cierran un panel lateral con título, botón Cerrar y fondo oscuro. Se muestra con un enlace a `#id` o desde el servidor. |
