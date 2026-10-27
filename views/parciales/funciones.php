@@ -20,3 +20,9 @@ function campoCsrf(?string $csrf): string
 {
     return '<input type="hidden" name="csrf" value="' . e((string) $csrf) . '">';
 }
+
+// Icono del archivo public/iconos.svg (decorativo: los lectores de pantalla lo saltan)
+function icono(string $nombre): string
+{
+    return '<svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#' . e($nombre) . '"></use></svg>';
+}

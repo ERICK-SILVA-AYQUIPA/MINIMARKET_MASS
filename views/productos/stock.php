@@ -9,17 +9,21 @@ declare(strict_types=1);
 $titulo = 'Stock por tienda';
 require __DIR__ . '/../layout_inicio.php';
 ?>
-<h1>Stock por tienda</h1>
-<p><?= $porReponer ?> casos para reponer. REPONER = la cantidad actual llegó al stock mínimo de esa tienda.
-   <a href="/?ruta=stock_csv">Descargar en CSV (Excel)</a></p>
+<div class="cabecera">
+    <div>
+        <h1>Stock por tienda</h1>
+        <p class="sutil"><?= $porReponer ?> casos para reponer. REPONER = la cantidad actual llegó al stock mínimo de esa tienda.</p>
+    </div>
+    <div class="acciones"><a class="boton secundario" href="/?ruta=stock_csv"><?= icono('descarga') ?>Descargar CSV</a></div>
+</div>
 
 <div class="tabla">
 <table>
     <thead>
         <tr>
-            <th>Producto</th>
+            <th scope="col">Producto</th>
             <?php foreach ($tiendas as $t): ?>
-                <th><?= e($t->getNombreTienda()) ?></th>
+                <th scope="col" class="num"><?= e($t->getNombreTienda()) ?></th>
             <?php endforeach; ?>
         </tr>
     </thead>
@@ -27,11 +31,11 @@ require __DIR__ . '/../layout_inicio.php';
     <?php foreach ($filas as $fila): ?>
         <?php $p = $fila['producto']; ?>
         <tr>
-            <td><?= e($p->getNombreProducto()) ?></td>
+            <th scope="row"><a class="fila-enlace" href="/?ruta=productos&amp;ver=<?= $p->getIdProducto() ?>"><?= e($p->getNombreProducto()) ?></a></th>
             <?php foreach ($fila['stocks'] as $s): ?>
                 <td class="num">
                     <?php if ($s === null): ?>
-                        Sin registro
+                        <span class="sutil">Sin registro</span>
                     <?php else: ?>
                         <?= e(number_format($s->getCantidadActual(), $p->esAlPeso() ? 3 : 0)) ?>
                         <small>(mín. <?= e(number_format($s->getStockMinimo(), $p->esAlPeso() ? 3 : 0)) ?>)</small>

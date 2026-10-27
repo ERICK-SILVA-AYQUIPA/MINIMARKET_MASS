@@ -12,14 +12,24 @@ $productosViejos = is_array($viejo['producto'] ?? null) ? $viejo['producto'] : [
 $cantidadesViejas = is_array($viejo['cantidad'] ?? null) ? $viejo['cantidad'] : [];
 $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
 ?>
+<div class="tabla lineas">
 <table>
-    <tr><th>Producto</th><th>Cantidad (unidades, o kg con hasta 3 decimales)</th><?php if ($conCosto): ?><th>Costo unitario S/ (por unidad o kg)</th><?php endif; ?></tr>
+    <thead>
+        <tr>
+            <th scope="col">#</th>
+            <th scope="col">Producto</th>
+            <th scope="col">Cantidad <span class="ayuda">unidades, o kg con 3 decimales</span></th>
+            <?php if ($conCosto): ?><th scope="col">Costo unitario S/ <span class="ayuda">por unidad o kg</span></th><?php endif; ?>
+        </tr>
+    </thead>
+    <tbody>
     <?php for ($i = 0; $i < $filasLineas; $i++): ?>
         <?php $elegido = is_string($productosViejos[$i] ?? null) ? $productosViejos[$i] : ''; ?>
         <tr>
+            <td class="sutil"><?= $i + 1 ?></td>
             <td>
                 <select name="producto[]" aria-label="Producto <?= $i + 1 ?>">
-                    <option value="">—</option>
+                    <option value="">— Elegir producto —</option>
                     <?php foreach ($opciones as $p): ?>
                         <option value="<?= $p->getIdProducto() ?>" <?= $elegido === (string) $p->getIdProducto() ? 'selected' : '' ?>>
                             <?= e($p->getNombreProducto()) ?> · <?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? ' /kg' : '' ?>
@@ -35,4 +45,6 @@ $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
             <?php endif; ?>
         </tr>
     <?php endfor; ?>
+    </tbody>
 </table>
+</div>

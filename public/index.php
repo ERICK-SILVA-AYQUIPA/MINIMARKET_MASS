@@ -154,7 +154,7 @@ try {
                 break;
 
             case 'productos':
-                $productoController->lista($leer('tienda'));
+                $productoController->lista($leer('tienda'), $leer('ver'));
                 break;
 
             case 'producto':
@@ -170,7 +170,7 @@ try {
                 break;
 
             case 'ventas':
-                $ventaController->lista($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('estado'), $leer('pagina'));
+                $ventaController->lista($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('estado'), $leer('pagina'), $leer('ver'));
                 break;
 
             case 'comprobante':
@@ -234,7 +234,7 @@ try {
                 break;
 
             case 'clientes':
-                $clienteController->lista($leer('documento'), $leer('pagina'));
+                $clienteController->lista($leer('documento'), $leer('pagina'), $leer('ver'));
                 break;
 
             case 'cliente':

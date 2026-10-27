@@ -18,28 +18,33 @@ $valor = static function (string $campo, string $guardado) use ($viejo): string 
 };
 $porPeso = $producto?->esAlPeso() ?? ($valor('por_peso', 'N') === 'S');
 ?>
-<p><a href="/?ruta=productos">← Volver al catálogo</a></p>
-<h1><?= e($titulo) ?></h1>
+<a class="volver" href="<?= e($producto !== null ? '/?ruta=producto&id=' . $producto->getIdProducto() : '/?ruta=productos') ?>"><?= icono('volver') ?><?= $producto !== null ? 'Volver al producto' : 'Volver al catálogo' ?></a>
+<div class="cabecera">
+    <div>
+        <h1><?= e($titulo) ?></h1>
+        <p class="sutil"><?= $producto === null ? 'Se crea con stock 0 en todas las tiendas; luego entra con un ingreso de mercadería.' : e($producto->getNombreProducto()) ?></p>
+    </div>
+</div>
 
 <form class="formulario panel" method="post" action="/?ruta=producto_guardar">
-    <?php if ($error !== null): ?><div class="aviso error"><?= e($error) ?></div><?php endif; ?>
+    <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
     <?= campoCsrf($csrf) ?>
     <input type="hidden" name="id" value="<?= $producto?->getIdProducto() ?? '' ?>">
 
     <label for="nombre">Nombre</label>
     <input id="nombre" name="nombre" maxlength="100" size="50" required value="<?= e($valor('nombre', $producto?->getNombreProducto() ?? '')) ?>">
 
-    <label>Se vende</label>
+    <label for="por_peso">Se vende</label>
     <?php if ($producto === null): ?>
-        <select name="por_peso">
+        <select id="por_peso" name="por_peso">
             <option value="N" <?= $porPeso ? '' : 'selected' ?>>Por unidad (necesita código de barras)</option>
             <option value="S" <?= $porPeso ? 'selected' : '' ?>>Al peso, en kg</option>
         </select>
     <?php else: ?>
-        <?= $porPeso ? 'Al peso, en kg' : 'Por unidad' ?> (no se cambia: el stock y las ventas pasadas dependen de esto)
+        <p id="por_peso"><strong><?= $porPeso ? 'Al peso, en kg' : 'Por unidad' ?></strong> <span class="ayuda">No se cambia: el stock y las ventas pasadas dependen de esto.</span></p>
     <?php endif; ?>
 
-    <label for="codigo">Código de barras (8 a 14 dígitos)</label>
+    <label for="codigo">Código de barras <span class="ayuda">8 a 14 dígitos; vacío solo si se vende al peso</span></label>
     <input id="codigo" name="codigo" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14"
            value="<?= e($valor('codigo', $producto?->getCodigoBarras() ?? '')) ?>">
 
@@ -65,9 +70,11 @@ $porPeso = $producto?->esAlPeso() ?? ($valor('por_peso', 'N') === 'S');
         </select>
     <?php endforeach; ?>
 
-    <p><button type="submit"><?= $producto === null ? 'Crear producto' : 'Guardar cambios' ?></button></p>
-    <?php if ($producto !== null): ?>
-        <p>Cambiar el precio no cambia las ventas pasadas: cada venta guarda el precio con que se vendió.</p>
-    <?php endif; ?>
+    <div class="botones-formulario">
+        <button class="acento" type="submit"><?= $producto === null ? 'Crear producto' : 'Guardar cambios' ?></button>
+        <?php if ($producto !== null): ?>
+            <small>Cambiar el precio no cambia las ventas pasadas: cada venta guarda el precio con que se vendió.</small>
+        <?php endif; ?>
+    </div>
 </form>
 <?php require __DIR__ . '/../layout_fin.php'; ?>
