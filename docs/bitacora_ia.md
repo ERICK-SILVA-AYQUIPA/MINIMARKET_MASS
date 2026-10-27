@@ -79,6 +79,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **SEGURIDAD:** permisos `puedeAjustarStock()` (almacenero o administrador de esa tienda) y `puedeAbrirTiendas()` (administrador). Las filas de stock se bloquean en orden de producto, como en las ventas. Las series nuevas se calculan con `FOR UPDATE` sobre toda la cadena.
 - **Prueba:** `php tests/integracion.php` con la base recién creada: 91 correctas, 0 fallas.
 
+### Paso 12 · Panel de inicio, interfaz, pruebas unitarias y CI (27/10/2026)
+- **OBJETIVO:** Que cada empleado vea al entrar lo que necesita de SU tienda, pulir la interfaz y revisar el proyecto automáticamente en cada cambio.
+- **ENTRADAS Y SALIDAS:** `PanelRepository` devuelve los productos en su mínimo (los más urgentes primero), los turnos abiertos con lo cobrado en efectivo y el total emitido de cada uno de los últimos 14 días (los días sin ventas en 0). `PanelController::inicio()` arma hoy contra ayer con `ReporteRepository::resumen()`. `tests/unitarios.php` prueba Dinero, Cantidad, Paginacion, Clave, Producto, Stock y los permisos de cada rol sin base. `.github/workflows/ci.yml` corre `php -l`, las unitarias y las de integración contra un MySQL nuevo.
+- **SEGURIDAD:** el panel solo lee la tienda del usuario (no acepta `?tienda=`). El gráfico es HTML y CSS, sin JavaScript, así la `Content-Security-Policy` sigue sin permitir scripts. La ruta del menú activo solo se compara, no se imprime. En CI el `.env` sale de `.env.example` y vive solo en el runner.
+- **Prueba:** `php tests/unitarios.php`: 51 correctas, 0 fallas. `php tests/integracion.php` con la base recién creada: 91 correctas, 0 fallas.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -151,17 +157,18 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
-Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos.
+Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores.
 
 **[Grupo]** decidan si se agregan:
 - **Ingreso de mercadería de proveedores:** quedó fuera por decisión del grupo. Mientras tanto, un producto nuevo entra a una tienda con un **conteo físico** (motivo CONTEO_FISICO).
-- Actualizar `docs/informe_tecnico.md` y el diagrama ER con las 2 tablas de apoyo (`intento_login`, `ajuste_inventario`), si el docente pide el informe al día.
+- El diagrama ER (`docs/diagrama-er.png` y el Mermaid de `docs/diseno_bd.md`) ya tiene las 2 tablas de apoyo (`intento_login`, `ajuste_inventario`). El informe en Word (`final.docx`) trata los 5 diagramas UML y no se tocó: si el docente pide la base de datos en el informe, agreguen allí el ER nuevo.
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 27/10/2026, paso 12: después de entrar, Rosa, Luis, Carmen y Miguel llegan a `?ruta=inicio` (200) con el menú "Inicio" resaltado. Luis ve su turno 5 abierto y Miguel el aviso de abrir turno. El gráfico tiene 14 barras y el total de Cayma del 17 al 19/10 es S/ 323.00. Sin sesión, `/` lleva al login. Revisado en 1200 px y 390 px (celular). En `views/` todo lo impreso pasa por `e()` o es un entero o un texto fijo.
 - 27/10/2026, paso 11: con Rosa, tiendas, mi tienda, tienda nueva y conteo responden 200. Un conteo con texto da 422; uno válido aparece en el kardex como "Ajuste". Un teléfono con letras da 422. Rosa agrega una caja, un distrito y abre "Mass Socabaya" con B005/F005; su administradora entra y ve sus series. Luis recibe 403 en mi tienda, tienda nueva, agregar caja y conteo; Carmen ve la hoja de conteo con los 13 productos. Consultas 20 a 28 en 0 filas.
 - 26/10/2026, paso 10: con Rosa, las 19 pantallas nuevas o cambiadas responden 200 (empleado de otra tienda 404). Crear un producto sin código da 422 y el nombre con `<b>` sale escapado. Luis recibe 403 en personal, reportes, CSV y formulario de producto, y su POST de producto o empleado da 403. Carmen recibe 403 en clientes. Un cajero nuevo entra y cambia su clave. Al sexto intento con clave errada el login responde 429. El CSV abre con tildes. Consultas 20 a 28 en 0 filas y `tests/integracion.php` 72 correctas, 0 fallas.
 - 26/10/2026, paso 9: sin sesión toda pantalla lleva al login; clave errada 401; POST sin token 403. Luis vende B001-7 y una venta sin stock responde 422 sin guardar nada. Luis no puede trasladar (403) ni anular; Rosa anula B001-7 y el stock vuelve. Carmen traslada y registra una merma; no puede abrir caja (403). Miguel abre y cierra su turno. Las consultas 20 a 28 siguen en 0 filas y `tests/integracion.php` da 40 correctas, 0 fallas.

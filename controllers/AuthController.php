@@ -66,7 +66,7 @@ class AuthController extends Controller
         }
 
         $this->sesion->entrar($empleado->getIdEmpleado());
-        $this->redirigir('/?ruta=productos', 'Hola, ' . $empleado->getNombres() . '.');
+        $this->redirigir('/?ruta=inicio', 'Hola, ' . $empleado->getNombres() . '.');
     }
 
     // POST /?ruta=salir
@@ -97,6 +97,6 @@ class AuthController extends Controller
             $this->formularioClave($ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=productos', 'Tu clave fue cambiada.');
+        $this->redirigir('/?ruta=inicio', 'Tu clave fue cambiada.');
     }
 }

@@ -19,8 +19,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
 - **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
-- **`docs/informe_tecnico.md`**: Informe técnico académico completo del proyecto (análisis del negocio, 5 diagramas UML, justificación de diseño 3FN, diccionario de datos, reglas de negocio y conclusiones).
-- **`docs/informe_tecnico.html`**: Versión web e imprimible del informe técnico en formato ejecutivo profesional.
+- **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 
@@ -187,6 +186,7 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 
 | Ruta | Qué hace |
 |---|---|
+| `?ruta=inicio` | Panel de la tienda (página de entrada): vendido hoy contra ayer, comprobantes, ticket promedio, anuladas, gráfico de 14 días, productos por reponer, cajas abiertas y últimos movimientos del kardex |
 | `?ruta=caja` | Abrir o cerrar el turno; el administrador ve el arqueo (esperado vs. contado) |
 | `?ruta=venta_nueva` | Registrar una venta: descuenta stock, toma el siguiente número de la serie y guarda los pagos |
 | `?ruta=comprobante&...` | Botón **Anular** para el administrador: devuelve el stock y anula los pagos |
@@ -214,6 +214,15 @@ docker compose down -v
 docker compose up -d
 php tests/integracion.php   # 91 comprobaciones; solo con la base recién creada
 ```
+
+### Pruebas y revisión automática
+
+```powershell
+php tests/unitarios.php     # 51 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/integracion.php   # 91 comprobaciones contra MySQL, con la base recién creada
+```
+
+En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias y las de integración contra un MySQL 8.4.11 nuevo. El resultado sale en la pestaña **Actions** y en el pull request.
 
 ---
 
