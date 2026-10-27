@@ -99,7 +99,7 @@ abstract class Servicio
     /**
      * Suma (positivo) o resta (negativo) stock de un producto en una tienda y lo anota en el kardex.
      * Bloquea la fila de stock (FOR UPDATE) hasta el fin de la transaccion.
-     * @param array{id_venta?: int, id_traslado?: int, id_merma?: int, id_ajuste?: int} $origen exactamente uno
+     * @param array{id_venta?: int, id_traslado?: int, id_merma?: int, id_ajuste?: int, id_ingreso?: int} $origen exactamente uno
      */
     protected function moverStock(
         int $idTienda,
@@ -146,9 +146,9 @@ abstract class Servicio
         $this->db->prepare(
             'INSERT INTO movimiento_stock
                     (cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento,
-                     id_empleado, id_venta, id_traslado, id_merma, id_ajuste)
+                     id_empleado, id_venta, id_traslado, id_merma, id_ajuste, id_ingreso)
              VALUES (:cantidad, :nuevo, :observacion, :tienda, :producto, :tipo,
-                     :empleado, :venta, :traslado, :merma, :ajuste)'
+                     :empleado, :venta, :traslado, :merma, :ajuste, :ingreso)'
         )->execute([
             'cantidad'    => Cantidad::aTexto(abs($milesimas)),
             'nuevo'       => Cantidad::aTexto($nuevo),
@@ -161,6 +161,7 @@ abstract class Servicio
             'traslado'    => $origen['id_traslado'] ?? null,
             'merma'       => $origen['id_merma'] ?? null,
             'ajuste'      => $origen['id_ajuste'] ?? null,
+            'ingreso'     => $origen['id_ingreso'] ?? null,
         ]);
     }
 

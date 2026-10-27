@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/InventarioRepository.php';
+require_once __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
@@ -10,7 +11,7 @@ require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/InventarioServicio.php';
 
 /**
- * C: kardex, traslados entre tiendas, mermas y ajustes por conteo fisico.
+ * C: kardex, ingresos de mercaderia, traslados entre tiendas, mermas y ajustes por conteo fisico.
  */
 class InventarioController extends Controller
 {
@@ -22,7 +23,8 @@ class InventarioController extends Controller
         private ProductoRepository $productos,
         private EmpleadoRepository $empleados,
         private CatalogoRepository $catalogo,
-        private InventarioServicio $servicio
+        private InventarioServicio $servicio,
+        private IngresoRepository $ingresos
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -68,12 +70,7 @@ class InventarioController extends Controller
                     $tipo?->getNombreMovimiento() ?? '',
                     ($tipo?->esEntrada() ? '' : '-') . number_format($m->getCantidad(), 3, '.', ''),
                     number_format($m->getStockNuevo(), 3, '.', ''),
-                    match (true) {
-                        $m->getIdVenta() !== null    => 'Venta ' . $m->getIdVenta(),
-                        $m->getIdTraslado() !== null => 'Traslado ' . $m->getIdTraslado(),
-                        $m->getIdMerma() !== null    => 'Merma ' . $m->getIdMerma(),
-                        default                      => 'Ajuste ' . $m->getIdAjuste(),
-                    },
+                    $m->origen(),
                     $nombresEmpleado[$m->getIdEmpleado()] ?? '',
                     $m->getObservacion() ?? '',
                 ];
@@ -81,6 +78,91 @@ class InventarioController extends Controller
         }
         $this->enviarCsv(sprintf('kardex_tienda%d_%s.csv', $tienda->getIdTienda(), date('Y-m-d')),
             ['id', 'fecha', 'producto', 'tipo', 'cantidad', 'stock_nuevo', 'origen', 'empleado', 'observacion'], $filas);
+    }
+
+    // GET /?ruta=ingresos&pagina=2: mercaderia recibida en la tienda del usuario, con su documento y costo
+    public function ingresos(?string $pagina, array $viejo = [], ?string $error = null): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
+            $this->prohibido('Los ingresos de mercadería los ven el almacenero y el administrador de la tienda.');
+            return;
+        }
+        $tienda = $this->leerTienda(null);
+        $productos = $this->productosPorId();
+        $nombresEmpleado = $this->nombresEmpleado();
+        $tiposDocumento = IngresoMercaderia::TIPOS_DOCUMENTO;
+        $puedeRegistrar = $this->usuario->puedeRegistrarIngreso($tienda->getIdTienda()) && $tienda->estaActiva();
+        $hoy = date('Y-m-d');
+
+        $paginacion = new Paginacion($this->ingresos->contar($tienda->getIdTienda()), $pagina, 25);
+        $filas = [];
+        foreach ($this->ingresos->pagina($tienda->getIdTienda(), $paginacion->getPorPagina(), $paginacion->offset()) as $ingreso) {
+            $filas[] = ['ingreso' => $ingreso, 'detalle' => $this->ingresos->detalle($ingreso->getIdIngreso())];
+        }
+        $urlPagina = '/?ruta=ingresos';
+        $this->vista('inventario/ingresos', get_defined_vars());
+    }
+
+    // POST /?ruta=ingreso_registrar
+    public function registrarIngreso(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeRegistrarIngreso($this->usuario->getIdTienda())) {
+            $this->prohibido('Solo el almacenero de la tienda registra el ingreso de mercadería.');
+            return;
+        }
+        try {
+            $id = $this->servicio->registrarIngreso($this->usuario, [
+                'tipo'         => $this->campo($post, 'tipo_documento'),
+                'numero'       => $this->campo($post, 'numero_documento'),
+                'fecha'        => $this->campo($post, 'fecha_documento'),
+                'ruc'          => $this->campo($post, 'ruc_emisor'),
+                'razon_social' => $this->campo($post, 'razon_social'),
+                'observacion'  => $this->campo($post, 'observacion'),
+            ], $this->lineasDelFormulario($post));
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->ingresos(null, $post, $ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=ingresos', "Ingreso $id registrado: el stock ya subió y quedó en el kardex.");
+    }
+
+    // GET /?ruta=ingresos_csv: una fila por producto recibido, para revisar costos en Excel
+    public function ingresosCsv(): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
+            $this->prohibido('Los ingresos de mercadería los ven el almacenero y el administrador de la tienda.');
+            return;
+        }
+        $tienda = $this->leerTienda(null);
+        $productos = $this->productosPorId();
+        $nombresEmpleado = $this->nombresEmpleado();
+
+        $filas = [];
+        $total = $this->ingresos->contar($tienda->getIdTienda());
+        for ($offset = 0; $offset < $total; $offset += 1000) {
+            foreach ($this->ingresos->pagina($tienda->getIdTienda(), 1000, $offset) as $ingreso) {
+                foreach ($this->ingresos->detalle($ingreso->getIdIngreso()) as $d) {
+                    $filas[] = [
+                        $ingreso->getIdIngreso(),
+                        $ingreso->getFechaHora(),
+                        $ingreso->getTipoDocumento(),
+                        $ingreso->getNumeroDocumento(),
+                        $ingreso->getFechaDocumento(),
+                        $ingreso->getRucEmisor(),
+                        $ingreso->getRazonSocial(),
+                        ($productos[$d->getIdProducto()] ?? null)?->getNombreProducto() ?? '',
+                        number_format($d->getCantidad(), 3, '.', ''),
+                        number_format($d->getCostoUnitario(), 2, '.', ''),
+                        number_format($d->getCostoTotal(), 2, '.', ''),
+                        $nombresEmpleado[$ingreso->getIdEmpleado()] ?? '',
+                    ];
+                }
+            }
+        }
+        $this->enviarCsv(sprintf('ingresos_tienda%d_%s.csv', $tienda->getIdTienda(), date('Y-m-d')),
+            ['id_ingreso', 'registrado', 'tipo_documento', 'numero_documento', 'fecha_documento', 'ruc_emisor',
+             'razon_social', 'producto', 'cantidad', 'costo_unitario', 'costo_total', 'registro'], $filas);
     }
 
     // GET /?ruta=traslados&tienda=1

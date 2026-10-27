@@ -193,6 +193,8 @@ $matriz = [
     'tienda_nueva'         => [200, 403, 403],
     'auditoria'            => [200, 403, 403],
     'auditoria&accion=X'   => [200, 403, 403],
+    'ingresos'             => [200, 403, 200],
+    'ingresos_csv'         => [200, 403, 200],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -211,6 +213,13 @@ revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_i
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
     && $carmen->get('ruta=kardex_csv&tienda=2&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
+revisar('Solo el almacenero ve el formulario de ingreso; el administrador lo revisa', $carmen->get('ruta=ingresos') === 200
+    && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && !$rosa->tiene('ingreso_registrar'));
+revisar('Ingresos está en el menú del almacenero y del administrador, no del cajero', $carmen->get('ruta=inicio') === 200
+    && $carmen->tiene('ruta=ingresos"') && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=ingresos"')
+    && $luis->get('ruta=inicio') === 200 && !$luis->tiene('ruta=ingresos"'));
+revisar('Los ingresos se descargan en CSV con sus costos', $rosa->get('ruta=ingresos_csv') === 200
+    && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_contains($rosa->cuerpo, 'costo_unitario'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('El CSV sale como texto CSV con BOM', $rosa->get('ruta=reporte_csv&tipo=productos') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_starts_with($rosa->cuerpo, "\xEF\xBB\xBF"));
@@ -226,6 +235,7 @@ $prohibidos = [
     [$luis, 'Luis', 'empleado_guardar', ['id' => '3']],
     [$luis, 'Luis', 'empleado_clave', ['id' => '3', 'clave' => 'Clave2026x']],
     [$luis, 'Luis', 'venta_anular', ['serie' => 'B001', 'numero' => '1', 'motivo' => 'prueba']],
+    [$luis, 'Luis', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
     [$luis, 'Luis', 'traslado_registrar', ['destino' => '2']],
     [$luis, 'Luis', 'merma_registrar', ['motivo' => 'VENCIDO']],
     [$luis, 'Luis', 'ajuste_registrar', ['motivo' => 'CONTEO_FISICO']],
@@ -240,6 +250,7 @@ $prohibidos = [
     [$carmen, 'Carmen', 'cliente_documento', ['id' => '1', 'dni' => '12345678']],
     [$rosa, 'Rosa', 'venta_registrar', ['tipo' => 'B']],
     [$rosa, 'Rosa', 'traslado_registrar', ['destino' => '2']],
+    [$rosa, 'Rosa', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
 ];
 foreach ($prohibidos as [$quien, $nombre, $ruta, $datos]) {
     revisar("$nombre → $ruta: 403", $quien->post($ruta, $datos) === 403);
@@ -257,6 +268,12 @@ revisar('Venta con tipo inventado: 422', $luis->post('venta_registrar', ['tipo' 
 revisar('Traslado a la misma tienda: 422', $carmen->post('traslado_registrar', ['destino' => '1', 'producto' => ['1'], 'cantidad' => ['1']]) === 422);
 revisar('Traslado con cantidad negativa: 422', $carmen->post('traslado_registrar', ['destino' => '2', 'producto' => ['1'], 'cantidad' => ['-5']]) === 422);
 revisar('Merma con motivo inventado: 422', $carmen->post('merma_registrar', ['motivo' => 'PERDIDO', 'producto' => ['1'], 'cantidad' => ['1']]) === 422);
+revisar('Ingreso con RUC corto: 422 y vuelve lo escrito', $carmen->post('ingreso_registrar', ['tipo_documento' => 'FACTURA',
+    'numero_documento' => 'F001-1', 'fecha_documento' => date('Y-m-d'), 'ruc_emisor' => '123', 'razon_social' => '<b>Emisor</b>',
+    'producto' => ['1'], 'cantidad' => ['1'], 'costo' => ['3.60']]) === 422 && $carmen->tiene('11 dígitos') && $carmen->tiene('&lt;b&gt;Emisor'));
+revisar('Ingreso sin costo: 422', $carmen->post('ingreso_registrar', ['tipo_documento' => 'GUIA', 'numero_documento' => 'T001-1',
+    'fecha_documento' => date('Y-m-d'), 'ruc_emisor' => '20100055237', 'razon_social' => 'Emisor',
+    'producto' => ['1'], 'cantidad' => ['1'], 'costo' => ['']]) === 422 && $carmen->tiene('costo unitario no válido'));
 revisar('Conteo con texto: 422', $carmen->post('ajuste_registrar', ['motivo' => 'CONTEO_FISICO', 'producto' => ['1'], 'cantidad' => ['muchos']]) === 422);
 revisar('Empleado con DNI de 7 dígitos: 422', $rosa->post('empleado_crear',
     ['nombres' => 'Ana', 'apellidos' => 'Ruiz', 'dni' => '1234567', 'rol' => '2', 'clave' => 'Clave2026x']) === 422);

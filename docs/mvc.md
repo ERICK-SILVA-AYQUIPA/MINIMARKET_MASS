@@ -41,7 +41,7 @@ MinimarketMass/
 │   ├── Usuario.php                     M: clase base abstracta (tabla empleado)
 │   ├── Administrador.php               id_rol 1: anula ventas de su tienda
 │   ├── Cajero.php                      id_rol 2: vende
-│   └── Almacenero.php                  id_rol 3: traslados y mermas
+│   └── Almacenero.php                  id_rol 3: ingresos, traslados, mermas y conteo
 ├── views/
 │   ├── layout_inicio.php / layout_fin.php   cabecera, estilos y e() = htmlspecialchars
 │   ├── productos/lista.php · productos/detalle.php
@@ -90,7 +90,7 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Sin contraseñas ni datos reales: DNI, códigos y precios son los ficticios de `datos.sql`, y en pantalla el DNI se muestra oculto.
 - Login con DNI y `password_verify()`; en la base solo va el hash. La cookie de sesión es `httponly` y `SameSite=Lax`, y el id cambia al entrar.
 - Cada formulario lleva un token CSRF que se compara con `hash_equals()`. Después de un POST se redirige (303) para que F5 no repita la venta.
-- Los permisos se preguntan al objeto del rol (`puedeVender()`, `puedeAnularVenta()`, `puedeMoverMercaderia()`, `puedeManejarCaja()`, `puedeAdministrarCatalogo()`, `puedeAdministrarTienda()`, `puedeAjustarStock()`, `puedeAbrirTiendas()`); si responde no, 403. El servicio vuelve a preguntar antes de escribir, por si alguien manda el formulario a mano.
+- Los permisos se preguntan al objeto del rol (`puedeVender()`, `puedeAnularVenta()`, `puedeMoverMercaderia()`, `puedeManejarCaja()`, `puedeAdministrarCatalogo()`, `puedeAdministrarTienda()`, `puedeAjustarStock()`, `puedeRegistrarIngreso()`, `puedeVerIngresos()`, `puedeAbrirTiendas()`); si responde no, 403. El servicio vuelve a preguntar antes de escribir, por si alguien manda el formulario a mano.
 - Las escrituras van en transacciones con `SELECT ... FOR UPDATE`: no se vende stock que no hay ni se repite un número de comprobante.
 - Ingreso: 5 claves erradas seguidas para un DNI (o 20 desde una IP) bloquean 15 minutos (`intento_login`); la sesión vence a los 30 minutos sin uso.
 - `Content-Security-Policy` sin scripts: aunque se colara una etiqueta `<script>`, el navegador no la ejecuta.
@@ -98,5 +98,5 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Cada formulario que cambia datos revisa el permiso en el controlador (403) y otra vez en el servicio. Un dato mal escrito vuelve al formulario con 422 y el mensaje; un POST a una ruta de lectura da 405.
 - Un monto o una cantidad que no cabe en su columna (DECIMAL(10,2) o DECIMAL(10,3)) se rechaza con un mensaje, en vez de un error de MySQL.
 - El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula.
-- Las acciones sensibles (anular, cambiar precios, personal, claves, tiendas y cajas) quedan en la tabla `auditoria`, dentro de la misma transacción; el administrador la ve en `?ruta=auditoria`.
-- `tests/seguridad.php` revisa todo el código en cada push: que los 24 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.
+- Las acciones sensibles (anular, cambiar precios, personal, claves, tiendas, cajas e ingresos de mercadería) quedan en la tabla `auditoria`, dentro de la misma transacción; el administrador la ve en `?ruta=auditoria`.
+- `tests/seguridad.php` revisa todo el código en cada push: que los 25 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.
