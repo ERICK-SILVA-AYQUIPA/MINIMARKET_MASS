@@ -18,10 +18,15 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
 - **`database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
 - **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
+- **`database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
+- **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
+- **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
+- **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
+- **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`).
 
 ---
 
@@ -104,13 +109,14 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/consultas.sql"
 # 4. Probar vista y emisión de boleta formateada
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
 
-# 5. Lo que agrega la aplicación PHP (en este orden): login, intentos de ingreso y ajuste por conteo
+# 5. Lo que agrega la aplicación PHP (en este orden): login, intentos de ingreso, ajuste por conteo y auditoría
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/login.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/seguridad.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ajustes.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/auditoria.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 2 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`) y `ajuste_inventario` (`ajustes.sql`). Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 3 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`) y `auditoria` (`auditoria.sql`). Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 
@@ -122,7 +128,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql y ajustes.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql y auditoria.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -204,26 +210,32 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 | `?ruta=ajustes` | Almacenero o administrador: hoja de conteo físico; lo contado reemplaza al stock y la diferencia va al kardex |
 | `?ruta=tienda_editar` | Administrador: datos y estado de su tienda, agregar y activar o desactivar cajas, ver sus series |
 | `?ruta=tienda_nueva` | Administrador: abrir una tienda con su caja 1, sus series, stock en 0 y su primer administrador |
+| `?ruta=auditoria` | Administrador: bitácora de su tienda (quién anuló, cambió precios, personal, claves o cajas), filtrada por acción |
+| `?ruta=comprobante_imprimir&...` | Ticket de 80 mm para imprimir o guardar como PDF |
+| `?ruta=stock_csv` y `?ruta=kardex_csv&tienda=1` | Descargar el stock de las 3 tiendas y el kardex en CSV para Excel |
 
-Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`).
+Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`). Detalle en `docs/seguridad.md`.
 
-**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+**Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). Para restaurar, programar el respaldo diario o instalar en un servidor, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
+
+**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 96 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 103 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
 php tests/unitarios.php     # 51 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/web.php           # 93 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422 y escapado; no cambia datos
-php tests/integracion.php   # 96 comprobaciones contra MySQL, con la base recién creada
+php tests/seguridad.php     # 16 comprobaciones leyendo el código: CSRF en los 24 formularios, escapado y SQL preparado
+php tests/web.php           # 103 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422 y escapado; no cambia datos
+php tests/integracion.php   # 103 comprobaciones contra MySQL, con la base recién creada
 ```
 
-En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, las web y las de integración contra un MySQL 8.4.11 nuevo.
+En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.
 
 `tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
 

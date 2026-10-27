@@ -56,8 +56,8 @@ $porPeso = $producto?->esAlPeso() ?? ($valor('por_peso', 'N') === 'S');
     ?>
     <?php foreach ($listas as $campo => [$etiqueta, $opciones, $nombre, $guardado]): ?>
         <?php $elegido = $valor($campo, (string) ($guardado ?? '')); ?>
-        <label for="<?= $campo ?>"><?= e($etiqueta) ?></label>
-        <select id="<?= $campo ?>" name="<?= $campo ?>" required>
+        <label for="<?= e($campo) ?>"><?= e($etiqueta) ?></label>
+        <select id="<?= e($campo) ?>" name="<?= e($campo) ?>" required>
             <option value="">Elige…</option>
             <?php foreach ($opciones as $id => $opcion): ?>
                 <option value="<?= $id ?>" <?= (string) $id === $elegido ? 'selected' : '' ?>><?= e($nombre($opcion)) ?></option>

@@ -37,7 +37,7 @@ class TiendaServicio extends Servicio
             throw new ReglaNegocioException($problema);
         }
 
-        return $this->enTransaccion(function () use ($campos, $nombres, $apellidos, $dni, $clave): int {
+        return $this->enTransaccion(function () use ($usuario, $campos, $nombres, $apellidos, $dni, $clave): int {
             try {
                 $this->db->prepare(
                     'INSERT INTO tienda (nombre_tienda, direccion, telefono, estado, id_distrito)
@@ -81,6 +81,7 @@ class TiendaServicio extends Servicio
             } catch (PDOException $ex) {
                 throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un empleado con el DNI del administrador.') : $ex;
             }
+            $this->auditar($usuario, 'TIENDA_ABIERTA', sprintf('%d %s, administrador %s %s', $idTienda, $campos['nombre'], $nombres, $apellidos));
             return $idTienda;
         });
     }
@@ -96,7 +97,7 @@ class TiendaServicio extends Servicio
         }
         $campos = $this->leerTienda($datos);
 
-        $this->enTransaccion(function () use ($idTienda, $campos, $estado): void {
+        $this->enTransaccion(function () use ($admin, $idTienda, $campos, $estado): void {
             $this->db->prepare('SELECT id_tienda FROM tienda WHERE id_tienda = :id FOR UPDATE')->execute(['id' => $idTienda]);
             if ($estado === 'INACTIVA' && $this->turnosAbiertos('c.id_tienda = :id', $idTienda) > 0) {
                 throw new ReglaNegocioException('La tienda tiene turnos de caja abiertos: ciérrenlos antes de desactivarla.');
@@ -110,6 +111,7 @@ class TiendaServicio extends Servicio
             } catch (PDOException $ex) {
                 throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay una tienda con ese nombre.') : $ex;
             }
+            $this->auditar($admin, 'TIENDA_EDITADA', sprintf('%s, %s', $campos['nombre'], $estado));
         });
     }
 
@@ -120,7 +122,7 @@ class TiendaServicio extends Servicio
         if (!$admin->puedeAdministrarTienda($idTienda)) {
             throw new ReglaNegocioException('Solo el administrador de la tienda agrega cajas.');
         }
-        return $this->enTransaccion(function () use ($idTienda): int {
+        return $this->enTransaccion(function () use ($admin, $idTienda): int {
             // Bloquea la tienda: dos administradores a la vez no sacan el mismo numero
             $this->db->prepare('SELECT id_tienda FROM tienda WHERE id_tienda = :id FOR UPDATE')->execute(['id' => $idTienda]);
             $consulta = $this->db->prepare('SELECT COALESCE(MAX(numero_caja), 0) + 1 FROM caja WHERE id_tienda = :tienda');
@@ -131,6 +133,7 @@ class TiendaServicio extends Servicio
             }
             $this->db->prepare('INSERT INTO caja (numero_caja, estado, id_tienda) VALUES (:numero, \'ACTIVA\', :tienda)')
                 ->execute(['numero' => $numero, 'tienda' => $idTienda]);
+            $this->auditar($admin, 'CAJA_AGREGADA', 'Caja ' . $numero);
             return $numero;
         });
     }
@@ -142,16 +145,17 @@ class TiendaServicio extends Servicio
             throw new ReglaNegocioException('Estado no válido.');
         }
         $this->enTransaccion(function () use ($admin, $idCaja, $estado): void {
-            $consulta = $this->db->prepare('SELECT id_tienda FROM caja WHERE id_caja = :id FOR UPDATE');
+            $consulta = $this->db->prepare('SELECT id_tienda, numero_caja FROM caja WHERE id_caja = :id FOR UPDATE');
             $consulta->execute(['id' => $idCaja]);
-            $idTienda = $consulta->fetchColumn();
-            if ($idTienda === false || !$admin->puedeAdministrarTienda((int) $idTienda)) {
+            $caja = $consulta->fetch();
+            if ($caja === false || !$admin->puedeAdministrarTienda((int) $caja['id_tienda'])) {
                 throw new ReglaNegocioException('Esa caja no es de tu tienda.');
             }
             if ($estado === 'INACTIVA' && $this->turnosAbiertos('ct.id_caja = :id', $idCaja) > 0) {
                 throw new ReglaNegocioException('La caja tiene un turno abierto: que el cajero lo cierre primero.');
             }
             $this->db->prepare('UPDATE caja SET estado = :estado WHERE id_caja = :id')->execute(['estado' => $estado, 'id' => $idCaja]);
+            $this->auditar($admin, 'CAJA_ESTADO', sprintf('Caja %d: %s', $caja['numero_caja'], $estado));
         });
     }
 
@@ -161,12 +165,16 @@ class TiendaServicio extends Servicio
             throw new ReglaNegocioException('Solo un administrador agrega distritos.');
         }
         $nombre = $this->textoObligatorio($nombre, 40, 'Nombre del distrito');
-        try {
-            $this->db->prepare('INSERT INTO distrito (nombre_distrito) VALUES (:nombre)')->execute(['nombre' => $nombre]);
-        } catch (PDOException $ex) {
-            throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ese distrito ya existe.') : $ex;
-        }
-        return (int) $this->db->lastInsertId();
+        return $this->enTransaccion(function () use ($usuario, $nombre): int {
+            try {
+                $this->db->prepare('INSERT INTO distrito (nombre_distrito) VALUES (:nombre)')->execute(['nombre' => $nombre]);
+            } catch (PDOException $ex) {
+                throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ese distrito ya existe.') : $ex;
+            }
+            $id = (int) $this->db->lastInsertId();
+            $this->auditar($usuario, 'DISTRITO_CREADO', $id . ' ' . $nombre);
+            return $id;
+        });
     }
 
     /**

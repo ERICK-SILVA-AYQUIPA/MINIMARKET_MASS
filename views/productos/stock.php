@@ -10,7 +10,8 @@ $titulo = 'Stock por tienda';
 require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>Stock por tienda</h1>
-<p><?= $porReponer ?> casos para reponer. REPONER = la cantidad actual llegó al stock mínimo de esa tienda.</p>
+<p><?= $porReponer ?> casos para reponer. REPONER = la cantidad actual llegó al stock mínimo de esa tienda.
+   <a href="/?ruta=stock_csv">Descargar en CSV (Excel)</a></p>
 
 <div class="tabla">
 <table>

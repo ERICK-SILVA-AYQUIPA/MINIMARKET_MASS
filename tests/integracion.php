@@ -13,6 +13,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') {
     exit('Solo desde la terminal.');
 }
+date_default_timezone_set('America/Lima');
 
 require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../models/EmpleadoRepository.php';
@@ -285,6 +286,20 @@ $raul = $empleados->buscarPorId($cajeroSachaca);
 rechaza('En una tienda inactiva no se abre caja', fn() => $caja->abrirTurno($raul, (int) valor($db,
     'SELECT id_caja FROM caja WHERE id_tienda = ? AND numero_caja = 1', [$idTienda]), '50'));
 rechaza('Ni se le traslada mercadería', fn() => $inventario->trasladar($carmen, $idTienda, [['id_producto' => '2', 'cantidad' => '1']], null));
+
+echo "Auditoría\n";
+$auditado = fn(string $accion, string $parte): bool => (int) valor($db,
+    'SELECT COUNT(*) FROM auditoria WHERE accion = ? AND detalle LIKE ?', [$accion, '%' . $parte . '%']) > 0;
+revisar('La anulación quedó en la auditoría con su comprobante', $auditado('VENTA_ANULADA', 'B001-'));
+revisar('El cambio de precio de la leche quedó con el precio anterior y el nuevo', $auditado('PRECIO_CAMBIADO', '-> S/ 4.80'));
+revisar('El mínimo, la categoría, el personal y las claves también', $auditado('STOCK_MINIMO', '12.500')
+    && $auditado('CATEGORIA_CREADA', 'Panadería') && (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion IN ('EMPLEADO_CREADO','CLAVE_REINICIADA')") > 0);
+revisar('La tienda nueva y sus cajas quedaron registradas', $auditado('TIENDA_ABIERTA', 'Mass Sachaca') && $auditado('CAJA_ESTADO', 'INACTIVA'));
+revisar('Cada fila tiene la tienda de quien hizo la acción', valor($db,
+    'SELECT COUNT(*) FROM auditoria a JOIN empleado e ON e.id_empleado = a.id_empleado WHERE a.id_tienda <> e.id_tienda') === '0');
+$antesAuditoria = valor($db, 'SELECT COUNT(*) FROM auditoria');
+rechaza('Una acción rechazada no deja rastro en la auditoría', fn() => $catalogo->crearCategoria($rosa, 'Panadería'));
+revisar('...la auditoría sigue igual', valor($db, 'SELECT COUNT(*) FROM auditoria') === $antesAuditoria);
 
 echo "Reglas del diseño (consultas 20 a 28 de consultas.sql: 0 filas)\n";
 $sql = file_get_contents(__DIR__ . '/../database/consultas.sql');

@@ -25,21 +25,25 @@ class EmpleadoServicio extends Servicio
         $this->exigirRol($idRol);
         $this->exigirClave($clave);
 
-        try {
-            $this->db->prepare(
-                'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, estado, id_tienda, id_rol)
-                 VALUES (:nombres, :apellidos, :dni, :hash, \'ACTIVO\', :tienda, :rol)'
-            )->execute([
-                'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'hash' => Clave::hash($clave),
-                'tienda' => $admin->getIdTienda(), 'rol' => $idRol,
-            ]);
-        } catch (PDOException $ex) {
-            if ($this->esDuplicado($ex)) {
-                throw new ReglaNegocioException('Ya hay un empleado con ese DNI.');
+        return $this->enTransaccion(function () use ($admin, $nombres, $apellidos, $dni, $idRol, $clave): int {
+            try {
+                $this->db->prepare(
+                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, estado, id_tienda, id_rol)
+                     VALUES (:nombres, :apellidos, :dni, :hash, \'ACTIVO\', :tienda, :rol)'
+                )->execute([
+                    'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'hash' => Clave::hash($clave),
+                    'tienda' => $admin->getIdTienda(), 'rol' => $idRol,
+                ]);
+            } catch (PDOException $ex) {
+                if ($this->esDuplicado($ex)) {
+                    throw new ReglaNegocioException('Ya hay un empleado con ese DNI.');
+                }
+                throw $ex;
             }
-            throw $ex;
-        }
-        return (int) $this->db->lastInsertId();
+            $id = (int) $this->db->lastInsertId();
+            $this->auditar($admin, 'EMPLEADO_CREADO', sprintf('%d %s %s, %s', $id, $nombres, $apellidos, self::ROLES[$idRol]));
+            return $id;
+        });
     }
 
     /**
@@ -76,6 +80,7 @@ class EmpleadoServicio extends Servicio
                 'UPDATE empleado SET nombres = :nombres, apellidos = :apellidos, id_rol = :rol, estado = :estado
                   WHERE id_empleado = :id'
             )->execute(['nombres' => $nombres, 'apellidos' => $apellidos, 'rol' => $idRol, 'estado' => $estado, 'id' => $idEmpleado]);
+            $this->auditar($admin, 'EMPLEADO_EDITADO', sprintf('%d %s %s, %s, %s', $idEmpleado, $nombres, $apellidos, self::ROLES[$idRol], $estado));
         });
     }
 
@@ -86,6 +91,7 @@ class EmpleadoServicio extends Servicio
         $this->enTransaccion(function () use ($admin, $idEmpleado, $claveNueva): void {
             $this->empleadoDeLaTienda($admin, $idEmpleado);
             $this->guardarClave($idEmpleado, $claveNueva);
+            $this->auditar($admin, 'CLAVE_REINICIADA', 'Empleado ' . $idEmpleado);
         });
     }
 
@@ -105,7 +111,10 @@ class EmpleadoServicio extends Servicio
             throw new ReglaNegocioException('La clave nueva debe ser distinta de la actual.');
         }
         $this->exigirClave($nueva);
-        $this->guardarClave($usuario->getIdEmpleado(), $nueva);
+        $this->enTransaccion(function () use ($usuario, $nueva): void {
+            $this->guardarClave($usuario->getIdEmpleado(), $nueva);
+            $this->auditar($usuario, 'CLAVE_CAMBIADA', 'Cambió su propia clave');
+        });
     }
 
     private function guardarClave(int $idEmpleado, string $clave): void

@@ -15,6 +15,14 @@ abstract class Controller
 {
     protected const TIENDA_POR_DEFECTO = 1; // Mass Cayma
 
+    // La ruta pedida, para resaltar la opcion del menu (la fija public/index.php)
+    private static string $rutaActual = 'inicio';
+
+    public static function marcarRuta(string $ruta): void
+    {
+        self::$rutaActual = $ruta;
+    }
+
     public function __construct(
         protected TiendaRepository $tiendas,
         protected Sesion $sesion,
@@ -45,6 +53,7 @@ abstract class Controller
         $usuarioActual = $this->usuario;
         $csrf = $this->sesion->tokenCsrf();
         $aviso = $this->sesion->tomarAviso();
+        $rutaActual = self::$rutaActual;
         require __DIR__ . '/../views/' . $__vista . '.php';
     }
 
@@ -98,6 +107,28 @@ abstract class Controller
     protected function leerId(?string $valor): int
     {
         return $valor !== null && preg_match('/^[0-9]{1,9}$/', $valor) === 1 ? (int) $valor : 0;
+    }
+
+    /**
+     * Descarga un CSV que Excel abre bien (BOM UTF-8 para las tildes).
+     * Un texto que empieza con = + - @ (o tabulador / retorno) se abre en Excel como formula: se le antepone un apostrofo.
+     * @param string[] $encabezado
+     * @param iterable<array<int|string, mixed>> $filas
+     */
+    protected function enviarCsv(string $nombreArchivo, array $encabezado, iterable $filas): void
+    {
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $nombreArchivo) . '"');
+        $salida = fopen('php://output', 'w');
+        fwrite($salida, "\xEF\xBB\xBF");
+        fputcsv($salida, $encabezado, ',', '"', '');
+        foreach ($filas as $fila) {
+            fputcsv($salida, array_map(
+                fn($v): string => preg_match('/^[=+\-@\t\r]/', (string) $v) === 1 ? "'" . $v : (string) $v,
+                array_values($fila)
+            ), ',', '"', '');
+        }
+        fclose($salida);
     }
 
     // Un campo de texto del POST; si no es texto (por ejemplo un arreglo) se toma como vacio
