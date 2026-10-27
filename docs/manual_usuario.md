@@ -4,8 +4,8 @@ Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI**
 
 ## 1. Entrar y salir
 
-1. Abrir `http://localhost:8000` (o la dirección del servidor). Aparece un momento el logo con una barra de carga y luego la pantalla de entrada.
-2. Escribir el DNI y la clave en el cuadro de la derecha (en el celular, debajo del título), y pulsar **Entrar**.
+1. Abrir `http://localhost:8000` (o la dirección del servidor). Aparece la pantalla de entrada.
+2. Escribir el DNI y la clave en el cuadro de la derecha (en el celular, debajo del título), y pulsar **Entrar**. Aparece un momento el logo con tu nombre y una barra de carga, y luego el panel de inicio.
 3. Para salir: **Salir**, al pie del menú de la izquierda.
 
 - Con 5 claves erradas seguidas, ese DNI espera 15 minutos antes de volver a intentar.
