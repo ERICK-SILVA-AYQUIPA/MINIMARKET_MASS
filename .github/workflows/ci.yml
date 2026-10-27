@@ -1,0 +1,44 @@
+# Revision automatica en cada push y pull request:
+# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) pruebas de integracion contra MySQL en Docker.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql
+          coverage: none
+
+      - name: Sintaxis de PHP
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: Pruebas unitarias (sin base)
+        run: php tests/unitarios.php
+
+      # Las claves de .env.example son de ejemplo: solo existen dentro del runner y se borran al terminar
+      - name: Levantar MySQL 8.4.11
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait
+          sleep 5
+
+      - name: Pruebas de integracion
+        run: php tests/integracion.php
+
+      - name: Log de MySQL si algo fallo
+        if: failure()
+        run: docker compose logs mysql | tail -n 80
