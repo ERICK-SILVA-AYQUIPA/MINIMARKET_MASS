@@ -144,7 +144,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `inventario/ingresos.php` | Lista de ingresos; cada uno abre su detalle con costos en un panel (`#ing-ID`). El formulario del almacenero (documento, emisor, productos con costo) está en el panel `#nuevo-ingreso` y vuelve abierto si hubo un error. |
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
-| `auth/login.php` | Formulario de DNI y clave. |
+| `auth/login.php` | Pantalla de entrada: presentación del sistema y, al lado, el formulario de DNI y clave sobre fondo oscuro. Al entrar bien, la primera página muestra un momento el logo con el saludo y una barra de carga (solo CSS, se va sola y no sale si el equipo pide menos movimiento). |
 | `ventas/nueva.php` | Pantalla de caja: productos a la izquierda; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
 | `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado, merma e ingreso (este con costo). |
 | `parciales/drawer_abrir.php`, `parciales/drawer_cerrar.php` | Abren y cierran un panel lateral con título, botón Cerrar y fondo oscuro. Se muestra con un enlace a `#id` o desde el servidor. |
@@ -171,6 +171,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `estilos.css` | El sistema de diseño: colores, letras, espacios, botones, tablas, formularios, avisos, paneles laterales, versión de celular e impresión. Un solo archivo para todas las pantallas. |
 | `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
 | `iconos.svg` | Los íconos del menú y los botones, dibujados con líneas. Se usan con `icono('nombre')`. |
+| `fuentes/outfit.woff2` | La letra Outfit de los títulos, guardada en el propio sitio (la CSP no deja cargar letras de otros sitios). Licencia libre OFL en `fuentes/LICENCIA.txt`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
 | `poo_roles.php` | Prueba del paso 2: tres empleados de Cayma. El mismo método `puedeAnularVenta()` responde distinto según la clase (polimorfismo). |

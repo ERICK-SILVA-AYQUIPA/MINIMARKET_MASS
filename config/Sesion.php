@@ -93,4 +93,17 @@ final class Sesion
         unset($_SESSION['aviso']);
         return is_array($aviso) ? $aviso : null;
     }
+
+    // Pantalla de bienvenida con el logo: sale una sola vez, en la primera pagina despues de entrar
+    public function marcarBienvenida(): void
+    {
+        $_SESSION['bienvenida'] = true;
+    }
+
+    public function tomarBienvenida(): bool
+    {
+        $hay = ($_SESSION['bienvenida'] ?? false) === true;
+        unset($_SESSION['bienvenida']);
+        return $hay;
+    }
 }
