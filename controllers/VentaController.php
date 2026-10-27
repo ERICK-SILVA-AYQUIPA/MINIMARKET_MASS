@@ -66,8 +66,8 @@ class VentaController extends Controller
         $this->vista('ventas/lista', get_defined_vars());
     }
 
-    // GET /?ruta=comprobante&serie=B001&numero=1
-    public function comprobante(?string $serieTexto, ?string $numeroTexto): void
+    // GET /?ruta=comprobante&serie=B001&numero=1  (con $ticket: el formato de 80 mm para imprimir o PDF)
+    public function comprobante(?string $serieTexto, ?string $numeroTexto, bool $ticket = false): void
     {
         // Validar antes de buscar: serie B o F + 3 digitos, correlativo de 1 a 8 digitos
         if ($serieTexto === null || preg_match('/^[BF][0-9]{3}$/', $serieTexto) !== 1
@@ -114,7 +114,7 @@ class VentaController extends Controller
         $detalleCuadra = $venta->detalleCuadra($detalles);
         $pagosCuadran = $venta->pagosCuadran($pagos);
 
-        $this->vista('ventas/comprobante', get_defined_vars());
+        $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', get_defined_vars());
     }
 
     // GET /?ruta=venta_nueva: formulario del cajero (con su turno abierto)

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../Dinero.php';
 require_once __DIR__ . '/../Cantidad.php';
 require_once __DIR__ . '/../ReglaNegocioException.php';
 require_once __DIR__ . '/../TipoMovimiento.php';
+require_once __DIR__ . '/../Usuario.php';
 
 /**
  * Base de los servicios que ESCRIBEN en la base.
@@ -171,6 +172,23 @@ abstract class Servicio
             throw new ReglaNegocioException($campo . ' es obligatorio.');
         }
         return $texto;
+    }
+
+    /**
+     * Anota una accion delicada en la bitacora (database/auditoria.sql), con la tienda de quien la hizo.
+     * Se llama dentro de la misma transaccion que el cambio: o quedan los dos, o ninguno.
+     */
+    protected function auditar(Usuario $usuario, string $accion, ?string $detalle = null): void
+    {
+        $this->db->prepare(
+            'INSERT INTO auditoria (fecha_hora, accion, detalle, id_tienda, id_empleado)
+             VALUES (NOW(), :accion, :detalle, :tienda, :empleado)'
+        )->execute([
+            'accion'   => $accion,
+            'detalle'  => $detalle === null ? null : mb_substr($detalle, 0, 250),
+            'tienda'   => $usuario->getIdTienda(),
+            'empleado' => $usuario->getIdEmpleado(),
+        ]);
     }
 
     // Error 1062 de MySQL: el valor ya existe en una columna UNIQUE

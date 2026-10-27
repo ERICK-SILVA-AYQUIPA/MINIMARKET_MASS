@@ -1,6 +1,6 @@
 # Revision automatica en cada push y pull request:
-# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) pruebas web por rol y
-# 4) pruebas de integracion, las dos contra MySQL en Docker.
+# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) revision de seguridad del codigo,
+# 4) pruebas web por rol y 5) pruebas de integracion, las dos contra MySQL en Docker.
 name: CI
 
 on:
@@ -29,6 +29,9 @@ jobs:
 
       - name: Pruebas unitarias (sin base)
         run: php tests/unitarios.php
+
+      - name: Revision de seguridad del codigo (CSRF, escapado, SQL)
+        run: php tests/seguridad.php
 
       # Las claves de .env.example son de ejemplo: solo existen dentro del runner y se borran al terminar
       - name: Levantar MySQL 8.4.11

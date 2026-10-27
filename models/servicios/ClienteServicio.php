@@ -27,7 +27,7 @@ class ClienteServicio extends Servicio
             throw new ReglaNegocioException('Escribe el DNI o el RUC que falta.');
         }
 
-        $this->enTransaccion(function () use ($idCliente, $dni, $ruc): void {
+        $this->enTransaccion(function () use ($usuario, $idCliente, $dni, $ruc): void {
             $consulta = $this->db->prepare('SELECT dni, ruc FROM cliente WHERE id_cliente = :id FOR UPDATE');
             $consulta->execute(['id' => $idCliente]);
             $cliente = $consulta->fetch();
@@ -43,6 +43,8 @@ class ClienteServicio extends Servicio
             } catch (PDOException $ex) {
                 throw $this->esDuplicado($ex) ? new ReglaNegocioException('Otro cliente ya tiene ese documento.') : $ex;
             }
+            // El documento no se copia completo a la bitacora: es un dato personal
+            $this->auditar($usuario, 'CLIENTE_DOCUMENTO', sprintf('Cliente %d: agregó %s', $idCliente, $dni !== '' ? 'DNI' : 'RUC'));
         });
     }
 }

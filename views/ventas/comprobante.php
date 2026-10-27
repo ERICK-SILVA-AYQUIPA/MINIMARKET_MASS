@@ -21,7 +21,8 @@ $numero = $serie->formatear($venta->getNumeroCorrelativo());
 $titulo = $numero;
 require __DIR__ . '/../layout_inicio.php';
 ?>
-<p><a href="/?ruta=ventas&amp;tienda=<?= $tienda->getIdTienda() ?>">← Ventas de <?= e($tienda->getNombreTienda()) ?></a></p>
+<p><a href="/?ruta=ventas&amp;tienda=<?= $tienda->getIdTienda() ?>">← Ventas de <?= e($tienda->getNombreTienda()) ?></a>
+   · <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>">Imprimir ticket / PDF</a></p>
 
 <div class="comprobante">
     <h2><?= e($serie->nombreComprobante()) ?> <?= e($numero) ?>

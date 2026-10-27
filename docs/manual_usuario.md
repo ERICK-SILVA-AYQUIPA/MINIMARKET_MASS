@@ -1,0 +1,82 @@
+# Manual de usuario
+
+Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI** y su clave, y ve solo el menú de su rol. Para instalar el sistema, ver `docs/despliegue.md`.
+
+## 1. Entrar y salir
+
+1. Abrir `http://localhost:8000` (o la dirección del servidor).
+2. Escribir el DNI y la clave, y pulsar **Entrar**.
+3. Para salir: **Salir**, arriba a la derecha.
+
+- Con 5 claves erradas seguidas, ese DNI espera 15 minutos antes de volver a intentar.
+- Si nadie usa el sistema por 30 minutos, la sesión se cierra sola y hay que volver a entrar.
+- **Mi clave** (arriba a la derecha): cada empleado cambia su propia clave. La nueva debe tener de 8 a 72 caracteres, con al menos una letra y un número.
+
+### Usuarios de prueba
+
+La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **Mi clave**.
+
+| Tienda | Administrador | Cajero | Almacenero |
+|---|---|---|---|
+| Mass Cayma | Rosa · `70000001` | Luis · `70000002` | Carmen · `70000003` |
+| Mass Cerro Colorado | Jorge · `70000004` | Ana · `70000005` | Pedro · `70000006` |
+| Mass Yanahuara | Lucía · `70000007` | Miguel · `70000008` | Sofía · `70000009` |
+
+## 2. Lo que ven todos
+
+| Menú | Para qué |
+|---|---|
+| **Inicio** | Panel de la tienda: vendido hoy contra ayer, comprobantes, ticket promedio, gráfico de 14 días, productos por reponer, cajas abiertas y últimos movimientos |
+| **Catálogo** | Buscar productos por nombre o código de barras y ver su precio y stock |
+| **Stock** | Stock de cada producto en las 3 tiendas. **REPONER** marca lo que llegó al mínimo. Botón **Descargar en CSV (Excel)** |
+| **Ventas** | Boletas y facturas por fecha y estado. Al abrir una se ve el comprobante con su detalle y pagos |
+| **Traslados**, **Mermas**, **Kardex**, **Tiendas** | Consulta (registrar depende del rol) |
+
+**Imprimir un comprobante**: abrir la venta y pulsar **Imprimir ticket / PDF**. Sale el ticket de 80 mm; con `Ctrl + P` se imprime en la ticketera o se elige **Guardar como PDF**. Si la venta está anulada, el ticket lo dice.
+
+## 3. Cajero
+
+| Tarea | Pasos |
+|---|---|
+| Abrir turno | **Caja** → elegir la caja → escribir el monto inicial en efectivo → **Abrir turno**. Sin turno abierto no se puede vender |
+| Registrar una venta | **Nueva venta** → elegir boleta o factura y escribir el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) → agregar productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → poner el pago en efectivo, tarjeta o SIP; se puede combinar → **Registrar venta**. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
+| Cerrar turno | **Caja** → escribir el efectivo contado → **Cerrar turno** |
+| Clientes | **Clientes** → buscar por DNI o RUC (o sus primeros dígitos), ver sus compras y completar el documento que falta |
+
+Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tiene 11 dígitos), el formulario vuelve con el error y no se guarda nada.
+
+## 4. Almacenero
+
+| Tarea | Pasos |
+|---|---|
+| Trasladar mercadería | **Traslados** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
+| Registrar una merma | **Mermas** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
+| Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
+| Revisar movimientos | **Kardex** → filtrar por producto. Botón **Descargar en CSV (Excel)** |
+
+## 5. Administrador
+
+El administrador maneja **su tienda**. El catálogo y los precios son de toda la cadena.
+
+| Tarea | Pasos |
+|---|---|
+| Anular una venta | **Ventas** → abrir el comprobante → escribir el motivo → **Anular venta**. Devuelve el stock y anula los pagos. No se puede deshacer |
+| Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado |
+| Reportes | **Reportes** → elegir fechas: vendido, ventas por día, más vendidos, por categoría, por cajero y por método de pago. Cada uno se descarga en CSV |
+| Productos | **Catálogo** → **+ Nuevo producto**, o abrir uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
+| Categorías y marcas | **Categorías y marcas** → agregar nuevas |
+| Personal | **Personal** → registrar, editar, desactivar y poner una clave nueva a un empleado de su tienda |
+| Tienda y cajas | **Tiendas** → **Editar mi tienda, sus cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
+| Abrir una tienda nueva | **Tiendas** → **+ Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |
+| Auditoría | **Auditoría**: quién anuló ventas, cambió precios, editó personal o reinició claves en su tienda, con fecha y detalle. Se filtra por acción |
+| Conteo físico | **Conteo**, igual que el almacenero |
+
+## 6. Mensajes que pueden salir
+
+| Mensaje | Qué significa |
+|---|---|
+| **403 · Sin permiso** | Esa pantalla no es de su rol o de su tienda |
+| **404 · No encontrado** | El producto, venta o página no existe |
+| Error en rojo dentro del formulario | Falta un dato o no cumple una regla. No se guardó nada; corregir y volver a enviar |
+| **El formulario venció** (403) | La página estuvo abierta mucho tiempo. Recargar y volver a enviar |
+| **La base de datos no está disponible** (503) | MySQL está apagado. Avisar a quien administra el sistema |

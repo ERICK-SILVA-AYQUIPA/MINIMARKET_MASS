@@ -45,6 +45,44 @@ class InventarioController extends Controller
         $this->vista('inventario/kardex', get_defined_vars());
     }
 
+    // GET /?ruta=kardex_csv&tienda=1&producto=8: todo el kardex de la tienda (o de un producto), para Excel
+    public function kardexCsv(?string $tiendaPedida, ?string $productoPedido): void
+    {
+        $tienda = $this->leerTienda($tiendaPedida);
+        $productos = $this->productosPorId();
+        $idProducto = $productoPedido !== null && ctype_digit($productoPedido) && isset($productos[(int) $productoPedido])
+            ? (int) $productoPedido : null;
+        $tipos = $this->catalogo->tiposMovimiento();
+        $nombresEmpleado = $this->nombresEmpleado();
+
+        $filas = [];
+        $total = $this->inventario->contarKardex($tienda->getIdTienda(), $idProducto);
+        // De 1000 en 1000, para no pedir todo de una vez
+        for ($offset = 0; $offset < $total; $offset += 1000) {
+            foreach ($this->inventario->kardex($tienda->getIdTienda(), $idProducto, 1000, $offset) as $m) {
+                $tipo = $tipos[$m->getIdTipoMovimiento()] ?? null;
+                $filas[] = [
+                    $m->getIdMovimiento(),
+                    $m->getFechaHora(),
+                    ($productos[$m->getIdProducto()] ?? null)?->getNombreProducto() ?? '',
+                    $tipo?->getNombreMovimiento() ?? '',
+                    ($tipo?->esEntrada() ? '' : '-') . number_format($m->getCantidad(), 3, '.', ''),
+                    number_format($m->getStockNuevo(), 3, '.', ''),
+                    match (true) {
+                        $m->getIdVenta() !== null    => 'Venta ' . $m->getIdVenta(),
+                        $m->getIdTraslado() !== null => 'Traslado ' . $m->getIdTraslado(),
+                        $m->getIdMerma() !== null    => 'Merma ' . $m->getIdMerma(),
+                        default                      => 'Ajuste ' . $m->getIdAjuste(),
+                    },
+                    $nombresEmpleado[$m->getIdEmpleado()] ?? '',
+                    $m->getObservacion() ?? '',
+                ];
+            }
+        }
+        $this->enviarCsv(sprintf('kardex_tienda%d_%s.csv', $tienda->getIdTienda(), date('Y-m-d')),
+            ['id', 'fecha', 'producto', 'tipo', 'cantidad', 'stock_nuevo', 'origen', 'empleado', 'observacion'], $filas);
+    }
+
     // GET /?ruta=traslados&tienda=1
     public function traslados(?string $tiendaPedida, array $viejo = [], ?string $error = null): void
     {
