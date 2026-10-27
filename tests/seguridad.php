@@ -98,6 +98,8 @@ echo "2. Escapado de lo que se imprime\n";
 $seguras = [
     '/^e\(.*\)$/s',
     '/^campoCsrf\(\$csrf\)$/',
+    // icono('nombre') con un nombre fijo; icono() escapa el nombre con e()
+    "/^icono\\('[a-z]+'\\)$/",
     '/^\(int\) /',
     '/^count\(\$\w+\)$/',
     '/^\$\w+->(get(Id|Numero|Ultimo|Pagina|TotalFilas)\w*|totalPaginas)\(\)$/',
@@ -136,7 +138,8 @@ foreach ($vistas as $vista) {
 }
 revisar("Las $impresiones salidas <?= de las vistas están escapadas o son números", $sinEscapar === [], $sinEscapar);
 $layout = file_get_contents($raiz . '/views/parciales/funciones.php');
-revisar('e() usa htmlspecialchars con ENT_QUOTES y UTF-8', str_contains($layout, "htmlspecialchars(\$texto, ENT_QUOTES, 'UTF-8')"));
+revisar('e() usa htmlspecialchars con ENT_QUOTES y UTF-8, e icono() escapa su nombre', str_contains($layout, "htmlspecialchars(\$texto, ENT_QUOTES, 'UTF-8')")
+    && str_contains($layout, "'<svg class=\"icono\" aria-hidden=\"true\" focusable=\"false\"><use href=\"/iconos.svg#' . e(\$nombre) . '\"></use></svg>'"));
 
 echo "3. SQL con consultas preparadas\n";
 // Variables que pueden ir dentro del texto SQL: fragmentos que arma el codigo, nunca datos del usuario

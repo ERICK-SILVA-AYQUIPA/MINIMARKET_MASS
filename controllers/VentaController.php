@@ -30,7 +30,7 @@ class VentaController extends Controller
     }
 
     // GET /?ruta=ventas&tienda=1&desde=2026-10-01&hasta=2026-10-31&estado=EMITIDA&pagina=2
-    public function lista(?string $tiendaPedida, ?string $desde, ?string $hasta, ?string $estado, ?string $pagina): void
+    public function lista(?string $tiendaPedida, ?string $desde, ?string $hasta, ?string $estado, ?string $pagina, ?string $ver = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
@@ -63,6 +63,14 @@ class VentaController extends Controller
 
         // Los enlaces de pagina conservan la tienda y los filtros
         $urlPagina = '/?' . http_build_query(['ruta' => 'ventas', 'tienda' => $tienda->getIdTienda()] + array_filter($filtro));
+
+        // Detalle de un comprobante en el panel lateral (&ver=B001-12); si no existe, solo se muestra la lista
+        $detalleVenta = null;
+        if ($ver !== null && preg_match('/^([BF][0-9]{3})-([0-9]{1,8})$/', $ver, $partes) === 1) {
+            $elegida = $this->ventas->buscarPorComprobante($partes[1], (int) $partes[2]);
+            $detalleVenta = $elegida !== null ? $this->datosComprobante($elegida) : null;
+        }
+        unset($venta, $serie, $turno, $cajero, $elegida, $partes);
         $this->vista('ventas/lista', get_defined_vars());
     }
 
@@ -82,6 +90,15 @@ class VentaController extends Controller
             return;
         }
 
+        $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', $this->datosComprobante($venta));
+    }
+
+    /**
+     * Todo lo que muestra un comprobante (pagina, ticket o panel lateral de la lista de ventas).
+     * @return array<string, mixed>
+     */
+    private function datosComprobante(Venta $venta): array
+    {
         $serie = $this->ventas->buscarSerie($venta->getIdSerie());
         $tienda = $this->tiendas->buscarPorId($serie->getIdTienda());
         $turno = $this->ventas->buscarTurno($venta->getIdCajaTurno());
@@ -114,7 +131,8 @@ class VentaController extends Controller
         $detalleCuadra = $venta->detalleCuadra($detalles);
         $pagosCuadran = $venta->pagosCuadran($pagos);
 
-        $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', get_defined_vars());
+        unset($producto, $detalle, $turno);
+        return get_defined_vars();
     }
 
     // GET /?ruta=venta_nueva: formulario del cajero (con su turno abierto)

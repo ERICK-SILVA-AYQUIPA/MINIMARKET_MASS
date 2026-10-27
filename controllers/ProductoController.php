@@ -24,8 +24,8 @@ class ProductoController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=productos&tienda=1
-    public function lista(?string $tiendaPedida): void
+    // GET /?ruta=productos&tienda=1  (con &ver=8 abre la ficha del producto en el panel lateral)
+    public function lista(?string $tiendaPedida, ?string $ver = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
@@ -39,6 +39,14 @@ class ProductoController extends Controller
                 'stock'    => $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
             ];
         }
+
+        // Ficha en el panel lateral; si el id no existe, solo se muestra la lista
+        $ficha = null;
+        if ($ver !== null && preg_match('/^[1-9][0-9]{0,9}$/', $ver) === 1) {
+            $elegido = $this->repo->buscarPorId((int) $ver);
+            $ficha = $elegido !== null ? $this->datosFicha($elegido, $tienda) : null;
+        }
+        unset($producto, $elegido);
 
         $this->vista('productos/lista', get_defined_vars());
     }
@@ -59,14 +67,26 @@ class ProductoController extends Controller
         }
 
         $tienda = $this->leerTienda($tiendaPedida);
-        $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda());
-        $categoria = $this->catalogo->buscarCategoria($producto->getIdCategoria());
-        $marca = $this->catalogo->buscarMarca($producto->getIdMarca());
-        $unidad = $this->catalogo->buscarUnidad($producto->getIdUnidad());
-        $puedeEditar = $this->puedeEditarCatalogo();
-        // El minimo se fija solo en la tienda propia del administrador
-        $puedeFijarMinimo = $this->usuario?->puedeAdministrarTienda($tienda->getIdTienda()) === true;
-        $this->vista('productos/detalle', get_defined_vars());
+        $this->vista('productos/detalle', $this->datosFicha($producto, $tienda));
+    }
+
+    /**
+     * Lo que muestra la ficha de un producto (pagina propia o panel lateral del catalogo).
+     * @return array<string, mixed>
+     */
+    private function datosFicha(Producto $producto, Tienda $tienda): array
+    {
+        return [
+            'producto'         => $producto,
+            'tienda'           => $tienda,
+            'stock'            => $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
+            'categoria'        => $this->catalogo->buscarCategoria($producto->getIdCategoria()),
+            'marca'            => $this->catalogo->buscarMarca($producto->getIdMarca()),
+            'unidad'           => $this->catalogo->buscarUnidad($producto->getIdUnidad()),
+            'puedeEditar'      => $this->puedeEditarCatalogo(),
+            // El minimo se fija solo en la tienda propia del administrador
+            'puedeFijarMinimo' => $this->usuario?->puedeAdministrarTienda($tienda->getIdTienda()) === true,
+        ];
     }
 
     // GET /?ruta=stock: el stock de cada producto en todas las tiendas, lado a lado

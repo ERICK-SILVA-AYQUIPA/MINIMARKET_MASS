@@ -54,6 +54,9 @@ abstract class Controller
         $csrf = $this->sesion->tokenCsrf();
         $aviso = $this->sesion->tomarAviso();
         $rutaActual = self::$rutaActual;
+        // La tienda del usuario, para el menu lateral
+        $nombreTiendaActual = $this->usuario !== null
+            ? ($this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda() ?? '') : '';
         require __DIR__ . '/../views/' . $__vista . '.php';
     }
 

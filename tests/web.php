@@ -221,6 +221,15 @@ revisar('Ingresos está en el menú del almacenero y del administrador, no del c
 revisar('Los ingresos se descargan en CSV con sus costos', $rosa->get('ruta=ingresos_csv') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_contains($rosa->cuerpo, 'costo_unitario'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
+revisar('La ficha del producto se abre en el panel lateral', $rosa->get('ruta=productos&ver=8') === 200
+    && $rosa->tiene('id="ficha-producto"') && $rosa->tiene('drawer abierto'));
+revisar('Un panel pedido con un id que no existe no se abre', $rosa->get('ruta=productos&ver=99999') === 200 && !$rosa->tiene('drawer abierto')
+    && $rosa->get('ruta=ventas&ver=%3Cscript%3E') === 200 && !$rosa->tiene('drawer abierto') && !$rosa->tiene('<script>'));
+revisar('El detalle de una venta y la ficha del cliente se abren en su panel', $luis->get('ruta=ventas&ver=B001-1') === 200
+    && $luis->tiene('id="detalle-venta"') && $rosa->get('ruta=clientes&ver=1') === 200 && $rosa->tiene('id="ficha-cliente"'));
+revisar('El panel del cliente sigue cerrado para el almacenero', $carmen->get('ruta=clientes&ver=1') === 403);
+revisar('El kardex y la auditoría traen el detalle de cada fila', $rosa->get('ruta=kardex') === 200 && $rosa->tiene('href="#mov-')
+    && $rosa->get('ruta=auditoria') === 200 && ($rosa->tiene('href="#aud-') || $rosa->tiene('Todavía no hay acciones registradas')));
 revisar('El CSV sale como texto CSV con BOM', $rosa->get('ruta=reporte_csv&tipo=productos') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_starts_with($rosa->cuerpo, "\xEF\xBB\xBF"));
 
