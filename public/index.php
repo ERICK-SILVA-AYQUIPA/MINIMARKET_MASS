@@ -26,8 +26,9 @@ require __DIR__ . '/../controllers/AuditoriaController.php';
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
-// Las paginas no usan JavaScript: el navegador no ejecuta ningun script, aunque alguien lograra inyectar uno
-header("Content-Security-Policy: default-src 'self'; script-src 'none'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
+// Solo se ejecuta JavaScript de archivos de este sitio (public/app.js): un script pegado en la pagina
+// o traido de otro sitio no corre, aunque alguien lograra inyectarlo
+header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
 
 try {
     $db = Database::conexion();

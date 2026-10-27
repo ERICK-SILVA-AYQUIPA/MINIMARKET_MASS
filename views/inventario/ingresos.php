@@ -115,7 +115,7 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
     $drawerAncho = true;
     require __DIR__ . '/../parciales/drawer_abrir.php';
     ?>
-    <form class="formulario" method="post" action="/?ruta=ingreso_registrar">
+    <form class="formulario" method="post" action="/?ruta=ingreso_registrar" data-confirmar="¿Registrar este ingreso? El stock de la tienda sube con estas cantidades." data-confirmar-boton="Sí, registrar">
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <?= campoCsrf($csrf) ?>
         <fieldset>

@@ -128,7 +128,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `layout_inicio.php` | Cabecera HTML y menú lateral agrupado (Ventas, Inventario, Administración) que resalta la página actual y muestra solo lo que el rol puede usar. En celular el menú se abre con el botón **Menú** (una casilla, sin JavaScript). Enlaza `/estilos.css` y carga `parciales/funciones.php`. |
+| `layout_inicio.php` | Cabecera HTML y menú lateral agrupado (Ventas, Inventario, Administración) que resalta la página actual y muestra solo lo que el rol puede usar. En celular el menú se abre con el botón **Menú** (una casilla, que funciona aun sin JavaScript). Enlaza `/estilos.css` y `/app.js`, y carga `parciales/funciones.php`. |
 | `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00), `campoCsrf()` e `icono()` (dibuja un ícono de `public/iconos.svg`). La usan el layout y el ticket. |
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
@@ -148,6 +148,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `ventas/nueva.php` | Pantalla de caja: productos a la izquierda; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
 | `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado, merma e ingreso (este con costo). |
 | `parciales/drawer_abrir.php`, `parciales/drawer_cerrar.php` | Abren y cierran un panel lateral con título, botón Cerrar y fondo oscuro. Se muestra con un enlace a `#id` o desde el servidor. |
+| `parciales/buscador.php` | Buscador en vivo sobre una tabla (catálogo, stock, kardex, personal, auditoría). Viene oculto y `app.js` lo muestra. |
 | `parciales/vacio.php` | Estado vacío de una lista: qué pasa y, si aplica, el botón para empezar. |
 | `inventario/kardex.php`, `traslados.php`, `mermas.php` | Historial de inventario. Cada movimiento del kardex abre su detalle con el saldo anterior (`#mov-ID`); el traslado y la merma se registran en un panel lateral. |
 | `caja/panel.php` | Turno abierto en tarjetas, abrir y cerrar turno, y arqueo; cada turno abre su cuenta (inicial + efectivo = esperado, contado y diferencia) en un panel. |
@@ -168,6 +169,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `estilos.css` | El sistema de diseño: colores, letras, espacios, botones, tablas, formularios, avisos, paneles laterales, versión de celular e impresión. Un solo archivo para todas las pantallas. |
+| `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
 | `iconos.svg` | Los íconos del menú y los botones, dibujados con líneas. Se usan con `icono('nombre')`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
@@ -180,8 +182,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `tests/unitarios.php` | 58 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol y las reglas del ingreso de mercadería. |
-| `tests/seguridad.php` | 16 comprobaciones leyendo el código: los 25 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types` y sin propiedades `public`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 117 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
+| `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 25 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
+| `tests/web.php` | 118 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
 | `tests/integracion.php` | 119 comprobaciones contra MySQL: ventas, anulaciones, ingresos de mercadería, inventario, caja, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 28 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 

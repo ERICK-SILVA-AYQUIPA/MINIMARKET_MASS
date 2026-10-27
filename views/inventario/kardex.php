@@ -50,12 +50,17 @@ require __DIR__ . '/../layout_inicio.php';
     require __DIR__ . '/../parciales/vacio.php';
     ?>
 <?php else: ?>
+<?php
+$buscadorTabla = 'filas-kardex';
+$buscadorTexto = 'Buscar en esta página: producto, movimiento u origen';
+require __DIR__ . '/../parciales/buscador.php';
+?>
 <div class="tabla">
 <table>
     <thead>
         <tr><th scope="col">#</th><th scope="col">Fecha</th><th scope="col">Producto</th><th scope="col">Movimiento</th><th scope="col" class="num">Cantidad</th><th scope="col" class="num">Saldo</th><th scope="col">Origen</th><th scope="col"><span class="visualmente-oculto">Detalle</span></th></tr>
     </thead>
-    <tbody>
+    <tbody id="filas-kardex">
     <?php foreach ($movimientos as $m): ?>
         <?php
         $tipo = $tipos[$m->getIdTipoMovimiento()] ?? null;

@@ -45,12 +45,17 @@ $delicada = fn(string $a): bool => in_array($a, ['VENTA_ANULADA', 'PRECIO_CAMBIA
     require __DIR__ . '/../parciales/vacio.php';
     ?>
 <?php else: ?>
+    <?php
+$buscadorTabla = 'filas-auditoria';
+$buscadorTexto = 'Buscar en esta página: acción, detalle o persona';
+require __DIR__ . '/../parciales/buscador.php';
+?>
     <div class="tabla">
     <table>
         <thead>
             <tr><th scope="col">#</th><th scope="col">Fecha</th><th scope="col">Acción</th><th scope="col">Detalle</th><th scope="col">Quién</th><th scope="col"><span class="visualmente-oculto">Ver</span></th></tr>
         </thead>
-        <tbody>
+        <tbody id="filas-auditoria">
         <?php foreach ($filas as $f): ?>
             <tr id="fila-aud-<?= (int) $f['id_auditoria'] ?>">
                 <td><?= (int) $f['id_auditoria'] ?></td>

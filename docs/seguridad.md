@@ -3,7 +3,7 @@
 Este documento dice qué protege la aplicación, dónde está en el código y qué prueba lo comprueba. Lo más importante es que **no depende de revisar a mano**: `tests/seguridad.php` lee todo el código y falla si alguien agrega un formulario sin token, una salida sin escapar o un SQL armado con datos de afuera. Corre en cada push de GitHub (`.github/workflows/ci.yml`).
 
 ```powershell
-php tests/seguridad.php    # 16 comprobaciones, sin base de datos, en menos de 1 segundo
+php tests/seguridad.php    # 19 comprobaciones, sin base de datos, en menos de 1 segundo
 ```
 
 ## 1. Resumen de lo comprobado
@@ -17,7 +17,8 @@ php tests/seguridad.php    # 16 comprobaciones, sin base de datos, en menos de 1
 | Bloqueo por claves erradas | Probar claves por fuerza bruta | 5 claves erradas de un DNI, o 20 desde una misma IP, = 15 minutos de espera (`database/seguridad.sql`, `IntentoLoginRepository`) | `web.php` y `integracion.php` |
 | Sesión | Robo o fijación de sesión | Cookie `HttpOnly`, `SameSite=Lax`, `Secure` con HTTPS, `use_strict_mode`, `session_regenerate_id()` al entrar, cierre tras 30 minutos sin uso (`config/Sesion.php`) | Revisión del código; `web.php` usa una cookie por rol |
 | Claves | Que se lean las claves si roban la base | Solo se guarda el hash bcrypt (`password_hash`), nunca la clave | `unitarios.php` |
-| Cabeceras HTTP | Clickjacking y scripts inyectados | `Content-Security-Policy` con `script-src 'none'` (la interfaz no usa JavaScript: los paneles laterales se abren con `:target` o desde el servidor, el menú de celular con una casilla, y los íconos y estilos son archivos del mismo sitio, `public/iconos.svg` y `public/estilos.css`), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` (`public/index.php`) | `web.php` |
+| Cabeceras HTTP | Clickjacking y scripts inyectados | `Content-Security-Policy` con `script-src 'self'`, `object-src 'none'` y `base-uri 'self'`: solo corre `public/app.js`; un `<script>` inyectado en la página, un `onclick=` o un script de otro sitio no se ejecutan. También `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy` (`public/index.php`) | `web.php` y `seguridad.php` sección 5 |
+| JavaScript seguro | Que el propio script convierta un dato en código (XSS por DOM) | `public/app.js` escribe siempre con `textContent`; no usa `innerHTML`, `eval` ni llama a otros sitios. Es mejora progresiva: sin JavaScript todo funciona igual y las reglas siguen en el servidor | `seguridad.php` sección 5 |
 | CSV sin fórmulas | Que Excel ejecute `=HIPERVINCULO(...)` escrito en un nombre | `Controller::enviarCsv()` antepone `'` a los textos que empiezan con `= + - @` | `web.php` revisa la descarga; la regla está en un solo método |
 | Errores sin detalles | Mostrar rutas, usuario o clave de MySQL al visitante | `public/index.php` atrapa todo, responde 500/503 con un mensaje simple y guarda el detalle con `error_log()` | Revisión del código |
 | `.env` fuera de GitHub | Publicar las claves de la base | `.env` y `respaldos/` en `.gitignore`; solo se sube `.env.example` | `seguridad.php` sección 4 |
@@ -28,6 +29,7 @@ php tests/seguridad.php    # 16 comprobaciones, sin base de datos, en menos de 1
 2. **Escapado**: cada `<?= ... ?>` de las vistas tiene que ser `e(...)`, un número (`(int)`, `getId...()`, `count()`) o un texto fijo. Si alguien escribe `<?= $producto->getNombreProducto() ?>` sin `e()`, la prueba falla y dice el archivo y la línea.
 3. **SQL**: recorre con el analizador de PHP (`token_get_all`) todo `models/` y `config/`. Dentro de `prepare()` y `query()` solo se aceptan variables que son partes fijas del SQL armadas por el propio código (`$donde`, `$condicion`, `$sql`...) o números forzados con `(int)`. Los datos del usuario siempre van como parámetro `?`. También revisa que controladores y vistas no tengan SQL.
 4. **Reglas generales**: `declare(strict_types=1)` en todos los archivos, ninguna propiedad `public`, `$_GET` y `$_POST` solo en `public/index.php` y ninguna clave escrita en el código.
+5. **JavaScript**: las vistas solo cargan `<script src="/app.js" defer>` (ningún `<script>` pegado, `onclick=` ni `href="javascript:`); `public/app.js` no usa `innerHTML`, `outerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`, `fetch` ni direcciones de otros sitios; y la CSP de `public/index.php` tiene `script-src 'self'` sin `'unsafe-inline'`.
 
 Se probó que la revisión sí detecta errores: al quitar a propósito un `campoCsrf()`, un `e()` y al pegar una variable dentro de un `prepare()`, las tres secciones fallaron.
 
