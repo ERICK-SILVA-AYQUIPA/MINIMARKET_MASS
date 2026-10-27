@@ -151,7 +151,7 @@ class VentaServicio extends Servicio
 
         $this->enTransaccion(function () use ($administrador, $idVenta, $motivo): void {
             $consulta = $this->db->prepare(
-                'SELECT v.estado, s.id_tienda
+                'SELECT v.estado, v.numero_correlativo, s.id_tienda, s.serie
                    FROM venta v
                    JOIN serie_comprobante s ON s.id_serie = v.id_serie
                   WHERE v.id_venta = :venta
@@ -178,6 +178,8 @@ class VentaServicio extends Servicio
                 ->execute(['venta' => $idVenta]);
             $this->db->prepare('UPDATE pago_venta SET estado = \'ANULADO\' WHERE id_venta = :venta')
                 ->execute(['venta' => $idVenta]);
+
+            $this->auditar($administrador, 'VENTA_ANULADA', sprintf('%s-%08d: %s', $venta['serie'], $venta['numero_correlativo'], $motivo));
 
             // Devolucion al stock: ANULACION DE VENTA, mismo origen (la venta)
             $consulta = $this->db->prepare(

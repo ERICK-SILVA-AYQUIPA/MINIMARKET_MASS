@@ -18,14 +18,15 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `/?ruta=inicio` (o solo `/`) | Panel de la tienda: indicadores de hoy contra ayer, gráfico de 14 días, por reponer, cajas abiertas y últimos movimientos |
 | `/?ruta=productos&tienda=1` | Catálogo con el stock de la tienda elegida |
 | `/?ruta=producto&codigo=7750000000011` o `&id=8` | Ficha de un producto |
-| `/?ruta=stock` | Stock de cada producto en las 3 tiendas, con REPONER |
+| `/?ruta=stock` y `/?ruta=stock_csv` | Stock de cada producto en las 3 tiendas, con REPONER, y su descarga en CSV |
 | `/?ruta=ventas&tienda=1` | Ventas de la tienda: comprobante, cajero, cliente, total, estado y si los pagos cuadran |
 | `/?ruta=comprobante&serie=B001&numero=1` | Boleta o factura completa: cabecera, detalle, pagos y anulación |
+| `/?ruta=comprobante_imprimir&serie=B001&numero=1` | Ticket de 80 mm para imprimir o guardar como PDF (`Ctrl + P`) |
 | `/?ruta=tiendas` | Las 3 tiendas con distrito, cajas, series y personal con sus permisos |
 | `/?ruta=login` | Entrar con DNI y clave. Sin sesión, cualquier pantalla lleva aquí |
 | `/?ruta=caja` | Abrir o cerrar el turno del cajero; arqueo para el administrador |
 | `/?ruta=venta_nueva` | Formulario de venta del cajero (productos, cliente, pagos) |
-| `/?ruta=kardex&tienda=1` | Movimientos de stock de la tienda |
+| `/?ruta=kardex&tienda=1` y `/?ruta=kardex_csv&tienda=1` | Movimientos de stock de la tienda y su descarga en CSV |
 | `/?ruta=traslados` y `/?ruta=mermas` | Formularios e historial del almacenero |
 | `/?ruta=producto_form` y `/?ruta=catalogo` | Administrador: crear y editar productos, categorías y marcas |
 | `/?ruta=empleados` y `/?ruta=empleado&id=2` | Administrador: personal de su tienda y clave nueva |
@@ -34,15 +35,19 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `/?ruta=mi_clave` | Cambiar la clave propia |
 | `/?ruta=ajustes` | Hoja de conteo físico y ajustes hechos |
 | `/?ruta=tienda_editar` y `/?ruta=tienda_nueva` | Administrador: su tienda, cajas y series; abrir una tienda nueva |
+| `/?ruta=auditoria` | Administrador: quién anuló, cambió precios, personal o claves en su tienda |
 | cualquier otra | 404 |
 
 ## Base de datos y configuración
 
 | Archivo | Qué hace |
 |---|---|
-| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`) y `ajustes.sql` (ajuste por conteo). Los datos quedan en el volumen `mysql_datos`. |
+| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`), `ajustes.sql` (ajuste por conteo) y `auditoria.sql` (bitácora de acciones). Los datos quedan en el volumen `mysql_datos`. |
 | `.env.example` | Plantilla de la configuración. Se copia como `.env` (que no se sube) y se cambian las claves. |
 | `config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
+| `database/auditoria.sql` | Tabla `auditoria`: fecha, acción, detalle, tienda y empleado de cada cambio sensible. |
+| `scripts/respaldo.ps1` / `respaldo.sh` | Sacan un respaldo completo con `mysqldump` a `respaldos/` (que no se sube) y revisan que termine bien. |
+| `scripts/restaurar.ps1` / `restaurar.sh` | Cargan un respaldo; piden escribir SI porque reemplazan todos los datos. |
 | `config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
 
 ## models/ (M · datos y reglas)
@@ -82,7 +87,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `TrasladoMercaderia.php`, `Merma.php` | Cabeceras de traslado (origen distinto del destino) y de merma (motivo de una lista fija). |
 | `InventarioRepository.php` | Lee el kardex, los traslados y las mermas de una tienda. |
 | `CajaRepository.php` | Busca el turno abierto de un cajero y calcula el arqueo (como la consulta 19). |
-| `servicios/Servicio.php` | Base `abstract` de los servicios: `enTransaccion()` (commit o rollback), lectura de líneas y `moverStock()`, que bloquea la fila con `FOR UPDATE`, no deja stock negativo y escribe el kardex. |
+| `servicios/Servicio.php` | Base `abstract` de los servicios: `enTransaccion()` (commit o rollback), lectura de líneas, `moverStock()`, que bloquea la fila con `FOR UPDATE`, no deja stock negativo y escribe el kardex, y `auditar()`, que anota la acción en `auditoria` dentro de la misma transacción. |
 | `servicios/VentaServicio.php` | `registrar()`: cliente por DNI o RUC, siguiente número de la serie, detalle, stock y pagos con vuelto. `anular()`: solo el administrador de esa tienda; devuelve el stock y anula los pagos. |
 | `servicios/InventarioServicio.php` | `trasladar()` y `registrarMerma()` del almacenero, y `ajustarPorConteo()`: lo contado reemplaza al stock y la diferencia va al kardex. |
 | `servicios/CajaServicio.php` | `abrirTurno()` y `cerrarTurno()` del cajero. |
@@ -96,12 +101,13 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Paginacion.php` | Calcula la página, el `LIMIT` y el `OFFSET` de una lista larga. |
 | `Clave.php` | Regla de la clave (8 a 72 caracteres, letras y números) y su hash. |
 | `PanelRepository.php` | Indicadores del panel: productos por reponer, turnos abiertos con lo cobrado y ventas de los últimos 14 días. |
+| `AuditoriaRepository.php` | Lee la auditoría de una tienda, filtrada por acción y paginada, con el nombre y rol de quien lo hizo. |
 
 ## controllers/ (C · coordina)
 
 | Archivo | Qué hace |
 |---|---|
-| `Controller.php` | Clase base `abstract` de los controladores: lee la tienda pedida (por defecto la del usuario), carga vistas con el usuario, el token CSRF y el aviso, redirige después de un POST y responde 403 o 404. |
+| `Controller.php` | Clase base `abstract` de los controladores: lee la tienda pedida (por defecto la del usuario), carga vistas con el usuario, el token CSRF y el aviso, redirige después de un POST, responde 403 o 404 y arma las descargas CSV (`enviarCsv()`, con BOM y sin fórmulas). |
 | `ProductoController.php` | Catálogo, ficha y stock de las 3 tiendas. Valida el código o el id; si el producto no existe responde 404. No tiene HTML ni SQL. |
 | `VentaController.php` | Lista de ventas por tienda y comprobante. Valida la serie (`^[BF][0-9]{3}$`) y el número (1 a 8 dígitos) antes de buscar. También calcula quién puede anular la venta, preguntando a cada empleado `puedeAnularVenta()`. |
 | `TiendaController.php` | Junta cada tienda con su distrito, cajas, series y personal; edita la tienda propia, sus cajas y abre tiendas nuevas. |
@@ -112,12 +118,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `ClienteController.php` | Lista paginada, búsqueda por documento, compras del cliente. |
 | `ReporteController.php` | Reportes en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. |
 | `PanelController.php` | Panel de inicio de la tienda del usuario: hoy contra ayer, gráfico, por reponer, cajas abiertas y kardex reciente. |
+| `AuditoriaController.php` | Auditoría de la tienda, solo para su administrador; valida la acción pedida contra las que existen. |
 
 ## views/ (V · muestra)
 
 | Archivo | Qué hace |
 |---|---|
-| `layout_inicio.php` | Cabecera HTML, menú (resalta la página actual y muestra solo lo que el rol puede usar) y estilos comunes, también para celular e impresión. Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS) y `soles()` (formato S/ 0.00). |
+| `layout_inicio.php` | Cabecera HTML, menú (resalta la página actual y muestra solo lo que el rol puede usar) y estilos comunes, también para celular e impresión. Carga `parciales/funciones.php`. |
+| `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00) y `campoCsrf()`. La usan el layout y el ticket. |
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
 | `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Solo muestra. |
@@ -125,6 +133,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `productos/stock.php` | Tabla producto × tienda con el mínimo y REPONER. |
 | `ventas/lista.php` | Ventas de la tienda elegida, con enlace a cada comprobante. |
 | `ventas/comprobante.php` | La boleta o factura en los tres bloques de `sp_boleta`: cabecera, detalle y pagos, más la revisión y la anulación. |
+| `ventas/ticket.php` | Ticket de 80 mm, sin menú, para la ticketera o para guardar como PDF. Marca ANULADA si corresponde. |
+| `auditoria/lista.php` | Filtro por acción y tabla de la auditoría. |
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
 | `auth/login.php` | Formulario de DNI y clave. |
@@ -159,9 +169,10 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `tests/unitarios.php` | 51 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol. |
-| `tests/web.php` | 93 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login y cabeceras de seguridad. No cambia datos. |
-| `tests/integracion.php` | 96 comprobaciones contra MySQL: ventas, anulaciones, inventario, caja, mantenimiento, reportes, topes de las columnas y las consultas 20 a 28 en 0 filas. |
-| `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, las web y las de integración contra un MySQL 8.4.11 nuevo. |
+| `tests/seguridad.php` | 16 comprobaciones leyendo el código: los 24 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types` y sin propiedades `public`. Ver `docs/seguridad.md`. |
+| `tests/web.php` | 103 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login y cabeceras de seguridad. No cambia datos. |
+| `tests/integracion.php` | 103 comprobaciones contra MySQL: ventas, anulaciones, inventario, caja, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 28 en 0 filas. |
+| `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar
 

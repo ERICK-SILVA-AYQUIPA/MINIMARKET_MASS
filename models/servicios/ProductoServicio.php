@@ -23,7 +23,7 @@ class ProductoServicio extends Servicio
         $porPeso = ($datos['por_peso'] ?? '') === 'S' ? 'S' : 'N';
         $campos = $this->leerDatos($datos, $porPeso);
 
-        return $this->enTransaccion(function () use ($campos, $porPeso): int {
+        return $this->enTransaccion(function () use ($admin, $campos, $porPeso): int {
             try {
                 $this->db->prepare(
                     'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
@@ -40,6 +40,7 @@ class ProductoServicio extends Servicio
                 'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo)
                  SELECT id_tienda, :producto, 0, 0 FROM tienda'
             )->execute(['producto' => $id]);
+            $this->auditar($admin, 'PRODUCTO_CREADO', sprintf('%d %s a S/ %s', $id, $campos['nombre'], $campos['precio']));
             return $id;
         });
     }
@@ -51,14 +52,16 @@ class ProductoServicio extends Servicio
     public function editar(Usuario $admin, int $idProducto, array $datos): void
     {
         $this->exigirAdministrador($admin);
-        $this->enTransaccion(function () use ($idProducto, $datos): void {
-            $consulta = $this->db->prepare('SELECT se_vende_por_peso FROM producto WHERE id_producto = :id FOR UPDATE');
+        $this->enTransaccion(function () use ($admin, $idProducto, $datos): void {
+            $consulta = $this->db->prepare(
+                'SELECT se_vende_por_peso, nombre_producto, precio_venta FROM producto WHERE id_producto = :id FOR UPDATE'
+            );
             $consulta->execute(['id' => $idProducto]);
-            $porPeso = $consulta->fetchColumn();
-            if ($porPeso === false) {
+            $antes = $consulta->fetch();
+            if ($antes === false) {
                 throw new ReglaNegocioException('El producto no existe.');
             }
-            $campos = $this->leerDatos($datos, (string) $porPeso);
+            $campos = $this->leerDatos($datos, $antes['se_vende_por_peso']);
 
             try {
                 $this->db->prepare(
@@ -70,6 +73,13 @@ class ProductoServicio extends Servicio
             } catch (PDOException $ex) {
                 throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
             }
+            // Un cambio de precio queda aparte: es el que mas se revisa
+            if ($antes['precio_venta'] !== $campos['precio']) {
+                $this->auditar($admin, 'PRECIO_CAMBIADO', sprintf('%d %s: S/ %s -> S/ %s',
+                    $idProducto, $campos['nombre'], $antes['precio_venta'], $campos['precio']));
+            } else {
+                $this->auditar($admin, 'PRODUCTO_EDITADO', sprintf('%d %s', $idProducto, $campos['nombre']));
+            }
         });
     }
 
@@ -80,11 +90,14 @@ class ProductoServicio extends Servicio
         if (!in_array($estado, ['ACTIVO', 'DESCONTINUADO'], true)) {
             throw new ReglaNegocioException('Estado no válido.');
         }
-        $consulta = $this->db->prepare('UPDATE producto SET estado = :estado WHERE id_producto = :id');
-        $consulta->execute(['estado' => $estado, 'id' => $idProducto]);
-        if ($consulta->rowCount() === 0 && !$this->existe('producto', 'id_producto', $idProducto)) {
-            throw new ReglaNegocioException('El producto no existe.');
-        }
+        $this->enTransaccion(function () use ($admin, $idProducto, $estado): void {
+            $consulta = $this->db->prepare('UPDATE producto SET estado = :estado WHERE id_producto = :id');
+            $consulta->execute(['estado' => $estado, 'id' => $idProducto]);
+            if ($consulta->rowCount() === 0 && !$this->existe('producto', 'id_producto', $idProducto)) {
+                throw new ReglaNegocioException('El producto no existe.');
+            }
+            $this->auditar($admin, 'PRODUCTO_ESTADO', sprintf('%d: %s', $idProducto, $estado));
+        });
     }
 
     // El administrador fija desde cuanto se marca REPONER en SU tienda
@@ -107,17 +120,20 @@ class ProductoServicio extends Servicio
         }
 
         // Si el producto nunca llego a la tienda, se crea su fila con cantidad 0
-        $this->db->prepare(
-            'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) VALUES (:tienda, :producto, 0, :minimo)
-             ON DUPLICATE KEY UPDATE stock_minimo = VALUES(stock_minimo)'
-        )->execute(['tienda' => $admin->getIdTienda(), 'producto' => $idProducto, 'minimo' => Cantidad::aTexto($milesimas)]);
+        $this->enTransaccion(function () use ($admin, $idProducto, $milesimas): void {
+            $this->db->prepare(
+                'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) VALUES (:tienda, :producto, 0, :minimo)
+                 ON DUPLICATE KEY UPDATE stock_minimo = VALUES(stock_minimo)'
+            )->execute(['tienda' => $admin->getIdTienda(), 'producto' => $idProducto, 'minimo' => Cantidad::aTexto($milesimas)]);
+            $this->auditar($admin, 'STOCK_MINIMO', sprintf('Producto %d: mínimo %s', $idProducto, Cantidad::aTexto($milesimas)));
+        });
     }
 
     public function crearCategoria(Usuario $admin, string $nombre): int
     {
         $this->exigirAdministrador($admin);
         $nombre = $this->textoObligatorio($nombre, 50, 'Nombre de la categoría');
-        return $this->insertarUnico(
+        return $this->insertarUnico($admin, 'CATEGORIA_CREADA', $nombre,
             'INSERT INTO categoria (nombre_categoria) VALUES (:nombre)', ['nombre' => $nombre], 'Esa categoría ya existe.'
         );
     }
@@ -126,7 +142,7 @@ class ProductoServicio extends Servicio
     {
         $this->exigirAdministrador($admin);
         $nombre = $this->textoObligatorio($nombre, 50, 'Nombre de la marca');
-        return $this->insertarUnico(
+        return $this->insertarUnico($admin, 'MARCA_CREADA', $nombre,
             'INSERT INTO marca (nombre_marca, es_marca_propia) VALUES (:nombre, :propia)',
             ['nombre' => $nombre, 'propia' => $esPropia ? 'S' : 'N'],
             'Esa marca ya existe.'
@@ -192,14 +208,18 @@ class ProductoServicio extends Servicio
         return $consulta->fetchColumn() !== false;
     }
 
-    private function insertarUnico(string $sql, array $parametros, string $mensajeDuplicado): int
+    private function insertarUnico(Usuario $admin, string $accion, string $nombre, string $sql, array $parametros, string $mensajeDuplicado): int
     {
-        try {
-            $this->db->prepare($sql)->execute($parametros);
-        } catch (PDOException $ex) {
-            throw $this->esDuplicado($ex) ? new ReglaNegocioException($mensajeDuplicado) : $ex;
-        }
-        return (int) $this->db->lastInsertId();
+        return $this->enTransaccion(function () use ($admin, $accion, $nombre, $sql, $parametros, $mensajeDuplicado): int {
+            try {
+                $this->db->prepare($sql)->execute($parametros);
+            } catch (PDOException $ex) {
+                throw $this->esDuplicado($ex) ? new ReglaNegocioException($mensajeDuplicado) : $ex;
+            }
+            $id = (int) $this->db->lastInsertId();
+            $this->auditar($admin, $accion, $id . ' ' . $nombre);
+            return $id;
+        });
     }
 
     private function exigirAdministrador(Usuario $admin): void

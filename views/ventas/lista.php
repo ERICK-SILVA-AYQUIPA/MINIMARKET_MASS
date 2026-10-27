@@ -26,7 +26,7 @@ require __DIR__ . '/../layout_inicio.php';
         <select name="estado">
             <option value="">Todos</option>
             <?php foreach (['EMITIDA', 'ANULADA'] as $opcion): ?>
-                <option value="<?= $opcion ?>" <?= $filtro['estado'] === $opcion ? 'selected' : '' ?>><?= $opcion ?></option>
+                <option value="<?= e($opcion) ?>" <?= $filtro['estado'] === $opcion ? 'selected' : '' ?>><?= e($opcion) ?></option>
             <?php endforeach; ?>
         </select>
     </label>

@@ -5,6 +5,9 @@ declare(strict_types=1);
  * Punto de entrada: el unico archivo al que entra el navegador.
  * Abre la conexion, revisa quien entro, lee la ruta y llama al metodo del controlador.
  */
+// La hora de PHP igual a la de MySQL (TZ America/Lima en docker-compose.yml): "hoy" es el mismo dia en las dos
+date_default_timezone_set('America/Lima');
+
 require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../config/Sesion.php';
 require __DIR__ . '/../controllers/AuthController.php';
@@ -17,6 +20,7 @@ require __DIR__ . '/../controllers/EmpleadoController.php';
 require __DIR__ . '/../controllers/ClienteController.php';
 require __DIR__ . '/../controllers/ReporteController.php';
 require __DIR__ . '/../controllers/PanelController.php';
+require __DIR__ . '/../controllers/AuditoriaController.php';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
@@ -72,6 +76,7 @@ $clienteController = new ClienteController($tiendas, $sesion, $usuario, $cliente
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 $panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
     $productos, $catalogo);
+$auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
 $leer = static function (string $clave): ?string {
@@ -81,6 +86,7 @@ $leer = static function (string $clave): ?string {
 
 $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $ruta = $leer('ruta') ?? 'inicio';
+Controller::marcarRuta($ruta);
 
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
 $rutasPost = [
@@ -158,12 +164,20 @@ try {
                 $productoController->stockTiendas();
                 break;
 
+            case 'stock_csv':
+                $productoController->stockCsv();
+                break;
+
             case 'ventas':
                 $ventaController->lista($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('estado'), $leer('pagina'));
                 break;
 
             case 'comprobante':
                 $ventaController->comprobante($leer('serie'), $leer('numero'));
+                break;
+
+            case 'comprobante_imprimir':
+                $ventaController->comprobante($leer('serie'), $leer('numero'), true);
                 break;
 
             case 'venta_nueva':
@@ -176,6 +190,10 @@ try {
 
             case 'kardex':
                 $inventarioController->kardex($leer('tienda'), $leer('producto'), $leer('pagina'));
+                break;
+
+            case 'kardex_csv':
+                $inventarioController->kardexCsv($leer('tienda'), $leer('producto'));
                 break;
 
             case 'traslados':
@@ -232,6 +250,10 @@ try {
 
             case 'tienda_nueva':
                 $tiendaController->nueva();
+                break;
+
+            case 'auditoria':
+                $auditoriaController->lista($leer('accion'), $leer('pagina'));
                 break;
 
             case 'mi_clave':

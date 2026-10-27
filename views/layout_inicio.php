@@ -5,29 +5,14 @@ declare(strict_types=1);
  * @var ?Usuario $usuarioActual  quien entro (null en el login y en los errores sin sesion)
  * @var ?string $csrf
  * @var ?array{tipo: string, mensaje: string} $aviso
+ * @var ?string $rutaActual  la ruta pedida, para resaltar el menu
  */
 $usuarioActual ??= null;
 $csrf ??= null;
 $aviso ??= null;
+$rutaActual ??= 'inicio'; // la opcion del menu que se resalta (solo se compara, no se imprime)
 
-if (!function_exists('e')) {
-    // Escapa todo lo que se imprime en el HTML
-    function e(string $texto): string
-    {
-        return htmlspecialchars($texto, ENT_QUOTES, 'UTF-8');
-    }
-
-    function soles(float $monto): string
-    {
-        return 'S/ ' . number_format($monto, 2);
-    }
-
-    // Campo oculto con el token CSRF: va en TODOS los formularios POST
-    function campoCsrf(?string $csrf): string
-    {
-        return '<input type="hidden" name="csrf" value="' . e((string) $csrf) . '">';
-    }
-}
+require_once __DIR__ . '/parciales/funciones.php';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -127,10 +112,8 @@ if (!function_exists('e')) {
         if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $menu['ajustes'] = 'Conteo'; }
         $menu += ['kardex' => 'Kardex', 'tiendas' => 'Tiendas'];
         if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $menu['clientes'] = 'Clientes'; }
-        if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $menu += ['reportes' => 'Reportes', 'empleados' => 'Personal']; }
+        if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $menu += ['reportes' => 'Reportes', 'empleados' => 'Personal', 'auditoria' => 'Auditoría']; }
         if ($usuarioActual->puedeAdministrarCatalogo()) { $menu['catalogo'] = 'Categorías y marcas'; }
-        // La opcion de la pagina actual se resalta (solo se compara, no se imprime)
-        $rutaActual = is_string($_GET['ruta'] ?? null) ? $_GET['ruta'] : 'inicio';
         ?>
         <nav aria-label="Menú principal">
             <?php foreach ($menu as $rutaMenu => $textoMenu): ?>

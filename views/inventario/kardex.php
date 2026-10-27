@@ -30,6 +30,7 @@ require __DIR__ . '/../layout_inicio.php';
         <?php endforeach; ?>
     </select>
     <button type="submit">Ver</button>
+    <a href="<?= e('/?' . http_build_query(['ruta' => 'kardex_csv', 'tienda' => $tienda->getIdTienda(), 'producto' => $idProducto])) ?>">Descargar en CSV (Excel)</a>
 </form>
 <br>
 <div class="tabla">
