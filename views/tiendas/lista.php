@@ -3,11 +3,16 @@ declare(strict_types=1);
 /**
  * V: las 3 tiendas con su distrito, cajas, series y personal.
  * @var array<int, array{tienda: Tienda, distrito: string, cajas: Caja[], series: SerieComprobante[], empleados: Usuario[]}> $filas
+ * @var bool $puedeAbrir  administrador: abrir tiendas nuevas
+ * @var ?Usuario $usuarioActual
  */
 $titulo = 'Tiendas';
 require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>Tiendas de Arequipa</h1>
+<?php if ($puedeAbrir): ?>
+    <p><a href="/?ruta=tienda_nueva"><strong>+ Abrir una tienda</strong></a> · <a href="/?ruta=tienda_editar">Editar mi tienda, sus cajas y series</a></p>
+<?php endif; ?>
 
 <?php foreach ($filas as $fila): ?>
     <?php $t = $fila['tienda']; ?>

@@ -4,15 +4,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/MovimientoStock.php';
 require_once __DIR__ . '/TrasladoMercaderia.php';
 require_once __DIR__ . '/Merma.php';
+require_once __DIR__ . '/AjusteInventario.php';
 
 /**
- * Lecturas del inventario: kardex, traslados y mermas.
+ * Lecturas del inventario: kardex, traslados, mermas y ajustes por conteo.
  * Las escrituras estan en servicios/InventarioServicio.php (con transacciones).
  */
 class InventarioRepository
 {
     private const COLUMNAS_MOVIMIENTO = 'm.id_movimiento, m.fecha_hora, m.cantidad, m.stock_nuevo, m.observacion,
-        m.id_tienda, m.id_producto, m.id_tipo_movimiento, m.id_empleado, m.id_venta, m.id_traslado, m.id_merma';
+        m.id_tienda, m.id_producto, m.id_tipo_movimiento, m.id_empleado, m.id_venta, m.id_traslado, m.id_merma, m.id_ajuste';
 
     public function __construct(private PDO $db) {}
 
@@ -107,6 +108,30 @@ class InventarioRepository
         ), $consulta->fetchAll());
     }
 
+    /** @return AjusteInventario[] ajustes de una tienda, el mas reciente primero */
+    public function ajustesDeTienda(int $idTienda): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT id_ajuste, fecha_hora, motivo, observacion, id_tienda, id_empleado
+               FROM ajuste_inventario WHERE id_tienda = :tienda ORDER BY id_ajuste DESC'
+        );
+        $consulta->execute(['tienda' => $idTienda]);
+        return array_map(fn(array $f): AjusteInventario => new AjusteInventario(
+            (int) $f['id_ajuste'],
+            $f['fecha_hora'],
+            $f['motivo'],
+            $f['observacion'],
+            (int) $f['id_tienda'],
+            (int) $f['id_empleado']
+        ), $consulta->fetchAll());
+    }
+
+    /** @return MovimientoStock[] */
+    public function movimientosDeAjuste(int $idAjuste): array
+    {
+        return $this->movimientosPor('m.id_ajuste = :id', $idAjuste);
+    }
+
     /** @return MovimientoStock[] */
     private function movimientosPor(string $condicion, int $id): array
     {
@@ -131,7 +156,8 @@ class InventarioRepository
             (int) $f['id_empleado'],
             $f['id_venta'] === null ? null : (int) $f['id_venta'],
             $f['id_traslado'] === null ? null : (int) $f['id_traslado'],
-            $f['id_merma'] === null ? null : (int) $f['id_merma']
+            $f['id_merma'] === null ? null : (int) $f['id_merma'],
+            $f['id_ajuste'] === null ? null : (int) $f['id_ajuste']
         );
     }
 }

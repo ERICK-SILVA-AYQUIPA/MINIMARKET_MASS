@@ -33,9 +33,10 @@ class VentaServicio extends Servicio
         return $this->enTransaccion(function () use ($cajero, $tipo, $documento, $lineas, $pago): array {
             // 1. Turno abierto del cajero, en una caja de su propia tienda
             $consulta = $this->db->prepare(
-                'SELECT ct.id_caja_turno, c.id_tienda
+                'SELECT ct.id_caja_turno, c.id_tienda, t.estado AS estado_tienda
                    FROM caja_turno ct
-                   JOIN caja c ON c.id_caja = ct.id_caja
+                   JOIN caja c   ON c.id_caja = ct.id_caja
+                   JOIN tienda t ON t.id_tienda = c.id_tienda
                   WHERE ct.id_empleado = :empleado AND ct.estado = \'ABIERTO\'
                   LIMIT 1
                   FOR UPDATE'
@@ -48,6 +49,9 @@ class VentaServicio extends Servicio
             $idTienda = (int) $turno['id_tienda'];
             if ($idTienda !== $cajero->getIdTienda()) {
                 throw new ReglaNegocioException('Tu turno está en una caja de otra tienda.');
+            }
+            if ($turno['estado_tienda'] !== 'ACTIVA') {
+                throw new ReglaNegocioException('La tienda está inactiva: no se puede vender.');
             }
 
             // 2. Cliente: la factura exige RUC

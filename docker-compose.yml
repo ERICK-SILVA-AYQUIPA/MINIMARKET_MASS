@@ -1,6 +1,6 @@
 # Base de datos de Minimarket Mass: MySQL 8.4.11 en Docker.
 # Al crear el contenedor por primera vez, MySQL ejecuta en orden los scripts
-# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql.
+# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql.
 # Las claves salen del archivo .env (copia de .env.example, no se sube a GitHub).
 services:
   mysql:
@@ -22,6 +22,7 @@ services:
       - "./database/boleta (1).sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro"
       - ./database/login.sql:/docker-entrypoint-initdb.d/04_login.sql:ro
       - ./database/seguridad.sql:/docker-entrypoint-initdb.d/05_seguridad.sql:ro
+      - ./database/ajustes.sql:/docker-entrypoint-initdb.d/06_ajustes.sql:ro
       - mysql_datos:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]

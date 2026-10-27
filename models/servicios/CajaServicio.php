@@ -21,7 +21,11 @@ class CajaServicio extends Servicio
         }
 
         return $this->enTransaccion(function () use ($cajero, $idCaja, $monto): int {
-            $consulta = $this->db->prepare('SELECT id_tienda, estado FROM caja WHERE id_caja = :caja FOR UPDATE');
+            $consulta = $this->db->prepare(
+                'SELECT c.id_tienda, c.estado, t.estado AS estado_tienda
+                   FROM caja c JOIN tienda t ON t.id_tienda = c.id_tienda
+                  WHERE c.id_caja = :caja FOR UPDATE'
+            );
             $consulta->execute(['caja' => $idCaja]);
             $caja = $consulta->fetch();
             if ($caja === false || (int) $caja['id_tienda'] !== $cajero->getIdTienda()) {
@@ -29,6 +33,9 @@ class CajaServicio extends Servicio
             }
             if ($caja['estado'] !== 'ACTIVA') {
                 throw new ReglaNegocioException('Esa caja está inactiva.');
+            }
+            if ($caja['estado_tienda'] !== 'ACTIVA') {
+                throw new ReglaNegocioException('La tienda está inactiva: no se abren turnos.');
             }
 
             $abiertos = $this->db->prepare(

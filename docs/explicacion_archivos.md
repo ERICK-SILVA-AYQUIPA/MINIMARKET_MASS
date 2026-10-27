@@ -31,13 +31,15 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `/?ruta=clientes` y `/?ruta=cliente&id=1` | Cajero y administrador: clientes, sus compras y completar el documento |
 | `/?ruta=reportes` y `/?ruta=reporte_csv&tipo=productos` | Administrador: reportes de venta y su descarga en CSV |
 | `/?ruta=mi_clave` | Cambiar la clave propia |
+| `/?ruta=ajustes` | Hoja de conteo físico y ajustes hechos |
+| `/?ruta=tienda_editar` y `/?ruta=tienda_nueva` | Administrador: su tienda, cajas y series; abrir una tienda nueva |
 | cualquier otra | 404 |
 
 ## Base de datos y configuración
 
 | Archivo | Qué hace |
 |---|---|
-| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql` y `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash) y `seguridad.sql` (tabla `intento_login`). Los datos quedan en el volumen `mysql_datos`. |
+| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`) y `ajustes.sql` (ajuste por conteo). Los datos quedan en el volumen `mysql_datos`. |
 | `.env.example` | Plantilla de la configuración. Se copia como `.env` (que no se sube) y se cambian las claves. |
 | `config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
 | `config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
@@ -81,10 +83,12 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `CajaRepository.php` | Busca el turno abierto de un cajero y calcula el arqueo (como la consulta 19). |
 | `servicios/Servicio.php` | Base `abstract` de los servicios: `enTransaccion()` (commit o rollback), lectura de líneas y `moverStock()`, que bloquea la fila con `FOR UPDATE`, no deja stock negativo y escribe el kardex. |
 | `servicios/VentaServicio.php` | `registrar()`: cliente por DNI o RUC, siguiente número de la serie, detalle, stock y pagos con vuelto. `anular()`: solo el administrador de esa tienda; devuelve el stock y anula los pagos. |
-| `servicios/InventarioServicio.php` | `trasladar()` y `registrarMerma()` del almacenero. |
+| `servicios/InventarioServicio.php` | `trasladar()` y `registrarMerma()` del almacenero, y `ajustarPorConteo()`: lo contado reemplaza al stock y la diferencia va al kardex. |
 | `servicios/CajaServicio.php` | `abrirTurno()` y `cerrarTurno()` del cajero. |
 | `servicios/ProductoServicio.php` | Crear y editar productos (código, precio, unidad kg si es al peso), descontinuar, stock mínimo, categorías y marcas. |
 | `servicios/EmpleadoServicio.php` | Alta, cambios y baja de personal de la tienda; clave nueva y cambio de la clave propia. |
+| `servicios/TiendaServicio.php` | Abrir una tienda (caja 1, series, stock en 0 y su administrador), editar la propia, cajas y distritos. |
+| `AjusteInventario.php` | Cabecera de un conteo físico (motivo CONTEO_FISICO o CORRECCION). |
 | `servicios/ClienteServicio.php` | Agrega el DNI o RUC que le falta a un cliente (no cambia uno existente). |
 | `ReporteRepository.php` | Consultas 10 a 16 de `consultas.sql` filtradas por tienda y fechas. |
 | `IntentoLoginRepository.php` | Cuenta las claves erradas recientes y dice si el DNI o la IP deben esperar. |
@@ -98,7 +102,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Controller.php` | Clase base `abstract` de los controladores: lee la tienda pedida (por defecto la del usuario), carga vistas con el usuario, el token CSRF y el aviso, redirige después de un POST y responde 403 o 404. |
 | `ProductoController.php` | Catálogo, ficha y stock de las 3 tiendas. Valida el código o el id; si el producto no existe responde 404. No tiene HTML ni SQL. |
 | `VentaController.php` | Lista de ventas por tienda y comprobante. Valida la serie (`^[BF][0-9]{3}$`) y el número (1 a 8 dígitos) antes de buscar. También calcula quién puede anular la venta, preguntando a cada empleado `puedeAnularVenta()`. |
-| `TiendaController.php` | Junta cada tienda con su distrito, cajas, series y personal. |
+| `TiendaController.php` | Junta cada tienda con su distrito, cajas, series y personal; edita la tienda propia, sus cajas y abre tiendas nuevas. |
 | `AuthController.php` | Login con `password_verify()`. Si el DNI no existe igual compara contra un hash de relleno, para que tarde lo mismo. |
 | `InventarioController.php` | Kardex, traslados y mermas. Solo el almacenero puede registrar. |
 | `CajaController.php` | Panel de caja: abrir y cerrar turno, y arqueo para el administrador. |
@@ -129,6 +133,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `clientes/lista.php`, `clientes/detalle.php` | Clientes y sus compras. |
 | `reportes/ventas.php` | Tarjetas de resumen y tablas de reporte. |
 | `auth/mi_clave.php` | Cambiar la clave propia. |
+| `inventario/ajustes.php` | Hoja de conteo (sistema vs. contado) y ajustes registrados. |
+| `tiendas/formulario.php`, `tiendas/nueva.php` | Mi tienda (datos, cajas, series) y abrir una tienda. |
 | `parciales/paginacion.php` | Enlaces Anterior / Siguiente. |
 | `errores/403.php` | "No tienes permiso". |
 | `errores/404.php` | Página "No encontrado" con un mensaje fijo, que no copia nada de la URL. |
