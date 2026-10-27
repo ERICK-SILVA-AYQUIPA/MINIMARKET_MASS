@@ -85,6 +85,18 @@ abstract class Usuario
         return false;
     }
 
+    // Corregir el stock de una tienda con un conteo fisico
+    public function puedeAjustarStock(int $idTienda): bool
+    {
+        return false;
+    }
+
+    // Abrir una tienda nueva de la cadena
+    public function puedeAbrirTiendas(): bool
+    {
+        return false;
+    }
+
     // Personal, stock minimo y reportes de una tienda
     public function puedeAdministrarTienda(int $idTienda): bool
     {

@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Pruebas de integracion contra la base MySQL de Docker.
  *   php tests/integracion.php
  *
- * OJO: escribe ventas, traslados, mermas, turnos, productos y empleados de verdad. Para volver a los datos de datos.sql:
+ * OJO: escribe ventas, traslados, mermas, ajustes, turnos, productos, empleados y tiendas de verdad. Para volver a los datos de datos.sql:
  *   docker compose down -v ; docker compose up -d
  *
  * Al final corre las consultas 20 a 28 de consultas.sql: cada una debe devolver 0 filas.
@@ -22,6 +22,7 @@ require __DIR__ . '/../models/servicios/CajaServicio.php';
 require __DIR__ . '/../models/servicios/ProductoServicio.php';
 require __DIR__ . '/../models/servicios/EmpleadoServicio.php';
 require __DIR__ . '/../models/servicios/ClienteServicio.php';
+require __DIR__ . '/../models/servicios/TiendaServicio.php';
 require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/Paginacion.php';
@@ -211,6 +212,59 @@ revisar('Cayma vendió S/ 323.00 del 17 al 19/10 (como el paso 7)', abs($resumen
 revisar('Más vendido en Cayma tiene importe', ($reportes->masVendidos(1, '2026-01-01', '2026-12-31')[0]['importe'] ?? '0') > 0);
 $pagina = new Paginacion(51, '99', 25);
 revisar('Página 99 de 51 filas se corrige a la 3 (offset 50)', $pagina->getPagina() === 3 && $pagina->offset() === 50);
+
+echo "Conteo físico\n";
+$papa = $stock(1, 8);
+$arroz = $stock(1, 2);
+$r = $inventario->ajustarPorConteo($carmen, 'CONTEO_FISICO', 'Conteo de prueba', [
+    ['id_producto' => '8', 'cantidad' => '40.5'],
+    ['id_producto' => '2', 'cantidad' => $arroz === '' ? '0' : (string) (int) $arroz],  // coincide: no se toca
+    ['id_producto' => '1', 'cantidad' => ''],                                              // no se contó
+]);
+revisar("Ajuste {$r['idAjuste']}: la papa queda en lo contado (40.500)", $stock(1, 8) === '40.500' && $r['cambios'] === 1);
+revisar('...y el kardex anota la diferencia con su tipo', valor($db,
+    'SELECT CONCAT(id_tipo_movimiento, \'/\', cantidad) FROM movimiento_stock WHERE id_ajuste = ?', [$r['idAjuste']])
+    === ((float) $papa > 40.5 ? '7/' : '6/') . number_format(abs((float) $papa - 40.5), 3, '.', ''));
+$inventario->ajustarPorConteo($rosa, 'CORRECCION', null, [['id_producto' => '9', 'cantidad' => '0']]);
+revisar('Rosa deja el plátano en 0 con una corrección', $stock(1, 9) === '0.000');
+rechaza('Conteo igual al sistema', fn() => $inventario->ajustarPorConteo($carmen, 'CONTEO_FISICO', null, [['id_producto' => '8', 'cantidad' => '40.500']]));
+rechaza('Producto contado dos veces', fn() => $inventario->ajustarPorConteo($carmen, 'CONTEO_FISICO', null, [
+    ['id_producto' => '8', 'cantidad' => '1'], ['id_producto' => '8', 'cantidad' => '2']]));
+rechaza('Cantidad negativa', fn() => $inventario->ajustarPorConteo($carmen, 'CONTEO_FISICO', null, [['id_producto' => '8', 'cantidad' => '-1']]));
+rechaza('Un cajero no ajusta stock', fn() => $inventario->ajustarPorConteo($luis, 'CONTEO_FISICO', null, [['id_producto' => '8', 'cantidad' => '1']]));
+
+echo "Tiendas y cajas\n";
+$tiendas = new TiendaServicio($db);
+$idTienda = $tiendas->abrir($rosa,
+    ['nombre' => 'Mass Sachaca', 'direccion' => 'Av. de prueba 123', 'telefono' => '054 123456', 'distrito' => '1'],
+    ['nombres' => 'Elena', 'apellidos' => 'Paz Rivas', 'dni' => '70000040', 'clave' => 'Sachaca2026']);
+revisar("Tienda $idTienda abierta con series B004 y F004", valor($db,
+    'SELECT GROUP_CONCAT(serie ORDER BY serie) FROM serie_comprobante WHERE id_tienda = ?', [$idTienda]) === 'B004,F004');
+revisar('...con su caja 1 y todos los productos en stock 0', valor($db, 'SELECT COUNT(*) FROM caja WHERE id_tienda = ?', [$idTienda]) === '1'
+    && valor($db, 'SELECT COUNT(*) FROM stock WHERE id_tienda = ?', [$idTienda]) === valor($db, 'SELECT COUNT(*) FROM producto'));
+$elena = $empleados->credencialesPorDni('70000040');
+$elena = $empleados->buscarPorId($elena['idEmpleado']);
+revisar('...y su administradora Elena', $elena instanceof Administrador && $elena->getIdTienda() === $idTienda);
+rechaza('Nombre de tienda repetido', fn() => $tiendas->abrir($rosa,
+    ['nombre' => 'Mass Cayma', 'direccion' => 'X', 'telefono' => '', 'distrito' => '1'],
+    ['nombres' => 'A', 'apellidos' => 'B', 'dni' => '70000041', 'clave' => 'Clave2026']));
+rechaza('Un almacenero no abre tiendas', fn() => $tiendas->abrir($carmen,
+    ['nombre' => 'Mass X', 'direccion' => 'X', 'telefono' => '', 'distrito' => '1'],
+    ['nombres' => 'A', 'apellidos' => 'B', 'dni' => '70000042', 'clave' => 'Clave2026']));
+revisar('Elena agrega la caja 2', $tiendas->agregarCaja($elena) === 2);
+rechaza('Rosa no edita la tienda de Elena', fn() => $tiendas->editar($rosa, $idTienda,
+    ['nombre' => 'Mass Sachaca', 'direccion' => 'Otra', 'telefono' => '', 'distrito' => '1'], 'ACTIVA'));
+rechaza('No se desactiva la caja 1 de Cayma: Luis tiene el turno abierto', fn() => $tiendas->cambiarEstadoCaja($rosa, 1, 'INACTIVA'));
+$tiendas->cambiarEstadoCaja($rosa, 2, 'INACTIVA');
+revisar('Rosa desactiva la caja 2 de Cayma', valor($db, 'SELECT estado FROM caja WHERE id_caja = 2') === 'INACTIVA');
+rechaza('No se desactiva una tienda con turnos abiertos', fn() => $tiendas->editar($rosa, 1,
+    ['nombre' => 'Mass Cayma', 'direccion' => 'Direccion de ejemplo, Cayma', 'telefono' => '', 'distrito' => '1'], 'INACTIVA'));
+$tiendas->editar($elena, $idTienda, ['nombre' => 'Mass Sachaca', 'direccion' => 'Av. de prueba 123', 'telefono' => '', 'distrito' => '1'], 'INACTIVA');
+$cajeroSachaca = $personal->crear($elena, 'Raul', 'Soto', '70000043', 2, 'Raul2026x');
+$raul = $empleados->buscarPorId($cajeroSachaca);
+rechaza('En una tienda inactiva no se abre caja', fn() => $caja->abrirTurno($raul, (int) valor($db,
+    'SELECT id_caja FROM caja WHERE id_tienda = ? AND numero_caja = 1', [$idTienda]), '50'));
+rechaza('Ni se le traslada mercadería', fn() => $inventario->trasladar($carmen, $idTienda, [['id_producto' => '2', 'cantidad' => '1']], null));
 
 echo "Reglas del diseño (consultas 20 a 28 de consultas.sql: 0 filas)\n";
 $sql = file_get_contents(__DIR__ . '/../database/consultas.sql');

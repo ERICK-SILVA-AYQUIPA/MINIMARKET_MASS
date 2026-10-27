@@ -62,7 +62,7 @@ $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoL
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
     new VentaServicio($db));
-$tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas);
+$tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
     new InventarioServicio($db));
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
@@ -85,6 +85,7 @@ $rutasPost = [
     'venta_registrar', 'venta_anular', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
     'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
+    'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -119,6 +120,12 @@ try {
                 'empleado_guardar'   => $empleadoController->guardar($_POST),
                 'empleado_clave'     => $empleadoController->reiniciarClave($_POST),
                 'cliente_documento'  => $clienteController->completarDocumento($_POST),
+                'ajuste_registrar'   => $inventarioController->registrarAjuste($_POST),
+                'tienda_guardar'     => $tiendaController->guardar($_POST),
+                'tienda_abrir'       => $tiendaController->abrir($_POST),
+                'caja_crear'         => $tiendaController->agregarCaja(),
+                'caja_estado'        => $tiendaController->estadoCaja($_POST),
+                'distrito_crear'     => $tiendaController->crearDistrito($_POST),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -204,6 +211,18 @@ try {
 
             case 'reporte_csv':
                 $reporteController->csv($leer('tipo'), $leer('desde'), $leer('hasta'));
+                break;
+
+            case 'ajustes':
+                $inventarioController->ajustes($leer('tienda'));
+                break;
+
+            case 'tienda_editar':
+                $tiendaController->editar();
+                break;
+
+            case 'tienda_nueva':
+                $tiendaController->nueva();
                 break;
 
             case 'mi_clave':

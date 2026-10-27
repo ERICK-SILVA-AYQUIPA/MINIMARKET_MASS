@@ -520,3 +520,35 @@ Genera el comprobante electrónico completo en tres conjuntos de resultados:
 1. **Cabecera:** Comprobante formateado (`B001-00000001`), fecha, tienda, cajero, caja y cliente.
 2. **Detalle:** Ítems numerados, descripción de producto, unidad, cantidad, precio e importe.
 3. **Pagos:** Desglose de abonos (efectivo, tarjeta o billetera digital Sip) y comprobación del importe total cancelado.
+
+---
+
+## 5. Extensiones de la Aplicación (migraciones)
+
+El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente con scripts que corren después de `schema.sql` y `datos.sql`:
+
+| Script | Cambio | Para qué |
+|---|---|---|
+| `login.sql` | Columna `empleado.clave_hash` (VARCHAR(255), NULL) | Hash bcrypt de la clave; NULL = sin acceso |
+| `seguridad.sql` | Tabla `intento_login` | Bloquear 15 minutos tras 5 claves erradas por DNI o 20 por IP |
+| `ajustes.sql` | Tabla `ajuste_inventario`, tipos de movimiento 6 y 7, columna `movimiento_stock.id_ajuste` | Ajuste de stock por conteo físico |
+
+#### `ajuste_inventario`
+Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.
+- `id_ajuste` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `motivo` (VARCHAR(20), NOT NULL, CHECK IN ('CONTEO_FISICO', 'CORRECCION'))
+- `observacion` (VARCHAR(200), NULL)
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+
+#### `intento_login`
+- `id_intento` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `dni` (CHAR(8), NULL), `ip` (VARCHAR(45), NOT NULL), `fecha_hora` (DATETIME, NOT NULL)
+- `exito` (CHAR(1), NOT NULL, CHECK IN ('S', 'N'))
+- Índices `(dni, fecha_hora)` e `(ip, fecha_hora)`
+
+#### Cambios a tablas existentes
+- `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E) y 7 `AJUSTE DE SALIDA` (S).
+- `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) = 1`.
+- `producto.estado`: VARCHAR(13) en `schema.sql` (antes 10, donde `'DESCONTINUADO'` no cabía).

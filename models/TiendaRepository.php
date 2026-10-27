@@ -40,6 +40,16 @@ class TiendaRepository
         return $nombre === false ? null : (string) $nombre;
     }
 
+    /** @return array<int, string> id_distrito => nombre, por nombre */
+    public function distritos(): array
+    {
+        $lista = [];
+        foreach ($this->db->query('SELECT id_distrito, nombre_distrito FROM distrito ORDER BY nombre_distrito') as $f) {
+            $lista[(int) $f['id_distrito']] = $f['nombre_distrito'];
+        }
+        return $lista;
+    }
+
     public function buscarCaja(int $idCaja): ?Caja
     {
         $consulta = $this->db->prepare('SELECT id_caja, numero_caja, estado, id_tienda FROM caja WHERE id_caja = :id');
