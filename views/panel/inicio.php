@@ -26,16 +26,25 @@ $variacion = $ayerResumen['total'] > 0
 $maximo = max(1.0, ...array_values($ventasPorDia));
 $totalPeriodo = array_sum($ventasPorDia);
 ?>
-<h1>Inicio · <?= e($tienda->getNombreTienda()) ?></h1>
-<p class="sutil"><?= e($usuario->nombreCompleto()) ?> · <?= e($usuario->getNombreRol()) ?> · <?= e(date('d/m/Y')) ?></p>
+<div class="cabecera">
+    <div>
+        <h1>Hola, <?= e($usuario->getNombres()) ?></h1>
+        <p class="sutil"><?= e($tienda->getNombreTienda()) ?> · <?= e(ucfirst(strtolower($usuario->getNombreRol()))) ?> · <?= e(date('d/m/Y')) ?></p>
+    </div>
+    <div class="acciones">
+        <?php if ($usuario->puedeVender()): ?><a class="boton acento" href="/?ruta=venta_nueva"><?= icono('venta') ?>Nueva venta</a><?php endif; ?>
+        <?php if ($usuario->puedeRegistrarIngreso($tienda->getIdTienda())): ?><a class="boton acento" href="/?ruta=ingresos#nuevo-ingreso"><?= icono('ingresos') ?>Recibir mercadería</a><?php endif; ?>
+        <a class="boton secundario" href="/?ruta=productos"><?= icono('buscar') ?>Buscar producto</a>
+    </div>
+</div>
 
 <?php if ($usuario->puedeManejarCaja()): ?>
     <div class="panel destacado">
         <?php if ($miTurno === null): ?>
-            <strong>No tienes un turno abierto.</strong> Ábrelo para poder vender. <a class="boton" href="/?ruta=caja">Abrir turno</a>
+            <div><strong>No tienes un turno abierto.</strong> Ábrelo para poder vender.</div> <a class="boton" href="/?ruta=caja"><?= icono('caja') ?>Abrir turno</a>
         <?php else: ?>
-            <strong>Tu turno <?= $miTurno->getIdCajaTurno() ?> está abierto</strong> desde <?= e($miTurno->getFechaHoraApertura()) ?>
-            con <?= e(soles($miTurno->getMontoInicial())) ?> iniciales. <a class="boton" href="/?ruta=venta_nueva">Nueva venta</a>
+            <div><strong>Tu turno <?= $miTurno->getIdCajaTurno() ?> está abierto</strong> desde <?= e($miTurno->getFechaHoraApertura()) ?>
+            con <?= e(soles($miTurno->getMontoInicial())) ?> iniciales.</div> <a class="boton" href="/?ruta=caja">Ver mi turno</a>
         <?php endif; ?>
     </div>
 <?php endif; ?>
@@ -91,18 +100,20 @@ $totalPeriodo = array_sum($ventasPorDia);
     <section class="panel">
         <h2>Por reponer</h2>
         <?php if ($porReponer === []): ?>
-            <p class="texto-ok">Todos los productos están sobre su stock mínimo.</p>
+            <div class="aviso ok">Todos los productos están sobre su stock mínimo.</div>
         <?php else: ?>
+            <div class="tabla">
             <table>
-                <tr><th>Producto</th><th>Hay</th><th>Mínimo</th></tr>
+                <tr><th scope="col">Producto</th><th scope="col" class="num">Hay</th><th scope="col" class="num">Mínimo</th></tr>
                 <?php foreach ($porReponer as $f): ?>
                     <tr>
-                        <td><a href="/?ruta=producto&amp;id=<?= (int) $f['id_producto'] ?>"><?= e($f['nombre_producto']) ?></a></td>
+                        <td><a class="fila-enlace" href="/?ruta=productos&amp;ver=<?= (int) $f['id_producto'] ?>"><?= e($f['nombre_producto']) ?></a></td>
                         <td class="num"><span class="etiqueta reponer"><?= e(rtrim(rtrim($f['cantidad_actual'], '0'), '.') ?: '0') ?> <?= e($f['abreviatura']) ?></span></td>
                         <td class="num"><?= e(rtrim(rtrim($f['stock_minimo'], '0'), '.') ?: '0') ?></td>
                     </tr>
                 <?php endforeach; ?>
             </table>
+            </div>
             <?php if ($totalPorReponer > count($porReponer)): ?>
                 <p class="sutil">Y <?= $totalPorReponer - count($porReponer) ?> más. <a href="/?ruta=productos">Ver el catálogo</a></p>
             <?php endif; ?>
@@ -113,11 +124,11 @@ $totalPeriodo = array_sum($ventasPorDia);
 <section class="panel">
     <h2>Cajas abiertas</h2>
     <?php if ($turnos === []): ?>
-        <p class="sutil">No hay turnos abiertos en esta tienda.</p>
+        <p class="sutil">No hay turnos abiertos en esta tienda ahora mismo.</p>
     <?php else: ?>
         <div class="tabla">
         <table>
-            <tr><th>Caja</th><th>Cajero</th><th>Desde</th><th>Inicial</th><th>Ventas</th><th>Efectivo cobrado</th></tr>
+            <tr><th scope="col">Caja</th><th scope="col">Cajero</th><th scope="col">Desde</th><th scope="col" class="num">Inicial</th><th scope="col" class="num">Ventas</th><th scope="col" class="num">Efectivo cobrado</th></tr>
             <?php foreach ($turnos as $t): ?>
                 <tr>
                     <td><?= (int) $t['numero_caja'] ?></td>
@@ -136,11 +147,11 @@ $totalPeriodo = array_sum($ventasPorDia);
 <section class="panel">
     <h2>Últimos movimientos de stock</h2>
     <?php if ($movimientos === []): ?>
-        <p class="sutil">Todavía no hay movimientos.</p>
+        <p class="sutil">Todavía no hay movimientos de stock en esta tienda.</p>
     <?php else: ?>
         <div class="tabla">
         <table>
-            <tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cantidad</th><th>Queda</th></tr>
+            <tr><th scope="col">Fecha</th><th scope="col">Producto</th><th scope="col">Tipo</th><th scope="col" class="num">Cantidad</th><th scope="col" class="num">Queda</th></tr>
             <?php foreach ($movimientos as $m): ?>
                 <?php
                 $tipo = $tipos[$m->getIdTipoMovimiento()] ?? null;

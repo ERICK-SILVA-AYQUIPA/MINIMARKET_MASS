@@ -6,11 +6,11 @@ Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI**
 
 1. Abrir `http://localhost:8000` (o la dirección del servidor).
 2. Escribir el DNI y la clave, y pulsar **Entrar**.
-3. Para salir: **Salir**, arriba a la derecha.
+3. Para salir: **Salir**, al pie del menú de la izquierda.
 
 - Con 5 claves erradas seguidas, ese DNI espera 15 minutos antes de volver a intentar.
 - Si nadie usa el sistema por 30 minutos, la sesión se cierra sola y hay que volver a entrar.
-- **Mi clave** (arriba a la derecha): cada empleado cambia su propia clave. La nueva debe tener de 8 a 72 caracteres, con al menos una letra y un número.
+- **Mi clave** (al pie del menú): cada empleado cambia su propia clave. La nueva debe tener de 8 a 72 caracteres, con al menos una letra y un número.
 
 ### Usuarios de prueba
 
@@ -22,24 +22,31 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 | Mass Cerro Colorado | Jorge · `70000004` | Ana · `70000005` | Pedro · `70000006` |
 | Mass Yanahuara | Lucía · `70000007` | Miguel · `70000008` | Sofía · `70000009` |
 
+### Cómo moverse
+
+- **Menú de la izquierda**: agrupado en Ventas, Inventario y Administración. Arriba dice la tienda de quien entró. En el celular se abre con el botón **Menú**.
+- **Paneles laterales**: al tocar un producto, un cliente, un comprobante, un turno de caja, un movimiento del kardex, un ingreso o una fila de la auditoría, su detalle se abre a la derecha sin salir de la lista. Se cierra con la **X**, tocando el fondo oscuro o con **Atrás** del navegador.
+- **Botón amarillo**: la acción principal de cada pantalla (Nueva venta, Registrar ingreso, Enviar mercadería, Registrar merma, Nuevo producto, Registrar empleado).
+- Si una lista está vacía, la pantalla dice por qué y qué hacer.
+
 ## 2. Lo que ven todos
 
 | Menú | Para qué |
 |---|---|
 | **Inicio** | Panel de la tienda: vendido hoy contra ayer, comprobantes, ticket promedio, gráfico de 14 días, productos por reponer, cajas abiertas y últimos movimientos |
-| **Catálogo** | Buscar productos por nombre o código de barras y ver su precio y stock |
+| **Catálogo** | Productos con su precio y stock. Al tocar uno se abre su ficha a la derecha |
 | **Stock** | Stock de cada producto en las 3 tiendas. **REPONER** marca lo que llegó al mínimo. Botón **Descargar en CSV (Excel)** |
-| **Ventas** | Boletas y facturas por fecha y estado. Al abrir una se ve el comprobante con su detalle y pagos |
+| **Ventas** | Boletas y facturas por fecha y estado. Al tocar una se ve su detalle y pagos a la derecha; **Abrir comprobante completo** lleva a la página para imprimir o anular |
 | **Traslados**, **Mermas**, **Kardex**, **Tiendas** | Consulta (registrar depende del rol) |
 
-**Imprimir un comprobante**: abrir la venta y pulsar **Imprimir ticket / PDF**. Sale el ticket de 80 mm; con `Ctrl + P` se imprime en la ticketera o se elige **Guardar como PDF**. Si la venta está anulada, el ticket lo dice.
+**Imprimir un comprobante**: tocar la venta y pulsar **Imprimir ticket** (o, en el comprobante completo, **Imprimir ticket / PDF**). Sale el ticket de 80 mm; con `Ctrl + P` se imprime en la ticketera o se elige **Guardar como PDF**. Si la venta está anulada, el ticket lo dice.
 
 ## 3. Cajero
 
 | Tarea | Pasos |
 |---|---|
 | Abrir turno | **Caja** → elegir la caja → escribir el monto inicial en efectivo → **Abrir turno**. Sin turno abierto no se puede vender |
-| Registrar una venta | **Nueva venta** → elegir boleta o factura y escribir el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) → agregar productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → poner el pago en efectivo, tarjeta o SIP; se puede combinar → **Registrar venta**. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
+| Registrar una venta | **Nueva venta** → a la izquierda, productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → a la derecha, boleta o factura, el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) y el efectivo que entrega. Si paga una parte con tarjeta o SIP, abrir **Pagar una parte con tarjeta** o **con billetera Sip** → botón amarillo **Registrar venta**. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
 | Cerrar turno | **Caja** → escribir el efectivo contado → **Cerrar turno** |
 | Clientes | **Clientes** → buscar por DNI o RUC (o sus primeros dígitos), ver sus compras y completar el documento que falta |
 
@@ -49,11 +56,11 @@ Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tie
 
 | Tarea | Pasos |
 |---|---|
-| Recibir mercadería | **Ingresos** → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad y su costo unitario → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
-| Trasladar mercadería | **Traslados** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
-| Registrar una merma | **Mermas** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
+| Recibir mercadería | **Ingresos** → **Registrar ingreso** (o, desde el inicio, **Recibir mercadería**) → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad y su costo unitario → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
+| Trasladar mercadería | **Traslados** → **Enviar mercadería** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
+| Registrar una merma | **Mermas** → **Registrar merma** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
 | Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
-| Revisar movimientos | **Kardex** → filtrar por producto. Botón **Descargar en CSV (Excel)** |
+| Revisar movimientos | **Kardex** → filtrar por producto; **Ver** en una fila muestra el saldo anterior, la cantidad y el nuevo. Botón **Descargar CSV** |
 
 ## 5. Administrador
 
@@ -61,14 +68,14 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 
 | Tarea | Pasos |
 |---|---|
-| Anular una venta | **Ventas** → abrir el comprobante → escribir el motivo → **Anular venta**. Devuelve el stock y anula los pagos. No se puede deshacer |
-| Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado |
+| Anular una venta | **Ventas** → tocar el comprobante → **Abrir comprobante (para anular)** → escribir el motivo → **Anular venta**. Devuelve el stock y anula los pagos. No se puede deshacer |
+| Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado; **Ver** abre la cuenta del turno y dice si hubo sobrante o faltante |
 | Reportes | **Reportes** → elegir fechas: vendido, ventas por día, más vendidos, por categoría, por cajero y por método de pago. Cada uno se descarga en CSV |
-| Productos | **Catálogo** → **+ Nuevo producto**, o abrir uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
+| Productos | **Catálogo** → **Nuevo producto**, o tocar uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
 | Categorías y marcas | **Categorías y marcas** → agregar nuevas |
-| Personal | **Personal** → registrar, editar, desactivar y poner una clave nueva a un empleado de su tienda |
-| Tienda y cajas | **Tiendas** → **Editar mi tienda, sus cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
-| Abrir una tienda nueva | **Tiendas** → **+ Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |
+| Personal | **Personal** → **Registrar empleado**, editar, desactivar y poner una clave nueva a un empleado de su tienda |
+| Tienda y cajas | **Tiendas** → **Mi tienda, cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
+| Abrir una tienda nueva | **Tiendas** → **Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |
 | Auditoría | **Auditoría**: quién anuló ventas, cambió precios, editó personal o reinició claves en su tienda, con fecha y detalle. Se filtra por acción |
 | Revisar compras | **Ingresos**: ve lo que recibió su tienda, con documento, emisor, costos y quién lo registró. **Descargar en CSV (Excel)** saca una fila por producto. Cada ingreso también queda en la **Auditoría** |
 | Conteo físico | **Conteo**, igual que el almacenero |

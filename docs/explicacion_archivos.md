@@ -128,28 +128,32 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `layout_inicio.php` | Cabecera HTML, menú (resalta la página actual y muestra solo lo que el rol puede usar) y estilos comunes, también para celular e impresión. Carga `parciales/funciones.php`. |
-| `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00) y `campoCsrf()`. La usan el layout y el ticket. |
+| `layout_inicio.php` | Cabecera HTML y menú lateral agrupado (Ventas, Inventario, Administración) que resalta la página actual y muestra solo lo que el rol puede usar. En celular el menú se abre con el botón **Menú** (una casilla, sin JavaScript). Enlaza `/estilos.css` y carga `parciales/funciones.php`. |
+| `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00), `campoCsrf()` e `icono()` (dibuja un ícono de `public/iconos.svg`). La usan el layout y el ticket. |
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
-| `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Solo muestra. |
-| `productos/detalle.php` | Ficha de un producto: precio, forma de venta, importe de ejemplo y stock en la tienda. |
+| `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Al tocar un producto (`&ver=ID`) abre su ficha en un panel lateral. |
+| `productos/ficha.php` | Datos y acciones de un producto (stock, precio, mínimo, editar, descontinuar). La usan la página del producto y el panel lateral. |
+| `productos/detalle.php` | Página propia de un producto; muestra `productos/ficha.php`. |
 | `productos/stock.php` | Tabla producto × tienda con el mínimo y REPONER. |
-| `ventas/lista.php` | Ventas de la tienda elegida, con enlace a cada comprobante. |
-| `ventas/comprobante.php` | La boleta o factura en los tres bloques de `sp_boleta`: cabecera, detalle y pagos, más la revisión y la anulación. |
+| `ventas/lista.php` | Ventas de la tienda elegida. Al tocar un comprobante (`&ver=B001-1`) abre su detalle en un panel lateral, con enlaces al comprobante completo y al ticket. |
+| `ventas/detalle_venta.php` | Cuerpo del comprobante (datos, productos y pagos). Lo usan el comprobante y el panel lateral. |
+| `ventas/comprobante.php` | La boleta o factura (con `ventas/detalle_venta.php`), más la revisión y la anulación. |
 | `ventas/ticket.php` | Ticket de 80 mm, sin menú, para la ticketera o para guardar como PDF. Marca ANULADA si corresponde. |
-| `auditoria/lista.php` | Filtro por acción y tabla de la auditoría. |
-| `inventario/ingresos.php` | Formulario de ingreso del almacenero (documento, emisor, productos con costo) y lista de ingresos con su detalle. |
+| `auditoria/lista.php` | Filtro por acción y tabla de la auditoría; cada fila abre su detalle completo en un panel lateral (`#aud-ID`). |
+| `inventario/ingresos.php` | Lista de ingresos; cada uno abre su detalle con costos en un panel (`#ing-ID`). El formulario del almacenero (documento, emisor, productos con costo) está en el panel `#nuevo-ingreso` y vuelve abierto si hubo un error. |
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
 | `auth/login.php` | Formulario de DNI y clave. |
-| `ventas/nueva.php` | Formulario de venta con líneas de producto y pagos. |
-| `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado y merma. |
-| `inventario/kardex.php`, `traslados.php`, `mermas.php` | Tablas e historial de inventario. |
-| `caja/panel.php` | Turno abierto, botones y arqueo. |
+| `ventas/nueva.php` | Pantalla de caja: productos a la izquierda; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
+| `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado, merma e ingreso (este con costo). |
+| `parciales/drawer_abrir.php`, `parciales/drawer_cerrar.php` | Abren y cierran un panel lateral con título, botón Cerrar y fondo oscuro. Se muestra con un enlace a `#id` o desde el servidor. |
+| `parciales/vacio.php` | Estado vacío de una lista: qué pasa y, si aplica, el botón para empezar. |
+| `inventario/kardex.php`, `traslados.php`, `mermas.php` | Historial de inventario. Cada movimiento del kardex abre su detalle con el saldo anterior (`#mov-ID`); el traslado y la merma se registran en un panel lateral. |
+| `caja/panel.php` | Turno abierto en tarjetas, abrir y cerrar turno, y arqueo; cada turno abre su cuenta (inicial + efectivo = esperado, contado y diferencia) en un panel. |
 | `productos/formulario.php`, `productos/catalogo.php` | Formulario de producto; categorías, marcas y unidades. |
-| `empleados/lista.php`, `empleados/formulario.php` | Personal y su edición. |
-| `clientes/lista.php`, `clientes/detalle.php` | Clientes y sus compras. |
+| `empleados/lista.php`, `empleados/formulario.php` | Personal (el alta en un panel lateral) y su edición. |
+| `clientes/lista.php`, `clientes/detalle.php`, `clientes/ficha.php` | Clientes; la ficha (documento y compras) se abre en un panel con `&ver=ID` o en su propia página. |
 | `reportes/ventas.php` | Tarjetas de resumen y tablas de reporte. |
 | `auth/mi_clave.php` | Cambiar la clave propia. |
 | `inventario/ajustes.php` | Hoja de conteo (sistema vs. contado) y ajustes registrados. |
@@ -163,6 +167,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
+| `estilos.css` | El sistema de diseño: colores, letras, espacios, botones, tablas, formularios, avisos, paneles laterales, versión de celular e impresión. Un solo archivo para todas las pantallas. |
+| `iconos.svg` | Los íconos del menú y los botones, dibujados con líneas. Se usan con `icono('nombre')`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
 | `poo_roles.php` | Prueba del paso 2: tres empleados de Cayma. El mismo método `puedeAnularVenta()` responde distinto según la clase (polimorfismo). |
@@ -175,7 +181,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 |---|---|
 | `tests/unitarios.php` | 58 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol y las reglas del ingreso de mercadería. |
 | `tests/seguridad.php` | 16 comprobaciones leyendo el código: los 25 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types` y sin propiedades `public`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 112 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login y cabeceras de seguridad. No cambia datos. |
+| `tests/web.php` | 117 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
 | `tests/integracion.php` | 119 comprobaciones contra MySQL: ventas, anulaciones, ingresos de mercadería, inventario, caja, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 28 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 

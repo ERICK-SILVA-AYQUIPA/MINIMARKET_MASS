@@ -104,6 +104,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **Decisión del grupo:** sin tabla de proveedores. El emisor queda escrito en cada ingreso (RUC y razón social). **[Grupo]** si después quieren un catálogo de proveedores, se agrega sin rehacer el ingreso.
 - **Prueba:** ver Verificación, paso 15.
 
+### Paso 16 · Rediseño de la interfaz (27/10/2026)
+- **OBJETIVO:** Que todas las pantallas se vean y se usen igual, en la PC de la tienda y en el celular: un sistema de diseño, un menú claro, estados vacíos, mensajes claros y paneles laterales para ver un detalle sin salir de la lista.
+- **ENTRADAS Y SALIDAS:** `public/estilos.css` (colores, letras, espacios, botones, tablas, formularios, avisos, paneles) y `public/iconos.svg`. Menú lateral agrupado por rol, con menú de celular. Paneles para la ficha del producto (`&ver=ID`), del cliente, el detalle de una venta (`&ver=B001-1`), un turno de caja, un movimiento del kardex, un ingreso y un registro de auditoría; los formularios de ingreso, traslado, merma y alta de personal también van en un panel. Pantalla de venta en dos columnas con el cobro a la derecha.
+- **SEGURIDAD:** la interfaz sigue sin JavaScript (`script-src 'none'`): los paneles se abren con `:target` o desde el servidor y el menú de celular con una casilla. Un `ver=` que no es un id válido se ignora y el panel no se abre. Los permisos no cambian: el panel del cliente sigue en 403 para el almacenero. `tests/seguridad.php` acepta `icono('...')` solo con un nombre fijo.
+- **Prueba:** ver Verificación, paso 16.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -188,7 +194,7 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
-Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos. Desde el paso 15, el ingreso de mercadería con su documento y costo.
+Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos. Desde el paso 15, el ingreso de mercadería con su documento y costo. Desde el paso 16, la interfaz rediseñada con paneles laterales.
 
 **[Grupo]** decidan si se agregan:
 - **Catálogo de proveedores:** quedó fuera por decisión del grupo. Desde el paso 15 la mercadería entra con **Ingresos**, guardando el RUC y la razón social del emisor en cada documento.
@@ -199,6 +205,7 @@ Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, ca
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 27/10/2026, paso 16: con la base recién creada (31 tablas): unitarias 58, seguridad 16 (25 formularios con token, 667 salidas escapadas, 130 consultas preparadas), web 117 e integración 119 correctas, 0 fallas; web otra vez después de integración, 117. Un recorrido con el navegador abre 31 pantallas con Rosa, Luis y Carmen en 1280 px y en 390 px (celular): ninguna se desborda a lo ancho ni muestra avisos de PHP. `productos&ver=99999` y `ventas&ver=<script>` muestran la lista sin abrir panel.
 - 27/10/2026, paso 15: con la base recién creada (31 tablas): unitarias 58, seguridad 16, web 112 e integración 119 correctas, 0 fallas. Carmen registra la FACTURA F001-00012345 con 24 leches a S/ 3.60 y 10.5 kg de papa a S/ 1.95: el stock sube, el total es S/ 106.88 (20.475 se redondea a 20.48, como MySQL), el kardex tiene 2 entradas con el documento y la auditoría el ingreso. Se rechazan el mismo documento otra vez, un cajero, el administrador, un RUC de 10 dígitos, una fecha futura, un número sin serie, un costo con 3 decimales, un producto repetido, media leche y una tienda inactiva, y ninguno deja datos. En el navegador, Carmen registra una GUIA desde el formulario y el kardex la muestra como "Ingreso 2".
 - 27/10/2026, paso 14: con la base recién creada (29 tablas): unitarias 51, seguridad 16, web 103 e integración 103 correctas, 0 fallas; web otra vez después de integración, 103. La revisión de seguridad cuenta 24 formularios POST con token, 476 salidas escapadas y 123 consultas preparadas; al quitar a propósito un token, un `e()` y al pegar una variable en un `prepare()`, falla en las tres. La auditoría registra la anulación, el cambio de precio (S/ 4.50 -> S/ 4.80), personal y cajas, y una acción rechazada no deja fila. El ticket mide 80 mm y marca ANULADA a B001-2. `scripts/respaldo.sh` saca las 29 tablas con `sp_boleta`, y al restaurar se recupera el estado anterior.
 - 27/10/2026, paso 13: `tests/web.php` da 93 correctas. Por rol: Luis recibe 403 en 17 formularios de administrador o almacenero, Carmen en 4 de caja y clientes, Rosa en vender y trasladar, y Jorge al anular una venta de Cayma. Un nombre con `<b>` vuelve escapado. Consultas 20 a 28 en 0 filas.
