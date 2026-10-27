@@ -54,20 +54,7 @@ class ReporteController extends Controller
             default     => [['dia', 'comprobantes', 'total'], $this->reportes->porDia($id, $desde, $hasta)],
         };
         $nombre = sprintf('ventas_%s_%s_%s.csv', preg_replace('/[^a-z]/', '', (string) $tipo) ?: 'dias', $desde, $hasta);
-
-        header('Content-Type: text/csv; charset=UTF-8');
-        header('Content-Disposition: attachment; filename="' . $nombre . '"');
-        $salida = fopen('php://output', 'w');
-        fwrite($salida, "\xEF\xBB\xBF"); // BOM: Excel abre bien las tildes
-        fputcsv($salida, $encabezado, ',', '"', '');
-        foreach ($filas as $fila) {
-            // Un texto que empieza con = + - @ (o tabulador / retorno) se abre en Excel como formula: se le antepone un apostrofo
-            fputcsv($salida, array_map(
-                fn($v): string => preg_match('/^[=+\-@\t\r]/', (string) $v) === 1 ? "'" . $v : (string) $v,
-                array_values($fila)
-            ), ',', '"', '');
-        }
-        fclose($salida);
+        $this->enviarCsv($nombre, $encabezado, $filas);
     }
 
     /**

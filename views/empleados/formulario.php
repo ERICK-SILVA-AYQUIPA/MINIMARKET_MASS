@@ -41,7 +41,7 @@ $estadoElegido = $valor('estado', $empleado->getEstado());
         <label for="estado">Estado</label>
         <select id="estado" name="estado">
             <?php foreach (['ACTIVO', 'INACTIVO'] as $estado): ?>
-                <option value="<?= $estado ?>" <?= $estadoElegido === $estado ? 'selected' : '' ?>><?= $estado ?></option>
+                <option value="<?= e($estado) ?>" <?= $estadoElegido === $estado ? 'selected' : '' ?>><?= e($estado) ?></option>
             <?php endforeach; ?>
         </select>
         <p>INACTIVO: ya no puede ingresar, pero sus ventas y movimientos se conservan.</p>

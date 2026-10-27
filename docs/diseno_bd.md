@@ -27,7 +27,7 @@ El diseño se organiza en **7 niveles de integridad referencial**, garantizando 
 
 ## 2. Diagrama Entidad-Relación (EER)
 
-El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 2 tablas de apoyo de la aplicación (`ajuste_inventario` e `intento_login`, sección 5):
+El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 3 tablas de apoyo de la aplicación (`ajuste_inventario`, `intento_login` y `auditoria`, sección 5):
 
 ![Diagrama Entidad-Relación](./diagrama-er.png)
 
@@ -214,7 +214,7 @@ erDiagram
         VARCHAR modalidad_pago
         VARCHAR codigo_operacion UK
     }
-    %% EXTENSIONES DE LA APLICACION (ajustes.sql y seguridad.sql)
+    %% EXTENSIONES DE LA APLICACION (ajustes.sql, seguridad.sql y auditoria.sql)
     ajuste_inventario {
         INT id_ajuste PK
         DATETIME fecha_hora
@@ -229,6 +229,14 @@ erDiagram
         VARCHAR ip
         DATETIME fecha_hora
         CHAR exito
+    }
+    auditoria {
+        BIGINT id_auditoria PK
+        DATETIME fecha_hora
+        VARCHAR accion
+        VARCHAR detalle
+        SMALLINT id_tienda FK
+        MEDIUMINT id_empleado FK
     }
     movimiento_stock {
         BIGINT id_movimiento PK
@@ -285,6 +293,8 @@ erDiagram
     ajuste_inventario ||--o{ movimiento_stock : "origen_ajuste"
     tienda ||--o{ ajuste_inventario : "cuenta"
     empleado ||--o{ ajuste_inventario : "registra"
+    tienda ||--o{ auditoria : "bitacora"
+    empleado ||--o{ auditoria : "hace"
 ```
 
 ---
@@ -553,6 +563,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `login.sql` | Columna `empleado.clave_hash` (VARCHAR(255), NULL) | Hash bcrypt de la clave; NULL = sin acceso |
 | `seguridad.sql` | Tabla `intento_login` | Bloquear 15 minutos tras 5 claves erradas por DNI o 20 por IP |
 | `ajustes.sql` | Tabla `ajuste_inventario`, tipos de movimiento 6 y 7, columna `movimiento_stock.id_ajuste` | Ajuste de stock por conteo físico |
+| `auditoria.sql` | Tabla `auditoria` | Bitácora de acciones delicadas: quién, qué, cuándo y en qué tienda |
 
 #### `ajuste_inventario`
 Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.
@@ -568,6 +579,16 @@ Cabecera de un conteo físico o corrección en una tienda; las diferencias por p
 - `dni` (CHAR(8), NULL), `ip` (VARCHAR(45), NOT NULL), `fecha_hora` (DATETIME, NOT NULL)
 - `exito` (CHAR(1), NOT NULL, CHECK IN ('S', 'N'))
 - Índices `(dni, fecha_hora)` e `(ip, fecha_hora)`
+
+#### `auditoria`
+Solo se inserta (la aplicación nunca la cambia ni la borra). La escribe `Servicio::auditar()` dentro de la misma transacción que el cambio.
+- `id_auditoria` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `accion` (VARCHAR(30), NOT NULL): `VENTA_ANULADA`, `PRODUCTO_CREADO`, `PRODUCTO_EDITADO`, `PRECIO_CAMBIADO`, `PRODUCTO_ESTADO`, `STOCK_MINIMO`, `CATEGORIA_CREADA`, `MARCA_CREADA`, `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA`, `CLIENTE_DOCUMENTO`, `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO`
+- `detalle` (VARCHAR(250), NULL): qué cambió, en palabras (el DNI o RUC de un cliente no se copia)
+- `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`): la tienda de quien lo hizo
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- Índice `(id_tienda, id_auditoria)` para la pantalla del administrador
 
 #### Cambios a tablas existentes
 - `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E) y 7 `AJUSTE DE SALIDA` (S).

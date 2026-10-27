@@ -91,6 +91,29 @@ class ProductoController extends Controller
         $this->vista('productos/stock', get_defined_vars());
     }
 
+    // GET /?ruta=stock_csv: la misma tabla de stock por tienda, para Excel
+    public function stockCsv(): void
+    {
+        $tiendas = $this->tiendas->todas();
+        $encabezado = ['id', 'producto', 'codigo_barras', 'precio', 'estado'];
+        foreach ($tiendas as $tienda) {
+            $encabezado[] = $tienda->getNombreTienda();
+            $encabezado[] = $tienda->getNombreTienda() . ' (minimo)';
+        }
+        $filas = [];
+        foreach ($this->repo->todos() as $producto) {
+            $fila = [$producto->getIdProducto(), $producto->getNombreProducto(), $producto->getCodigoBarras() ?? '',
+                number_format($producto->getPrecioVenta(), 2, '.', ''), $producto->getEstado()];
+            foreach ($tiendas as $idTienda => $tienda) {
+                $stock = $this->repo->stockEnTienda($producto->getIdProducto(), $idTienda);
+                $fila[] = $stock === null ? '' : number_format($stock->getCantidadActual(), 3, '.', '');
+                $fila[] = $stock === null ? '' : number_format($stock->getStockMinimo(), 3, '.', '');
+            }
+            $filas[] = $fila;
+        }
+        $this->enviarCsv('stock_' . date('Y-m-d') . '.csv', $encabezado, $filas);
+    }
+
     // GET /?ruta=producto_form (nuevo)  o  /?ruta=producto_form&id=8 (editar)
     public function formulario(?string $id, array $viejo = [], ?string $error = null): void
     {

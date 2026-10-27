@@ -13,6 +13,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') {
     exit('Solo desde la terminal.');
 }
+date_default_timezone_set('America/Lima');
 
 const BASE = 'http://127.0.0.1:8099';
 const CLAVE = 'Mass2026!';
@@ -172,7 +173,8 @@ $luis = new Navegador();
 $carmen = new Navegador();
 revisar('Luis (cajero) y Carmen (almacenero) entran', $luis->entrar('70000002') === 303 && $carmen->entrar('70000003') === 303);
 $todas = ['inicio', 'productos', 'stock', 'ventas', 'kardex', 'traslados', 'mermas', 'tiendas', 'mi_clave',
-    'comprobante&serie=B001&numero=1', 'producto&id=8', 'catalogo'];
+    'comprobante&serie=B001&numero=1', 'comprobante_imprimir&serie=F001&numero=1', 'producto&id=8', 'catalogo',
+    'stock_csv', 'kardex_csv&tienda=1'];
 $matriz = [
     // ruta                => [Rosa, Luis, Carmen]
     'caja'                 => [200, 200, 403],
@@ -189,6 +191,8 @@ $matriz = [
     'producto_form&id=8'   => [200, 403, 403],
     'tienda_editar'        => [200, 403, 403],
     'tienda_nueva'         => [200, 403, 403],
+    'auditoria'            => [200, 403, 403],
+    'auditoria&accion=X'   => [200, 403, 403],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -201,6 +205,13 @@ revisar('La hoja de conteo solo se muestra a quien puede contar', $carmen->get('
     && $luis->get('ruta=ajustes') === 200 && !$luis->tiene('ajuste_registrar'));
 revisar('El menú del cajero no ofrece Reportes ni Personal', $luis->get('ruta=inicio') === 200
     && !$luis->tiene('ruta=reportes"') && !$luis->tiene('ruta=empleados"'));
+revisar('El ticket para imprimir es una página suelta de 80 mm', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200
+    && $luis->tiene('size: 80mm') && $luis->tiene('TIENDA MASS') && !$luis->tiene('Menú principal'));
+revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=2') === 200 && $luis->tiene('>ANULADA<'));
+revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
+revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
+    && $carmen->get('ruta=kardex_csv&tienda=2&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
+revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('El CSV sale como texto CSV con BOM', $rosa->get('ruta=reporte_csv&tipo=productos') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_starts_with($rosa->cuerpo, "\xEF\xBB\xBF"));
 
