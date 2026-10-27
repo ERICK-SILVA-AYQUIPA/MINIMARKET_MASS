@@ -2,9 +2,9 @@
 
 Documento técnico de especificación y diccionario de datos del sistema relacional de ventas, inventario y facturación para la cadena **Minimarket Mass** (Arequipa).
 
-- **Motor de Base de Datos:** MySQL 8.0.16+ (compatible con Laragon, InnoDB)
+- **Motor de Base de Datos:** MySQL 8.4.11 en Docker (compatible con MySQL 8.0.16+ y Laragon, InnoDB)
 - **Codificación / Collation:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Total de tablas:** 26 tablas relacionales normalizadas en Tercera Forma Normal (3FN)
+- **Total de tablas:** 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 2 tablas de apoyo de la aplicación (sección 5)
 - **Objetos de programación:** 1 vista (`vw_comprobante`) y 1 procedimiento almacenado (`sp_boleta`)
 
 ---
@@ -27,13 +27,13 @@ El diseño se organiza en **7 niveles de integridad referencial**, garantizando 
 
 ## 2. Diagrama Entidad-Relación (EER)
 
-El repositorio incluye el diagrama visual de alta resolución generado a partir de las 26 tablas:
+El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 2 tablas de apoyo de la aplicación (`ajuste_inventario` e `intento_login`, sección 5):
 
 ![Diagrama Entidad-Relación](./diagrama-er.png)
 
 ### Diagrama ER en Notación Mermaid
 
-A continuación se presenta la definición vectorial e interactiva de las 26 entidades y sus relaciones:
+A continuación se presenta la definición vectorial e interactiva de las 26 entidades del diseño, más las 2 de apoyo, y sus relaciones:
 
 ```mermaid
 erDiagram
@@ -109,6 +109,7 @@ erDiagram
         VARCHAR nombres
         VARCHAR apellidos
         CHAR dni UK
+        VARCHAR clave_hash
         VARCHAR estado
     }
     caja {
@@ -213,6 +214,22 @@ erDiagram
         VARCHAR modalidad_pago
         VARCHAR codigo_operacion UK
     }
+    %% EXTENSIONES DE LA APLICACION (ajustes.sql y seguridad.sql)
+    ajuste_inventario {
+        INT id_ajuste PK
+        DATETIME fecha_hora
+        VARCHAR motivo
+        VARCHAR observacion
+        SMALLINT id_tienda FK
+        MEDIUMINT id_empleado FK
+    }
+    intento_login {
+        BIGINT id_intento PK
+        CHAR dni
+        VARCHAR ip
+        DATETIME fecha_hora
+        CHAR exito
+    }
     movimiento_stock {
         BIGINT id_movimiento PK
         SMALLINT id_tienda FK
@@ -222,6 +239,7 @@ erDiagram
         BIGINT id_venta FK
         INT id_traslado FK
         INT id_merma FK
+        INT id_ajuste FK
         DECIMAL cantidad
         DECIMAL stock_nuevo
         DATETIME fecha_hora
@@ -264,6 +282,9 @@ erDiagram
     venta ||--o{ movimiento_stock : "origen_venta"
     traslado_mercaderia ||--o{ movimiento_stock : "origen_traslado"
     merma ||--o{ movimiento_stock : "origen_merma"
+    ajuste_inventario ||--o{ movimiento_stock : "origen_ajuste"
+    tienda ||--o{ ajuste_inventario : "cuenta"
+    empleado ||--o{ ajuste_inventario : "registra"
 ```
 
 ---
