@@ -29,7 +29,7 @@ require __DIR__ . '/../layout_inicio.php';
             <td><a href="/?ruta=cliente&amp;id=<?= $c->getIdCliente() ?>"><?= $c->getIdCliente() ?></a></td>
             <td><?= e($c->getDni() ?? '-') ?></td>
             <td><?= e($c->getRuc() ?? '-') ?></td>
-            <td class="num"><?= $fila['compras'] ?></td>
+            <td class="num"><?= (int) $fila['compras'] ?></td>
             <td class="num"><?= e(soles($fila['total'])) ?></td>
         </tr>
     <?php endforeach; ?>

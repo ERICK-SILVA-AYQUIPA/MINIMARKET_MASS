@@ -14,7 +14,7 @@ php -S localhost:8000 -t public         # déjalo abierto
 
 | URL | Qué muestra |
 |---|---|
-| http://localhost:8000 | Catálogo con stock de Mass Cayma |
+| http://localhost:8000 | Panel de inicio de la tienda del usuario (pide login) |
 | http://localhost:8000/?ruta=productos&tienda=3 | Catálogo con stock de Mass Yanahuara (la leche sale REPONER) |
 | http://localhost:8000/?ruta=producto&codigo=7750000000011 | Ficha de un producto por código de barras |
 | http://localhost:8000/?ruta=producto&id=8 | Ficha de un producto al peso (no tiene código de barras) |
@@ -24,6 +24,8 @@ php -S localhost:8000 -t public         # déjalo abierto
 | http://localhost:8000/?ruta=comprobante&serie=F001&numero=1 | Factura con pago mixto (tarjeta + efectivo) |
 | http://localhost:8000/?ruta=tiendas | Las 3 tiendas con cajas, series y personal |
 | /poo_producto.php · /poo_roles.php · /poo_repository.php · /poo_ventas.php | Páginas de prueba |
+
+Pruebas: `php tests/unitarios.php` (sin base) y `php tests/integracion.php` (con la base recién creada). En GitHub las corre `.github/workflows/ci.yml` en cada pull request.
 
 La lista completa de archivos está en `docs/explicacion_archivos.md`.
 

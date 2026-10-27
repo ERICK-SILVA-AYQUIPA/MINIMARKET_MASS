@@ -15,6 +15,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | URL | Qué muestra |
 |---|---|
+| `/?ruta=inicio` (o solo `/`) | Panel de la tienda: indicadores de hoy contra ayer, gráfico de 14 días, por reponer, cajas abiertas y últimos movimientos |
 | `/?ruta=productos&tienda=1` | Catálogo con el stock de la tienda elegida |
 | `/?ruta=producto&codigo=7750000000011` o `&id=8` | Ficha de un producto |
 | `/?ruta=stock` | Stock de cada producto en las 3 tiendas, con REPONER |
@@ -94,6 +95,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `IntentoLoginRepository.php` | Cuenta las claves erradas recientes y dice si el DNI o la IP deben esperar. |
 | `Paginacion.php` | Calcula la página, el `LIMIT` y el `OFFSET` de una lista larga. |
 | `Clave.php` | Regla de la clave (8 a 72 caracteres, letras y números) y su hash. |
+| `PanelRepository.php` | Indicadores del panel: productos por reponer, turnos abiertos con lo cobrado y ventas de los últimos 14 días. |
 
 ## controllers/ (C · coordina)
 
@@ -109,13 +111,15 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `EmpleadoController.php` | Personal de la tienda del administrador. |
 | `ClienteController.php` | Lista paginada, búsqueda por documento, compras del cliente. |
 | `ReporteController.php` | Reportes en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. |
+| `PanelController.php` | Panel de inicio de la tienda del usuario: hoy contra ayer, gráfico, por reponer, cajas abiertas y kardex reciente. |
 
 ## views/ (V · muestra)
 
 | Archivo | Qué hace |
 |---|---|
-| `layout_inicio.php` | Cabecera HTML, menú y estilos comunes. Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS) y `soles()` (formato S/ 0.00). |
-| `layout_fin.php` | Cierra el HTML que abrió el layout de inicio. |
+| `layout_inicio.php` | Cabecera HTML, menú (resalta la página actual y muestra solo lo que el rol puede usar) y estilos comunes, también para celular e impresión. Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS) y `soles()` (formato S/ 0.00). |
+| `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
+| `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
 | `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Solo muestra. |
 | `productos/detalle.php` | Ficha de un producto: precio, forma de venta, importe de ejemplo y stock en la tienda. |
 | `productos/stock.php` | Tabla producto × tienda con el mínimo y REPONER. |
@@ -149,6 +153,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `poo_roles.php` | Prueba del paso 2: tres empleados de Cayma. El mismo método `puedeAnularVenta()` responde distinto según la clase (polimorfismo). |
 | `poo_ventas.php` | Prueba de ventas y pagos: la factura F001-1 cuadra con sus dos pagos y no con uno solo, y cinco datos inválidos se rechazan. |
 | `poo_repository.php` | Prueba del paso 3: busca un código que existe y uno que no (`null`), y lista lo que hay que reponer. |
+
+## tests/ y .github/ (revisión automática)
+
+| Archivo | Qué hace |
+|---|---|
+| `tests/unitarios.php` | 51 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol. |
+| `tests/integracion.php` | 91 comprobaciones contra MySQL: ventas, anulaciones, inventario, caja, mantenimiento, reportes y las consultas 20 a 28 en 0 filas. |
+| `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar
 

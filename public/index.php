@@ -16,6 +16,7 @@ require __DIR__ . '/../controllers/CajaController.php';
 require __DIR__ . '/../controllers/EmpleadoController.php';
 require __DIR__ . '/../controllers/ClienteController.php';
 require __DIR__ . '/../controllers/ReporteController.php';
+require __DIR__ . '/../controllers/PanelController.php';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
@@ -69,6 +70,8 @@ $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $emple
 $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
+$panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
+    $productos, $catalogo);
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
 $leer = static function (string $clave): ?string {
@@ -77,7 +80,7 @@ $leer = static function (string $clave): ?string {
 };
 
 $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-$ruta = $leer('ruta') ?? 'productos';
+$ruta = $leer('ruta') ?? 'inicio';
 
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
 $rutasPost = [
@@ -131,12 +134,16 @@ try {
     } elseif ($ruta === 'login' && $usuario === null) {
         $auth->formulario();
     } elseif ($ruta === 'login') {
-        header('Location: /?ruta=productos', true, 303);
+        header('Location: /?ruta=inicio', true, 303);
     } elseif ($usuario === null) {
         // Todo lo demas necesita haber entrado
         header('Location: /?ruta=login', true, 303);
     } else {
         switch ($ruta) {
+            case 'inicio':
+                $panelController->inicio();
+                break;
+
             case 'productos':
                 $productoController->lista($leer('tienda'));
                 break;

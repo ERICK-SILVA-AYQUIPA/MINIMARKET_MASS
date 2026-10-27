@@ -6,5 +6,5 @@ require __DIR__ . '/../layout_inicio.php';
 ?>
 <h1>403 · Sin permiso</h1>
 <p><?= e($mensaje) ?></p>
-<p><a href="/?ruta=productos">Ir al catálogo</a></p>
+<p><a href="/?ruta=inicio">Volver al inicio</a></p>
 <?php require __DIR__ . '/../layout_fin.php'; ?>
