@@ -43,7 +43,8 @@ require __DIR__ . '/../layout_inicio.php';
         $origen = match (true) {
             $m->getIdVenta() !== null    => 'Venta ' . $m->getIdVenta(),
             $m->getIdTraslado() !== null => 'Traslado ' . $m->getIdTraslado(),
-            default                      => 'Merma ' . $m->getIdMerma(),
+            $m->getIdMerma() !== null    => 'Merma ' . $m->getIdMerma(),
+            default                      => 'Ajuste ' . $m->getIdAjuste(),
         };
         ?>
         <tr>

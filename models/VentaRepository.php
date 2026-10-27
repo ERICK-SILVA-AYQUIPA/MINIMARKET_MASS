@@ -67,23 +67,6 @@ class VentaRepository
     }
 
     /**
-     * Ventas de una tienda: la tienda sale de la serie del comprobante.
-     * @return Venta[]
-     */
-    public function ventasDeTienda(int $idTienda): array
-    {
-        $consulta = $this->db->prepare(
-            'SELECT ' . self::COLUMNAS_VENTA . '
-               FROM venta v
-               JOIN serie_comprobante s ON s.id_serie = v.id_serie
-              WHERE s.id_tienda = :tienda
-              ORDER BY v.fecha_hora, v.id_venta'
-        );
-        $consulta->execute(['tienda' => $idTienda]);
-        return array_map(fn(array $fila): Venta => $this->crearVenta($fila), $consulta->fetchAll());
-    }
-
-    /**
      * Una pagina de ventas de una tienda, de la mas reciente a la mas antigua.
      * @param array{desde?: ?string, hasta?: ?string, estado?: ?string} $filtro fechas AAAA-MM-DD ya validadas
      * @return Venta[]

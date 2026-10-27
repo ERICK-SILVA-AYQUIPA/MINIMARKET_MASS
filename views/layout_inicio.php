@@ -84,6 +84,7 @@ if (!function_exists('e')) {
             <?php if ($usuarioActual->puedeManejarCaja() || $usuarioActual->puedeVerArqueo($usuarioActual->getIdTienda())): ?><a href="/?ruta=caja">Caja</a><?php endif; ?>
             <a href="/?ruta=traslados">Traslados</a>
             <a href="/?ruta=mermas">Mermas</a>
+            <?php if ($usuarioActual->puedeAjustarStock($usuarioActual->getIdTienda())): ?><a href="/?ruta=ajustes">Conteo</a><?php endif; ?>
             <a href="/?ruta=kardex">Kardex</a>
             <a href="/?ruta=tiendas">Tiendas</a>
             <?php if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($usuarioActual->getIdTienda())): ?><a href="/?ruta=clientes">Clientes</a><?php endif; ?>

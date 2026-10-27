@@ -10,6 +10,8 @@ final class TipoMovimiento
     public const TRASLADO_SALIDA = 3;
     public const TRASLADO_ENTRADA = 4;
     public const MERMA = 5;
+    public const AJUSTE_ENTRADA = 6;   // ajustes.sql
+    public const AJUSTE_SALIDA = 7;
 
     public function __construct(
         private int $idTipoMovimiento,      // id_tipo_movimiento TINYINT UNSIGNED

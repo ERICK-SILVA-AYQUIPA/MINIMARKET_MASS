@@ -10,7 +10,7 @@ require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/InventarioServicio.php';
 
 /**
- * C: kardex, traslados entre tiendas y mermas.
+ * C: kardex, traslados entre tiendas, mermas y ajustes por conteo fisico.
  */
 class InventarioController extends Controller
 {
@@ -131,6 +131,53 @@ class InventarioController extends Controller
             return;
         }
         $this->redirigir('/?ruta=mermas&tienda=' . $this->usuario->getIdTienda(), "Merma $id registrada.");
+    }
+
+    // GET /?ruta=ajustes&tienda=1: conteo fisico y ajustes hechos
+    public function ajustes(?string $tiendaPedida, array $viejo = [], ?string $error = null): void
+    {
+        $tienda = $this->leerTienda($tiendaPedida);
+        $tiendas = $this->tiendas->todas();
+        $rutaSelector = 'ajustes';
+        $productos = $this->productosPorId();
+        $nombresEmpleado = $this->nombresEmpleado();
+        $motivos = AjusteInventario::MOTIVOS;
+        $puedeRegistrar = $this->usuario?->puedeAjustarStock($tienda->getIdTienda()) === true;
+
+        // Para la hoja de conteo: lo que dice el sistema de cada producto en esta tienda
+        $stocks = [];
+        foreach ($productos as $id => $producto) {
+            $stocks[$id] = $this->productos->stockEnTienda($id, $tienda->getIdTienda());
+        }
+        $filas = [];
+        foreach ($this->inventario->ajustesDeTienda($tienda->getIdTienda()) as $ajuste) {
+            $filas[] = ['ajuste' => $ajuste, 'movimientos' => $this->inventario->movimientosDeAjuste($ajuste->getIdAjuste())];
+        }
+        $tipos = $this->catalogo->tiposMovimiento();
+        $this->vista('inventario/ajustes', get_defined_vars());
+    }
+
+    // POST /?ruta=ajuste_registrar
+    public function registrarAjuste(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeAjustarStock($this->usuario->getIdTienda())) {
+            $this->prohibido('Solo el almacenero o el administrador de la tienda ajustan su stock.');
+            return;
+        }
+        try {
+            $r = $this->servicio->ajustarPorConteo(
+                $this->usuario,
+                $this->campo($post, 'motivo'),
+                $this->campo($post, 'observacion'),
+                $this->lineasDelFormulario($post)
+            );
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->ajustes((string) $this->usuario->getIdTienda(), $post, $ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=ajustes&tienda=' . $this->usuario->getIdTienda(),
+            sprintf('Ajuste %d registrado: %d producto(s) corregido(s).', $r['idAjuste'], $r['cambios']));
     }
 
     /** @return array<int, Producto> */
