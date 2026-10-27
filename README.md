@@ -16,6 +16,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
 - **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
 - **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
 - **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`docs/informe_tecnico.md`**: Informe técnico académico completo del proyecto (análisis del negocio, 5 diagramas UML, justificación de diseño 3FN, diccionario de datos, reglas de negocio y conclusiones).
@@ -80,6 +81,10 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 | **RN-08: Origen Único de Kardex** | Cada movimiento de inventario procede de exactamente una fuente (venta, traslado o merma). | `CHECK ((id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) = 1)` en `movimiento_stock`. |
 | **RN-09: Medios de Pago Oficiales** | Tienda Mass opera exclusivamente con Efectivo, Tarjeta y Billetera Digital Sip. | Subtipos relacionales `efectivo`, `tarjeta` y `billetera_digital_sip` vinculados a `pago_venta`. |
 | **RN-10: Vuelto en Efectivo** | El vuelto entregado no puede ser negativo ni igual o superior al dinero recibido. | `CHECK (vuelto >= 0 AND vuelto < monto_recibido)` en `efectivo`. |
+| **RN-11: Ajuste por Conteo** | Lo contado reemplaza al stock del sistema y la diferencia queda en el kardex como un cuarto origen. | Tabla `ajuste_inventario` y `CHECK` de RN-08 ampliado a 4 orígenes (`database/ajustes.sql`). |
+| **RN-12: Permisos por Rol** | Cajero vende y maneja su caja; almacenero traslada, registra mermas y cuenta; administrador anula, ve reportes y maneja personal, catálogo, tienda y cajas. | Métodos `puede...()` de `Usuario` y sus hijas, revisados en el controlador y otra vez en el servicio. |
+| **RN-13: Tienda Inactiva** | En una tienda o caja INACTIVA no se abre turno ni se vende, y no recibe traslados. No se desactiva con turnos abiertos. | `models/servicios/` (`CajaServicio`, `VentaServicio`, `InventarioServicio`, `TiendaServicio`). |
+| **RN-14: Series sin Huecos** | Cada tienda nueva recibe la siguiente serie libre de la cadena (B004, F004...) y el correlativo solo avanza con cada venta. | `TiendaServicio::abrir()` y `SELECT ... FOR UPDATE` de la serie en `VentaServicio`. |
 
 ---
 
@@ -99,7 +104,14 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/consultas.sql"
 
 # 4. Probar vista y emisión de boleta formateada
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
+
+# 5. Lo que agrega la aplicación PHP (en este orden): login, intentos de ingreso y ajuste por conteo
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/login.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/seguridad.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ajustes.sql"
 ```
+
+El diseño base son 26 tablas. La aplicación agrega 2 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`) y `ajuste_inventario` (`ajustes.sql`). Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 
@@ -111,7 +123,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql y seguridad.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql y ajustes.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -189,15 +201,18 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 | `?ruta=clientes` | Cajero y administrador: buscar clientes por DNI o RUC, ver sus compras y completar el documento que falta |
 | `?ruta=reportes` | Administrador: vendido, ticket promedio, ventas por día, más vendidos, por categoría, cajero y método de pago, con descarga CSV |
 | `?ruta=mi_clave` | Cada empleado cambia su propia clave |
+| `?ruta=ajustes` | Almacenero o administrador: hoja de conteo físico; lo contado reemplaza al stock y la diferencia va al kardex |
+| `?ruta=tienda_editar` | Administrador: datos y estado de su tienda, agregar y activar o desactivar cajas, ver sus series |
+| `?ruta=tienda_nueva` | Administrador: abrir una tienda con su caja 1, sus series, stock en 0 y su primer administrador |
 
 Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`).
 
-**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` agrega la tabla `intento_login` y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 72 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 91 comprobaciones; solo con la base recién creada
 ```
 
 ---

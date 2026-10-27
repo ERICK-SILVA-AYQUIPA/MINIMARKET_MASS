@@ -73,6 +73,12 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
 - **SEGURIDAD:** permisos nuevos en `Usuario` (`puedeAdministrarCatalogo()`, `puedeAdministrarTienda()`); bloqueo de 15 minutos tras 5 claves erradas por DNI o 20 por IP; sesión que vence a los 30 minutos sin uso; claves de 8 a 72 caracteres con letras y números; cabecera `Content-Security-Policy` sin scripts; el CSV antepone `'` a un texto que empieza con `=`, `+`, `-` o `@` (Excel no lo ejecuta como fórmula).
 - **Prueba:** `php tests/integracion.php` con la base recién creada: 72 correctas, 0 fallas.
 
+### Paso 11 · Conteo físico, tiendas y cajas (27/10/2026)
+- **OBJETIVO:** Cerrar lo pendiente sin proveedores: ajustar el stock con un conteo físico y mantener tiendas, cajas, series y distritos.
+- **ENTRADAS Y SALIDAS:** `database/ajustes.sql` (migración); `InventarioServicio::ajustarPorConteo()` recibe lo contado por producto (vacío = no contado, 0 = no hay) y devuelve el id del ajuste y cuántos productos cambiaron. `TiendaServicio` abre una tienda con su caja 1, sus series, stock en 0 y su administrador; edita la tienda propia; agrega y activa o desactiva cajas; agrega distritos.
+- **SEGURIDAD:** permisos `puedeAjustarStock()` (almacenero o administrador de esa tienda) y `puedeAbrirTiendas()` (administrador). Las filas de stock se bloquean en orden de producto, como en las ventas. Las series nuevas se calculan con `FOR UPDATE` sobre toda la cadena.
+- **Prueba:** `php tests/integracion.php` con la base recién creada: 91 correctas, 0 fallas.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -108,12 +114,17 @@ Revisados el 25/10/2026 contra los .sql del repositorio.
 | La forma de venta (al peso o por unidad) no se cambia al editar | El stock y las ventas guardadas dependen de ella | ☑ |
 | Del cliente solo se completa el documento que falta | `vw_comprobante` lee el documento en vivo: cambiarlo cambiaría comprobantes pasados | ☑ |
 | El administrador no cambia su propio rol ni se desactiva | Así la tienda nunca se queda sin administrador | ☑ |
+| El ajuste es una tabla nueva con su propio origen en el kardex, no una merma | Una merma solo resta; un conteo puede sumar o restar. Se agrega con migración (`ajustes.sql`) sin tocar `schema.sql` **[Grupo]** | ☑ |
+| Cualquier administrador abre una tienda nueva, que nace con su propio administrador | No hay un rol de gerente de la cadena en `rol` **[Grupo]** | ☑ |
+| La serie nueva es la siguiente libre de toda la cadena (B004, F004) | `datos.sql` ya usa B001 a B003 sin repetir entre tiendas | ☑ |
+| Una tienda INACTIVA no vende, no abre caja y no recibe traslados, pero sí puede enviar su mercadería | Al cerrar una tienda hay que sacar su stock | ☑ |
 
 ## Qué corregimos del código generado
 
 - 24/10/2026: el mensaje de commit pasaba de 70 caracteres; se acortó a `feat: agregar estructura MVC de la sesion 4`.
 - 25/10/2026, auditoría (abajo): no hubo hallazgos reales, así que el código PHP no cambió.
 - 25/10/2026, paso 8: los Repository dejaron las listas fijas y ahora usan PDO. Reciben la conexión en el constructor, así que `index.php`, `poo_repository.php` y `poo_ventas.php` se ajustaron para pasarla. Ningún controlador ni vista existente cambió; solo se agregó la vista `errores/500.php`.
+- 27/10/2026, paso 11: la prueba de "no se desactiva una caja con turno abierto" usaba la caja 2, pero el turno abierto de Luis está en la caja 1 (`datos.sql`); se corrigió la prueba, no el código. Se quitó `VentaRepository::ventasDeTienda()`, que ya nadie usaba desde la paginación.
 - 26/10/2026, paso 10: `producto.estado` era `VARCHAR(10)` pero `'DESCONTINUADO'` tiene 13 letras, así que nunca se podía descontinuar un producto (MySQL respondía "Data too long"). Se cambió a `VARCHAR(13)` en `schema.sql` y en `diseno_bd.md`. La prueba del reporte comparaba solo el 17/10; el total de S/ 323.00 es del 17 al 19/10.
 - 26/10/2026, paso 9: `Catalogo.php` tenía varias clases en un archivo; se separó en una clase por archivo como pide la guía. El layout se podía incluir dos veces y redeclarar `e()`; se protegió con `function_exists`. La prueba fallaba al correrla dos veces (código Sip repetido); ahora se detiene si la base no está recién creada.
 - 25/10/2026, paso 7: el `ProductoController` ya no recibe las tiendas de `ProductoRepository`, ahora vienen de `TiendaRepository`. `poo_repository.php` se ajustó a ese cambio.
@@ -140,16 +151,18 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
+Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos.
+
 **[Grupo]** decidan si se agregan:
-- **Ingreso de mercadería de proveedores:** quedó fuera por decisión del grupo. El esquema no tiene proveedor ni compra, y `movimiento_stock` solo acepta venta, traslado o merma como origen. Por eso un producto nuevo queda en stock 0.
-- **Ajuste de inventario** (conteo físico que corrige el stock): tampoco tiene tipo de movimiento ni origen en el diseño.
-- Mantenimiento de tiendas, cajas y series (hoy se cargan con `datos.sql`).
+- **Ingreso de mercadería de proveedores:** quedó fuera por decisión del grupo. Mientras tanto, un producto nuevo entra a una tienda con un **conteo físico** (motivo CONTEO_FISICO).
+- Actualizar `docs/informe_tecnico.md` y el diagrama ER con las 2 tablas de apoyo (`intento_login`, `ajuste_inventario`), si el docente pide el informe al día.
 
 ## Verificación
 
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 27/10/2026, paso 11: con Rosa, tiendas, mi tienda, tienda nueva y conteo responden 200. Un conteo con texto da 422; uno válido aparece en el kardex como "Ajuste". Un teléfono con letras da 422. Rosa agrega una caja, un distrito y abre "Mass Socabaya" con B005/F005; su administradora entra y ve sus series. Luis recibe 403 en mi tienda, tienda nueva, agregar caja y conteo; Carmen ve la hoja de conteo con los 13 productos. Consultas 20 a 28 en 0 filas.
 - 26/10/2026, paso 10: con Rosa, las 19 pantallas nuevas o cambiadas responden 200 (empleado de otra tienda 404). Crear un producto sin código da 422 y el nombre con `<b>` sale escapado. Luis recibe 403 en personal, reportes, CSV y formulario de producto, y su POST de producto o empleado da 403. Carmen recibe 403 en clientes. Un cajero nuevo entra y cambia su clave. Al sexto intento con clave errada el login responde 429. El CSV abre con tildes. Consultas 20 a 28 en 0 filas y `tests/integracion.php` 72 correctas, 0 fallas.
 - 26/10/2026, paso 9: sin sesión toda pantalla lleva al login; clave errada 401; POST sin token 403. Luis vende B001-7 y una venta sin stock responde 422 sin guardar nada. Luis no puede trasladar (403) ni anular; Rosa anula B001-7 y el stock vuelve. Carmen traslada y registra una merma; no puede abrir caja (403). Miguel abre y cierra su turno. Las consultas 20 a 28 siguen en 0 filas y `tests/integracion.php` da 40 correctas, 0 fallas.
 - 25/10/2026, paso 8, contra MySQL 8.4.11 en Docker: las mismas pantallas responden 200 y dan los mismos resultados (14 comprobantes cuadran, S/ 323.00, 2 casos REPONER). Al cambiar un stock en MySQL, la página lo refleja al instante. `' OR 1=1--` en la serie y en el código devuelve 404, y llamado directo al Repository devuelve `null`. Con el contenedor detenido, la página responde 503 sin mostrar usuario ni host.
