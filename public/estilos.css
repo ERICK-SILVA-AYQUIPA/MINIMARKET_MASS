@@ -5,6 +5,11 @@
    ===================================================================== */
 
 /* ---------- 1. Tokens ---------- */
+/* Letra de los titulos: Outfit (licencia OFL), guardada en el propio sitio */
+@font-face {
+    font-family: "Outfit"; font-style: normal; font-weight: 400 800; font-display: swap;
+    src: url("/fuentes/outfit.woff2") format("woff2");
+}
 :root {
     /* Marca */
     --marca: #ffd200;
@@ -32,11 +37,13 @@
     --foco: #1d4ed8;
     /* Espacios, radios y sombras */
     --e1: 4px; --e2: 8px; --e3: 12px; --e4: 16px; --e5: 24px; --e6: 32px;
-    --radio: 10px; --radio-chico: 6px;
+    --radio: 12px; --radio-chico: 8px;
     --sombra: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
     --sombra-alta: 0 12px 32px rgba(16, 24, 40, .18);
     --ancho-lateral: 248px;
     --alto-control: 40px;
+    --titulos: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --brillo: 0 8px 24px rgba(255, 196, 0, .35);
     --letra: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -47,8 +54,8 @@ body {
     margin: 0; font-family: var(--letra); font-size: 15px; line-height: 1.5;
     color: var(--texto); background: var(--fondo); min-height: 100vh;
 }
-h1, h2, h3 { color: var(--tinta); line-height: 1.25; }
-h1 { font-size: 1.6rem; margin: 0; }
+h1, h2, h3 { color: var(--tinta); line-height: 1.25; font-family: var(--titulos); }
+h1 { font-size: 1.75rem; margin: 0; letter-spacing: -.01em; }
 h2 { font-size: 1.15rem; margin: var(--e5) 0 var(--e3); }
 h3 { font-size: 1rem; margin: var(--e4) 0 var(--e2); }
 p { margin: var(--e2) 0; }
@@ -84,16 +91,18 @@ td.recortado { max-width: 360px; overflow: hidden; text-overflow: ellipsis; whit
 /* ---------- 3. Estructura: menú lateral + contenido ---------- */
 .app { display: flex; min-height: 100vh; }
 .lateral {
-    width: var(--ancho-lateral); flex: none; background: var(--lateral); color: var(--lateral-texto);
+    width: var(--ancho-lateral); flex: none; color: var(--lateral-texto);
+    background: radial-gradient(260px 200px at 0 0, rgba(255, 210, 0, .1), transparent 70%), linear-gradient(180deg, var(--lateral), #0e151d);
     display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 .lateral .marca {
     display: flex; align-items: center; gap: var(--e2); padding: var(--e4) var(--e4) var(--e3);
-    color: #fff; text-decoration: none; font-weight: 800; font-size: 1.1rem; letter-spacing: .2px;
+    color: #fff; text-decoration: none; font-weight: 700; font-size: 1.15rem; letter-spacing: .2px; font-family: var(--titulos);
 }
 .logo {
     display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
-    background: var(--marca); color: var(--tinta); font-weight: 900; font-size: 1rem;
+    background: linear-gradient(135deg, #ffe14d, var(--marca) 55%, #ffb800); color: var(--tinta);
+    font-family: var(--titulos); font-weight: 800; font-size: 1.05rem; box-shadow: 0 4px 14px rgba(255, 196, 0, .3);
 }
 .lateral .tienda-actual {
     margin: 0 var(--e4) var(--e3); padding: var(--e2) var(--e3); border-radius: var(--radio-chico);
@@ -108,7 +117,8 @@ td.recortado { max-width: 360px; overflow: hidden; text-overflow: ellipsis; whit
     border-radius: var(--radio-chico); color: var(--lateral-texto); text-decoration: none; font-weight: 500;
 }
 .lateral nav a:hover { background: rgba(255, 255, 255, .08); color: #fff; }
-.lateral nav a.activo { background: var(--marca); color: var(--tinta); font-weight: 700; }
+.lateral nav a { transition: background-color .15s, color .15s; }
+.lateral nav a.activo { background: linear-gradient(135deg, #ffe14d, var(--marca) 60%, #ffc400); color: var(--tinta); font-weight: 700; box-shadow: 0 6px 18px rgba(255, 196, 0, .25); }
 .lateral .usuario {
     border-top: 1px solid rgba(255, 255, 255, .1); padding: var(--e3) var(--e4) var(--e4); font-size: .85rem;
 }
@@ -192,7 +202,9 @@ nav.tiendas strong { background: var(--tinta); border-color: var(--tinta); color
 }
 .tarjetas > div::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--marca); }
 .tarjetas span { color: var(--suave); font-size: .85rem; }
-.tarjetas strong { display: block; font-size: 1.55rem; color: var(--tinta); margin: 2px 0; font-variant-numeric: tabular-nums; }
+.tarjetas > div { transition: transform .2s, box-shadow .2s; }
+.tarjetas > div:hover { transform: translateY(-2px); box-shadow: var(--sombra-alta); }
+.tarjetas strong { display: block; font-family: var(--titulos); font-size: 1.65rem; color: var(--tinta); margin: 2px 0; font-variant-numeric: tabular-nums; }
 .tarjetas small { color: var(--suave); }
 
 /* Lista de datos (ficha): etiqueta a la izquierda, valor a la derecha */
@@ -265,12 +277,12 @@ button, a.boton, .boton {
     min-height: var(--alto-control); padding: 0 16px; border-radius: var(--radio-chico);
     border: 1px solid var(--tinta); background: var(--tinta); color: #fff;
     font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap;
-    transition: background-color .15s, border-color .15s, box-shadow .15s;
+    transition: background-color .15s, border-color .15s, box-shadow .2s, transform .15s;
 }
 button:hover, a.boton:hover { background: #2a3746; border-color: #2a3746; }
 button:active, a.boton:active { transform: translateY(1px); }
-.boton.acento, button.acento { background: var(--marca); border-color: var(--marca-fuerte); color: var(--tinta); }
-.boton.acento:hover, button.acento:hover { background: var(--marca-fuerte); }
+.boton.acento, button.acento { background: linear-gradient(135deg, #ffe14d, var(--marca) 55%, #ffc400); border-color: var(--marca-fuerte); color: var(--tinta); }
+.boton.acento:hover, button.acento:hover { background: linear-gradient(135deg, #ffe14d, var(--marca-fuerte)); box-shadow: var(--brillo); transform: translateY(-1px); }
 .boton.secundario, button.secundario { background: var(--superficie); color: var(--tinta); border-color: var(--borde-fuerte); }
 .boton.secundario:hover, button.secundario:hover { background: var(--superficie-2); border-color: var(--tinta); }
 button.peligro, .boton.peligro { background: var(--rojo); border-color: var(--rojo); }
@@ -368,8 +380,8 @@ body:has(.drawer:target), body:has(.drawer.abierto) { overflow: hidden; }
 /* ---------- 13. Panel de inicio: gráfico de barras ---------- */
 .grafico { display: flex; align-items: flex-end; gap: 4px; height: 180px; padding-top: var(--e2); border-bottom: 1px solid var(--borde); }
 .grafico .barra { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
-.grafico .barra span { display: block; width: 100%; min-height: 2px; background: var(--tinta); border-radius: 4px 4px 0 0; }
-.grafico .barra:hover span { background: var(--marca-fuerte); }
+.grafico .barra span { display: block; width: 100%; min-height: 2px; background: linear-gradient(180deg, #2f4256, var(--tinta)); border-radius: 6px 6px 0 0; transition: background .15s; }
+.grafico .barra:hover span { background: linear-gradient(180deg, #ffe14d, var(--marca-fuerte)); }
 .grafico .barra small { font-size: .7rem; color: var(--suave); margin-top: 2px; }
 
 /* ---------- 14. Venta en caja ---------- */
@@ -429,14 +441,153 @@ button.cargando { opacity: .75; cursor: progress; }
 button.cargando .icono { animation: girar 1s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 
-/* ---------- 15. Ingreso al sistema ---------- */
+/* ---------- 15. Bienvenida del inicio y pantalla de entrada ---------- */
+/* Cabecera del panel de inicio: franja oscura con brillo de la marca */
+.cabecera.bienvenida {
+    position: relative; overflow: hidden; align-items: center; padding: var(--e6) var(--e6) var(--e5);
+    border-radius: 18px; color: #e6ebf1; box-shadow: var(--sombra-alta);
+    background:
+        radial-gradient(420px 260px at 92% 0, rgba(255, 210, 0, .22), transparent 70%),
+        radial-gradient(360px 220px at 0 120%, rgba(255, 150, 0, .14), transparent 70%),
+        linear-gradient(135deg, #1b2733, #0e151d);
+}
+.cabecera.bienvenida::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px);
+    background-size: 40px 40px; -webkit-mask-image: linear-gradient(90deg, transparent, #000 60%); mask-image: linear-gradient(90deg, transparent, #000 60%);
+}
+.cabecera.bienvenida > * { position: relative; }
+.cabecera.bienvenida h1 { color: #fff; font-size: clamp(1.7rem, 3.2vw, 2.4rem); }
+.cabecera.bienvenida h1 .resalte { color: var(--marca); }
+.cabecera.bienvenida .sutil { color: #aab6c4; }
+.cabecera.bienvenida .boton.secundario { background: rgba(255, 255, 255, .08); color: #fff; border-color: rgba(255, 255, 255, .22); }
+.cabecera.bienvenida .boton.secundario:hover { background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .4); }
+
+/* Pantalla de entrada (login): fondo oscuro, rejilla suave y brillos amarillos */
 body.acceso { background: linear-gradient(160deg, var(--lateral) 0 45%, var(--fondo) 45% 100%); }
 .acceso main { max-width: 420px; padding-top: 8vh; }
-.acceso .marca-acceso { display: flex; align-items: center; gap: var(--e3); color: #fff; font-size: 1.4rem; font-weight: 800; margin-bottom: var(--e4); }
-.acceso .marca-acceso .logo { width: 44px; height: 44px; font-size: 1.2rem; }
+.acceso .marca-acceso { display: flex; align-items: center; gap: var(--e3); color: #fff; font-family: var(--titulos); font-size: 1.4rem; font-weight: 700; margin-bottom: var(--e4); }
+.acceso .marca-acceso .logo { width: 44px; height: 44px; font-size: 1.25rem; }
 .acceso .panel { padding: var(--e6); box-shadow: var(--sombra-alta); }
 .acceso .panel h1 { font-size: 1.35rem; }
 .acceso button { width: 100%; }
+
+body.entrada-pagina {
+    color: #e6ebf1; overflow-x: hidden;
+    background:
+        radial-gradient(900px 600px at 88% 8%, rgba(255, 210, 0, .14), transparent 60%),
+        radial-gradient(700px 520px at 0 100%, rgba(255, 140, 0, .1), transparent 60%),
+        linear-gradient(160deg, #16202b, #0a1016 70%);
+    background-attachment: fixed;
+}
+body.entrada-pagina::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 25%, transparent 75%); mask-image: radial-gradient(ellipse at 50% 40%, #000 25%, transparent 75%);
+}
+body.entrada-pagina::after {
+    content: ""; position: fixed; width: 420px; height: 420px; right: -120px; top: 30%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(255, 210, 0, .18), transparent 65%); filter: blur(20px);
+    animation: flotar 9s ease-in-out infinite alternate;
+}
+.entrada-pagina .app, .entrada-pagina main { position: relative; z-index: 1; }
+.entrada-pagina main { max-width: 1160px; padding-top: clamp(24px, 6vh, 64px); }
+.entrada-pagina footer.pie { color: #66727f; position: relative; z-index: 1; }
+
+.entrada {
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, 420px);
+    gap: clamp(32px, 6vw, 88px); align-items: center; min-height: calc(100vh - 170px);
+}
+.entrada-insignia {
+    display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(255, 210, 0, .35); background: rgba(255, 210, 0, .08); color: #ffe27a;
+    font-size: .74rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+}
+.entrada-insignia .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--marca); box-shadow: 0 0 0 0 rgba(255, 210, 0, .6); animation: latido 2s infinite; }
+.entrada-titulo {
+    font-family: var(--titulos); font-weight: 800; font-size: clamp(2.3rem, 5.4vw, 4.3rem); line-height: 1.04;
+    letter-spacing: -.025em; color: #fff; margin: 22px 0 18px;
+}
+.entrada-titulo em { font-style: normal; color: transparent; -webkit-text-stroke: 1.6px var(--marca); }
+.entrada-titulo .resalte, .splash-marca b, .marca-acceso b {
+    background: linear-gradient(90deg, #ffe14d, var(--marca) 45%, #ff9f1c); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.entrada-texto { color: #aab6c4; font-size: 1.05rem; max-width: 52ch; margin: 0 0 28px; }
+.entrada-puntos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 640px; }
+.entrada-puntos li {
+    display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 14px;
+    background: rgba(255, 255, 255, .045); border: 1px solid rgba(255, 255, 255, .09); color: #aab6c4; font-size: .85rem; line-height: 1.4;
+    transition: transform .2s, border-color .2s, background-color .2s;
+}
+.entrada-puntos li:hover { transform: translateY(-3px); border-color: rgba(255, 210, 0, .35); background: rgba(255, 255, 255, .07); }
+.entrada-puntos .icono { width: 22px; height: 22px; color: var(--marca); }
+.entrada-puntos strong { display: block; color: #fff; font-family: var(--titulos); font-size: .98rem; }
+
+.entrada-tarjeta {
+    padding: var(--e6); border-radius: 20px; border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(20, 29, 39, .72); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+.entrada-tarjeta .marca-acceso { margin-bottom: var(--e5); font-size: 1.25rem; }
+.entrada-tarjeta .marca-acceso .logo { width: 42px; height: 42px; }
+.entrada-tarjeta h1 { color: #fff; font-size: 1.7rem; }
+.entrada-tarjeta .sutil { color: #aab6c4; margin-top: 4px; }
+.entrada-tarjeta form.formulario label { color: #dfe6ee; }
+.entrada-tarjeta form.formulario input:not([type=hidden]) {
+    background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .18); color: #fff; min-height: 46px; border-radius: 10px;
+}
+.entrada-tarjeta form.formulario input::placeholder { color: #7f8b99; }
+.entrada-tarjeta form.formulario input:hover { border-color: rgba(255, 255, 255, .35); }
+.entrada-tarjeta form.formulario input:focus-visible { border-color: var(--marca); outline: 3px solid rgba(255, 210, 0, .28); }
+.entrada-tarjeta input.campo-error, .entrada-tarjeta [aria-invalid=true] { background: rgba(180, 35, 24, .18) !important; border-color: #ff8a80 !important; }
+.entrada-tarjeta .error-campo { color: #ffb4ab; }
+.entrada-tarjeta .botones-formulario { margin-top: var(--e5); }
+.entrada-tarjeta button.acento { border-radius: 999px; box-shadow: var(--brillo); }
+.entrada-tarjeta button.acento:hover { box-shadow: 0 12px 32px rgba(255, 196, 0, .5); }
+.entrada-tarjeta :focus-visible { outline-color: var(--marca); }
+.entrada-ayuda { color: #7f8b99; font-size: .85rem; text-align: center; margin: var(--e4) 0 0; }
+
+/* Aparecen en orden; si hubo bienvenida, esperan a que se vaya */
+.entrada-hero > *, .entrada-tarjeta { animation: subir .7s cubic-bezier(.2, .7, .2, 1) both; }
+.entrada-hero > :nth-child(2) { animation-delay: .08s; }
+.entrada-hero > :nth-child(3) { animation-delay: .16s; }
+.entrada-hero > :nth-child(4) { animation-delay: .24s; }
+.entrada-tarjeta { animation-delay: .2s; }
+.entrada-splash ~ .entrada .entrada-hero > * { animation-delay: 1.75s; }
+.entrada-splash ~ .entrada .entrada-hero > :nth-child(2) { animation-delay: 1.83s; }
+.entrada-splash ~ .entrada .entrada-hero > :nth-child(3) { animation-delay: 1.91s; }
+.entrada-splash ~ .entrada .entrada-hero > :nth-child(4) { animation-delay: 1.99s; }
+.entrada-splash ~ .entrada .entrada-tarjeta { animation-delay: 1.95s; }
+
+/* Bienvenida: logo, lema y barra de carga; se va sola (solo CSS, no tapa nada sin animaciones) */
+.entrada-splash {
+    position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px;
+    background: radial-gradient(600px 400px at 50% 45%, rgba(255, 210, 0, .1), transparent 70%), #0a1016;
+    animation: splash-salir .55s ease 1.65s forwards;
+}
+.splash-marca {
+    display: flex; align-items: center; gap: 18px; color: #fff; font-family: var(--titulos); font-weight: 800;
+    font-size: clamp(2rem, 7vw, 3.8rem); letter-spacing: -.02em; animation: aparecer .8s cubic-bezier(.2, .7, .2, 1) both;
+}
+.splash-marca .logo { width: 1.4em; height: 1.4em; border-radius: .32em; font-size: 1em; box-shadow: 0 10px 40px rgba(255, 196, 0, .45); }
+.splash-lema { margin: 18px 0 22px; color: #8a97a6; font-size: .8rem; letter-spacing: .32em; text-transform: uppercase; text-align: center; animation: aparecer .8s .15s both; }
+.splash-barra { width: 220px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.splash-barra span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffe14d, #ff9f1c); animation: llenar 1.3s ease .25s forwards; }
+
+@keyframes subir { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes aparecer { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+@keyframes llenar { to { width: 100%; } }
+@keyframes splash-salir { to { opacity: 0; visibility: hidden; } }
+@keyframes latido { 70% { box-shadow: 0 0 0 10px rgba(255, 210, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 210, 0, 0); } }
+@keyframes flotar { from { transform: translate(0, 0); } to { transform: translate(-60px, -40px); } }
+
+@media (max-width: 900px) {
+    .entrada { grid-template-columns: minmax(0, 1fr); min-height: 0; gap: var(--e5); }
+    .entrada-titulo { margin: 16px 0 0; }
+    .entrada-texto, .entrada-puntos { display: none; }
+    .entrada-tarjeta { padding: var(--e5); }
+}
 
 /* ---------- 16. Celular ---------- */
 @media (max-width: 640px) {
@@ -446,6 +597,7 @@ body.acceso { background: linear-gradient(160deg, var(--lateral) 0 45%, var(--fo
     th, td { padding: 8px; }
     .drawer-cabecera, .drawer-cuerpo { padding-left: var(--e4); padding-right: var(--e4); }
     .cabecera .acciones { width: 100%; }
+    .cabecera.bienvenida { padding: var(--e5) var(--e4); border-radius: 14px; }
     dl.datos { grid-template-columns: 1fr; }
     dl.datos dt { border-bottom: 0; padding-bottom: 0; }
 }
@@ -453,6 +605,7 @@ body.acceso { background: linear-gradient(160deg, var(--lateral) 0 45%, var(--fo
 /* ---------- 17. Menos movimiento y para imprimir ---------- */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
+    .entrada-splash { display: none; }
 }
 @media print {
     .lateral, .barra-movil, footer, nav, form, .boton, .acciones, .drawer-fondo, .saltar { display: none !important; }

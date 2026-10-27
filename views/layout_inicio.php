@@ -8,6 +8,7 @@ declare(strict_types=1);
  * @var ?string $rutaActual  la ruta pedida, para resaltar el menu
  * @var ?string $anchoMain   'angosto' para formularios cortos
  * @var ?string $nombreTiendaActual  la tienda del usuario (la pone Controller::vista)
+ * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro y bienvenida
  */
 $usuarioActual ??= null;
 $csrf ??= null;
@@ -15,6 +16,9 @@ $aviso ??= null;
 $rutaActual ??= 'inicio'; // la opcion del menu que se resalta (solo se compara, no se imprime)
 $anchoMain ??= '';
 $nombreTiendaActual ??= '';
+$paginaEntrada ??= false;
+// Sin sesion (login y errores) el fondo cambia; el login ademas lleva la bienvenida
+$claseCuerpo = $usuarioActual !== null ? '' : ($paginaEntrada ? 'acceso entrada-pagina' : 'acceso');
 
 require_once __DIR__ . '/parciales/funciones.php';
 
@@ -56,10 +60,11 @@ if ($usuarioActual !== null) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
-    <link rel="stylesheet" href="/estilos.css?v=4">
+    <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="/estilos.css?v=5">
     <script src="/app.js?v=1" defer></script>
 </head>
-<body<?= $usuarioActual === null ? ' class="acceso"' : '' ?>>
+<body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
 <?php if ($usuarioActual !== null): ?>
 <input type="checkbox" id="menu-casilla" class="menu-casilla" aria-controls="menu-lateral" aria-label="Abrir el menú">
