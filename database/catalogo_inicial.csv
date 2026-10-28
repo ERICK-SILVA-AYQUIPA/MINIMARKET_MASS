@@ -1,0 +1,95 @@
+codigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso
+7750000000011;Leche evaporada Gloria entera 400 g;Lacteos;Gloria;und;4.50;N
+7750000000028;Arroz Costeno extra 1 kg;Abarrotes;Costeno;und;5.20;N
+7750000000035;Gaseosa Inca Kola 1.5 L;Bebidas;Inca Kola;und;6.50;N
+7750000000042;Aceite vegetal Primor 1 L;Abarrotes;Primor;und;10.50;N
+7750000000059;Atun Florida filete 170 g;Abarrotes;Florida;und;5.50;N
+7750000000066;Detergente Bolivar 800 g;Limpieza;Bolivar;und;9.90;N
+7750000000073;Fideos spaghetti Don Vittorio 500 g;Abarrotes;Don Vittorio;und;3.20;N
+;Papa blanca (por kg);Frutas y verduras;Sin marca;kg;2.50;S
+;Platano de seda (por kg);Frutas y verduras;Sin marca;kg;3.90;S
+7750000000080;Azucar rubia Costeno 1 kg;Abarrotes;Costeno;und;4.80;N
+7750000000097;Yogurt Gloria fresa 1 L;Lacteos;Gloria;und;7.90;N
+;Cebolla roja (por kg);Frutas y verduras;Sin marca;kg;3.20;S
+7759000000013;Arroz Paisana extra 5 kg;Abarrotes;Paisana;und;22.90;N
+7759000000014;Azucar blanca Cartavio 1 kg;Abarrotes;Cartavio;und;4.90;N
+7759000000015;Aceite vegetal Cocinero 900 ml;Abarrotes;Cocinero;und;9.50;N
+7759000000016;Aceite de girasol Primor 900 ml;Abarrotes;Primor;und;11.90;N
+7759000000017;Fideos tallarin Molitalia 500 g;Abarrotes;Molitalia;und;3.40;N
+7759000000018;Fideos canuto Lucchetti 500 g;Abarrotes;Lucchetti;und;3.30;N
+7759000000019;Fideos spaghetti Don Vittorio 1 kg;Abarrotes;Don Vittorio;und;6.20;N
+7759000000020;Atun Campomar trozos 170 g;Abarrotes;Campomar;und;4.90;N
+7759000000021;Atun Florida trozos en aceite 140 g;Abarrotes;Florida;und;5.20;N
+7759000000022;Lenteja Costeno 500 g;Abarrotes;Costeno;und;5.90;N
+7759000000023;Frejol canario Costeno 500 g;Abarrotes;Costeno;und;7.90;N
+7759000000024;Avena Quaker 900 g;Abarrotes;Quaker;und;9.90;N
+7759000000025;Sal de mesa Emsal 1 kg;Abarrotes;Emsal;und;1.80;N
+7759000000026;Mayonesa Alacena 400 g;Abarrotes;Alacena;und;9.90;N
+7759000000027;Ketchup Alacena 400 g;Abarrotes;Alacena;und;7.50;N
+7759000000028;Sillao Kikko 500 ml;Abarrotes;Kikko;und;4.50;N
+7759000000029;Sazonador Sibarita sobre 7 g;Abarrotes;Sibarita;und;0.60;N
+7759000000030;Cubito de gallina Maggi 8 und;Abarrotes;Maggi;und;2.50;N
+7759000000031;Harina preparada Blanca Flor 1 kg;Abarrotes;Blanca Flor;und;6.90;N
+7759000000032;Sopa instantanea Ajinomen gallina 85 g;Abarrotes;Ajinomen;und;1.70;N
+7759000000033;Leche evaporada Gloria light 400 g;Lacteos;Gloria;und;4.60;N
+7759000000034;Leche evaporada Laive 400 g;Lacteos;Laive;und;4.30;N
+7759000000035;Leche evaporada Ideal amanecer 395 g;Lacteos;Ideal;und;3.90;N
+7759000000036;Leche UHT Gloria entera 1 L;Lacteos;Gloria;und;5.90;N
+7759000000037;Leche UHT Laive sin lactosa 1 L;Lacteos;Laive;und;6.50;N
+7759000000038;Yogurt Laive bebible durazno 1 L;Lacteos;Laive;und;7.50;N
+7759000000039;Yogurt Gloria vainilla 1 L;Lacteos;Gloria;und;7.90;N
+7759000000040;Queso fresco Laive 400 g;Lacteos;Laive;und;13.90;N
+7759000000041;Mantequilla Gloria con sal 200 g;Lacteos;Gloria;und;8.90;N
+7759000000042;Queso edam Bonle tajado 200 g;Lacteos;Bonle;und;12.50;N
+7759000000043;Gaseosa Coca-Cola 1.5 L;Bebidas;Coca-Cola;und;6.50;N
+7759000000044;Gaseosa Coca-Cola sin azucar 500 ml;Bebidas;Coca-Cola;und;3.00;N
+7759000000045;Gaseosa Inca Kola 500 ml;Bebidas;Inca Kola;und;3.00;N
+7759000000046;Gaseosa Inca Kola 3 L;Bebidas;Inca Kola;und;11.90;N
+7759000000047;Gaseosa Guarana Backus 1.5 L;Bebidas;Guarana;und;4.90;N
+7759000000048;Agua San Luis sin gas 625 ml;Bebidas;San Luis;und;1.80;N
+7759000000049;Agua San Luis sin gas 2.5 L;Bebidas;San Luis;und;3.90;N
+7759000000050;Agua Cielo con gas 625 ml;Bebidas;Cielo;und;1.50;N
+7759000000051;Bebida Frugos del Valle durazno 1 L;Bebidas;Frugos;und;4.50;N
+7759000000052;Bebida Pulp durazno 315 ml;Bebidas;Pulp;und;1.50;N
+7759000000053;Rehidratante Sporade tropical 500 ml;Bebidas;Sporade;und;2.50;N
+7759000000054;Energizante Volt 300 ml;Bebidas;Volt;und;2.00;N
+7759000000055;Cafe instantaneo Nescafe Kirma 180 g;Desayuno;Nescafe;und;19.90;N
+7759000000056;Cafe Altomayo tostado molido 250 g;Desayuno;Altomayo;und;14.90;N
+7759000000057;Cocoa Winters 160 g;Desayuno;Winters;und;5.50;N
+7759000000058;Hojuelas Angel Zucaritas 300 g;Desayuno;Angel;und;8.90;N
+7759000000059;Infusion manzanilla McCollins 25 und;Desayuno;McCollins;und;3.50;N
+7759000000060;Mermelada Fanny fresa 320 g;Desayuno;Fanny;und;5.90;N
+7759000000061;Pan de molde Bimbo blanco 600 g;Desayuno;Bimbo;und;9.50;N
+;Pan frances (por kg);Desayuno;Sin marca;kg;8.00;S
+7759000000063;Galletas Soda Field 6 pack;Snacks y golosinas;Field;und;3.20;N
+7759000000064;Galletas Casino menta 6 pack;Snacks y golosinas;Casino;und;4.20;N
+7759000000065;Galletas Oreo 6 pack;Snacks y golosinas;Oreo;und;4.90;N
+7759000000066;Chocolate Sublime clasico 30 g;Snacks y golosinas;Sublime;und;1.80;N
+7759000000067;Chocolate Princesa 30 g;Snacks y golosinas;Princesa;und;1.50;N
+7759000000068;Papas fritas Lays clasicas 150 g;Snacks y golosinas;Lays;und;7.50;N
+7759000000069;Chifles Inka Chips 140 g;Snacks y golosinas;Inka Chips;und;5.90;N
+7759000000070;Caramelos Halls mentol 25 g;Snacks y golosinas;Halls;und;1.50;N
+7759000000071;Detergente Ariel 750 g;Limpieza;Ariel;und;12.90;N
+7759000000072;Detergente Opal ultra 900 g;Limpieza;Opal;und;8.90;N
+7759000000073;Lavavajilla Sapolio limon 450 g;Limpieza;Sapolio;und;4.50;N
+7759000000074;Lejia Clorox 1 L;Limpieza;Clorox;und;4.90;N
+7759000000075;Limpiatodo Sapolio lavanda 900 ml;Limpieza;Sapolio;und;5.50;N
+7759000000076;Papel higienico Elite 4 rollos;Limpieza;Elite;und;5.90;N
+7759000000077;Papel toalla Nova 2 rollos;Limpieza;Nova;und;6.50;N
+7759000000078;Bolsas para basura Sapolio 10 und;Limpieza;Sapolio;und;3.90;N
+7759000000079;Jabon Protex avena 110 g;Cuidado personal;Protex;und;3.90;N
+7759000000080;Pasta dental Colgate triple accion 75 ml;Cuidado personal;Colgate;und;5.50;N
+7759000000081;Shampoo Head & Shoulders 375 ml;Cuidado personal;Head & Shoulders;und;18.90;N
+7759000000082;Desodorante Rexona aerosol 150 ml;Cuidado personal;Rexona;und;14.90;N
+7759000000083;Panales Huggies etapa 3 x 30;Cuidado personal;Huggies;und;39.90;N
+7759000000084;Toallas higienicas Nosotras 10 und;Cuidado personal;Nosotras;und;5.90;N
+;Tomate (por kg);Frutas y verduras;Sin marca;kg;4.50;S
+;Limon (por kg);Frutas y verduras;Sin marca;kg;5.90;S
+;Manzana delicia (por kg);Frutas y verduras;Sin marca;kg;6.90;S
+;Zanahoria (por kg);Frutas y verduras;Sin marca;kg;2.90;S
+;Palta fuerte (por kg);Frutas y verduras;Sin marca;kg;9.90;S
+;Naranja de jugo (por kg);Frutas y verduras;Sin marca;kg;4.20;S
+7759000000091;Huevos de granja San Fernando 15 und;Embutidos y huevos;San Fernando;und;9.90;N
+7759000000092;Hot dog San Fernando 250 g;Embutidos y huevos;San Fernando;und;7.90;N
+7759000000093;Jamonada Otto Kunz 200 g;Embutidos y huevos;Otto Kunz;und;6.50;N
+7759000000094;Chorizo parrillero Braedt 400 g;Embutidos y huevos;Braedt;und;15.90;N
