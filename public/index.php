@@ -69,14 +69,15 @@ $productoController = new ProductoController($tiendas, $sesion, $usuario, $produ
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
     new VentaServicio($db));
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
+$ingresos = new IngresoRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
-    new InventarioServicio($db), new IngresoRepository($db));
+    new InventarioServicio($db), $ingresos);
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
 $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 $panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
-    $productos, $catalogo);
+    $productos, $catalogo, $ingresos);
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
@@ -93,6 +94,7 @@ Controller::marcarRuta($ruta);
 $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
     'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
+    'venta_devolver', 'caja_movimiento',
     'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
@@ -118,11 +120,13 @@ try {
                 'salir'              => $auth->salir(),
                 'venta_registrar'    => $ventaController->registrar($_POST),
                 'venta_anular'       => $ventaController->anular($_POST),
+                'venta_devolver'     => $ventaController->devolver($_POST),
                 'ingreso_registrar'  => $inventarioController->registrarIngreso($_POST),
                 'traslado_registrar' => $inventarioController->registrarTraslado($_POST),
                 'merma_registrar'    => $inventarioController->registrarMerma($_POST),
                 'turno_abrir'        => $cajaController->abrir($_POST),
                 'turno_cerrar'       => $cajaController->cerrar($_POST),
+                'caja_movimiento'    => $cajaController->movimiento($_POST),
                 'mi_clave_guardar'   => $auth->cambiarClave($_POST),
                 'producto_guardar'   => $productoController->guardar($_POST),
                 'producto_estado'    => $productoController->cambiarEstado($_POST),
@@ -208,6 +212,10 @@ try {
 
             case 'ingresos_csv':
                 $inventarioController->ingresosCsv();
+                break;
+
+            case 'vencimientos':
+                $inventarioController->vencimientos($leer('dias'));
                 break;
 
             case 'mermas':

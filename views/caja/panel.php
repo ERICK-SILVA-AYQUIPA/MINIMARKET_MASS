@@ -9,7 +9,9 @@ declare(strict_types=1);
  * @var Caja[] $cajasTienda
  * @var array<int, int> $numeroCaja  id_caja => numero_caja
  * @var ?CajaTurno $miTurno
- * @var array<int, array{turno: CajaTurno, efectivoCobrado: float, esperado: float, diferencia: ?float}> $arqueo
+ * @var array<int, array{turno: CajaTurno, efectivoCobrado: float, devoluciones: float, ingresos: float, retiros: float, esperado: float, diferencia: ?float}> $arqueo
+ * @var ?array $miArqueo  la fila del arqueo del turno abierto del cajero
+ * @var array<int, array<int, array{fecha_hora: string, tipo: string, monto: float, motivo: string}>> $movimientos  por turno
  * @var array<int, string> $nombresEmpleado
  * @var ?string $error
  */
@@ -19,7 +21,7 @@ require __DIR__ . '/../layout_inicio.php';
 <div class="cabecera">
     <div>
         <h1>Caja · <?= e($tienda->getNombreTienda()) ?></h1>
-        <p class="sutil">Esperado = monto inicial + efectivo válido cobrado. Diferencia = monto de cierre − esperado.</p>
+        <p class="sutil">Esperado = monto inicial + efectivo cobrado − devoluciones + ingresos − retiros. Diferencia = monto de cierre − esperado.</p>
     </div>
     <?php if ($miTurno !== null): ?>
         <div class="acciones"><a class="boton acento grande" href="/?ruta=venta_nueva"><?= icono('venta') ?>Nueva venta</a></div>
@@ -56,6 +58,30 @@ require __DIR__ . '/../layout_inicio.php';
             <div><span>Turno abierto</span><strong>N.° <?= $miTurno->getIdCajaTurno() ?></strong><small>Caja <?= $numeroCaja[$miTurno->getIdCaja()] ?? '-' ?></small></div>
             <div><span>Desde</span><strong class="fecha"><?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></strong><small><?= e(substr($miTurno->getFechaHoraApertura(), 0, 10)) ?></small></div>
             <div><span>Monto inicial</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong><small>en efectivo</small></div>
+            <div><span>En gaveta ahora</span><strong><?= e(soles($miArqueo['esperado'] ?? $miTurno->getMontoInicial())) ?></strong><small>lo que deberías contar</small></div>
+        </section>
+        <section class="panel">
+            <h2>Retiro o ingreso de efectivo</h2>
+            <p class="sutil">Anota cuando sacas billetes para el depósito o un pago menor, o cuando te traen sencillo. Así el arqueo cuadra.</p>
+            <form class="formulario" method="post" action="/?ruta=caja_movimiento">
+                <?= campoCsrf($csrf) ?>
+                <div class="campos">
+                    <div>
+                        <label for="tipo_movimiento">Tipo</label>
+                        <select id="tipo_movimiento" name="tipo">
+                            <option value="RETIRO">Retiro (sale de la gaveta)</option>
+                            <option value="INGRESO">Ingreso de sencillo</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="monto_movimiento">Monto (S/)</label>
+                        <input id="monto_movimiento" name="monto" inputmode="decimal" required>
+                    </div>
+                </div>
+                <label for="motivo_movimiento">Motivo</label>
+                <input id="motivo_movimiento" name="motivo" maxlength="150" required placeholder="Ej.: depósito al banco, pago de bolsas">
+                <div class="botones-formulario"><button class="secundario" type="submit"><?= icono('caja') ?>Registrar</button></div>
+            </form>
         </section>
         <section class="panel">
             <h2>Cerrar turno</h2>
@@ -120,6 +146,9 @@ require __DIR__ . '/../layout_inicio.php';
         <dt>Cierre</dt><dd><?= e($t->getFechaHoraCierre() ?? 'Sigue abierto') ?></dd>
         <dt>Monto inicial</dt><dd><?= e(soles($t->getMontoInicial())) ?></dd>
         <dt>+ Efectivo cobrado</dt><dd><?= e(soles($fila['efectivoCobrado'])) ?></dd>
+        <dt>− Devoluciones</dt><dd><?= e(soles($fila['devoluciones'])) ?></dd>
+        <dt>+ Ingresos de sencillo</dt><dd><?= e(soles($fila['ingresos'])) ?></dd>
+        <dt>− Retiros</dt><dd><?= e(soles($fila['retiros'])) ?></dd>
         <dt>= Esperado en gaveta</dt><dd><?= e(soles($fila['esperado'])) ?></dd>
         <dt>Contado al cerrar</dt><dd><?= $t->getMontoCierre() === null ? '—' : e(soles($t->getMontoCierre())) ?></dd>
         <dt>Diferencia</dt>
@@ -130,6 +159,15 @@ require __DIR__ . '/../layout_inicio.php';
             <?php endif; ?>
         </dd>
     </dl>
+    <?php if (($movimientos[$t->getIdCajaTurno()] ?? []) !== []): ?>
+        <h3>Retiros e ingresos</h3>
+        <ul class="lista-movimientos">
+            <?php foreach ($movimientos[$t->getIdCajaTurno()] as $m): ?>
+                <?php $signo = $m['tipo'] === 'RETIRO' ? '− ' : '+ '; ?>
+                <li><span class="fecha"><?= e(substr($m['fecha_hora'], 11, 5)) ?></span> <?= e($signo . soles($m['monto'])) ?> · <?= e($m['motivo']) ?></li>
+            <?php endforeach; ?>
+        </ul>
+    <?php endif; ?>
     <p class="sutil bloque">Solo cuenta el efectivo VALIDO: los pagos con tarjeta o billetera digital no entran a la gaveta y los de ventas anuladas no suman.</p>
     <?php require __DIR__ . '/../parciales/drawer_cerrar.php'; ?>
 <?php endforeach; ?>

@@ -62,6 +62,12 @@ abstract class Usuario
         return false;
     }
 
+    // Devolver parte de una venta: el producto vuelve al stock y el efectivo sale de su gaveta
+    public function puedeDevolverVenta(int $idTiendaDeLaVenta): bool
+    {
+        return false;
+    }
+
     public function puedeMoverMercaderia(): bool
     {
         return false;

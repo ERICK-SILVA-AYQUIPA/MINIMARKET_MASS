@@ -13,6 +13,7 @@ final class TipoMovimiento
     public const AJUSTE_ENTRADA = 6;   // ajustes.sql
     public const AJUSTE_SALIDA = 7;
     public const INGRESO = 8;          // ingresos.sql
+    public const DEVOLUCION = 9;       // operaciones.sql
 
     public function __construct(
         private int $idTipoMovimiento,      // id_tipo_movimiento TINYINT UNSIGNED

@@ -99,7 +99,7 @@ abstract class Servicio
     /**
      * Suma (positivo) o resta (negativo) stock de un producto en una tienda y lo anota en el kardex.
      * Bloquea la fila de stock (FOR UPDATE) hasta el fin de la transaccion.
-     * @param array{id_venta?: int, id_traslado?: int, id_merma?: int, id_ajuste?: int, id_ingreso?: int} $origen exactamente uno
+     * @param array{id_venta?: int, id_traslado?: int, id_merma?: int, id_ajuste?: int, id_ingreso?: int, id_devolucion?: int} $origen exactamente uno
      */
     protected function moverStock(
         int $idTienda,
@@ -146,9 +146,9 @@ abstract class Servicio
         $this->db->prepare(
             'INSERT INTO movimiento_stock
                     (cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento,
-                     id_empleado, id_venta, id_traslado, id_merma, id_ajuste, id_ingreso)
+                     id_empleado, id_venta, id_traslado, id_merma, id_ajuste, id_ingreso, id_devolucion)
              VALUES (:cantidad, :nuevo, :observacion, :tienda, :producto, :tipo,
-                     :empleado, :venta, :traslado, :merma, :ajuste, :ingreso)'
+                     :empleado, :venta, :traslado, :merma, :ajuste, :ingreso, :devolucion)'
         )->execute([
             'cantidad'    => Cantidad::aTexto(abs($milesimas)),
             'nuevo'       => Cantidad::aTexto($nuevo),
@@ -162,7 +162,28 @@ abstract class Servicio
             'merma'       => $origen['id_merma'] ?? null,
             'ajuste'      => $origen['id_ajuste'] ?? null,
             'ingreso'     => $origen['id_ingreso'] ?? null,
+            'devolucion'  => $origen['id_devolucion'] ?? null,
         ]);
+    }
+
+    /**
+     * Efectivo que deberia haber en la gaveta de un turno, en centimos:
+     * monto inicial + efectivo cobrado - devoluciones + ingresos de sencillo - retiros.
+     */
+    protected function efectivoEnGaveta(int $idTurno): int
+    {
+        // DECIMAL es exacto en MySQL: la suma se hace alli y vuelve ya en centimos
+        $consulta = $this->db->prepare(
+            'SELECT CAST((ct.monto_inicial
+                    + COALESCE((SELECT SUM(pv.monto_pagado) FROM venta v JOIN pago_venta pv ON pv.id_venta = v.id_venta
+                                 WHERE v.id_caja_turno = ct.id_caja_turno AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1), 0)
+                    - COALESCE((SELECT SUM(d.total) FROM devolucion_venta d WHERE d.id_caja_turno = ct.id_caja_turno), 0)
+                    + COALESCE((SELECT SUM(IF(m.tipo = \'INGRESO\', m.monto, -m.monto)) FROM movimiento_caja m
+                                 WHERE m.id_caja_turno = ct.id_caja_turno), 0)) * 100 AS SIGNED)
+               FROM caja_turno ct WHERE ct.id_caja_turno = :turno'
+        );
+        $consulta->execute(['turno' => $idTurno]);
+        return (int) $consulta->fetchColumn();
     }
 
     // Texto obligatorio del formulario: sin espacios a los lados, de 1 al maximo de la columna

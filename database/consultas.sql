@@ -292,3 +292,26 @@ SELECT pv.id_pago
     OR (pv.id_metodo_pago = 1 AND NOT EXISTS (SELECT 1 FROM efectivo e WHERE e.id_pago = pv.id_pago))
     OR (pv.id_metodo_pago = 2 AND NOT EXISTS (SELECT 1 FROM tarjeta t WHERE t.id_pago = pv.id_pago))
     OR (pv.id_metodo_pago = 3 AND NOT EXISTS (SELECT 1 FROM billetera_digital_sip b WHERE b.id_pago = pv.id_pago));
+
+-- 29. Devoluciones que pasan lo vendido: de un producto se devolvio mas de lo que tenia la venta (necesita operaciones.sql).
+SELECT d.id_venta, dd.id_producto
+  FROM detalle_devolucion dd
+  JOIN devolucion_venta d ON d.id_devolucion = dd.id_devolucion
+  LEFT JOIN detalle_venta dv ON dv.id_venta = d.id_venta AND dv.id_producto = dd.id_producto
+ GROUP BY d.id_venta, dd.id_producto, dv.cantidad
+HAVING dv.cantidad IS NULL OR SUM(dd.cantidad) > dv.cantidad;
+
+-- 30. Devoluciones cuyo detalle no suma el total, de una venta anulada, o hechas por alguien que no es cajero de su tienda.
+SELECT d.id_devolucion
+  FROM devolucion_venta d
+  JOIN venta v             ON v.id_venta = d.id_venta
+  JOIN serie_comprobante s ON s.id_serie = v.id_serie
+  JOIN empleado e          ON e.id_empleado = d.id_empleado
+ WHERE ROUND(d.total - (SELECT SUM(dd.importe) FROM detalle_devolucion dd WHERE dd.id_devolucion = d.id_devolucion), 2) <> 0
+    OR v.estado <> 'EMITIDA' OR e.id_rol <> 2 OR e.id_tienda <> s.id_tienda;
+
+-- 31. Retiros e ingresos de caja anotados en un turno de otro cajero.
+SELECT m.id_movimiento_caja
+  FROM movimiento_caja m
+  JOIN caja_turno ct ON ct.id_caja_turno = m.id_caja_turno
+ WHERE m.id_empleado <> ct.id_empleado;

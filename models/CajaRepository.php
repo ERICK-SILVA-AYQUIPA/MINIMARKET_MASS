@@ -5,7 +5,7 @@ require_once __DIR__ . '/CajaTurno.php';
 
 /**
  * Turnos de caja y su arqueo (consulta 19 de consultas.sql).
- * Las escrituras (abrir y cerrar turno) estan en servicios/CajaServicio.php.
+ * Las escrituras (abrir y cerrar turno, retiros e ingresos) estan en servicios/CajaServicio.php.
  */
 class CajaRepository
 {
@@ -28,8 +28,9 @@ class CajaRepository
     }
 
     /**
-     * Turnos de una tienda con su arqueo: esperado = monto inicial + efectivo valido cobrado.
-     * @return array<int, array{turno: CajaTurno, efectivoCobrado: float, esperado: float, diferencia: ?float}>
+     * Turnos de una tienda con su arqueo:
+     * esperado = monto inicial + efectivo valido cobrado - devoluciones + ingresos de sencillo - retiros.
+     * @return array<int, array{turno: CajaTurno, efectivoCobrado: float, devoluciones: float, ingresos: float, retiros: float, esperado: float, diferencia: ?float}>
      */
     public function arqueoDeTienda(int $idTienda): array
     {
@@ -39,7 +40,12 @@ class CajaRepository
                                 FROM venta v
                                 JOIN pago_venta pv ON pv.id_venta = v.id_venta
                                WHERE v.id_caja_turno = ct.id_caja_turno
-                                 AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1), 0) AS efectivo_cobrado
+                                 AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1), 0) AS efectivo_cobrado,
+                    COALESCE((SELECT SUM(d.total) FROM devolucion_venta d WHERE d.id_caja_turno = ct.id_caja_turno), 0) AS devoluciones,
+                    COALESCE((SELECT SUM(m.monto) FROM movimiento_caja m
+                               WHERE m.id_caja_turno = ct.id_caja_turno AND m.tipo = \'INGRESO\'), 0) AS ingresos,
+                    COALESCE((SELECT SUM(m.monto) FROM movimiento_caja m
+                               WHERE m.id_caja_turno = ct.id_caja_turno AND m.tipo = \'RETIRO\'), 0) AS retiros
                FROM caja_turno ct
                JOIN caja c ON c.id_caja = ct.id_caja
               WHERE c.id_tienda = :tienda
@@ -51,15 +57,36 @@ class CajaRepository
         foreach ($consulta->fetchAll() as $f) {
             $turno = $this->crear($f);
             $cobrado = (float) $f['efectivo_cobrado'];
-            $esperado = round($turno->getMontoInicial() + $cobrado, 2);
+            $devoluciones = (float) $f['devoluciones'];
+            $ingresos = (float) $f['ingresos'];
+            $retiros = (float) $f['retiros'];
+            $esperado = round($turno->getMontoInicial() + $cobrado - $devoluciones + $ingresos - $retiros, 2);
             $filas[] = [
                 'turno'           => $turno,
                 'efectivoCobrado' => $cobrado,
+                'devoluciones'    => $devoluciones,
+                'ingresos'        => $ingresos,
+                'retiros'         => $retiros,
                 'esperado'        => $esperado,
                 'diferencia'      => $turno->getMontoCierre() === null ? null : round($turno->getMontoCierre() - $esperado, 2),
             ];
         }
         return $filas;
+    }
+
+    /**
+     * Retiros e ingresos de efectivo de un turno, del primero al ultimo.
+     * @return array<int, array{fecha_hora: string, tipo: string, monto: float, motivo: string}>
+     */
+    public function movimientosDeTurno(int $idTurno): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT fecha_hora, tipo, monto, motivo FROM movimiento_caja WHERE id_caja_turno = :turno ORDER BY id_movimiento_caja'
+        );
+        $consulta->execute(['turno' => $idTurno]);
+        return array_map(fn(array $f): array => [
+            'fecha_hora' => $f['fecha_hora'], 'tipo' => $f['tipo'], 'monto' => (float) $f['monto'], 'motivo' => $f['motivo'],
+        ], $consulta->fetchAll());
     }
 
     private function crear(array $f): CajaTurno

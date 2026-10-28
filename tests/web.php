@@ -197,6 +197,8 @@ $matriz = [
     'auditoria&accion=X'   => [200, 403, 403],
     'ingresos'             => [200, 403, 200],
     'ingresos_csv'         => [200, 403, 200],
+    'vencimientos'         => [200, 403, 200],
+    'vencimientos&dias=7'  => [200, 403, 200],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -222,6 +224,16 @@ revisar('Ingresos está en el menú del almacenero y del administrador, no del c
     && $luis->get('ruta=inicio') === 200 && !$luis->tiene('ruta=ingresos"'));
 revisar('Los ingresos se descargan en CSV con sus costos', $rosa->get('ruta=ingresos_csv') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_contains($rosa->cuerpo, 'costo_unitario'));
+revisar('El ingreso pide la fecha de vencimiento de cada lote', $carmen->get('ruta=ingresos') === 200 && $carmen->tiene('name="vence[]"'));
+revisar('Por vencer muestra la leche vencida; solo el almacenero ve el botón de baja', $carmen->get('ruta=vencimientos') === 200
+    && $carmen->tiene('Vencido hace 1 día') && $carmen->tiene('Dar de baja lo vencido')
+    && $rosa->get('ruta=vencimientos') === 200 && $rosa->tiene('Vencido hace 1 día') && !$rosa->tiene('Dar de baja lo vencido'));
+revisar('El inicio avisa lo que vence esta semana, no al cajero', $carmen->get('ruta=inicio') === 200 && $carmen->tiene('Vencen esta semana')
+    && $carmen->tiene('ruta=vencimientos"') && $luis->get('ruta=inicio') === 200 && !$luis->tiene('Vencen esta semana'));
+revisar('La caja del cajero muestra lo que hay en gaveta y el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('En gaveta ahora')
+    && $luis->tiene('action="/?ruta=caja_movimiento"') && $rosa->get('ruta=caja') === 200 && !$rosa->tiene('caja_movimiento'));
+revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
+    && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));
@@ -261,6 +273,10 @@ $prohibidos = [
     [$carmen, 'Carmen', 'turno_abrir', ['caja' => '1', 'monto_inicial' => '100']],
     [$carmen, 'Carmen', 'turno_cerrar', ['monto_cierre' => '100']],
     [$carmen, 'Carmen', 'cliente_documento', ['id' => '1', 'dni' => '12345678']],
+    [$carmen, 'Carmen', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
+    [$carmen, 'Carmen', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
+    [$rosa, 'Rosa', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
+    [$rosa, 'Rosa', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
     [$rosa, 'Rosa', 'venta_registrar', ['tipo' => 'B']],
     [$rosa, 'Rosa', 'traslado_registrar', ['destino' => '2']],
     [$rosa, 'Rosa', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
@@ -295,6 +311,13 @@ revisar('Empleado con clave débil: 422', $rosa->post('empleado_crear',
 revisar('Tienda con teléfono con letras: 422', $rosa->post('tienda_guardar',
     ['nombre' => 'Mass Cayma', 'direccion' => 'Av. 1', 'telefono' => 'abc', 'distrito' => '1', 'estado' => 'ACTIVA']) === 422);
 revisar('Mi clave con la actual errada: 422', $rosa->post('mi_clave_guardar', ['actual' => 'otra', 'nueva' => 'Nueva2026x', 'repetida' => 'Nueva2026x']) === 422);
+revisar('Retiro con monto inválido: 422', $luis->post('caja_movimiento', ['tipo' => 'RETIRO', 'monto' => 'abc', 'motivo' => 'x']) === 422
+    && $luis->tiene('Monto no válido'));
+revisar('Retiro mayor que la gaveta: 422', $luis->post('caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '99999', 'motivo' => 'x']) === 422
+    && $luis->tiene('en la gaveta'));
+revisar('Devolución de una venta vieja: vuelve al comprobante con el error', $luis->post('venta_devolver',
+    ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']) === 303
+    && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('ya no se aceptan devoluciones'));
 revisar('Turno con monto inválido: 422', $luis->post('turno_abrir', ['caja' => '1', 'monto_inicial' => '-1']) === 422);
 
 echo "Salir\n";

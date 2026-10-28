@@ -5,11 +5,14 @@ require_once __DIR__ . '/Servicio.php';
 require_once __DIR__ . '/../Usuario.php';
 
 /**
- * Registrar y anular ventas. Cada operacion es una sola transaccion:
+ * Registrar, anular y devolver ventas. Cada operacion es una sola transaccion:
  * venta + detalle + pagos + stock + kardex + correlativo, o nada.
  */
 class VentaServicio extends Servicio
 {
+    // Dias que tiene el cliente para devolver un producto
+    public const DIAS_DEVOLUCION = 7;
+
     /**
      * Registra una venta del cajero en su turno abierto y devuelve [serie, correlativo].
      *
@@ -169,6 +172,12 @@ class VentaServicio extends Servicio
             if ($venta['estado'] !== 'EMITIDA') {
                 throw new ReglaNegocioException('La venta ya está anulada.');
             }
+            // Anular devolveria otra vez al stock lo que ya volvio con la devolucion
+            $devoluciones = $this->db->prepare('SELECT 1 FROM devolucion_venta WHERE id_venta = :venta LIMIT 1');
+            $devoluciones->execute(['venta' => $idVenta]);
+            if ($devoluciones->fetchColumn() !== false) {
+                throw new ReglaNegocioException('La venta tiene devoluciones: ya no se puede anular.');
+            }
 
             $this->db->prepare(
                 'INSERT INTO anulacion_venta (fecha_hora, motivo, id_venta, id_empleado) VALUES (NOW(), :motivo, :venta, :empleado)'
@@ -190,6 +199,137 @@ class VentaServicio extends Servicio
                 $this->moverStock($idTienda, (int) $detalle['id_producto'], Cantidad::deDecimal($detalle['cantidad']),
                     TipoMovimiento::ANULACION_VENTA, $administrador->getIdEmpleado(), ['id_venta' => $idVenta]);
             }
+        });
+    }
+
+    /**
+     * Devolucion parcial de una venta EMITIDA de los ultimos DIAS_DEVOLUCION dias.
+     * El producto vuelve al stock (kardex DEVOLUCION DE VENTA) y el efectivo sale de la gaveta del cajero.
+     * Devuelve el total devuelto en centimos.
+     * @param array<int, array{id_producto?: string, cantidad?: string}> $lineas cantidad vacia = no se devuelve
+     */
+    public function devolver(Usuario $cajero, int $idVenta, array $lineas, string $motivo): int
+    {
+        $motivo = $this->textoObligatorio($motivo, 150, 'El motivo de la devolución');
+
+        return $this->enTransaccion(function () use ($cajero, $idVenta, $lineas, $motivo): int {
+            $consulta = $this->db->prepare(
+                'SELECT v.estado, v.numero_correlativo, s.id_tienda, s.serie,
+                        v.fecha_hora >= NOW() - INTERVAL ' . self::DIAS_DEVOLUCION . ' DAY AS a_tiempo
+                   FROM venta v
+                   JOIN serie_comprobante s ON s.id_serie = v.id_serie
+                  WHERE v.id_venta = :venta
+                  FOR UPDATE'
+            );
+            $consulta->execute(['venta' => $idVenta]);
+            $venta = $consulta->fetch();
+            if ($venta === false) {
+                throw new ReglaNegocioException('La venta no existe.');
+            }
+            $idTienda = (int) $venta['id_tienda'];
+            if (!$cajero->puedeDevolverVenta($idTienda)) {
+                throw new ReglaNegocioException('Solo un cajero de la tienda de la venta registra devoluciones.');
+            }
+            if ($venta['estado'] !== 'EMITIDA') {
+                throw new ReglaNegocioException('La venta está anulada: no tiene nada que devolver.');
+            }
+            if ((int) $venta['a_tiempo'] !== 1) {
+                throw new ReglaNegocioException('Pasaron más de ' . self::DIAS_DEVOLUCION . ' días desde la venta: ya no se aceptan devoluciones.');
+            }
+
+            $consulta = $this->db->prepare(
+                'SELECT ct.id_caja_turno, c.id_tienda FROM caja_turno ct JOIN caja c ON c.id_caja = ct.id_caja
+                  WHERE ct.id_empleado = :empleado AND ct.estado = \'ABIERTO\' FOR UPDATE'
+            );
+            $consulta->execute(['empleado' => $cajero->getIdEmpleado()]);
+            $turno = $consulta->fetch();
+            if ($turno === false || (int) $turno['id_tienda'] !== $idTienda) {
+                throw new ReglaNegocioException('Abre tu turno de caja para devolver el efectivo.');
+            }
+            $idTurno = (int) $turno['id_caja_turno'];
+
+            // Lo vendido de cada producto, menos lo que ya se devolvio antes
+            $consulta = $this->db->prepare(
+                'SELECT dv.id_producto, p.nombre_producto, p.se_vende_por_peso, dv.precio_unitario,
+                        dv.cantidad - COALESCE((SELECT SUM(dd.cantidad) FROM detalle_devolucion dd
+                                                  JOIN devolucion_venta d ON d.id_devolucion = dd.id_devolucion
+                                                 WHERE d.id_venta = dv.id_venta AND dd.id_producto = dv.id_producto), 0) AS disponible
+                   FROM detalle_venta dv JOIN producto p ON p.id_producto = dv.id_producto
+                  WHERE dv.id_venta = :venta'
+            );
+            $consulta->execute(['venta' => $idVenta]);
+            $vendidos = [];
+            foreach ($consulta->fetchAll() as $f) {
+                $vendidos[(int) $f['id_producto']] = $f;
+            }
+
+            $devueltos = [];
+            $totalCentimos = 0;
+            foreach ($lineas as $linea) {
+                $idTexto = trim((string) ($linea['id_producto'] ?? ''));
+                $cantidadTexto = trim((string) ($linea['cantidad'] ?? ''));
+                if ($cantidadTexto === '' || preg_match('/^0+(\.0*)?$/', $cantidadTexto) === 1) {
+                    continue;
+                }
+                if (!ctype_digit($idTexto) || !isset($vendidos[(int) $idTexto]) || isset($devueltos[(int) $idTexto])) {
+                    throw new ReglaNegocioException('Solo se devuelven productos de esta venta, una vez cada uno.');
+                }
+                $vendido = $vendidos[(int) $idTexto];
+                $alPeso = $vendido['se_vende_por_peso'] === 'S';
+                $milesimas = Cantidad::deTexto($cantidadTexto, $alPeso);
+                if ($milesimas === null) {
+                    throw new ReglaNegocioException($vendido['nombre_producto'] . ': cantidad no válida ('
+                        . ($alPeso ? 'kg con hasta 3 decimales' : 'solo unidades enteras') . ').');
+                }
+                $disponible = Cantidad::deDecimal((string) $vendido['disponible']);
+                if ($milesimas > $disponible) {
+                    throw new ReglaNegocioException(sprintf('%s: se puede devolver hasta %s.',
+                        $vendido['nombre_producto'], Cantidad::aTexto($disponible)));
+                }
+                $precio = (int) Dinero::deTexto($vendido['precio_unitario']);
+                $importe = Cantidad::importe($milesimas, $precio);
+                if ($importe <= 0) {
+                    throw new ReglaNegocioException($vendido['nombre_producto'] . ': la cantidad es tan pequeña que no vale ni un céntimo.');
+                }
+                $devueltos[(int) $idTexto] = ['milesimas' => $milesimas, 'precio' => $precio, 'importe' => $importe];
+                $totalCentimos += $importe;
+            }
+            if ($devueltos === []) {
+                throw new ReglaNegocioException('Escribe cuánto devuelve el cliente de al menos un producto.');
+            }
+            ksort($devueltos);
+
+            $enGaveta = $this->efectivoEnGaveta($idTurno);
+            if ($totalCentimos > $enGaveta) {
+                throw new ReglaNegocioException(sprintf('No alcanza el efectivo: hay S/ %s en tu gaveta y la devolución es de S/ %s.',
+                    Dinero::aTexto(max(0, $enGaveta)), Dinero::aTexto($totalCentimos)));
+            }
+
+            $this->db->prepare(
+                'INSERT INTO devolucion_venta (fecha_hora, motivo, total, id_venta, id_caja_turno, id_empleado)
+                 VALUES (NOW(), :motivo, :total, :venta, :turno, :empleado)'
+            )->execute([
+                'motivo' => $motivo, 'total' => Dinero::aTexto($totalCentimos), 'venta' => $idVenta,
+                'turno' => $idTurno, 'empleado' => $cajero->getIdEmpleado(),
+            ]);
+            $idDevolucion = (int) $this->db->lastInsertId();
+
+            $comprobante = sprintf('%s-%08d', $venta['serie'], $venta['numero_correlativo']);
+            $insertar = $this->db->prepare(
+                'INSERT INTO detalle_devolucion (id_devolucion, id_producto, cantidad, precio_unitario, importe)
+                 VALUES (:devolucion, :producto, :cantidad, :precio, :importe)'
+            );
+            foreach ($devueltos as $idProducto => $d) {
+                $insertar->execute([
+                    'devolucion' => $idDevolucion, 'producto' => $idProducto, 'cantidad' => Cantidad::aTexto($d['milesimas']),
+                    'precio' => Dinero::aTexto($d['precio']), 'importe' => Dinero::aTexto($d['importe']),
+                ]);
+                $this->moverStock($idTienda, $idProducto, $d['milesimas'], TipoMovimiento::DEVOLUCION,
+                    $cajero->getIdEmpleado(), ['id_devolucion' => $idDevolucion], 'Devolución de ' . $comprobante);
+            }
+
+            $this->auditar($cajero, 'DEVOLUCION_REGISTRADA', sprintf('%s: S/ %s, %s', $comprobante, Dinero::aTexto($totalCentimos), $motivo));
+            return $totalCentimos;
         });
     }
 
