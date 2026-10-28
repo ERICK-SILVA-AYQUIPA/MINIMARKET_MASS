@@ -15,3 +15,7 @@ scratch/
 # Configuracion local con claves (usar .env.example como plantilla)
 .env
 respaldos/
+
+# Fotos de productos que sube el administrador (se respaldan copiando la carpeta)
+public/img/productos/*
+!public/img/productos/.gitkeep

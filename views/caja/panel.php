@@ -27,6 +27,16 @@ require __DIR__ . '/../layout_inicio.php';
         <div class="acciones"><a class="boton acento grande" href="/?ruta=venta_nueva"><?= icono('venta') ?>Nueva venta</a></div>
     <?php endif; ?>
 </div>
+<?php
+$guiaClave = 'caja';
+$guiaTitulo = 'Cómo funciona la caja';
+$guiaPasos = [
+    'Al empezar el día abre tu turno con el efectivo que hay en la gaveta (monto inicial).',
+    'Si sacas billetes para el depósito o te traen sencillo, anótalo en Retiro o ingreso de efectivo: así el arqueo cuadra.',
+    'Al terminar, cuenta el efectivo y cierra el turno. El sistema compara lo contado con lo esperado y muestra si sobra o falta.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
 
 <?php if ($esCajero): ?>

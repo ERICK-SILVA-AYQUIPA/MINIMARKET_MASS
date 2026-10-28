@@ -227,21 +227,23 @@ Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos 
 
 **Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). `scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
+**Fotos de producto**: el administrador las sube desde la ficha del producto. Se guardan como archivo en `public/img/productos/` (no van en la base ni en GitHub), así que esa carpeta se copia junto con el respaldo. PHP necesita la extensión **gd** (en Laragon y XAMPP ya viene activa).
+
 **Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, `catalogo.sql` los 94 productos de ejemplo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 165 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 171 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 80 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 28 formularios, escapado, SQL preparado y JavaScript seguro
-php tests/web.php           # 148 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
-php tests/integracion.php   # 165 comprobaciones contra MySQL, con la base recién creada
+php tests/unitarios.php     # 87 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 30 formularios, escapado, SQL preparado y JavaScript seguro
+php tests/web.php           # 160 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
+php tests/integracion.php   # 171 comprobaciones contra MySQL, con la base recién creada
 ```
 
 En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.

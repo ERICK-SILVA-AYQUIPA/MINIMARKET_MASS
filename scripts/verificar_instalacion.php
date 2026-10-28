@@ -50,6 +50,9 @@ revisar(PHP_VERSION_ID >= 80300, 'PHP ' . PHP_VERSION, 'PHP ' . PHP_VERSION . ':
 foreach (['pdo_mysql', 'mbstring'] as $extension) {
     revisar(extension_loaded($extension), "Extensión $extension", "Falta la extensión $extension: actívala en php.ini");
 }
+revisar(extension_loaded('gd'), 'Extensión gd (fotos de producto)', 'Falta la extensión gd: sin ella no se pueden subir fotos de producto', 'AVISO');
+revisar(is_writable($raiz . '/public/img/productos'), 'Se pueden guardar fotos en public/img/productos',
+    'PHP no puede escribir en public/img/productos: dale permiso al usuario del servidor web', 'AVISO');
 revisar(!filter_var(ini_get('display_errors'), FILTER_VALIDATE_BOOLEAN), 'display_errors = Off',
     'display_errors está en On: en el servidor ponlo en Off (php.ini del servidor web)', 'AVISO');
 revisar(bytesIni((string) ini_get('upload_max_filesize')) >= 1024 ** 2 && bytesIni((string) ini_get('post_max_size')) >= 2 * 1024 ** 2,

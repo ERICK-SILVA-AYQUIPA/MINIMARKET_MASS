@@ -158,6 +158,19 @@ Los pasos 2 a 6 se escribieron con la regla anterior; abajo está cada brief arm
   - Los datos de ejemplo dejan 3 productos de Mass Cayma en su mínimo, para que **Reponer** y el inicio tengan algo que mostrar.
 - **Prueba:** ver Verificación, paso 23.
 
+### Paso 24 · Productos con foto, catálogo en tarjetas, venta para tocar y guías (28/10/2026)
+- **OBJETIVO:** Que los productos se vean y se elijan como en una tienda en línea (el grupo mostró de ejemplo una página de tienda orgánica), sin perder la seguridad ni las reglas del servidor.
+- **Qué se agregó:**
+  - `FotoProducto`: la foto se guarda como archivo `public/img/productos/{id}.jpg`, no en la base. Se vuelve a dibujar con GD como JPEG de 600 px; un producto sin foto se ve con el ícono y el color de su categoría.
+  - Catálogo en tarjetas, con filtros por categoría que dicen cuántos productos hay, el buscador y la vista de tabla. La ficha lateral muestra la foto grande y el precio.
+  - Nueva venta: campo para el lector de códigos (Enter agrega sin enviar el formulario) y cuadrícula de productos para tocar, con filtros y búsqueda. Lo agregado parpadea y sale un aviso flotante.
+  - Guías rápidas plegables en 12 pantallas.
+- **Decisiones:**
+  - La foto no va en MySQL para que la base y los respaldos no crezcan; a cambio, la carpeta se copia aparte.
+  - Todo lo nuevo es mejora progresiva: sin JavaScript se elige en las filas como antes, y el servidor vuelve a calcular la venta.
+  - `app.js` sigue sin `innerHTML` ni `fetch`.
+- **Prueba:** ver Verificación, paso 24.
+
 ## Supuestos que hizo la IA y cómo los revisamos
 
 Revisados el 25/10/2026 contra los .sql del repositorio.
@@ -242,7 +255,7 @@ Para decidir **[Grupo]**: las páginas de prueba `public/poo_*.php` se pueden ab
 
 Desde el paso 9 ya tienen pantalla los traslados, las mermas, el kardex, el arqueo de caja, las ventas y las anulaciones. Desde el paso 10, el mantenimiento de productos, categorías, marcas, stock mínimo, empleados y claves, los clientes y los reportes.
 
-Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos. Desde el paso 15, el ingreso de mercadería con su documento y costo. Desde el paso 16, la interfaz rediseñada con paneles laterales. Desde el paso 17, las mejoras con JavaScript. Desde el paso 18, la nueva pantalla de entrada. Desde el paso 19, las devoluciones parciales, los retiros e ingresos de caja y los productos por vencer. Desde el paso 20, la utilidad y la lista para reponer.
+Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, cajas, series y distritos. Desde el paso 12, el panel de inicio con indicadores. Desde el paso 14, la auditoría, el ticket imprimible, las descargas CSV de stock y kardex, y los respaldos. Desde el paso 15, el ingreso de mercadería con su documento y costo. Desde el paso 16, la interfaz rediseñada con paneles laterales. Desde el paso 17, las mejoras con JavaScript. Desde el paso 18, la nueva pantalla de entrada. Desde el paso 19, las devoluciones parciales, los retiros e ingresos de caja y los productos por vencer. Desde el paso 20, la utilidad y la lista para reponer. Desde el paso 24, las fotos de producto, el catálogo en tarjetas y el lector de códigos en la venta.
 
 **[Grupo]** decidan si se agregan:
 - **Catálogo de proveedores:** quedó fuera por decisión del grupo. Desde el paso 15 la mercadería entra con **Ingresos**, guardando el RUC y la razón social del emisor en cada documento.
@@ -253,6 +266,7 @@ Desde el paso 11, el ajuste por conteo físico y el mantenimiento de tiendas, ca
 - `php -l` sin errores en todos los archivos.
 - `php -S localhost:8000 -t public`: catálogo 200, ficha por código y por id 200, código inexistente 404, ruta desconocida 404, `<script>` en la URL no se ejecuta.
 - 25/10/2026, paso 7: 22 URLs probadas. Las 6 pantallas y las 4 páginas de prueba responden 200. Serie inválida, `<script>` como serie, número de 9 dígitos y comprobante inexistente responden 404. Las 14 ventas de `datos.sql` cuadran detalle y pagos, y B001-00000002 sale ANULADA con sus pagos anulados. Total emitido de Cayma: S/ 323.00.
+- 28/10/2026, paso 24: con la base recién creada: unitarias 87, seguridad 19 (30 formularios, 858 salidas escapadas, 156 consultas preparadas), web 160 e integración 171 correctas, 0 fallas. Una foto de 1200 × 800 queda de 600 × 400 en JPEG; un texto con extensión .jpg y un archivo de más de 2 MB se rechazan; cajero y almacenero reciben 403. El filtro Lácteos deja 12 productos. En el navegador, escanear `7750000000011` dos veces deja la leche con cantidad 2, y tocar productos en la cuadrícula suma al total; no hay errores de JavaScript.
 - 28/10/2026, paso 23: con la base recién creada: unitarias 80, seguridad 19, web 148 e integración 165 correctas, 0 fallas. El recorrido de 27 pantallas con Rosa, Luis y Carmen en 1280 px y 390 px no muestra desbordes, avisos de PHP ni errores de JavaScript; las ventas salen con fecha `19/10/2026 10:05` y Reponer de Cayma trae fideos, Coca-Cola y mermelada con el sobrante de las otras dos tiendas.
 - 28/10/2026, paso 22: con la base recién creada: unitarias 78, seguridad 19, web 148 e integración 165 correctas, 0 fallas. `verificar_instalacion.php` en el aula da todo OK menos 9 empleados con la clave de prueba (FALLA, como se espera con los datos de prueba). El respaldo con un límite bajado a 2 borró los más antiguos y dejó los 2 últimos. `programar_respaldo.sh` corrido dos veces deja una sola línea en el crontab y `quitar` la saca sin tocar las demás. MySQL ya no responde desde fuera de `127.0.0.1`.
 - 28/10/2026, paso 21: con la base recién creada (94 productos): unitarias 78, seguridad 19 (28 formularios, 800 salidas escapadas, 155 consultas preparadas), web 148 e integración 165 correctas, 0 fallas. El CSV de ejemplo se revisa con 94 filas sin cambios; un archivo con una leche a S/ 4.90, comida para perro de una marca y categoría nuevas y camote a granel crea 2 productos con stock 0 en las 3 tiendas y deja el precio en la auditoría; subirlo otra vez no duplica nada; una unidad que no existe o un producto repetido no guarda nada y dice la línea. Por HTTP, subir la plantilla descargada tal cual da 0 nuevos, y un archivo con otras columnas o que no es .csv da 422. En el navegador, la pantalla de importar no se desborda a 390 px y no hay errores.

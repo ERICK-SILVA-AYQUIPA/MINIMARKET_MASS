@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/CatalogoCsv.php';
+require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/servicios/ProductoServicio.php';
@@ -19,25 +20,49 @@ class ProductoController extends Controller
         ?Usuario $usuario,
         private ProductoRepository $repo,
         private CatalogoRepository $catalogo,
-        private ProductoServicio $servicio
+        private ProductoServicio $servicio,
+        private FotoProducto $fotos = new FotoProducto()
     )
     {
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=productos&tienda=1  (con &ver=8 abre la ficha del producto en el panel lateral)
-    public function lista(?string $tiendaPedida, ?string $ver = null): void
+    /**
+     * GET /?ruta=productos&tienda=1  (con &ver=8 abre la ficha del producto en el panel lateral)
+     * &vista=tabla muestra la tabla en vez de las tarjetas; &categoria=2 deja solo esa categoria.
+     */
+    public function lista(?string $tiendaPedida, ?string $ver = null, ?string $vistaPedida = null, ?string $categoriaPedida = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendas->todas();
         $rutaSelector = 'productos';
         $puedeEditar = $this->puedeEditarCatalogo();
+        $vista = $vistaPedida === 'tabla' ? 'tabla' : 'tarjetas';
+
+        $categorias = [];
+        foreach ($this->catalogo->categorias() as $id => $c) {
+            $categorias[$id] = $c->getNombreCategoria();
+        }
+        $marcas = [];
+        foreach ($this->catalogo->marcas() as $id => $m) {
+            $marcas[$id] = $m->getNombreMarca();
+        }
+        $categoriaElegida = $categoriaPedida !== null && ctype_digit($categoriaPedida) && isset($categorias[(int) $categoriaPedida])
+            ? (int) $categoriaPedida : null;
 
         $filas = [];
+        $porCategoria = [];
         foreach ($this->repo->todos() as $producto) {
+            $idCategoria = $producto->getIdCategoria();
+            $porCategoria[$idCategoria] = ($porCategoria[$idCategoria] ?? 0) + 1;
+            if ($categoriaElegida !== null && $idCategoria !== $categoriaElegida) {
+                continue;
+            }
             $filas[] = [
                 'producto' => $producto,
                 'stock'    => $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
+                'foto'     => $this->fotos->datos($producto->getIdProducto(), $categorias[$idCategoria] ?? ''),
+                'marca'    => $marcas[$producto->getIdMarca()] ?? '',
             ];
         }
 
@@ -47,7 +72,7 @@ class ProductoController extends Controller
             $elegido = $this->repo->buscarPorId((int) $ver);
             $ficha = $elegido !== null ? $this->datosFicha($elegido, $tienda) : null;
         }
-        unset($producto, $elegido);
+        unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas);
 
         $this->vista('productos/lista', get_defined_vars());
     }
@@ -77,11 +102,13 @@ class ProductoController extends Controller
      */
     private function datosFicha(Producto $producto, Tienda $tienda): array
     {
+        $categoria = $this->catalogo->buscarCategoria($producto->getIdCategoria());
         return [
             'producto'         => $producto,
             'tienda'           => $tienda,
             'stock'            => $this->repo->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
-            'categoria'        => $this->catalogo->buscarCategoria($producto->getIdCategoria()),
+            'categoria'        => $categoria,
+            'foto'             => $this->fotos->datos($producto->getIdProducto(), $categoria?->getNombreCategoria() ?? ''),
             'marca'            => $this->catalogo->buscarMarca($producto->getIdMarca()),
             'unidad'           => $this->catalogo->buscarUnidad($producto->getIdUnidad()),
             'puedeEditar'      => $this->puedeEditarCatalogo(),
@@ -201,6 +228,40 @@ class ProductoController extends Controller
             return;
         }
         $this->redirigir('/?ruta=producto&id=' . $id, $estado === 'ACTIVO' ? 'Producto activado.' : 'Producto descontinuado: ya no se vende.');
+    }
+
+    /**
+     * POST /?ruta=producto_foto con la foto (de $_FILES, que solo lee public/index.php), o con quitar=1.
+     * @param ?array{error?: int, size?: int, tmp_name?: string} $archivo
+     */
+    public function cambiarFoto(array $post, ?array $archivo): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
+        $id = $this->leerId($this->campo($post, 'id'));
+        $volver = '/?ruta=productos&ver=' . $id;
+        $quitar = $this->campo($post, 'quitar') === '1';
+        $contenido = null;
+        if (!$quitar) {
+            if ($archivo === null || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+                || !is_string($archivo['tmp_name'] ?? null) || !is_uploaded_file($archivo['tmp_name'])
+                || (int) ($archivo['size'] ?? 0) > FotoProducto::MAXIMO_BYTES) {
+                $this->sesion->avisar('error', 'Elige una foto JPG, PNG o WebP de hasta 2 MB.');
+                header('Location: ' . $volver, true, 303);
+                return;
+            }
+            $contenido = (string) file_get_contents($archivo['tmp_name']);
+        }
+        try {
+            $this->servicio->cambiarFoto($this->usuario, $id, $contenido, $this->fotos);
+        } catch (ReglaNegocioException $ex) {
+            $this->sesion->avisar('error', $ex->getMessage());
+            header('Location: ' . $volver, true, 303);
+            return;
+        }
+        $this->redirigir($volver, $quitar ? 'Foto quitada.' : 'Foto guardada.');
     }
 
     // POST /?ruta=stock_minimo
