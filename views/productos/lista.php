@@ -23,6 +23,7 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
         <a class="boton secundario" href="/?ruta=stock"><?= icono('stock') ?>Stock de las 3 tiendas</a>
         <?php if ($puedeEditar): ?>
             <a class="boton secundario" href="/?ruta=catalogo"><?= icono('categorias') ?>Categorías y marcas</a>
+            <a class="boton secundario" href="/?ruta=catalogo_importar"><?= icono('descarga') ?>Importar CSV</a>
             <a class="boton acento" href="/?ruta=producto_form"><?= icono('mas') ?>Nuevo producto</a>
         <?php endif; ?>
     </div>
