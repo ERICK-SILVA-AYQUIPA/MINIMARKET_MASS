@@ -254,6 +254,18 @@ try {
                 $reporteController->ventas($leer('desde'), $leer('hasta'));
                 break;
 
+            case 'utilidad':
+                $reporteController->utilidad($leer('desde'), $leer('hasta'));
+                break;
+
+            case 'reponer':
+                $panelController->reponer();
+                break;
+
+            case 'reponer_csv':
+                $panelController->reponerCsv();
+                break;
+
             case 'reporte_csv':
                 $reporteController->csv($leer('tipo'), $leer('desde'), $leer('hasta'));
                 break;

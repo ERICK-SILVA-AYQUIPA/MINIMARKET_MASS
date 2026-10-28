@@ -38,6 +38,7 @@ if ($usuarioActual !== null) {
     if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
         $inventarioMenu['ingresos'] = ['Ingresos', 'ingresos'];
         $inventarioMenu['vencimientos'] = ['Por vencer', 'vence'];
+        $inventarioMenu['reponer'] = ['Reponer', 'alerta'];
     }
     $inventarioMenu += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];
     if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $inventarioMenu['ajustes'] = ['Conteo', 'conteo']; }
@@ -45,7 +46,7 @@ if ($usuarioActual !== null) {
 
     $adminMenu = [];
     if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) {
-        $adminMenu += ['reportes' => ['Reportes', 'reportes'], 'empleados' => ['Personal', 'personal'], 'auditoria' => ['Auditoría', 'auditoria']];
+        $adminMenu += ['reportes' => ['Reportes', 'reportes'], 'utilidad' => ['Utilidad', 'utilidad'], 'empleados' => ['Personal', 'personal'], 'auditoria' => ['Auditoría', 'auditoria']];
     }
     if ($usuarioActual->puedeAdministrarCatalogo()) { $adminMenu['catalogo'] = ['Categorías y marcas', 'categorias']; }
     $adminMenu['tiendas'] = ['Tiendas', 'tiendas'];

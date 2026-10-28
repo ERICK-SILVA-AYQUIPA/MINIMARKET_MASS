@@ -24,6 +24,7 @@ require __DIR__ . '/../models/IngresoMercaderia.php';
 require __DIR__ . '/../models/DetalleIngreso.php';
 require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
+require __DIR__ . '/../models/Reposicion.php';
 
 $ok = 0;
 $fallas = 0;
@@ -129,6 +130,15 @@ revisar('Días de la URL: 15 vale; 0, 999 y texto usan 30', Vencimiento::leerDia
     && Vencimiento::leerDias('999') === 30 && Vencimiento::leerDias('x') === 30 && Vencimiento::leerDias(null) === 30);
 revisar('Textos: vencido hace 1 día, vence hoy, vence en 4 días', Vencimiento::describir(-1) === 'Vencido hace 1 día'
     && Vencimiento::describir(0) === 'Vence hoy' && Vencimiento::describir(4) === 'Vence en 4 días');
+
+echo "Reposición (cuánto pedir)\n";
+revisar('70 vendidos en 14 días = 5 por día', Reposicion::ventaDiaria(70000) === 5000 && Reposicion::ventaDiaria(0) === 0);
+revisar('Con 3 y venta de 5 por día se piden 67 para 14 días', Reposicion::sugerido(3000, 10000, 5000, false) === 67000);
+revisar('Sin ventas se pide hasta el doble del mínimo', Reposicion::sugerido(4000, 10000, 0, false) === 16000);
+revisar('Por unidad se redondea hacia arriba; al peso no', Reposicion::sugerido(0, 0, 333, false) === 5000
+    && Reposicion::sugerido(0, 0, 333, true) === 4662);
+revisar('Días que alcanza: 10 con venta de 4 por día = 2; sin ventas, null', Reposicion::diasCobertura(10000, 4000) === 2
+    && Reposicion::diasCobertura(10000, 0) === null);
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);

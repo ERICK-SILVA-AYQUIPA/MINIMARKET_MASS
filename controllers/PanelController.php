@@ -10,9 +10,10 @@ require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/Vencimiento.php';
+require_once __DIR__ . '/../models/Reposicion.php';
 
 /**
- * C: panel de inicio. Cada rol ve los indicadores de SU tienda que le sirven para trabajar.
+ * C: panel de inicio y lista de reposicion. Cada rol ve los indicadores de SU tienda que le sirven para trabajar.
  */
 class PanelController extends Controller
 {
@@ -73,5 +74,65 @@ class PanelController extends Controller
 
         $esAdministrador = $usuario->puedeAdministrarTienda($id);
         $this->vista('panel/inicio', get_defined_vars());
+    }
+
+    // GET /?ruta=reponer: lo que llego a su minimo, cuanto pedir y que tienda puede trasladarlo
+    public function reponer(): void
+    {
+        if (!$this->puedeVerReposicion()) {
+            $this->prohibido('La lista de reposición es para el almacenero y el administrador de la tienda.');
+            return;
+        }
+        $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
+        $filas = $this->filasReposicion($tienda->getIdTienda());
+        $diasVenta = Reposicion::DIAS_VENTA;
+        $diasObjetivo = Reposicion::DIAS_OBJETIVO;
+        $sinStock = count(array_filter($filas, fn(array $f): bool => $f['actual'] === 0));
+        $conSobrante = count(array_filter($filas, fn(array $f): bool => $f['otras'] !== []));
+        $puedeTrasladar = $this->usuario->puedeMoverMercaderia();
+        $this->vista('panel/reponer', get_defined_vars());
+    }
+
+    // GET /?ruta=reponer_csv: la misma lista, para armar el pedido en Excel
+    public function reponerCsv(): void
+    {
+        if (!$this->puedeVerReposicion()) {
+            $this->prohibido('La lista de reposición es para el almacenero y el administrador de la tienda.');
+            return;
+        }
+        $idTienda = $this->usuario->getIdTienda();
+        $filas = array_map(fn(array $f): array => [
+            $f['nombre'],
+            $f['unidad'],
+            Cantidad::aTexto($f['actual']),
+            Cantidad::aTexto($f['minimo']),
+            Cantidad::aTexto($f['ventaDiaria']),
+            $f['cobertura'] ?? '',
+            Cantidad::aTexto($f['sugerido']),
+            implode('; ', array_map(fn(array $o): string => $o['tienda'] . ' ' . Cantidad::aTexto($o['sobrante']), $f['otras'])),
+        ], $this->filasReposicion($idTienda));
+        $this->enviarCsv(sprintf('reponer_tienda%d_%s.csv', $idTienda, date('Y-m-d')),
+            ['producto', 'unidad', 'hay', 'minimo', 'venta_diaria', 'dias_que_alcanza', 'pedir', 'sobrante_en_otras_tiendas'], $filas);
+    }
+
+    /** @return array<int, array<string, mixed>> filas de PanelRepository::reposicion() con venta diaria, cobertura y sugerido */
+    private function filasReposicion(int $idTienda): array
+    {
+        $filas = [];
+        foreach ($this->panel->reposicion($idTienda, Reposicion::DIAS_VENTA) as $f) {
+            $diaria = Reposicion::ventaDiaria($f['vendido']);
+            $filas[] = $f + [
+                'ventaDiaria' => $diaria,
+                'cobertura'   => Reposicion::diasCobertura($f['actual'], $diaria),
+                'sugerido'    => Reposicion::sugerido($f['actual'], $f['minimo'], $diaria, $f['al_peso']),
+            ];
+        }
+        return $filas;
+    }
+
+    // Quien recibe mercaderia y su administrador (los mismos que ven los ingresos)
+    private function puedeVerReposicion(): bool
+    {
+        return $this->usuario !== null && $this->usuario->puedeVerIngresos($this->usuario->getIdTienda());
     }
 }
