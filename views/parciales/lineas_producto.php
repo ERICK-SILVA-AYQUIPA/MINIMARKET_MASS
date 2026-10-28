@@ -42,6 +42,7 @@ $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
                     <?php foreach ($opciones as $p): ?>
                         <option value="<?= $p->getIdProducto() ?>" <?= $elegido === (string) $p->getIdProducto() ? 'selected' : '' ?>
                                 data-precio="<?= e(number_format($p->getPrecioVenta(), 2, '.', '')) ?>" data-peso="<?= $p->esAlPeso() ? '1' : '0' ?>"
+                                <?php if ($p->getCodigoBarras() !== null): ?>data-codigo="<?= e($p->getCodigoBarras()) ?>"<?php endif; ?>
                                 <?php if (isset($stockPorProducto[$p->getIdProducto()])): ?>data-stock="<?= e(number_format($stockPorProducto[$p->getIdProducto()], 3, '.', '')) ?>"<?php endif; ?>>
                             <?= e($p->getNombreProducto()) ?> · <?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? ' /kg' : '' ?>
                         </option>

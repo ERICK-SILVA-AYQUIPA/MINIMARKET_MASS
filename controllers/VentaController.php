@@ -6,6 +6,8 @@ require_once __DIR__ . '/../models/VentaRepository.php';
 require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/ClienteRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
+require_once __DIR__ . '/../models/CatalogoRepository.php';
+require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
@@ -24,7 +26,9 @@ class VentaController extends Controller
         private ClienteRepository $clientes,
         private ProductoRepository $productos,
         private CajaRepository $cajas,
-        private VentaServicio $servicio
+        private VentaServicio $servicio,
+        private CatalogoRepository $catalogo,
+        private FotoProducto $fotos = new FotoProducto()
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -164,15 +168,26 @@ class VentaController extends Controller
         $turno = $this->cajas->turnoAbiertoDe($this->usuario->getIdEmpleado());
         $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
 
+        // Categorias que tienen algo para vender: son los filtros de la cuadricula de productos
+        $nombresCategoria = [];
+        foreach ($this->catalogo->categorias() as $id => $c) {
+            $nombresCategoria[$id] = $c->getNombreCategoria();
+        }
+        $categorias = [];
         $productos = [];
         foreach ($this->productos->todos() as $producto) {
             if ($producto->estaActivo()) {
+                $idCategoria = $producto->getIdCategoria();
+                $categorias[$idCategoria] = $nombresCategoria[$idCategoria] ?? '';
                 $productos[] = [
                     'producto' => $producto,
                     'stock'    => $this->productos->stockEnTienda($producto->getIdProducto(), $tienda->getIdTienda()),
+                    'foto'     => $this->fotos->datos($producto->getIdProducto(), $nombresCategoria[$idCategoria] ?? ''),
                 ];
             }
         }
+        asort($categorias);
+        unset($nombresCategoria, $id, $c, $producto, $idCategoria);
         $this->vista('ventas/nueva', get_defined_vars());
     }
 

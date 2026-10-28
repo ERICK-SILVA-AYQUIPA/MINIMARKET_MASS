@@ -122,40 +122,65 @@
         }));
     }
 
-    // ---------- Buscador en vivo sobre una tabla ----------
+    // ---------- Buscador en vivo y filtro por categoria (tabla o tarjetas) ----------
 
-    const normalizar = (texto) => texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const normalizar = (texto) => texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Un filtro por lista: lo que se escribio en Buscar y la categoria elegida en los chips
+    const filtros = new Map();
+
+    function filtroDe(lista) {
+        if (filtros.has(lista)) {
+            return filtros.get(lista);
+        }
+        const esTabla = lista.tagName === 'TBODY';
+        const elementos = $$(esTabla ? ':scope > tr' : ':scope > li', lista);
+        const textos = elementos.map((el) => normalizar(el.textContent));
+
+        // Aviso "sin coincidencias", creado con textContent
+        const sinResultados = document.createElement(esTabla ? 'tr' : 'li');
+        const texto = esTabla ? document.createElement('td') : sinResultados;
+        if (esTabla) {
+            texto.colSpan = elementos[0] ? elementos[0].children.length : 1;
+            sinResultados.appendChild(texto);
+        }
+        texto.className = 'sutil centro sin-resultados';
+        sinResultados.hidden = true;
+        lista.appendChild(sinResultados);
+
+        const filtro = {
+            texto: '',
+            categoria: '',
+            aplicar() {
+                const buscado = normalizar(this.texto.trim());
+                let visibles = 0;
+                elementos.forEach((el, i) => {
+                    const coincide = (buscado === '' || textos[i].includes(buscado))
+                        && (this.categoria === '' || el.dataset.categoria === this.categoria);
+                    el.hidden = !coincide;
+                    visibles += coincide ? 1 : 0;
+                });
+                texto.textContent = this.texto.trim() !== ''
+                    ? 'Nada coincide con "' + this.texto.trim() + '".'
+                    : 'No hay productos en esta categoría.';
+                sinResultados.hidden = visibles > 0;
+            },
+        };
+        filtros.set(lista, filtro);
+        return filtro;
+    }
 
     $$('[data-buscador]').forEach((caja) => {
         const campo = $('input[data-filtrar]', caja);
-        const cuerpo = campo ? document.getElementById(campo.dataset.filtrar) : null;
-        if (cuerpo === null) {
+        const lista = campo ? document.getElementById(campo.dataset.filtrar) : null;
+        if (lista === null) {
             return;
         }
         caja.hidden = false;
-        const filas = $$(':scope > tr', cuerpo);
-        const columnas = filas[0] ? filas[0].children.length : 1;
-
-        // Fila "sin coincidencias", creada con textContent
-        const sinResultados = document.createElement('tr');
-        const celda = document.createElement('td');
-        celda.colSpan = columnas;
-        celda.className = 'sutil centro';
-        sinResultados.appendChild(celda);
-        sinResultados.hidden = true;
-        cuerpo.appendChild(sinResultados);
-
-        const textos = filas.map((fila) => normalizar(fila.textContent));
+        const filtro = filtroDe(lista);
         campo.addEventListener('input', () => {
-            const buscado = normalizar(campo.value.trim());
-            let visibles = 0;
-            filas.forEach((fila, i) => {
-                const coincide = buscado === '' || textos[i].includes(buscado);
-                fila.hidden = !coincide;
-                visibles += coincide ? 1 : 0;
-            });
-            celda.textContent = 'Nada coincide con "' + campo.value.trim() + '".';
-            sinResultados.hidden = visibles > 0;
+            filtro.texto = campo.value;
+            filtro.aplicar();
         });
         campo.addEventListener('keydown', (evento) => {
             if (evento.key === 'Escape' && campo.value !== '') {
@@ -166,12 +191,87 @@
         });
     });
 
+    // Chips de categoria: filtran sin recargar. Sin JavaScript son enlaces y filtra el servidor.
+    $$('[data-chips]').forEach((nav) => {
+        const lista = document.getElementById(nav.dataset.chips);
+        if (lista === null) {
+            return;
+        }
+        const filtro = filtroDe(lista);
+        nav.addEventListener('click', (evento) => {
+            const chip = evento.target.closest('[data-categoria]');
+            if (chip === null || evento.ctrlKey || evento.metaKey || evento.shiftKey) {
+                return;
+            }
+            evento.preventDefault();
+            $$('[data-categoria]', nav).forEach((c) => c.removeAttribute('aria-current'));
+            chip.setAttribute('aria-current', 'true');
+            filtro.categoria = chip.dataset.categoria;
+            filtro.aplicar();
+            if (chip.href) {
+                history.replaceState(null, '', chip.href);
+            }
+        });
+    });
+
+    // ---------- Guias "Como se usa": se recuerdan cerradas en este navegador ----------
+
+    $$('details[data-guia]').forEach((guia) => {
+        const clave = 'guia:' + guia.dataset.guia;
+        try {
+            if (localStorage.getItem(clave) === 'cerrada') {
+                guia.open = false;
+            }
+        } catch (e) {
+            // Navegador sin almacenamiento: la guia solo sale abierta
+        }
+        guia.addEventListener('toggle', () => {
+            try {
+                localStorage.setItem(clave, guia.open ? 'abierta' : 'cerrada');
+            } catch (e) {
+                // Sin almacenamiento no se recuerda, y no pasa nada
+            }
+        });
+    });
+
+    // ---------- Avisos cortos que se van solos (toast) ----------
+
+    let toast = null;
+    let toastReloj = 0;
+
+    function avisar(texto, error = false) {
+        if (toast === null) {
+            toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.setAttribute('role', 'status');
+            toast.setAttribute('aria-live', 'polite');
+            document.body.appendChild(toast);
+        }
+        toast.textContent = texto;
+        toast.classList.toggle('error', error);
+        toast.classList.add('visible');
+        clearTimeout(toastReloj);
+        toastReloj = setTimeout(() => toast.classList.remove('visible'), 2200);
+    }
+
+    // ---------- Foto del producto: se sube apenas se elige el archivo ----------
+
+    $$('input[type=file][data-enviar-al-elegir]').forEach((campo) => {
+        campo.addEventListener('change', () => {
+            if (campo.files.length > 0) {
+                avisar('Subiendo la foto…');
+                campo.form.requestSubmit();
+            }
+        });
+    });
+
     // ---------- Pantalla de venta: total, pagos y avisos en vivo ----------
 
     const formVenta = $('form[data-venta]');
     if (formVenta !== null) {
         const caja = $('[data-total-vivo]', formVenta);
-        const lineas = $$('[data-lineas] tbody tr', formVenta);
+        const cuerpoLineas = $('[data-lineas] tbody', formVenta);
+        const lineas = () => $$(':scope > tr', cuerpoLineas);
         const campo = (nombre) => formVenta.elements.namedItem(nombre);
         caja.hidden = false;
 
@@ -180,7 +280,7 @@
             const avisos = [];
             const pedidoPorProducto = new Map();
 
-            lineas.forEach((fila, i) => {
+            lineas().forEach((fila, i) => {
                 const select = $('select', fila);
                 const cantidad = $('input[name="cantidad[]"]', fila);
                 const celda = $('[data-importe]', fila);
@@ -258,6 +358,135 @@
         formVenta.addEventListener('input', calcular);
         formVenta.addEventListener('change', calcular);
         calcular();
+
+        // ---------- Cuadricula de productos y lector de codigo de barras ----------
+        // Tocar un producto (o escanear su codigo) lo pone en la lista de arriba: si ya esta, suma 1.
+        // Las filas siguen siendo el formulario que se envia; esto solo las llena.
+        const selector = $('[data-selector]', formVenta);
+        const MAXIMO_FILAS = 40;
+
+        // Fila vacia nueva, copiando la ultima (sin sus datos)
+        function filaNueva() {
+            const filas = lineas();
+            if (filas.length >= MAXIMO_FILAS) {
+                return null;
+            }
+            const copia = filas[filas.length - 1].cloneNode(true);
+            const numero = filas.length + 1;
+            copia.cells[0].textContent = String(numero);
+            $('select', copia).value = '';
+            $('select', copia).setAttribute('aria-label', 'Producto ' + numero);
+            const cantidad = $('input[name="cantidad[]"]', copia);
+            cantidad.value = '';
+            cantidad.setAttribute('aria-label', 'Cantidad ' + numero);
+            cuerpoLineas.appendChild(copia);
+            return copia;
+        }
+
+        function agregar(id) {
+            const opcion = $('select option[value="' + CSS.escape(id) + '"]', formVenta);
+            if (opcion === null) {
+                avisar('Ese producto no se puede vender ahora.', true);
+                return;
+            }
+            const nombre = opcion.textContent.split('·')[0].trim();
+            const alPeso = opcion.dataset.peso === '1';
+            let fila = lineas().find((f) => $('select', f).value === id);
+            if (fila === undefined) {
+                fila = lineas().find((f) => $('select', f).value === '') || filaNueva();
+                if (fila === null) {
+                    avisar('La venta ya tiene ' + MAXIMO_FILAS + ' productos distintos.', true);
+                    return;
+                }
+                $('select', fila).value = id;
+                $('input[name="cantidad[]"]', fila).value = alPeso ? '' : '0';
+            }
+            const cantidad = $('input[name="cantidad[]"]', fila);
+            if (alPeso) {
+                // Al peso: el cajero escribe los kg que marca la balanza
+                cantidad.focus();
+                cantidad.select();
+                avisar(nombre + ': escribe los kg de la balanza.');
+            } else {
+                const actual = milesimas(cantidad.value || '0') || 0;
+                cantidad.value = String(Math.floor(actual / 1000) + 1);
+                avisar('+1 ' + nombre + ' (van ' + cantidad.value + ')');
+            }
+            fila.classList.remove('recien');
+            void fila.offsetWidth;   // reinicia la animacion
+            fila.classList.add('recien');
+            calcular();
+        }
+
+        if (selector !== null) {
+            selector.hidden = false;
+            const rejilla = $('[data-rejilla-venta]', selector);
+            const filtro = filtroDe(rejilla);
+
+            rejilla.addEventListener('click', (evento) => {
+                const boton = evento.target.closest('[data-agregar]');
+                if (boton !== null) {
+                    agregar(boton.dataset.agregar);
+                    boton.classList.remove('agregado');
+                    void boton.offsetWidth;
+                    boton.classList.add('agregado');
+                }
+            });
+
+            const buscar = $('[data-buscar-producto]', selector);
+            buscar.addEventListener('input', () => {
+                filtro.texto = buscar.value;
+                filtro.aplicar();
+            });
+            // Enter en el buscador no envia la venta: agrega el unico producto que quedo visible
+            buscar.addEventListener('keydown', (evento) => {
+                if (evento.key !== 'Enter') {
+                    return;
+                }
+                evento.preventDefault();
+                const visibles = $$(':scope > li:not([hidden]) [data-agregar]:not([disabled])', rejilla);
+                if (visibles.length === 1) {
+                    agregar(visibles[0].dataset.agregar);
+                    buscar.value = '';
+                    buscar.dispatchEvent(new Event('input'));
+                }
+            });
+
+            $('[data-chips-venta]', selector).addEventListener('click', (evento) => {
+                const chip = evento.target.closest('[data-categoria]');
+                if (chip === null) {
+                    return;
+                }
+                $$('[data-categoria]', evento.currentTarget).forEach((c) => c.setAttribute('aria-pressed', 'false'));
+                chip.setAttribute('aria-pressed', 'true');
+                filtro.categoria = chip.dataset.categoria;
+                filtro.aplicar();
+            });
+
+            // El lector escribe el codigo y aprieta Enter: se agrega sin enviar el formulario
+            const escanear = $('[data-escanear]', selector);
+            escanear.addEventListener('keydown', (evento) => {
+                if (evento.key !== 'Enter') {
+                    return;
+                }
+                evento.preventDefault();
+                const codigo = escanear.value.trim();
+                escanear.value = '';
+                if (codigo === '') {
+                    return;
+                }
+                const opcion = $('select option[data-codigo="' + CSS.escape(codigo) + '"]', formVenta);
+                if (opcion === null) {
+                    avisar('El código ' + codigo + ' no está en el catálogo (o el producto está descontinuado).', true);
+                    return;
+                }
+                agregar(opcion.value);
+                if (opcion.dataset.peso !== '1') {
+                    escanear.focus();
+                }
+            });
+            escanear.focus({ preventScroll: true });
+        }
     }
 
     // ---------- Validacion de formularios con mensajes junto al campo ----------
