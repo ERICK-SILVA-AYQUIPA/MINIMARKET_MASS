@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Servicio.php';
 require_once __DIR__ . '/../Usuario.php';
+require_once __DIR__ . '/../FotoProducto.php';
 
 /**
  * Mantenimiento del catalogo: productos, categorias, marcas y el stock minimo de cada tienda.
@@ -98,6 +99,30 @@ class ProductoServicio extends Servicio
             }
             $this->auditar($admin, 'PRODUCTO_ESTADO', sprintf('%d: %s', $idProducto, $estado));
         });
+    }
+
+    /**
+     * Sube (o quita, con $contenido null) la foto de un producto. La foto vive en public/img/productos/,
+     * fuera de la base, asi que primero se revisa el producto y al final queda en la auditoria.
+     */
+    public function cambiarFoto(Usuario $admin, int $idProducto, ?string $contenido, FotoProducto $fotos): void
+    {
+        $this->exigirAdministrador($admin);
+        $consulta = $this->db->prepare('SELECT nombre_producto FROM producto WHERE id_producto = :id');
+        $consulta->execute(['id' => $idProducto]);
+        $nombre = $consulta->fetchColumn();
+        if ($nombre === false) {
+            throw new ReglaNegocioException('El producto no existe.');
+        }
+        if ($contenido === null) {
+            if (!$fotos->borrar($idProducto)) {
+                throw new ReglaNegocioException('Este producto no tenía foto.');
+            }
+            $this->auditar($admin, 'PRODUCTO_FOTO', sprintf('%d %s: foto quitada', $idProducto, $nombre));
+            return;
+        }
+        $fotos->guardar($idProducto, $contenido);
+        $this->auditar($admin, 'PRODUCTO_FOTO', sprintf('%d %s: foto nueva', $idProducto, $nombre));
     }
 
     // El administrador fija desde cuanto se marca REPONER en SU tienda

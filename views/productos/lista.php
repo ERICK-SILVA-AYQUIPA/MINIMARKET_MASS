@@ -3,11 +3,15 @@ declare(strict_types=1);
 /**
  * V: tabla HTML del catalogo. Solo muestra; no calcula reglas ni busca datos.
  * Al tocar un producto se abre su ficha en el panel lateral (&ver=ID) sin salir de la lista.
- * @var array<int, array{producto: Producto, stock: ?Stock}> $filas
+ * @var array<int, array{producto: Producto, stock: ?Stock, marca: string, foto: array{url: ?string, icono: string, tono: int, categoria: string}}> $filas
  * @var array<int, Tienda> $tiendas
  * @var Tienda $tienda
  * @var string $rutaSelector
  * @var bool $puedeEditar
+ * @var string $vista                     'tarjetas' o 'tabla'
+ * @var array<int, string> $categorias    id => nombre
+ * @var ?int $categoriaElegida
+ * @var array<int, int> $porCategoria     id de categoria => productos
  * @var ?array<string, mixed> $ficha  datos de la ficha abierta (ver ProductoController::datosFicha)
  */
 $titulo = 'Catálogo';
@@ -31,6 +35,40 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
 
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
+<?php
+$guiaClave = 'catalogo';
+$guiaTitulo = 'Cómo se usa el catálogo';
+$guiaPasos = [
+    'Elige una categoría o escribe en Buscar (nombre o código de barras): la lista se filtra al momento.',
+    'Toca un producto para abrir su ficha a la derecha: precio, stock en la tienda, mínimo y kardex.',
+    'La etiqueta REPONER sale cuando el stock llegó a su mínimo. Cambia de tienda con las pestañas de arriba.',
+];
+if ($puedeEditar) {
+    $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Sin foto, se dibuja el icono de su categoría.';
+}
+require __DIR__ . '/../parciales/guia.php';
+
+// Enlaces que conservan la tienda, la vista y la categoria elegidas
+$base = '/?ruta=productos&tienda=' . $tienda->getIdTienda();
+$conVista = $vista === 'tabla' ? '&vista=tabla' : '';
+$conCategoria = $categoriaElegida !== null ? '&categoria=' . $categoriaElegida : '';
+$contenedor = $vista === 'tabla' ? 'filas-productos' : 'tarjetas-productos';
+$totalProductos = array_sum($porCategoria);
+?>
+<div class="barra-catalogo">
+    <nav class="chips" aria-label="Filtrar por categoría" data-chips="<?= e($contenedor) ?>">
+        <a href="<?= e($base . $conVista) ?>" data-categoria=""<?= $categoriaElegida === null ? ' aria-current="true"' : '' ?>>Todas <span><?= (int) $totalProductos ?></span></a>
+        <?php foreach ($categorias as $idCategoria => $nombreCategoria): ?>
+            <?php if (($porCategoria[$idCategoria] ?? 0) === 0) { continue; } ?>
+            <a href="<?= e($base . $conVista . '&categoria=' . $idCategoria) ?>" data-categoria="<?= (int) $idCategoria ?>"<?= $categoriaElegida === $idCategoria ? ' aria-current="true"' : '' ?>><?= e($nombreCategoria) ?> <span><?= (int) $porCategoria[$idCategoria] ?></span></a>
+        <?php endforeach; ?>
+    </nav>
+    <div class="alternar" role="group" aria-label="Cómo ver el catálogo">
+        <a href="<?= e($base . $conCategoria) ?>"<?= $vista === 'tarjetas' ? ' aria-current="true"' : '' ?>><?= icono('cuadricula') ?>Tarjetas</a>
+        <a href="<?= e($base . $conCategoria . '&vista=tabla') ?>"<?= $vista === 'tabla' ? ' aria-current="true"' : '' ?>><?= icono('lista') ?>Tabla</a>
+    </div>
+</div>
+
 <?php if ($filas === []): ?>
     <?php
     $vacioTitulo = 'Todavía no hay productos';
@@ -40,10 +78,39 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
     ?>
 <?php else: ?>
 <?php
-$buscadorTabla = 'filas-productos';
-$buscadorTexto = 'Buscar por nombre o código de barras';
+$buscadorTabla = $contenedor;
+$buscadorTexto = 'Buscar por nombre, marca o código de barras';
 require __DIR__ . '/../parciales/buscador.php';
 ?>
+<?php if ($vista === 'tarjetas'): ?>
+<ul class="rejilla-productos" id="tarjetas-productos" aria-label="Productos y su stock en <?= e($tienda->getNombreTienda()) ?>">
+    <?php foreach ($filas as $fila): ?>
+        <?php
+        $p = $fila['producto'];
+        $s = $fila['stock'];
+        $foto = $fila['foto'];
+        $enlace = $base . $conVista . $conCategoria . '&ver=' . $p->getIdProducto();
+        $stockTexto = $s === null ? 'Sin registro' : number_format($s->getCantidadActual(), $p->esAlPeso() ? 3 : 0) . ($p->esAlPeso() ? ' kg' : ' und');
+        $claseStock = $s === null ? 'neutra' : ($s->getCantidadActual() <= 0 ? 'error' : ($s->necesitaReponer() ? 'alerta' : 'ok'));
+        ?>
+        <li id="fila-<?= $p->getIdProducto() ?>" data-categoria="<?= (int) $p->getIdCategoria() ?>">
+            <a class="tarjeta-producto<?= $p->estaActivo() ? '' : ' inactivo' ?>" href="<?= e($enlace) ?>">
+                <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                <span class="tarjeta-categoria"><?= e($foto['categoria']) ?></span>
+                <strong class="tarjeta-nombre"><?= e($p->getNombreProducto()) ?></strong>
+                <span class="tarjeta-marca"><?= e($fila['marca']) ?></span>
+                <span class="tarjeta-pie">
+                    <span class="tarjeta-precio"><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small> /kg</small>' : '' ?></span>
+                    <span class="etiqueta <?= e($claseStock) ?>"><?= e($p->estaActivo() ? $stockTexto : 'DESCONTINUADO') ?></span>
+                </span>
+                <span class="visualmente-oculto"><?= e($p->getCodigoBarras() ?? '') ?></span>
+                <span class="tarjeta-ver" aria-hidden="true">Ver ficha</span>
+            </a>
+        </li>
+    <?php endforeach; ?>
+</ul>
+<p class="sutil">Verde: hay stock · Amarillo: llegó a su mínimo (REPONER) · Rojo: sin stock. Toca un producto para ver su ficha.</p>
+<?php else: ?>
 <div class="tabla">
 <table>
     <caption class="visualmente-oculto">Productos y su stock en <?= e($tienda->getNombreTienda()) ?></caption>
@@ -61,12 +128,19 @@ require __DIR__ . '/../parciales/buscador.php';
         <?php
         $p = $fila['producto'];
         $s = $fila['stock'];
-        $enlace = '/?ruta=productos&tienda=' . $tienda->getIdTienda() . '&ver=' . $p->getIdProducto();
+        $foto = $fila['foto'];
+        $fotoClase = 'chica';
+        $enlace = $base . $conVista . $conCategoria . '&ver=' . $p->getIdProducto();
         ?>
-        <tr id="fila-<?= $p->getIdProducto() ?>">
+        <tr id="fila-<?= $p->getIdProducto() ?>" data-categoria="<?= (int) $p->getIdCategoria() ?>">
             <td>
-                <a class="fila-enlace" href="<?= e($enlace) ?>"><?= e($p->getNombreProducto()) ?></a>
-                <br><small><?= $p->esAlPeso() ? 'Se vende por kg' : 'Se vende por unidad' ?></small>
+                <div class="con-foto">
+                    <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                    <div>
+                        <a class="fila-enlace" href="<?= e($enlace) ?>"><?= e($p->getNombreProducto()) ?></a>
+                        <br><small><?= $p->esAlPeso() ? 'Se vende por kg' : 'Se vende por unidad' ?></small>
+                    </div>
+                </div>
             </td>
             <td><?= e($p->getCodigoBarras() ?? '(al peso)') ?></td>
             <td class="num"><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? ' /kg' : '' ?></td>
@@ -88,6 +162,7 @@ require __DIR__ . '/../parciales/buscador.php';
 </div>
 <p class="sutil">REPONER = la cantidad actual llegó al stock mínimo de la tienda. Toca un producto para ver su ficha.</p>
 <?php endif; ?>
+<?php endif; ?>
 
 <?php if ($ficha !== null): ?>
     <?php
@@ -95,7 +170,7 @@ require __DIR__ . '/../parciales/buscador.php';
     $drawerId = 'ficha-producto';
     $drawerTitulo = $producto->getNombreProducto();
     $drawerSubtitulo = 'Producto ' . $producto->getIdProducto() . ' · ' . $tienda->getNombreTienda();
-    $drawerCerrar = '/?ruta=productos&tienda=' . $tienda->getIdTienda() . '#fila-' . $producto->getIdProducto();
+    $drawerCerrar = $base . $conVista . $conCategoria . '#fila-' . $producto->getIdProducto();
     $drawerAbierto = true;
     require __DIR__ . '/../parciales/drawer_abrir.php';
     require __DIR__ . '/ficha.php';
