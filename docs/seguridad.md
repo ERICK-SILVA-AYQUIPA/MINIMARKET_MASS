@@ -10,7 +10,7 @@ php tests/seguridad.php    # 19 comprobaciones, sin base de datos, en menos de 1
 
 | Protección | Qué evita | Dónde está | Cómo se comprueba |
 |---|---|---|---|
-| Token CSRF en todo POST | Que otra página mande formularios con la sesión del empleado | `Sesion::csrfValido()` en `public/index.php`, antes del `match` de rutas POST; `campoCsrf()` en las vistas | `seguridad.php` sección 1 (25 rutas POST y 25 formularios) y `web.php` (POST sin token = 403) |
+| Token CSRF en todo POST | Que otra página mande formularios con la sesión del empleado | `Sesion::csrfValido()` en `public/index.php`, antes del `match` de rutas POST; `campoCsrf()` en las vistas | `seguridad.php` sección 1 (28 rutas POST y 28 formularios) y `web.php` (POST sin token = 403) |
 | Escapado de salida | XSS: que un nombre de producto con `<script>` se ejecute | `e()` = `htmlspecialchars(..., ENT_QUOTES, 'UTF-8')` en `views/parciales/funciones.php` | `seguridad.php` sección 2 (las 667 salidas `<?=` de las vistas; `icono('nombre')` solo se acepta con un nombre fijo) y `web.php` (un `<b>` en la búsqueda sale escapado) |
 | Consultas preparadas | Inyección SQL | Todos los Repository y Servicios usan `prepare()` con `?`; `PDO::ATTR_EMULATE_PREPARES = false` en `config/Database.php` | `seguridad.php` sección 3 (las 130 llamadas a `prepare()`/`query()`) |
 | Permisos por rol | Que un cajero anule ventas o vea reportes | `Usuario::puede...()` en cada rol; el controlador responde 403 y el servicio vuelve a revisar | `web.php` (matriz de rutas × 3 roles) e `integracion.php` |

@@ -99,4 +99,4 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Un monto o una cantidad que no cabe en su columna (DECIMAL(10,2) o DECIMAL(10,3)) se rechaza con un mensaje, en vez de un error de MySQL.
 - El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula.
 - Las acciones sensibles (anular, cambiar precios, personal, claves, tiendas, cajas e ingresos de mercadería) quedan en la tabla `auditoria`, dentro de la misma transacción; el administrador la ve en `?ruta=auditoria`.
-- `tests/seguridad.php` revisa todo el código en cada push: que los 25 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.
+- `tests/seguridad.php` revisa todo el código en cada push: que los 28 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.

@@ -39,7 +39,7 @@ php -S localhost:8000 -t public
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba (ver `docs/manual_usuario.md`).
 
-Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql` y `operaciones.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
+Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql`, `operaciones.sql` y `catalogo.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
 
 ## 4. Opción B: MySQL sin Docker (Laragon)
 
@@ -55,6 +55,7 @@ mysql -u root -p -h 127.0.0.1 -P 3306 < database/ajustes.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/auditoria.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/ingresos.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/operaciones.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < database/catalogo.sql
 ```
 
 Luego crear el usuario de la aplicación con solo los permisos que necesita (no root):
