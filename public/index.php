@@ -29,6 +29,10 @@ header('Referrer-Policy: same-origin');
 // Solo se ejecuta JavaScript de archivos de este sitio (public/app.js): un script pegado en la pagina
 // o traido de otro sitio no corre, aunque alguien lograra inyectarlo
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
+// Con HTTPS, el navegador recuerda por un año que este sitio solo se abre cifrado
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
 try {
     $db = Database::conexion();
