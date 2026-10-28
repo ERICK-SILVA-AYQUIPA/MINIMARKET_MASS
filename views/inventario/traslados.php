@@ -22,6 +22,16 @@ require __DIR__ . '/../layout_inicio.php';
     </div>
     <?php if ($puedeRegistrar): ?><div class="acciones"><a class="boton acento" href="#nuevo-traslado"><?= icono('traslados') ?>Enviar mercadería</a></div><?php endif; ?>
 </div>
+<?php
+$guiaClave = 'traslados';
+$guiaTitulo = 'Cómo hacer un traslado';
+$guiaPasos = [
+    'El almacenero de la tienda que envía elige la tienda de destino y los productos con su cantidad.',
+    'Al registrar, el stock baja aquí y sube en la otra tienda al mismo tiempo; las dos quedan en el kardex.',
+    'Úsalo cuando Reponer te muestre que otra tienda tiene sobrante.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <?php if ($filas === []): ?>

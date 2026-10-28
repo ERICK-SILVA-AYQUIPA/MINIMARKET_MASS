@@ -29,6 +29,16 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
         <?php if ($puedeRegistrar): ?><a class="boton acento" href="#nuevo-ingreso"><?= icono('mas') ?>Registrar ingreso</a><?php endif; ?>
     </div>
 </div>
+<?php
+$guiaClave = 'ingresos';
+$guiaTitulo = 'Cómo registrar la mercadería que llega';
+$guiaPasos = [
+    'Con la factura, guía o boleta del proveedor en la mano, escribe el tipo, el número, la fecha y el RUC del emisor.',
+    'Agrega cada producto con la cantidad y el costo unitario. Si el lote vence, pon su fecha: así sale en Por vencer.',
+    'Al registrar, el stock sube al momento y cada producto deja su entrada en el kardex. El administrador lo revisa aquí mismo.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <p class="sutil">La mercadería entra con su documento (guía de remisión, factura o boleta del emisor). El stock sube al registrar,
    cada producto queda en el kardex y el ingreso en la auditoría.</p>
 

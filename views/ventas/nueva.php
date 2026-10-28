@@ -5,7 +5,8 @@ declare(strict_types=1);
  * El total lo calcula el servidor con el precio de la base.
  * @var ?CajaTurno $turno
  * @var Tienda $tienda
- * @var array<int, array{producto: Producto, stock: ?Stock}> $productos
+ * @var array<int, array{producto: Producto, stock: ?Stock, foto: array{url: ?string, icono: string, tono: int, categoria: string}}> $productos
+ * @var array<int, string> $categorias  las que tienen productos para vender, id => nombre
  * @var array $viejo
  * @var ?string $error
  */
@@ -48,8 +49,62 @@ $conSip = $v('sip_monto') !== '';
         <?= campoCsrf($csrf) ?>
         <section class="panel">
             <h2>Productos</h2>
+            <?php
+            $guiaClave = 'venta';
+            $guiaTitulo = 'Cómo vender rápido';
+            $guiaPasos = [
+                'Escanea el código de barras (el cursor ya está en el campo) o toca el producto en la cuadrícula: se agrega a la lista. Tocarlo otra vez suma 1.',
+                'Para lo que va al peso (papa, plátano…), toca el producto y escribe los kg que marca la balanza, por ejemplo 1.250.',
+                'A la derecha ves el total y el vuelto al momento. Elige boleta o factura, escribe lo que te entrega el cliente y registra.',
+            ];
+            require __DIR__ . '/../parciales/guia.php';
+            ?>
+            <div class="selector-productos" data-selector hidden>
+                <div class="selector-barra">
+                    <label class="escanear">
+                        <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#codigo"></use></svg>
+                        <span class="visualmente-oculto">Código de barras</span>
+                        <input type="text" inputmode="numeric" data-escanear placeholder="Escanea o escribe el código y Enter" autocomplete="off">
+                    </label>
+                    <label class="buscar-producto">
+                        <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#buscar"></use></svg>
+                        <span class="visualmente-oculto">Buscar producto</span>
+                        <input type="search" data-buscar-producto placeholder="Buscar producto" autocomplete="off">
+                    </label>
+                </div>
+                <div class="chips" data-chips-venta role="group" aria-label="Filtrar por categoría">
+                    <button type="button" data-categoria="" aria-pressed="true">Todas</button>
+                    <?php foreach ($categorias as $idCategoria => $nombreCategoria): ?>
+                        <button type="button" data-categoria="<?= (int) $idCategoria ?>" aria-pressed="false"><?= e($nombreCategoria) ?></button>
+                    <?php endforeach; ?>
+                </div>
+                <ul class="rejilla-venta" data-rejilla-venta aria-label="Productos para agregar">
+                    <?php foreach ($productos as $fila): ?>
+                        <?php
+                        $p = $fila['producto'];
+                        $s = $fila['stock'];
+                        $foto = $fila['foto'];
+                        $fotoClase = 'chica';
+                        $hay = $s === null ? 0.0 : $s->getCantidadActual();
+                        $hayTexto = number_format($hay, $p->esAlPeso() ? 3 : 0) . ($p->esAlPeso() ? ' kg' : ' und');
+                        $claseHay = $hay <= 0 ? 'error' : ($s !== null && $s->necesitaReponer() ? 'alerta' : 'ok');
+                        ?>
+                        <li data-categoria="<?= (int) $p->getIdCategoria() ?>">
+                            <button type="button" class="producto-venta" data-agregar="<?= $p->getIdProducto() ?>"<?= $hay <= 0 ? ' disabled' : '' ?>>
+                                <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                                <span class="producto-venta-nombre"><?= e($p->getNombreProducto()) ?></span>
+                                <span class="producto-venta-pie">
+                                    <strong><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small>/kg</small>' : '' ?></strong>
+                                    <span class="etiqueta <?= e($claseHay) ?>"><?= e($hay <= 0 ? 'Sin stock' : $hayTexto) ?></span>
+                                </span>
+                                <span class="visualmente-oculto"><?= e($p->getCodigoBarras() ?? '') ?></span>
+                            </button>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
             <?php require __DIR__ . '/../parciales/lineas_producto.php'; ?>
-            <details class="bloque">
+            <details class="bloque" data-sin-js>
                 <summary>Ver precios y stock en <?= e($tienda->getNombreTienda()) ?></summary>
                 <div class="tabla">
                 <table>

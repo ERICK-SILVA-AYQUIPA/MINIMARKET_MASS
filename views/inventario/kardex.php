@@ -26,6 +26,16 @@ require __DIR__ . '/../layout_inicio.php';
         <a class="boton secundario" href="<?= e('/?' . http_build_query(['ruta' => 'kardex_csv', 'tienda' => $tienda->getIdTienda(), 'producto' => $idProducto])) ?>"><?= icono('descarga') ?>Descargar CSV</a>
     </div>
 </div>
+<?php
+$guiaClave = 'kardex';
+$guiaTitulo = 'Cómo leer el kardex';
+$guiaPasos = [
+    'Cada fila es un movimiento de stock: venta, devolución, ingreso, traslado, merma o ajuste por conteo.',
+    'Verde suma y rojo resta. "Queda" es el stock justo después de ese movimiento.',
+    'Filtra por producto para seguir su historia completa. Toca una fila para ver su detalle.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <form class="filtros" method="get" action="/">

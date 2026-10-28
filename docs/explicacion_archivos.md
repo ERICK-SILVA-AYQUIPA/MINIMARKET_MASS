@@ -83,6 +83,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `EmpleadoRepository.php` | Lee los empleados de MySQL y, con `match`, crea un Administrador, Cajero o Almacenero según `id_rol`. |
 | `Producto.php` | Una fila de la tabla `producto`. El constructor rechaza datos que la base tampoco aceptaría (precio 0, código mal formado). Reglas: `esAlPeso()`, `estaActivo()`, `cantidadValida()` (kg con 3 decimales o unidades enteras) e `importe()` = cantidad × precio redondeado a 2. |
 | `Stock.php` | Cuánto hay de un producto en una tienda (tabla `stock`). `necesitaReponer()` es verdadero cuando lo actual llega al mínimo; `hayStock()` dice si alcanza para vender una cantidad. |
+| `FotoProducto.php` | La foto de un producto, guardada como `public/img/productos/{id}.jpg` (no en la base). `guardar()` revisa que sea una imagen de hasta 2 MB y la vuelve a dibujar con GD como JPEG de hasta 600 px; `datos()` da la dirección de la foto o, si no hay, el ícono y el color de su categoría (`icono()`, `tono()`). |
 | `ProductoRepository.php` | Lee de MySQL los productos, el stock por tienda y las unidades de medida. Busca por código o por id y devuelve `null` si no encuentra. Convierte los DECIMAL, que MySQL entrega como texto (`"4.50"`), a `float`. |
 | `Usuario.php` | Clase base `abstract` de los roles (tabla `empleado`). Guarda lo común (nombres, DNI, tienda) y por defecto niega todos los permisos. El DNI solo se muestra oculto. |
 | `Administrador.php` | Hereda de Usuario. Puede anular ventas, pero solo de su propia tienda. |
@@ -123,7 +124,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `Controller.php` | Clase base `abstract` de los controladores: lee la tienda pedida (por defecto la del usuario), carga vistas con el usuario, el token CSRF y el aviso, redirige después de un POST, responde 403 o 404 y arma las descargas CSV (`enviarCsv()`, con BOM y sin fórmulas). |
-| `ProductoController.php` | Catálogo, ficha y stock de las 3 tiendas, e importar el catálogo en CSV (revisar, importar y descargar la plantilla). Valida el código o el id; si el producto no existe responde 404. No tiene HTML ni SQL. |
+| `ProductoController.php` | Catálogo, ficha y stock de las 3 tiendas, e importar el catálogo en CSV (revisar, importar y descargar la plantilla). El catálogo se ve en tarjetas o en tabla y se filtra por categoría (`&vista=`, `&categoria=`). `cambiarFoto()` recibe la foto del administrador. Valida el código o el id; si el producto no existe responde 404. No tiene HTML ni SQL. |
 | `VentaController.php` | Lista de ventas por tienda y comprobante. Valida la serie (`^[BF][0-9]{3}$`) y el número (1 a 8 dígitos) antes de buscar. También calcula quién puede anular la venta, preguntando a cada empleado `puedeAnularVenta()`, y cuánto queda por devolver de cada producto. `devolver()` recibe el formulario de devolución. |
 | `TiendaController.php` | Junta cada tienda con su distrito, cajas, series y personal; edita la tienda propia, sus cajas y abre tiendas nuevas. |
 | `AuthController.php` | Login con `password_verify()`. Si el DNI no existe igual compara contra un hash de relleno, para que tarde lo mismo. |
@@ -144,8 +145,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
 | `panel/reponer.php` | Lo que llegó a su stock mínimo: cuánto hay, venta diaria, días que alcanza, cuánto pedir y qué tienda tiene sobrante para trasladar. |
-| `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Al tocar un producto (`&ver=ID`) abre su ficha en un panel lateral. |
-| `productos/ficha.php` | Datos y acciones de un producto (stock, precio, mínimo, editar, descontinuar). La usan la página del producto y el panel lateral. |
+| `productos/lista.php` | Catálogo en tarjetas (foto, precio y stock con color) o en tabla, con filtros por categoría y el stock de la tienda elegida. Al tocar un producto (`&ver=ID`) abre su ficha en un panel lateral. |
+| `productos/ficha.php` | Foto grande, precio, datos y acciones de un producto (subir o quitar la foto, stock, mínimo, editar, descontinuar). La usan la página del producto y el panel lateral. |
 | `productos/detalle.php` | Página propia de un producto; muestra `productos/ficha.php`. |
 | `productos/stock.php` | Tabla producto × tienda con el mínimo y REPONER. |
 | `ventas/lista.php` | Ventas de la tienda elegida. Al tocar un comprobante (`&ver=B001-1`) abre su detalle en un panel lateral, con enlaces al comprobante completo y al ticket. |
@@ -158,10 +159,12 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
 | `auth/login.php` | Pantalla de entrada: presentación del sistema y, al lado, el formulario de DNI y clave sobre fondo oscuro. Al entrar bien, la primera página muestra un momento el logo con el saludo y una barra de carga (solo CSS, se va sola y no sale si el equipo pide menos movimiento). |
-| `ventas/nueva.php` | Pantalla de caja: productos a la izquierda; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
+| `ventas/nueva.php` | Pantalla de caja: arriba el campo para el lector de códigos y una cuadrícula de productos para tocar (con filtros por categoría); debajo las filas de productos; a la derecha boleta o factura, cliente, efectivo y el botón grande **Registrar venta**. Tarjeta y Sip están plegados hasta que se usan. |
 | `parciales/lineas_producto.php` | Filas de producto y cantidad que usan venta, traslado, merma e ingreso (este con costo). |
 | `parciales/drawer_abrir.php`, `parciales/drawer_cerrar.php` | Abren y cierran un panel lateral con título, botón Cerrar y fondo oscuro. Se muestra con un enlace a `#id` o desde el servidor. |
 | `parciales/buscador.php` | Buscador en vivo sobre una tabla (catálogo, stock, kardex, personal, auditoría). Viene oculto y `app.js` lo muestra. |
+| `parciales/foto_producto.php` | Dibuja la foto de un producto o, si no tiene, el ícono de su categoría sobre su color. La usan el catálogo, la ficha y la venta. |
+| `parciales/guia.php` | Guía rápida plegable con los pasos de una pantalla. `app.js` recuerda si el empleado la cerró. |
 | `parciales/vacio.php` | Estado vacío de una lista: qué pasa y, si aplica, el botón para empezar. |
 | `inventario/kardex.php`, `traslados.php`, `mermas.php` | Historial de inventario. Cada movimiento del kardex abre su detalle con el saldo anterior (`#mov-ID`); el traslado y la merma se registran en un panel lateral. |
 | `caja/panel.php` | Turno abierto en tarjetas (con lo que debería haber en la gaveta), retiro o ingreso de efectivo, abrir y cerrar turno, y arqueo; cada turno abre su cuenta (inicial + efectivo − devoluciones + ingresos − retiros = esperado, contado y diferencia) y sus retiros en un panel. |
@@ -184,8 +187,9 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | Archivo | Qué hace |
 |---|---|
 | `estilos.css` | El sistema de diseño: colores, letras, espacios, botones, tablas, formularios, avisos, paneles laterales, versión de celular e impresión. Un solo archivo para todas las pantallas. |
-| `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
-| `iconos.svg` | Los íconos del menú y los botones, dibujados con líneas. Se usan con `icono('nombre')`. |
+| `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, filtros por categoría, la cuadrícula y el lector de códigos de la venta, avisos flotantes, guías que recuerdan si se cerraron, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
+| `iconos.svg` | Los íconos del menú y los botones, y las ilustraciones de cada categoría (lácteos, bebidas, frutas…), dibujados con líneas. Se usan con `icono('nombre')`. |
+| `img/productos/` | Las fotos de producto que sube el administrador (`{id}.jpg`). No se suben a GitHub: solo va `.gitkeep`. |
 | `fuentes/outfit.woff2` | La letra Outfit de los títulos, guardada en el propio sitio (la CSP no deja cargar letras de otros sitios). Licencia libre OFL en `fuentes/LICENCIA.txt`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
@@ -197,10 +201,10 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `tests/unitarios.php` | 80 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer y la lectura del CSV del catálogo. |
-| `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 28 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 148 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
-| `tests/integracion.php` | 165 comprobaciones contra MySQL: ventas, importar el catálogo, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
+| `tests/unitarios.php` | 87 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer la lectura del CSV del catálogo y las fotos de producto (achicar, rechazar lo que no es imagen, ícono de cada categoría). |
+| `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 30 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
+| `tests/web.php` | 160 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad que los paneles laterales se abran solo con un id que existe, el catálogo en tarjetas con sus filtros y subir o quitar una foto. |
+| `tests/integracion.php` | 171 comprobaciones contra MySQL: ventas, fotos de producto con su auditoría, importar el catálogo, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar
