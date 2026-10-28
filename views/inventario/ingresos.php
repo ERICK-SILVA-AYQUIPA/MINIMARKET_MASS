@@ -50,8 +50,8 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
         <?php $i = $fila['ingreso']; ?>
         <tr id="fila-ing-<?= $i->getIdIngreso() ?>">
             <td><?= $i->getIdIngreso() ?></td>
-            <td class="fecha"><?= e($i->getFechaHora()) ?></td>
-            <td class="codigo"><?= e($i->documento()) ?><br><small>del <?= e($i->getFechaDocumento()) ?></small></td>
+            <td class="fecha"><?= e(fecha($i->getFechaHora())) ?></td>
+            <td class="codigo"><?= e($i->documento()) ?><br><small>del <?= e(fecha($i->getFechaDocumento())) ?></small></td>
             <td><?= e($i->getRazonSocial()) ?><br><small>RUC <?= e($i->getRucEmisor()) ?></small></td>
             <td class="num"><?= (int) count($fila['detalle']) ?></td>
             <td class="num"><?= e(soles($i->getTotal())) ?></td>
@@ -75,8 +75,8 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
     require __DIR__ . '/../parciales/drawer_abrir.php';
     ?>
     <dl class="datos">
-        <dt>Registrado</dt><dd><?= e($i->getFechaHora()) ?> por <?= e($nombresEmpleado[$i->getIdEmpleado()] ?? '-') ?></dd>
-        <dt>Fecha del documento</dt><dd><?= e($i->getFechaDocumento()) ?></dd>
+        <dt>Registrado</dt><dd><?= e(fecha($i->getFechaHora())) ?> por <?= e($nombresEmpleado[$i->getIdEmpleado()] ?? '-') ?></dd>
+        <dt>Fecha del documento</dt><dd><?= e(fecha($i->getFechaDocumento())) ?></dd>
         <dt>Observación</dt><dd><?= e($i->getObservacion() ?? '-') ?></dd>
     </dl>
     <div class="tabla bloque">
@@ -90,7 +90,7 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
                 <td class="num"><?= e(number_format($d->getCantidad(), $p?->esAlPeso() ? 3 : 0)) ?></td>
                 <td class="num"><?= e(soles($d->getCostoUnitario())) ?></td>
                 <td class="num"><?= e(soles($d->getCostoTotal())) ?></td>
-                <td class="fecha"><?= e($d->getFechaVencimiento() ?? '—') ?></td>
+                <td class="fecha"><?= e(fecha($d->getFechaVencimiento())) ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

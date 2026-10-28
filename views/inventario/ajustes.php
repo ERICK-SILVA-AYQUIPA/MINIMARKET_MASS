@@ -85,7 +85,7 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
         <?php $a = $fila['ajuste']; ?>
         <tr>
             <td><?= $a->getIdAjuste() ?></td>
-            <td class="fecha"><?= e($a->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($a->getFechaHora())) ?></td>
             <td><?= e(str_replace('_', ' ', $a->getMotivo())) ?></td>
             <td>
                 <?php foreach ($fila['movimientos'] as $mov): ?>

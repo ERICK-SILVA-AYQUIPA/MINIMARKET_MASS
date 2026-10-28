@@ -26,6 +26,7 @@ require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
+require __DIR__ . '/../views/parciales/funciones.php';
 
 $ok = 0;
 $fallas = 0;
@@ -153,6 +154,10 @@ revisar('Encabezado distinto: no lee nada', CatalogoCsv::leer("nombre;precio\nLe
 $csv = CatalogoCsv::leer("codigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso\n123;Leche\n");
 revisar('Una fila con columnas de menos se reporta con su línea', $csv['filas'] === [] && str_starts_with($csv['errores'][0], 'Línea 2:'));
 revisar('Solo encabezado: avisa que no hay productos', CatalogoCsv::leer("codigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso\n")['errores'] !== []);
+
+echo "Fechas en pantalla\n";
+revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-10-19 08:05:00') === '19/10/2026 08:05');
+revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);

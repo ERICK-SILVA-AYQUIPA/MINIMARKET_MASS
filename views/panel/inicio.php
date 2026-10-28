@@ -45,7 +45,7 @@ $totalPeriodo = array_sum($ventasPorDia);
         <?php if ($miTurno === null): ?>
             <div><strong>No tienes un turno abierto.</strong> Ábrelo para poder vender.</div> <a class="boton" href="/?ruta=caja"><?= icono('caja') ?>Abrir turno</a>
         <?php else: ?>
-            <div><strong>Tu turno <?= $miTurno->getIdCajaTurno() ?> está abierto</strong> desde <?= e($miTurno->getFechaHoraApertura()) ?>
+            <div><strong>Tu turno <?= $miTurno->getIdCajaTurno() ?> está abierto</strong> desde <?= e(fecha($miTurno->getFechaHoraApertura())) ?>
             con <?= e(soles($miTurno->getMontoInicial())) ?> iniciales.</div> <a class="boton" href="/?ruta=caja">Ver mi turno</a>
         <?php endif; ?>
     </div>
@@ -153,7 +153,7 @@ $totalPeriodo = array_sum($ventasPorDia);
                 <tr>
                     <td><?= (int) $t['numero_caja'] ?></td>
                     <td><?= e($t['cajero']) ?></td>
-                    <td><?= e($t['fecha_hora_apertura']) ?></td>
+                    <td><?= e(fecha($t['fecha_hora_apertura'])) ?></td>
                     <td class="num"><?= e(soles((float) $t['monto_inicial'])) ?></td>
                     <td class="num"><?= (int) $t['ventas'] ?></td>
                     <td class="num"><?= e(soles((float) $t['efectivo'])) ?></td>
@@ -179,7 +179,7 @@ $totalPeriodo = array_sum($ventasPorDia);
                 $decimales = $producto !== null && $producto->esAlPeso() ? 3 : 0;
                 ?>
                 <tr>
-                    <td><?= e($m->getFechaHora()) ?></td>
+                    <td><?= e(fecha($m->getFechaHora())) ?></td>
                     <td><?= e($producto?->getNombreProducto() ?? '-') ?></td>
                     <td><span class="etiqueta <?= $tipo?->esEntrada() ? 'ok' : 'reponer' ?>"><?= e($tipo?->getNombreMovimiento() ?? '-') ?></span></td>
                     <td class="num"><?= $tipo?->esEntrada() ? '+' : '−' ?><?= e(number_format($m->getCantidad(), $decimales)) ?></td>

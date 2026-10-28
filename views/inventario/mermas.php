@@ -42,7 +42,7 @@ require __DIR__ . '/../layout_inicio.php';
         <?php $m = $fila['merma']; ?>
         <tr>
             <td><?= $m->getIdMerma() ?></td>
-            <td class="fecha"><?= e($m->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($m->getFechaHora())) ?></td>
             <td><span class="etiqueta alerta"><?= e($m->getMotivo()) ?></span></td>
             <td>
                 <?php foreach ($fila['movimientos'] as $mov): ?>

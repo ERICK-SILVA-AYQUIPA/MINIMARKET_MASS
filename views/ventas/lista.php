@@ -68,7 +68,7 @@ $urlEstaPagina = $urlPagina . '&pagina=' . $paginacion->getPagina();
         ?>
         <tr id="venta-<?= e($codigo) ?>">
             <td class="codigo"><a class="fila-enlace" href="<?= e($urlEstaPagina . '&ver=' . $codigo) ?>"><?= e($s->formatear($v->getNumeroCorrelativo())) ?></a></td>
-            <td class="fecha"><?= e($v->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($v->getFechaHora())) ?></td>
             <td><?= e($fila['cajero']?->nombreCompleto() ?? '-') ?></td>
             <td><?= e($fila['cliente']) ?></td>
             <td class="num"><?= e(soles($v->getTotal())) ?></td>
