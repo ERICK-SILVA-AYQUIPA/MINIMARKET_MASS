@@ -43,10 +43,11 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`), `ajustes.sql` (ajuste por conteo), `auditoria.sql` (bitácora de acciones) e `ingresos.sql` (ingreso de mercadería). Los datos quedan en el volumen `mysql_datos`. |
+| `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`), `ajustes.sql` (ajuste por conteo), `auditoria.sql` (bitácora de acciones), `ingresos.sql` (ingreso de mercadería) y `operaciones.sql` (devoluciones, retiros de caja y vencimientos). Los datos quedan en el volumen `mysql_datos`. |
 | `.env.example` | Plantilla de la configuración. Se copia como `.env` (que no se sube) y se cambian las claves. |
 | `config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
 | `database/ingresos.sql` | Tablas `ingreso_mercaderia` (documento, emisor, total) y `detalle_ingreso` (cantidad y costo por producto), tipo de movimiento 8 y `movimiento_stock.id_ingreso` como quinto origen. |
+| `database/operaciones.sql` | Tablas `devolucion_venta` y `detalle_devolucion` (lo que el cliente devuelve, al precio de la venta), `movimiento_caja` (retiros e ingresos de efectivo del turno), tipo de movimiento 9, `movimiento_stock.id_devolucion` como sexto origen y `detalle_ingreso.fecha_vencimiento`. Trae 3 ingresos de ejemplo de Mass Cayma con fechas cercanas a hoy. **Laragon:** el kit de Laragon no lo incluye; después de `instalar_laragon.sql` hay que ejecutar también este archivo. |
 | `database/auditoria.sql` | Tabla `auditoria`: fecha, acción, detalle, tienda y empleado de cada cambio sensible. |
 | `scripts/respaldo.ps1` / `respaldo.sh` | Sacan un respaldo completo con `mysqldump` a `respaldos/` (que no se sube) y revisan que termine bien. |
 | `scripts/restaurar.ps1` / `restaurar.sh` | Cargan un respaldo; piden escribir SI porque reemplazan todos los datos. |
@@ -67,6 +68,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `DetalleVenta.php` | Una línea de la venta. Rechaza un importe distinto de `ROUND(cantidad × precio, 2)`. |
 | `Dinero.php` | Pasa montos a céntimos enteros para compararlos sin errores de float. `MAXIMO_CENTIMOS` es lo que cabe en DECIMAL(10,2). |
 | `AnulacionVenta.php` | Motivo, fecha y quién anuló la venta. |
+| `DevolucionVenta.php` | Una devolución parcial: motivo, total devuelto (mayor que 0), venta, turno y cajero. |
 | `pagos/PagoVenta.php` | Clase base `abstract` de un pago (tabla `pago_venta`). Cada hija dice su método y su `detalle()`. |
 | `pagos/PagoEfectivo.php` | Hereda de PagoVenta. Monto recibido y vuelto, con vuelto entre 0 y lo recibido. |
 | `pagos/PagoTarjeta.php` | Hereda de PagoVenta. Crédito o débito, marca y solo los últimos 4 dígitos. |
@@ -85,14 +87,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Categoria.php`, `Marca.php`, `UnidadMedida.php` | Catálogo del producto. |
 | `CatalogoRepository.php` | Lee categorías, marcas, unidades y tipos de movimiento. |
 | `TipoMovimiento.php` | VENTA, ANULACION_VENTA, TRASLADO_SALIDA, TRASLADO_ENTRADA, MERMA, AJUSTE_ENTRADA, AJUSTE_SALIDA e INGRESO, y si cada uno suma o resta. |
-| `MovimientoStock.php` | Una fila del kardex. Exige que venga de una sola cosa: venta, traslado, merma, ajuste o ingreso; `origen()` lo dice en palabras. |
+| `MovimientoStock.php` | Una fila del kardex. Exige que venga de una sola cosa: venta, traslado, merma, ajuste, ingreso o devolución; `origen()` lo dice en palabras. |
 | `TrasladoMercaderia.php`, `Merma.php` | Cabeceras de traslado (origen distinto del destino) y de merma (motivo de una lista fija). |
 | `InventarioRepository.php` | Lee el kardex, los traslados y las mermas de una tienda. |
-| `CajaRepository.php` | Busca el turno abierto de un cajero y calcula el arqueo (como la consulta 19). |
+| `CajaRepository.php` | Busca el turno abierto de un cajero, calcula el arqueo (inicial + efectivo cobrado − devoluciones + ingresos − retiros) y lista los retiros e ingresos de cada turno. |
 | `servicios/Servicio.php` | Base `abstract` de los servicios: `enTransaccion()` (commit o rollback), lectura de líneas, `moverStock()`, que bloquea la fila con `FOR UPDATE`, no deja stock negativo y escribe el kardex, y `auditar()`, que anota la acción en `auditoria` dentro de la misma transacción. |
-| `servicios/VentaServicio.php` | `registrar()`: cliente por DNI o RUC, siguiente número de la serie, detalle, stock y pagos con vuelto. `anular()`: solo el administrador de esa tienda; devuelve el stock y anula los pagos. |
+| `servicios/VentaServicio.php` | `registrar()`: cliente por DNI o RUC, siguiente número de la serie, detalle, stock y pagos con vuelto. `anular()`: solo el administrador de esa tienda; devuelve el stock y anula los pagos (no si ya tiene devoluciones). `devolver()`: el cajero de la tienda, con su turno abierto y hasta 7 días después; cada producto hasta lo que queda por devolver, al precio de la venta, y solo si alcanza el efectivo de su gaveta. |
 | `servicios/InventarioServicio.php` | `registrarIngreso()` (documento, cantidades y costo; sube el stock, escribe el kardex y la auditoría), `trasladar()` y `registrarMerma()` del almacenero, y `ajustarPorConteo()`: lo contado reemplaza al stock y la diferencia va al kardex. |
-| `servicios/CajaServicio.php` | `abrirTurno()` y `cerrarTurno()` del cajero. |
+| `servicios/CajaServicio.php` | `abrirTurno()` y `cerrarTurno()` del cajero, y `registrarMovimiento()` para un retiro (no más de lo que hay en la gaveta) o un ingreso de sencillo. |
 | `servicios/ProductoServicio.php` | Crear y editar productos (código, precio, unidad kg si es al peso), descontinuar, stock mínimo, categorías y marcas. |
 | `servicios/EmpleadoServicio.php` | Alta, cambios y baja de personal de la tienda; clave nueva y cambio de la clave propia. |
 | `servicios/TiendaServicio.php` | Abrir una tienda (caja 1, series, stock en 0 y su administrador), editar la propia, cajas y distritos. |
@@ -104,7 +106,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Clave.php` | Regla de la clave (8 a 72 caracteres, letras y números) y su hash. |
 | `PanelRepository.php` | Indicadores del panel: productos por reponer, turnos abiertos con lo cobrado y ventas de los últimos 14 días. |
 | `IngresoMercaderia.php`, `DetalleIngreso.php` | Cabecera del ingreso (tipo de documento de una lista fija, RUC de 11 dígitos) y cada producto recibido; `DetalleIngreso` rechaza un costo total distinto de `ROUND(cantidad × costo, 2)`. |
-| `IngresoRepository.php` | Lee los ingresos de una tienda (paginados) y el detalle de cada uno. |
+| `IngresoRepository.php` | Lee los ingresos de una tienda (paginados), el detalle de cada uno con su vencimiento, y los lotes de los productos que vencen. |
+| `Vencimiento.php` | Sin base de datos: reparte el stock actual entre los lotes recibidos (se vende primero lo más antiguo) y filtra los que vencen en los próximos días. |
 | `AuditoriaRepository.php` | Lee la auditoría de una tienda, filtrada por acción y paginada, con el nombre y rol de quien lo hizo. |
 
 ## controllers/ (C · coordina)
@@ -113,11 +116,11 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 |---|---|
 | `Controller.php` | Clase base `abstract` de los controladores: lee la tienda pedida (por defecto la del usuario), carga vistas con el usuario, el token CSRF y el aviso, redirige después de un POST, responde 403 o 404 y arma las descargas CSV (`enviarCsv()`, con BOM y sin fórmulas). |
 | `ProductoController.php` | Catálogo, ficha y stock de las 3 tiendas. Valida el código o el id; si el producto no existe responde 404. No tiene HTML ni SQL. |
-| `VentaController.php` | Lista de ventas por tienda y comprobante. Valida la serie (`^[BF][0-9]{3}$`) y el número (1 a 8 dígitos) antes de buscar. También calcula quién puede anular la venta, preguntando a cada empleado `puedeAnularVenta()`. |
+| `VentaController.php` | Lista de ventas por tienda y comprobante. Valida la serie (`^[BF][0-9]{3}$`) y el número (1 a 8 dígitos) antes de buscar. También calcula quién puede anular la venta, preguntando a cada empleado `puedeAnularVenta()`, y cuánto queda por devolver de cada producto. `devolver()` recibe el formulario de devolución. |
 | `TiendaController.php` | Junta cada tienda con su distrito, cajas, series y personal; edita la tienda propia, sus cajas y abre tiendas nuevas. |
 | `AuthController.php` | Login con `password_verify()`. Si el DNI no existe igual compara contra un hash de relleno, para que tarde lo mismo. |
-| `InventarioController.php` | Kardex, ingresos (con su CSV), traslados y mermas. Solo el almacenero puede registrar; el administrador revisa los ingresos. |
-| `CajaController.php` | Panel de caja: abrir y cerrar turno, y arqueo para el administrador. |
+| `InventarioController.php` | Kardex, ingresos (con su CSV), productos por vencer, traslados y mermas. Solo el almacenero puede registrar; el administrador revisa los ingresos. |
+| `CajaController.php` | Panel de caja: abrir y cerrar turno, retiros e ingresos de efectivo, y arqueo para el administrador. |
 | `EmpleadoController.php` | Personal de la tienda del administrador. |
 | `ClienteController.php` | Lista paginada, búsqueda por documento, compras del cliente. |
 | `ReporteController.php` | Reportes en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. |
@@ -138,10 +141,11 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `productos/stock.php` | Tabla producto × tienda con el mínimo y REPONER. |
 | `ventas/lista.php` | Ventas de la tienda elegida. Al tocar un comprobante (`&ver=B001-1`) abre su detalle en un panel lateral, con enlaces al comprobante completo y al ticket. |
 | `ventas/detalle_venta.php` | Cuerpo del comprobante (datos, productos y pagos). Lo usan el comprobante y el panel lateral. |
-| `ventas/comprobante.php` | La boleta o factura (con `ventas/detalle_venta.php`), más la revisión y la anulación. |
+| `ventas/comprobante.php` | La boleta o factura (con `ventas/detalle_venta.php`), más la revisión, las devoluciones (con el formulario para el cajero) y la anulación. |
 | `ventas/ticket.php` | Ticket de 80 mm, sin menú, para la ticketera o para guardar como PDF. Marca ANULADA si corresponde. |
 | `auditoria/lista.php` | Filtro por acción y tabla de la auditoría; cada fila abre su detalle completo en un panel lateral (`#aud-ID`). |
-| `inventario/ingresos.php` | Lista de ingresos; cada uno abre su detalle con costos en un panel (`#ing-ID`). El formulario del almacenero (documento, emisor, productos con costo) está en el panel `#nuevo-ingreso` y vuelve abierto si hubo un error. |
+| `inventario/ingresos.php` | Lista de ingresos; cada uno abre su detalle con costos en un panel (`#ing-ID`). El formulario del almacenero (documento, emisor, productos con costo) está en el panel `#nuevo-ingreso` y vuelve abierto si hubo un error. Cada producto puede llevar su fecha de vencimiento. |
+| `inventario/vencimientos.php` | Productos por vencer: lotes que vencen en 7, 15, 30 o 60 días (y los ya vencidos), con lo que queda estimado y su valor al costo. |
 | `tiendas/lista.php` | Una tarjeta por tienda con su personal. El DNI se muestra oculto. |
 | `parciales/selector_tienda.php` | Los enlaces para cambiar de tienda; lo usan el catálogo y las ventas. |
 | `auth/login.php` | Pantalla de entrada: presentación del sistema y, al lado, el formulario de DNI y clave sobre fondo oscuro. Al entrar bien, la primera página muestra un momento el logo con el saludo y una barra de carga (solo CSS, se va sola y no sale si el equipo pide menos movimiento). |
@@ -151,7 +155,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `parciales/buscador.php` | Buscador en vivo sobre una tabla (catálogo, stock, kardex, personal, auditoría). Viene oculto y `app.js` lo muestra. |
 | `parciales/vacio.php` | Estado vacío de una lista: qué pasa y, si aplica, el botón para empezar. |
 | `inventario/kardex.php`, `traslados.php`, `mermas.php` | Historial de inventario. Cada movimiento del kardex abre su detalle con el saldo anterior (`#mov-ID`); el traslado y la merma se registran en un panel lateral. |
-| `caja/panel.php` | Turno abierto en tarjetas, abrir y cerrar turno, y arqueo; cada turno abre su cuenta (inicial + efectivo = esperado, contado y diferencia) en un panel. |
+| `caja/panel.php` | Turno abierto en tarjetas (con lo que debería haber en la gaveta), retiro o ingreso de efectivo, abrir y cerrar turno, y arqueo; cada turno abre su cuenta (inicial + efectivo − devoluciones + ingresos − retiros = esperado, contado y diferencia) y sus retiros en un panel. |
 | `productos/formulario.php`, `productos/catalogo.php` | Formulario de producto; categorías, marcas y unidades. |
 | `empleados/lista.php`, `empleados/formulario.php` | Personal (el alta en un panel lateral) y su edición. |
 | `clientes/lista.php`, `clientes/detalle.php`, `clientes/ficha.php` | Clientes; la ficha (documento y compras) se abre en un panel con `&ver=ID` o en su propia página. |
@@ -182,10 +186,10 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `tests/unitarios.php` | 58 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, y los permisos de cada rol y las reglas del ingreso de mercadería. |
+| `tests/unitarios.php` | 68 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería y el reparto de lotes por vencer. |
 | `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 25 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 118 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
-| `tests/integracion.php` | 119 comprobaciones contra MySQL: ventas, anulaciones, ingresos de mercadería, inventario, caja, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 28 en 0 filas. |
+| `tests/web.php` | 132 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
+| `tests/integracion.php` | 151 comprobaciones contra MySQL: ventas, anulaciones, devoluciones, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar

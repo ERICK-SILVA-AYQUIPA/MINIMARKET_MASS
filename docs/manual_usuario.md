@@ -37,7 +37,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 
 | Menú | Para qué |
 |---|---|
-| **Inicio** | Panel de la tienda: vendido hoy contra ayer, comprobantes, ticket promedio, gráfico de 14 días, productos por reponer, cajas abiertas y últimos movimientos |
+| **Inicio** | Panel de la tienda: vendido hoy contra ayer, comprobantes, ticket promedio, gráfico de 14 días, productos por reponer, lo que vence esta semana (almacenero y administrador), cajas abiertas y últimos movimientos |
 | **Catálogo** | Productos con su precio y stock. Al tocar uno se abre su ficha a la derecha |
 | **Stock** | Stock de cada producto en las 3 tiendas. **REPONER** marca lo que llegó al mínimo. Botón **Descargar en CSV (Excel)** |
 | **Ventas** | Boletas y facturas por fecha y estado. Al tocar una se ve su detalle y pagos a la derecha; **Abrir comprobante completo** lleva a la página para imprimir o anular |
@@ -51,6 +51,8 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 |---|---|
 | Abrir turno | **Caja** → elegir la caja → escribir el monto inicial en efectivo → **Abrir turno**. Sin turno abierto no se puede vender |
 | Registrar una venta | **Nueva venta** → a la izquierda, productos y cantidades (los productos al peso aceptan decimales, por ejemplo `0.750` kg) → a la derecha, boleta o factura, el DNI o RUC del cliente (vacío = CLIENTE VARIOS; la factura exige RUC) y el efectivo que entrega. Si paga una parte con tarjeta o SIP, abrir **Pagar una parte con tarjeta** o **con billetera Sip** → botón amarillo **Registrar venta**. Mientras se escribe, el cuadro oscuro muestra el importe de cada producto, el total, lo que falta en efectivo y el vuelto, y avisa si no alcanza el stock, si un producto por unidad tiene decimales o si la factura no tiene RUC. Al registrar, el servidor vuelve a calcular todo con los precios de la base. El sistema descuenta el stock, toma el siguiente número de la serie y muestra el comprobante |
+| Devolver parte de una venta | **Ventas** → tocar el comprobante → **Abrir comprobante completo** → en **Devoluciones**, escribir cuánto devuelve de cada producto (vacío = se queda) y el motivo → **Registrar devolución**. Se paga al precio de la venta, en efectivo de tu gaveta, y el producto vuelve al stock. Se acepta hasta 7 días después de la venta y con tu turno abierto. Una venta con devoluciones ya no se puede anular |
+| Sacar o meter efectivo | **Caja** → **Retiro o ingreso de efectivo** → elegir retiro (depósito al banco, un pago menor) o ingreso de sencillo, el monto y el motivo → **Registrar**. **En gaveta ahora** dice lo que deberías contar |
 | Cerrar turno | **Caja** → escribir el efectivo contado → **Cerrar turno** |
 | Clientes | **Clientes** → buscar por DNI o RUC (o sus primeros dígitos), ver sus compras y completar el documento que falta |
 
@@ -60,8 +62,9 @@ Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tie
 
 | Tarea | Pasos |
 |---|---|
-| Recibir mercadería | **Ingresos** → **Registrar ingreso** (o, desde el inicio, **Recibir mercadería**) → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad y su costo unitario → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
+| Recibir mercadería | **Ingresos** → **Registrar ingreso** (o, desde el inicio, **Recibir mercadería**) → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad, su costo unitario y, si tiene, su fecha de vencimiento → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
 | Trasladar mercadería | **Traslados** → **Enviar mercadería** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
+| Productos por vencer | **Por vencer** → elegir 7, 15, 30 o 60 días. Cada lote dice cuándo vence, cuánto queda (estimado: se vende primero lo más antiguo) y su valor al costo. Lo vencido sale en rojo; **Dar de baja lo vencido** lleva a registrar la merma |
 | Registrar una merma | **Mermas** → **Registrar merma** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
 | Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
 | Revisar movimientos | **Kardex** → filtrar por producto; **Ver** en una fila muestra el saldo anterior, la cantidad y el nuevo. Botón **Descargar CSV** |
@@ -73,7 +76,7 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Tarea | Pasos |
 |---|---|
 | Anular una venta | **Ventas** → tocar el comprobante → **Abrir comprobante (para anular)** → escribir el motivo → **Anular venta**. Devuelve el stock y anula los pagos. No se puede deshacer |
-| Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado; **Ver** abre la cuenta del turno y dice si hubo sobrante o faltante |
+| Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado; **Ver** abre la cuenta del turno (inicial, cobrado, devoluciones, ingresos y retiros, con su motivo) y dice si hubo sobrante o faltante |
 | Reportes | **Reportes** → elegir fechas: vendido, ventas por día, más vendidos, por categoría, por cajero y por método de pago. Cada uno se descarga en CSV |
 | Productos | **Catálogo** → **Nuevo producto**, o tocar uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
 | Categorías y marcas | **Categorías y marcas** → agregar nuevas |
@@ -83,6 +86,7 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Auditoría | **Auditoría**: quién anuló ventas, cambió precios, editó personal o reinició claves en su tienda, con fecha y detalle. Se filtra por acción |
 | Revisar compras | **Ingresos**: ve lo que recibió su tienda, con documento, emisor, costos y quién lo registró. **Descargar en CSV (Excel)** saca una fila por producto. Cada ingreso también queda en la **Auditoría** |
 | Conteo físico | **Conteo**, igual que el almacenero |
+| Por vencer | **Por vencer**: lo mismo que ve el almacenero, para decidir ofertas o reclamos al proveedor |
 
 ## 6. Mensajes que pueden salir
 

@@ -6,12 +6,14 @@ require_once __DIR__ . '/CajaTurno.php';
 require_once __DIR__ . '/Venta.php';
 require_once __DIR__ . '/DetalleVenta.php';
 require_once __DIR__ . '/AnulacionVenta.php';
+require_once __DIR__ . '/DevolucionVenta.php';
+require_once __DIR__ . '/Cantidad.php';
 require_once __DIR__ . '/pagos/PagoEfectivo.php';
 require_once __DIR__ . '/pagos/PagoTarjeta.php';
 require_once __DIR__ . '/pagos/PagoSip.php';
 
 /**
- * Ventas con su serie, turno, detalle, pagos y anulacion, leidas de MySQL.
+ * Ventas con su serie, turno, detalle, pagos, anulacion y devoluciones, leidas de MySQL.
  * Busca el comprobante por serie + correlativo, igual que sp_boleta (boleta.sql).
  */
 class VentaRepository
@@ -202,6 +204,58 @@ class VentaRepository
             return null;
         }
         return new AnulacionVenta((int) $f['id_anulacion'], $f['fecha_hora'], $f['motivo'], (int) $f['id_venta'], (int) $f['id_empleado']);
+    }
+
+    /**
+     * Devoluciones de una venta, de la primera a la ultima, cada una con sus productos.
+     * @return array<int, array{devolucion: DevolucionVenta, lineas: array<int, array{id_producto: int, cantidad: float, precio: float, importe: float}>}>
+     */
+    public function devolucionesDeVenta(int $idVenta): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT id_devolucion, fecha_hora, motivo, total, id_venta, id_caja_turno, id_empleado
+               FROM devolucion_venta WHERE id_venta = :venta ORDER BY id_devolucion'
+        );
+        $consulta->execute(['venta' => $idVenta]);
+        $lineas = $this->db->prepare(
+            'SELECT id_producto, cantidad, precio_unitario, importe FROM detalle_devolucion
+              WHERE id_devolucion = :devolucion ORDER BY id_producto'
+        );
+
+        $resultado = [];
+        foreach ($consulta->fetchAll() as $f) {
+            $lineas->execute(['devolucion' => (int) $f['id_devolucion']]);
+            $resultado[] = [
+                'devolucion' => new DevolucionVenta((int) $f['id_devolucion'], $f['fecha_hora'], $f['motivo'], (float) $f['total'],
+                    (int) $f['id_venta'], (int) $f['id_caja_turno'], (int) $f['id_empleado']),
+                'lineas' => array_map(fn(array $l): array => [
+                    'id_producto' => (int) $l['id_producto'],
+                    'cantidad'    => (float) $l['cantidad'],
+                    'precio'      => (float) $l['precio_unitario'],
+                    'importe'     => (float) $l['importe'],
+                ], $lineas->fetchAll()),
+            ];
+        }
+        return $resultado;
+    }
+
+    /**
+     * Cuanto se devolvio ya de cada producto de una venta.
+     * @return array<int, int> id_producto => milesimas
+     */
+    public function cantidadesDevueltas(int $idVenta): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT dd.id_producto, SUM(dd.cantidad) AS devuelto
+               FROM detalle_devolucion dd JOIN devolucion_venta d ON d.id_devolucion = dd.id_devolucion
+              WHERE d.id_venta = :venta GROUP BY dd.id_producto'
+        );
+        $consulta->execute(['venta' => $idVenta]);
+        $resultado = [];
+        foreach ($consulta->fetchAll() as $f) {
+            $resultado[(int) $f['id_producto']] = Cantidad::deDecimal($f['devuelto']);
+        }
+        return $resultado;
     }
 
     private function crearSerie(array $f): SerieComprobante

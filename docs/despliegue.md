@@ -39,7 +39,7 @@ php -S localhost:8000 -t public
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba (ver `docs/manual_usuario.md`).
 
-Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql` e `ingresos.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
+Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql` y `operaciones.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
 
 ## 4. Opción B: MySQL sin Docker (Laragon)
 
@@ -54,6 +54,7 @@ mysql -u root -p -h 127.0.0.1 -P 3306 < database/seguridad.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/ajustes.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/auditoria.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/ingresos.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < database/operaciones.sql
 ```
 
 Luego crear el usuario de la aplicación con solo los permisos que necesita (no root):
@@ -119,7 +120,7 @@ server {
 | Sacar respaldo | `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` | `bash scripts/respaldo.sh` |
 | Restaurar | `powershell -ExecutionPolicy Bypass -File scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
-- El respaldo guarda todo: las 31 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
+- El respaldo guarda todo: las 34 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo, sin detenerla.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
 - **Restaurar reemplaza todos los datos actuales**. Pide escribir `SI` para seguir.

@@ -35,7 +35,10 @@ if ($usuarioActual !== null) {
     if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $ventasMenu['clientes'] = ['Clientes', 'clientes']; }
 
     $inventarioMenu = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];
-    if ($usuarioActual->puedeVerIngresos($idTiendaActual)) { $inventarioMenu['ingresos'] = ['Ingresos', 'ingresos']; }
+    if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
+        $inventarioMenu['ingresos'] = ['Ingresos', 'ingresos'];
+        $inventarioMenu['vencimientos'] = ['Por vencer', 'vence'];
+    }
     $inventarioMenu += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];
     if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $inventarioMenu['ajustes'] = ['Conteo', 'conteo']; }
     $inventarioMenu['kardex'] = ['Kardex', 'kardex'];
@@ -63,7 +66,7 @@ if ($usuarioActual !== null) {
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
     <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/estilos.css?v=6">
+    <link rel="stylesheet" href="/estilos.css?v=7">
     <script src="/app.js?v=1" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">

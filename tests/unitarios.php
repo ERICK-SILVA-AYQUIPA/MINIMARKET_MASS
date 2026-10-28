@@ -22,6 +22,8 @@ require __DIR__ . '/../models/Cajero.php';
 require __DIR__ . '/../models/Almacenero.php';
 require __DIR__ . '/../models/IngresoMercaderia.php';
 require __DIR__ . '/../models/DetalleIngreso.php';
+require __DIR__ . '/../models/DevolucionVenta.php';
+require __DIR__ . '/../models/Vencimiento.php';
 
 $ok = 0;
 $fallas = 0;
@@ -104,6 +106,30 @@ rechazaDato('RUC del emisor con 10 dígitos', fn() => new IngresoMercaderia(1, '
 revisar('Costo total 10.5 kg x S/ 1.95 = 20.48 (redondeo como MySQL)', (new DetalleIngreso(1, 8, 10.5, 1.95, 20.48))->getCostoTotal() === 20.48);
 rechazaDato('Costo total que no es cantidad x costo', fn() => new DetalleIngreso(1, 8, 10.5, 1.95, 20.47));
 
+revisar('Detalle de ingreso con fecha de vencimiento opcional', (new DetalleIngreso(1, 1, 12, 3.40, 40.80, '2026-11-01'))->getFechaVencimiento() === '2026-11-01'
+    && (new DetalleIngreso(1, 1, 12, 3.40, 40.80))->getFechaVencimiento() === null);
+rechazaDato('Devolución con total 0', fn() => new DevolucionVenta(1, 'x', 'Motivo', 0.0, 1, 5, 2));
+
+echo "Por vencer (reparto FIFO del stock entre lotes)\n";
+$lotes = [
+    ['id_ingreso' => 1, 'fecha_vencimiento' => '2026-10-27', 'milesimas' => 12000],
+    ['id_ingreso' => 2, 'fecha_vencimiento' => null, 'milesimas' => 48000],
+    ['id_ingreso' => 3, 'fecha_vencimiento' => '2026-11-02', 'milesimas' => 20000],
+];
+$reparto = Vencimiento::repartirStock($lotes, 30000);
+revisar('Con 30 en stock quedan 20 del lote nuevo y 10 del anterior; el más antiguo ya se vendió',
+    array_column($reparto, 'restante', 'id_ingreso') === [2 => 10000, 3 => 20000]);
+revisar('Con más stock que lotes, cada lote queda entero', array_column(Vencimiento::repartirStock($lotes, 999000), 'restante') === [12000, 48000, 20000]);
+revisar('Sin stock no queda nada', Vencimiento::repartirStock($lotes, 0) === [] && Vencimiento::repartirStock($lotes, -5) === []);
+$vencen = Vencimiento::porVencer(Vencimiento::repartirStock($lotes, 999000), '2026-10-28', 7);
+revisar('En 7 días: el vencido ayer y el que vence en 5, sin el lote sin fecha',
+    array_column($vencen, 'dias', 'id_ingreso') === [1 => -1, 3 => 5] && $vencen[0]['vencido'] && !$vencen[1]['vencido']);
+revisar('Un lote que vence en 5 días no sale si se miran 3', array_column(Vencimiento::porVencer($reparto, '2026-10-28', 3), 'id_ingreso') === []);
+revisar('Días de la URL: 15 vale; 0, 999 y texto usan 30', Vencimiento::leerDias('15') === 15 && Vencimiento::leerDias('0') === 30
+    && Vencimiento::leerDias('999') === 30 && Vencimiento::leerDias('x') === 30 && Vencimiento::leerDias(null) === 30);
+revisar('Textos: vencido hace 1 día, vence hoy, vence en 4 días', Vencimiento::describir(-1) === 'Vencido hace 1 día'
+    && Vencimiento::describir(0) === 'Vence hoy' && Vencimiento::describir(4) === 'Vence en 4 días');
+
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);
 $luis = new Cajero(2, 'Luis', 'Caceres', '70000002', 'ACTIVO', 1);
@@ -113,6 +139,8 @@ revisar('Solo el cajero vende', $luis->puedeVender() && !$rosa->puedeVender() &&
 revisar('Un cajero INACTIVO no vende ni maneja caja', !$cesado->puedeVender() && !$cesado->puedeManejarCaja());
 revisar('El administrador anula solo en su tienda', $rosa->puedeAnularVenta(1) && !$rosa->puedeAnularVenta(2));
 revisar('El cajero no anula', !$luis->puedeAnularVenta(1));
+revisar('Devoluciones: solo el cajero activo de la tienda de la venta', $luis->puedeDevolverVenta(1) && !$luis->puedeDevolverVenta(2)
+    && !$rosa->puedeDevolverVenta(1) && !$carmen->puedeDevolverVenta(1) && !$cesado->puedeDevolverVenta(1));
 revisar('Solo el almacenero mueve mercadería', $carmen->puedeMoverMercaderia() && !$luis->puedeMoverMercaderia() && !$rosa->puedeMoverMercaderia());
 revisar('Conteo: almacenero y administrador de SU tienda', $carmen->puedeAjustarStock(1) && !$carmen->puedeAjustarStock(2)
     && $rosa->puedeAjustarStock(1) && !$luis->puedeAjustarStock(1));

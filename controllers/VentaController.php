@@ -11,7 +11,7 @@ require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
 
 /**
- * C: ventas por tienda, comprobante (boleta o factura), registrar una venta y anularla.
+ * C: ventas por tienda, comprobante (boleta o factura), registrar una venta, anularla o devolver parte.
  */
 class VentaController extends Controller
 {
@@ -127,7 +127,26 @@ class VentaController extends Controller
             fn(Usuario $u): bool => $u->puedeAnularVenta($tienda->getIdTienda())
         ));
 
-        $puedeAnular = !$venta->estaAnulada() && $this->usuario?->puedeAnularVenta($tienda->getIdTienda()) === true;
+        // Devoluciones ya hechas y lo que todavia se puede devolver de cada linea
+        $devoluciones = $this->ventas->devolucionesDeVenta($venta->getIdVenta());
+        $devuelto = $this->ventas->cantidadesDevueltas($venta->getIdVenta());
+        $nombres = [];
+        $alPesoPorId = [];
+        foreach ($lineas as &$linea) {
+            $vendido = Cantidad::deDecimal(number_format($linea['detalle']->getCantidad(), 3, '.', ''));
+            $linea['disponible'] = $vendido - ($devuelto[$linea['detalle']->getIdProducto()] ?? 0);
+            $nombres[$linea['detalle']->getIdProducto()] = $linea['producto']?->getNombreProducto() ?? '-';
+            $alPesoPorId[$linea['detalle']->getIdProducto()] = $linea['producto']?->esAlPeso() ?? true;
+        }
+        unset($linea);
+        $totalDevuelto = array_sum(array_map(fn(array $d): float => $d['devolucion']->getTotal(), $devoluciones));
+        $aTiempo = strtotime($venta->getFechaHora()) >= strtotime('-' . VentaServicio::DIAS_DEVOLUCION . ' days');
+        $quedaPorDevolver = array_sum(array_column($lineas, 'disponible')) > 0;
+        $puedeDevolver = !$venta->estaAnulada() && $aTiempo && $quedaPorDevolver
+            && $this->usuario?->puedeDevolverVenta($tienda->getIdTienda()) === true
+            && $this->cajas->turnoAbiertoDe($this->usuario->getIdEmpleado()) !== null;
+
+        $puedeAnular = !$venta->estaAnulada() && $devoluciones === [] && $this->usuario?->puedeAnularVenta($tienda->getIdTienda()) === true;
         $detalleCuadra = $venta->detalleCuadra($detalles);
         $pagosCuadran = $venta->pagosCuadran($pagos);
 
@@ -222,6 +241,36 @@ class VentaController extends Controller
             return;
         }
         $this->redirigir($url, 'Venta anulada: se devolvió el stock y se anularon sus pagos.');
+    }
+
+    // POST /?ruta=venta_devolver (desde el comprobante): el cliente devuelve parte de lo que compro
+    public function devolver(array $post): void
+    {
+        $serie = $this->campo($post, 'serie');
+        $numero = $this->campo($post, 'numero');
+        if ($this->usuario === null || preg_match('/^[BF][0-9]{3}$/', $serie) !== 1 || preg_match('/^[0-9]{1,8}$/', $numero) !== 1) {
+            $this->noEncontrado('El comprobante pedido no es válido.');
+            return;
+        }
+        $venta = $this->ventas->buscarPorComprobante($serie, (int) $numero);
+        if ($venta === null) {
+            $this->noEncontrado('No existe un comprobante con esa serie y correlativo.');
+            return;
+        }
+        $url = '/?ruta=comprobante&serie=' . urlencode($serie) . '&numero=' . (int) $numero;
+        $idTienda = $this->ventas->buscarSerie($venta->getIdSerie())->getIdTienda();
+        if (!$this->usuario->puedeDevolverVenta($idTienda)) {
+            $this->prohibido('Solo un cajero de la tienda de la venta registra devoluciones.');
+            return;
+        }
+        try {
+            $total = $this->servicio->devolver($this->usuario, $venta->getIdVenta(), $this->lineasDelFormulario($post), $this->campo($post, 'motivo'));
+        } catch (ReglaNegocioException $ex) {
+            $this->sesion->avisar('error', $ex->getMessage());
+            header('Location: ' . $url, true, 303);
+            return;
+        }
+        $this->redirigir($url, 'Devolución registrada: entrega S/ ' . Dinero::aTexto($total) . ' al cliente. El producto volvió al stock.');
     }
 
     // Como la columna `cliente` de vw_comprobante: sin cliente es CLIENTE VARIOS
