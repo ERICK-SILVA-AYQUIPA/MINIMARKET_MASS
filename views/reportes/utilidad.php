@@ -28,6 +28,16 @@ $margenTotal = $porcentaje($totales['margen']);
         <?php if ($productos !== []): ?><a class="boton secundario" href="<?= e($csv) ?>"><?= icono('descarga') ?>CSV</a><?php endif; ?>
     </div>
 </div>
+<?php
+$guiaClave = 'utilidad';
+$guiaTitulo = 'Cómo se calcula la utilidad';
+$guiaPasos = [
+    'Utilidad = ventas netas (sin lo devuelto) − costo de lo vendido.',
+    'El costo es el promedio de lo que se pagó por el producto en Ingresos. Si nunca entró por un ingreso, aparece "sin costo".',
+    'El margen en amarillo es bajo (menos de 15 %) y en rojo es negativo: revisa el precio de venta.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="utilidad">
     <label>Desde <input type="date" name="desde" value="<?= e($desde) ?>" required></label>

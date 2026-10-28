@@ -21,6 +21,16 @@ require __DIR__ . '/../layout_inicio.php';
     </div>
     <?php if ($puedeDarDeBaja && $vencidos > 0): ?><div class="acciones"><a class="boton peligro" href="/?ruta=mermas#nueva-merma"><?= icono('mermas') ?>Dar de baja lo vencido</a></div><?php endif; ?>
 </div>
+<?php
+$guiaClave = 'vencimientos';
+$guiaTitulo = 'Cómo usar Por vencer';
+$guiaPasos = [
+    'Cada lote recibido con fecha de vencimiento aparece aquí. Elige 7, 15, 30 o 60 días para ver lo más próximo.',
+    'Lo que queda de cada lote se calcula suponiendo que primero se vende lo más antiguo.',
+    'Pon en oferta lo que vence pronto. Lo vencido se da de baja como merma para que el stock quede real.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="vencimientos">

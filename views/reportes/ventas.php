@@ -52,6 +52,16 @@ $tabla = static function (array $filas, array $columnas): void {
     </div>
     <div class="acciones"><a class="boton secundario" href="/?ruta=utilidad&amp;desde=<?= e($desde) ?>&amp;hasta=<?= e($hasta) ?>"><?= icono('utilidad') ?>Ver utilidad</a></div>
 </div>
+<?php
+$guiaClave = 'reportes';
+$guiaTitulo = 'Cómo leer los reportes';
+$guiaPasos = [
+    'Elige las fechas y toca Ver. Solo cuentan las ventas emitidas; las anuladas se muestran aparte.',
+    'Devuelto resta lo que los clientes devolvieron: Neto es lo que realmente entró.',
+    'Cada tabla se descarga en CSV para abrirla en Excel. En Utilidad ves cuánto se gana, no solo cuánto se vende.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="reportes">
     <label>Desde <input type="date" name="desde" value="<?= e($desde) ?>" required></label>
