@@ -30,6 +30,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
 - **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
 - **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
+- **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 
 ---
