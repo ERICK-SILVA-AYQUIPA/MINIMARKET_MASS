@@ -56,7 +56,7 @@ $numero = $serie->formatear($venta->getNumeroCorrelativo());
     </div>
     <?php if ($anulacion !== null): ?><div class="anulada">ANULADA</div><?php endif; ?>
     <hr>
-    <p>Fecha: <?= e($venta->getFechaHora()) ?></p>
+    <p>Fecha: <?= e(fecha($venta->getFechaHora())) ?></p>
     <p>Caja <?= $caja?->getNumeroCaja() ?? '-' ?> · Cajero: <?= e($cajero?->nombreCompleto() ?? '-') ?></p>
     <p>Cliente: <?= e($cliente) ?></p>
     <hr>
@@ -80,7 +80,7 @@ $numero = $serie->formatear($venta->getNumeroCorrelativo());
     </table>
     <hr>
     <?php if ($anulacion !== null): ?>
-        <p>Anulada el <?= e($anulacion->getFechaHora()) ?>: <?= e($anulacion->getMotivo()) ?></p>
+        <p>Anulada el <?= e(fecha($anulacion->getFechaHora())) ?>: <?= e($anulacion->getMotivo()) ?></p>
     <?php else: ?>
         <p class="centro">¡Gracias por su compra!</p>
     <?php endif; ?>

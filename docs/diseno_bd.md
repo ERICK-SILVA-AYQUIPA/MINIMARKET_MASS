@@ -627,6 +627,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `auditoria.sql` | Tabla `auditoria` | Bitácora de acciones delicadas: quién, qué, cuándo y en qué tienda |
 | `ingresos.sql` | Tablas `ingreso_mercaderia` y `detalle_ingreso`, tipo de movimiento 8, columna `movimiento_stock.id_ingreso` | Mercadería recibida con su documento, cantidades y costo |
 | `operaciones.sql` | Tablas `devolucion_venta`, `detalle_devolucion` y `movimiento_caja`, tipo de movimiento 9, columnas `movimiento_stock.id_devolucion` y `detalle_ingreso.fecha_vencimiento`, 3 ingresos de ejemplo | Devoluciones parciales, retiros e ingresos de efectivo en la caja y productos por vencer |
+| `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
 
 #### `ajuste_inventario`
 Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.

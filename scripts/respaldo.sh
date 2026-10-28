@@ -19,3 +19,10 @@ if ! tail -n 1 "$ARCHIVO" | grep -q "Dump completed"; then
     exit 1
 fi
 echo "Respaldo listo: $ARCHIVO ($(du -h "$ARCHIVO" | cut -f1))"
+
+# Se guardan los ultimos 30 respaldos (un mes si es diario); los mas antiguos se borran
+GUARDAR=30
+ls -1t respaldos/minimarket_mass_*.sql | tail -n +$((GUARDAR + 1)) | while read -r VIEJO; do
+    rm -f -- "$VIEJO"
+    echo "Borrado por antiguo: $VIEJO"
+done

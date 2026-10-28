@@ -60,7 +60,7 @@ require __DIR__ . '/../layout_inicio.php';
         ?>
         <tr>
             <td><?= e($f['producto']?->getNombreProducto() ?? '-') ?></td>
-            <td><span class="etiqueta <?= e($claseVence) ?>"><?= e(Vencimiento::describir($f['dias'])) ?></span> <span class="fecha sutil"><?= e($f['fecha_vencimiento']) ?></span></td>
+            <td><span class="etiqueta <?= e($claseVence) ?>"><?= e(Vencimiento::describir($f['dias'])) ?></span> <span class="fecha sutil"><?= e(fecha($f['fecha_vencimiento'])) ?></span></td>
             <td class="num"><?= e($queda . ' ' . $f['unidad']) ?></td>
             <td class="num"><?= e(soles($f['valor'])) ?></td>
             <td><?= e($f['documento']) ?> <span class="sutil">· recibido <?= e(substr($f['recibido'], 0, 10)) ?></span></td>

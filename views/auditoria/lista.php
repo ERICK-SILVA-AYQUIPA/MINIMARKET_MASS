@@ -12,7 +12,7 @@ declare(strict_types=1);
 $titulo = 'Auditoría';
 require __DIR__ . '/../layout_inicio.php';
 // Acciones que conviene mirar primero
-$delicada = fn(string $a): bool => in_array($a, ['VENTA_ANULADA', 'PRECIO_CAMBIADO', 'DEVOLUCION_REGISTRADA', 'CAJA_RETIRO'], true);
+$delicada = fn(string $a): bool => in_array($a, ['VENTA_ANULADA', 'PRECIO_CAMBIADO', 'DEVOLUCION_REGISTRADA', 'CAJA_RETIRO', 'CATALOGO_IMPORTADO'], true);
 ?>
 <div class="cabecera">
     <div>
@@ -59,7 +59,7 @@ require __DIR__ . '/../parciales/buscador.php';
         <?php foreach ($filas as $f): ?>
             <tr id="fila-aud-<?= (int) $f['id_auditoria'] ?>">
                 <td><?= (int) $f['id_auditoria'] ?></td>
-                <td class="fecha"><?= e($f['fecha_hora']) ?></td>
+                <td class="fecha"><?= e(fecha($f['fecha_hora'])) ?></td>
                 <td><span class="etiqueta <?= $delicada($f['accion']) ? 'reponer' : 'neutra' ?>"><?= e($f['accion']) ?></span></td>
                 <td class="recortado"><?= e($f['detalle'] ?? '') ?></td>
                 <td><?= e($f['empleado']) ?> <small class="sutil">(<?= e($f['rol']) ?>)</small></td>
@@ -80,7 +80,7 @@ require __DIR__ . '/../parciales/buscador.php';
         require __DIR__ . '/../parciales/drawer_abrir.php';
         ?>
         <dl class="datos">
-            <dt>Fecha y hora</dt><dd><?= e($f['fecha_hora']) ?></dd>
+            <dt>Fecha y hora</dt><dd><?= e(fecha($f['fecha_hora'])) ?></dd>
             <dt>Acción</dt><dd><span class="etiqueta <?= $delicada($f['accion']) ? 'reponer' : 'neutra' ?>"><?= e($f['accion']) ?></span></dd>
             <dt>Quién</dt><dd><?= e($f['empleado']) ?> (<?= e($f['rol']) ?>)</dd>
             <dt>Tienda</dt><dd><?= e($tienda->getNombreTienda()) ?></dd>

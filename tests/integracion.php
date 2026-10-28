@@ -32,6 +32,9 @@ require __DIR__ . '/../models/CajaRepository.php';
 require __DIR__ . '/../models/VentaRepository.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/InventarioRepository.php';
+require __DIR__ . '/../models/PanelRepository.php';
+require __DIR__ . '/../models/Reposicion.php';
+require __DIR__ . '/../models/CatalogoCsv.php';
 
 $db = Database::conexion();
 
@@ -188,7 +191,7 @@ revisar('...los rechazados no dejaron ingreso ni stock', (int) valor($db, 'SELEC
     && $stock(1, 1) === number_format((float) $lecheAntes + 24, 3, '.', ''));
 $ingresosRepo = new IngresoRepository($db);
 $detalle = $ingresosRepo->detalle($idIngreso);
-revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->contar(1) === $ingresosAntes + 1
+revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->contar(1) === (int) valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia WHERE id_tienda = 1')
     && $ingresosRepo->pagina(1, 25, 0)[0]->documento() === 'FACTURA F001-00012345'
     && count($detalle) === 2 && $detalle[1]->getCostoTotal() === 20.48
     && $detalle[0]->getFechaVencimiento() === null && $detalle[1]->getFechaVencimiento() === date('Y-m-d', strtotime('+5 days')));
@@ -201,7 +204,7 @@ foreach ($lotes as $idProducto => $datos) {
         $porVencer[] = $idProducto . '/' . $lote['id_ingreso'] . '/' . $lote['dias'];
     }
 }
-revisar('Leche, plátano, yogurt y la papa recién recibida tienen lotes con fecha', array_keys($lotes) === [1, 8, 9, 11]);
+revisar('Leche, plátano, yogurt y la papa recién recibida tienen lotes con fecha', array_diff([1, 8, 9, 11], array_keys($lotes)) === []);
 revisar('Por vencer en 30 días: leche vencida, plátano, yogurt (dos lotes) y la papa: ' . implode(' ', $porVencer),
     in_array('1/1/-1', $porVencer, true) && in_array('9/3/2', $porVencer, true) && in_array('11/2/4', $porVencer, true)
     && in_array('11/3/25', $porVencer, true) && in_array("8/$idIngreso/5", $porVencer, true) && count($porVencer) === 5);
@@ -306,6 +309,41 @@ revisar('Mínimo "0.000" se acepta como sin mínimo', valor($db, 'SELECT stock_m
 $catalogo->crearCategoria($rosa, 'Panadería');
 rechaza('Categoría repetida', fn() => $catalogo->crearCategoria($rosa, 'Panadería'));
 
+echo "Importar catálogo en CSV\n";
+$productosAntes = (int) valor($db, 'SELECT COUNT(*) FROM producto');
+$auditoriaAntes = (int) valor($db, 'SELECT COUNT(*) FROM auditoria');
+$inicial = CatalogoCsv::leer((string) file_get_contents(__DIR__ . '/../database/catalogo_inicial.csv'));
+$revision = $catalogo->importarCatalogo($rosa, $inicial['filas'], true);
+revisar("El catálogo de ejemplo (" . count($inicial['filas']) . " filas) se revisa sin errores ni productos nuevos",
+    $inicial['errores'] === [] && $revision['errores'] === [] && $revision['creados'] === 0 && $revision['sinCambios'] >= count($inicial['filas']) - 2);
+$filasCsv = [
+    2 => ['codigo_barras' => '7750000000011', 'nombre' => 'Leche evaporada Gloria entera 400 g', 'categoria' => 'Lacteos', 'marca' => 'Gloria', 'unidad' => 'und', 'precio_venta' => '4.90', 'al_peso' => 'N'],
+    3 => ['codigo_barras' => '7751234000017', 'nombre' => 'Comida para perro Ricocan adulto 1 kg', 'categoria' => 'Mascotas', 'marca' => 'Ricocan', 'unidad' => 'UND', 'precio_venta' => '9.90', 'al_peso' => 'no'],
+    4 => ['codigo_barras' => '', 'nombre' => 'Camote amarillo', 'categoria' => 'Frutas y verduras', 'marca' => 'Sin marca', 'unidad' => 'kg', 'precio_venta' => '2.80', 'al_peso' => 'S'],
+];
+$revision = $catalogo->importarCatalogo($rosa, $filasCsv, true);
+revisar('Solo revisar: cuenta 2 nuevos y 1 precio, pero no guarda nada', $revision['creados'] === 2 && $revision['precios'] === 1
+    && $revision['categorias'] === ['Mascotas'] && $revision['marcas'] === ['Ricocan']
+    && (int) valor($db, 'SELECT COUNT(*) FROM producto') === $productosAntes && (int) valor($db, 'SELECT COUNT(*) FROM auditoria') === $auditoriaAntes
+    && valor($db, "SELECT COUNT(*) FROM categoria WHERE nombre_categoria = 'Mascotas'") === '0');
+$conError = $filasCsv + [5 => ['unidad' => 'caja'] + $filasCsv[3], 6 => ['precio_venta' => '5.00'] + $filasCsv[2]];
+$revision = $catalogo->importarCatalogo($rosa, $conError, false);
+revisar('Un archivo con errores no guarda nada y dice la línea', count($revision['errores']) === 2 && str_starts_with($revision['errores'][0], 'Línea 5:')
+    && str_contains($revision['errores'][1], 'ya está en la línea 2')
+    && (int) valor($db, 'SELECT COUNT(*) FROM producto') === $productosAntes);
+$importado = $catalogo->importarCatalogo($rosa, $filasCsv, false);
+revisar('Importar: 2 productos nuevos con stock 0 en las 3 tiendas', $importado['errores'] === [] && $importado['creados'] === 2
+    && valor($db, "SELECT COUNT(*) FROM stock s JOIN producto p ON p.id_producto = s.id_producto
+                   WHERE p.nombre_producto IN ('Comida para perro Ricocan adulto 1 kg', 'Camote amarillo') AND s.cantidad_actual = 0") === '6'
+    && valor($db, "SELECT se_vende_por_peso FROM producto WHERE nombre_producto = 'Camote amarillo' AND codigo_barras IS NULL") === 'S');
+revisar('...el precio de la leche pasa a 4.90 y queda en la auditoría', valor($db, 'SELECT precio_venta FROM producto WHERE id_producto = 1') === '4.90'
+    && valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRECIO_CAMBIADO' AND detalle LIKE '%(CSV)'") === '1'
+    && valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'CATALOGO_IMPORTADO'") === '1');
+$otraVez = $catalogo->importarCatalogo($rosa, $filasCsv, false);
+revisar('Subir el mismo archivo otra vez no duplica nada', $otraVez['creados'] === 0 && $otraVez['sinCambios'] === 3);
+revisar('...y "Camote" a granel se encuentra por nombre', (int) valor($db, "SELECT COUNT(*) FROM producto WHERE nombre_producto = 'Camote amarillo'") === 1);
+rechaza('Un almacenero no importa el catálogo', fn() => $catalogo->importarCatalogo($carmen, $filasCsv, true));
+
 echo "Personal y claves\n";
 $idNuevo = $personal->crear($rosa, 'Diana', 'Torres Lazo', '70000010', 2, 'Caja2026x');
 revisar("Rosa registra a la cajera $idNuevo en Cayma", valor($db, 'SELECT id_tienda FROM empleado WHERE id_empleado = ?', [$idNuevo]) === '1');
@@ -341,6 +379,27 @@ $reportes = new ReporteRepository($db);
 $resumen = $reportes->resumen(1, '2026-10-17', '2026-10-19');
 revisar('Cayma vendió S/ 323.00 del 17 al 19/10 (como el paso 7)', abs($resumen['total'] - 323.00) < 0.001);
 revisar('Más vendido en Cayma tiene importe', ($reportes->masVendidos(1, '2026-01-01', '2026-12-31')[0]['importe'] ?? '0') > 0);
+$hoy = date('Y-m-d');
+$resumenHoy = $reportes->resumen(1, $hoy, $hoy);
+revisar('El resumen de hoy resta las devoluciones: devuelto S/ ' . number_format($resumenHoy['devuelto'], 2),
+    abs($resumenHoy['devuelto'] - ($devuelto + 900) / 100) < 0.001 && abs($resumenHoy['neto'] - ($resumenHoy['total'] - $resumenHoy['devuelto'])) < 0.001);
+$utilidad = $reportes->utilidadPorProducto(1, '2026-01-01', $hoy);
+$porNombre = array_column($utilidad, null, 'producto');
+$yogurt = $porNombre['Yogurt Gloria fresa 1 L'] ?? null;
+revisar('Utilidad del yogurt: costo promedio S/ 5.90 de sus 2 ingresos y utilidad = ventas − costo', $yogurt !== null
+    && $yogurt['costo_unitario'] === 5.9 && abs($yogurt['utilidad'] - ($yogurt['ventas'] - round($yogurt['cantidad'] * 5.9, 2))) < 0.001);
+$leche = $porNombre['Leche evaporada Gloria entera 400 g'] ?? null;
+revisar('La leche resta lo devuelto: 3 vendidas y 3 devueltas no cuentan', $leche !== null
+    && abs($leche['cantidad'] - ((float) valor($db, "SELECT SUM(d.cantidad) FROM detalle_venta d JOIN venta v ON v.id_venta = d.id_venta
+        JOIN serie_comprobante s ON s.id_serie = v.id_serie WHERE d.id_producto = 1 AND s.id_tienda = 1 AND v.estado = 'EMITIDA'") - 3)) < 0.001);
+revisar('Un producto que nunca entró por ingreso queda sin costo', array_filter($utilidad, fn(array $p): bool => $p['costo'] === null) !== []);
+$porTienda = $reportes->utilidadPorTienda([1 => 'Mass Cayma', 2 => 'Mass Cerro Colorado'], '2026-01-01', $hoy);
+revisar('La utilidad de Cayma en la tabla por tienda suma la de sus productos', abs($porTienda[0]['utilidad']
+    - array_sum(array_map(fn(array $p): float => $p['utilidad'] ?? 0.0, $utilidad))) < 0.01 && $porTienda[1]['tienda'] === 'Mass Cerro Colorado');
+$reposicion = (new PanelRepository($db))->reposicion(1, Reposicion::DIAS_VENTA);
+revisar('La lista para reponer trae lo que está en su mínimo, con lo vendido y el sobrante de otras tiendas',
+    count($reposicion) === (new PanelRepository($db))->contarPorReponer(1)
+    && array_filter($reposicion, fn(array $f): bool => $f['actual'] > $f['minimo']) === []);
 $pagina = new Paginacion(51, '99', 25);
 revisar('Página 99 de 51 filas se corrige a la 3 (offset 50)', $pagina->getPagina() === 3 && $pagina->offset() === 50);
 

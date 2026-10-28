@@ -150,6 +150,145 @@ class ProductoServicio extends Servicio
     }
 
     /**
+     * Importa el catalogo leido por CatalogoCsv: crea los productos nuevos (con stock 0 en cada tienda),
+     * actualiza los que ya existen (por codigo de barras, o por nombre si se venden al peso sin codigo)
+     * y crea las categorias y marcas que falten. Todo o nada: si una fila tiene error, no se guarda ninguna.
+     * Con $soloRevisar hace lo mismo y al final lo deshace, para ver el resultado antes de importar.
+     * @param array<int, array<string, string>> $filas numero de linea => columnas de CatalogoCsv::COLUMNAS
+     * @return array{creados: int, actualizados: int, sinCambios: int, precios: int, categorias: string[], marcas: string[], errores: string[]}
+     */
+    public function importarCatalogo(Usuario $admin, array $filas, bool $soloRevisar): array
+    {
+        $this->exigirAdministrador($admin);
+        $r = ['creados' => 0, 'actualizados' => 0, 'sinCambios' => 0, 'precios' => 0, 'categorias' => [], 'marcas' => [], 'errores' => []];
+
+        $this->db->beginTransaction();
+        try {
+            $unidades = [];
+            foreach ($this->db->query('SELECT id_unidad, abreviatura FROM unidad_medida')->fetchAll() as $u) {
+                $unidades[mb_strtolower($u['abreviatura'])] = (int) $u['id_unidad'];
+            }
+            $vistos = [];
+            foreach ($filas as $linea => $f) {
+                try {
+                    $this->importarFila($admin, (int) $linea, $f, $unidades, $vistos, $r);
+                } catch (ReglaNegocioException $ex) {
+                    $r['errores'][] = "Línea $linea: " . $ex->getMessage();
+                    if (count($r['errores']) >= 50) {
+                        $r['errores'][] = 'Hay más errores: corrige estos y vuelve a subir el archivo.';
+                        break;
+                    }
+                }
+            }
+            if ($r['errores'] === [] && !$soloRevisar) {
+                $this->auditar($admin, 'CATALOGO_IMPORTADO', sprintf('%d nuevos, %d actualizados (%d precios), %d categorías y %d marcas nuevas',
+                    $r['creados'], $r['actualizados'], $r['precios'], count($r['categorias']), count($r['marcas'])));
+                $this->db->commit();
+            } else {
+                $this->db->rollBack();
+            }
+        } catch (Throwable $ex) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $ex;
+        }
+        return $r;
+    }
+
+    /**
+     * Una fila del CSV. Lanza ReglaNegocioException con el problema de esa fila.
+     * @param array<string, int> $unidades abreviatura => id
+     * @param array<string, int> $vistos   productos ya leidos en este archivo, para no repetirlos
+     */
+    private function importarFila(Usuario $admin, int $linea, array $f, array $unidades, array &$vistos, array &$r): void
+    {
+        $alPeso = match (mb_strtoupper($f['al_peso'])) {
+            'S', 'SI', 'SÍ' => 'S',
+            'N', 'NO'       => 'N',
+            default         => throw new ReglaNegocioException('al_peso debe ser S o N.'),
+        };
+        $unidad = $unidades[mb_strtolower($f['unidad'])] ?? throw new ReglaNegocioException(
+            'unidad "' . $f['unidad'] . '" no existe (usa ' . implode(', ', array_keys($unidades)) . ').');
+        $categoria = $this->idPorNombre(false, $f['categoria'], $r['categorias']);
+        $marca = $this->idPorNombre(true, $f['marca'], $r['marcas']);
+        $campos = $this->leerDatos(['nombre' => $f['nombre'], 'codigo' => $f['codigo_barras'], 'precio' => $f['precio_venta'],
+            'categoria' => (string) $categoria, 'marca' => (string) $marca, 'unidad' => (string) $unidad], $alPeso);
+
+        $clave = $campos['codigo'] ?? 'nombre:' . mb_strtolower($campos['nombre']);
+        if (isset($vistos[$clave])) {
+            throw new ReglaNegocioException('el producto ya está en la línea ' . $vistos[$clave] . ' del archivo.');
+        }
+        $vistos[$clave] = $linea;
+
+        // Ya existe: por codigo de barras, o por nombre si no tiene codigo
+        $consulta = $campos['codigo'] !== null
+            ? $this->db->prepare('SELECT id_producto, nombre_producto, precio_venta, se_vende_por_peso, id_categoria, id_marca, id_unidad
+                                    FROM producto WHERE codigo_barras = :clave FOR UPDATE')
+            : $this->db->prepare('SELECT id_producto, nombre_producto, precio_venta, se_vende_por_peso, id_categoria, id_marca, id_unidad
+                                    FROM producto WHERE codigo_barras IS NULL AND nombre_producto = :clave FOR UPDATE');
+        $consulta->execute(['clave' => $campos['codigo'] ?? $campos['nombre']]);
+        $actual = $consulta->fetch();
+
+        if ($actual === false) {
+            $this->db->prepare(
+                'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado, id_categoria, id_marca, id_unidad)
+                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad)'
+            )->execute($campos + ['peso' => $alPeso]);
+            $this->db->prepare(
+                'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) SELECT id_tienda, :producto, 0, 0 FROM tienda'
+            )->execute(['producto' => (int) $this->db->lastInsertId()]);
+            $r['creados']++;
+            return;
+        }
+        if ($actual['se_vende_por_peso'] !== $alPeso) {
+            throw new ReglaNegocioException($campos['nombre'] . ': no se puede cambiar entre por unidad y al peso.');
+        }
+        $igual = $actual['nombre_producto'] === $campos['nombre'] && $actual['precio_venta'] === $campos['precio']
+            && (int) $actual['id_categoria'] === $campos['categoria'] && (int) $actual['id_marca'] === $campos['marca']
+            && (int) $actual['id_unidad'] === $campos['unidad'];
+        if ($igual) {
+            $r['sinCambios']++;
+            return;
+        }
+        $this->db->prepare(
+            'UPDATE producto SET nombre_producto = :nombre, precio_venta = :precio, id_categoria = :categoria, id_marca = :marca, id_unidad = :unidad
+              WHERE id_producto = :id'
+        )->execute(['nombre' => $campos['nombre'], 'precio' => $campos['precio'], 'categoria' => $campos['categoria'],
+            'marca' => $campos['marca'], 'unidad' => $campos['unidad'], 'id' => (int) $actual['id_producto']]);
+        $r['actualizados']++;
+        if ($actual['precio_venta'] !== $campos['precio']) {
+            $r['precios']++;
+            $this->auditar($admin, 'PRECIO_CAMBIADO', sprintf('%d %s: S/ %s -> S/ %s (CSV)',
+                (int) $actual['id_producto'], $campos['nombre'], $actual['precio_venta'], $campos['precio']));
+        }
+    }
+
+    /**
+     * Id de una categoria (o marca) por su nombre, sin importar mayusculas; si no existe, la crea.
+     * @param string[] $creadas nombres creados en esta importacion
+     */
+    private function idPorNombre(bool $esMarca, string $nombre, array &$creadas): int
+    {
+        $nombre = $this->textoObligatorio($nombre, 50, $esMarca ? 'Marca' : 'Categoría');
+        $sql = $esMarca
+            ? 'SELECT id_marca FROM marca WHERE LOWER(nombre_marca) = LOWER(:nombre)'
+            : 'SELECT id_categoria FROM categoria WHERE LOWER(nombre_categoria) = LOWER(:nombre)';
+        $consulta = $this->db->prepare($sql);
+        $consulta->execute(['nombre' => $nombre]);
+        $id = $consulta->fetchColumn();
+        if ($id !== false) {
+            return (int) $id;
+        }
+        $sql = $esMarca
+            ? 'INSERT INTO marca (nombre_marca, es_marca_propia) VALUES (:nombre, \'N\')'
+            : 'INSERT INTO categoria (nombre_categoria) VALUES (:nombre)';
+        $this->db->prepare($sql)->execute(['nombre' => $nombre]);
+        $creadas[] = $nombre;
+        return (int) $this->db->lastInsertId();
+    }
+
+    /**
      * Valida los campos del formulario y los deja listos para el SQL.
      * @return array{nombre: string, codigo: ?string, precio: string, categoria: int, marca: int, unidad: int}
      */

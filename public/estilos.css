@@ -616,3 +616,9 @@ body.entrada-pagina::after {
 .devolucion p { margin: 0 0 var(--e2); }
 .devolucion ul { margin: 0; padding-left: 1.2em; color: var(--suave); font-size: .92rem; }
 #devoluciones form.formulario { margin-top: var(--e4); }
+
+/* 17. Importar catálogo */
+.lista-errores { margin: 0 0 var(--e4); padding-left: 1.2em; color: var(--rojo); }
+.lista-errores li { margin-bottom: 4px; }
+.pasos-ayuda { margin: 0 0 var(--e3); padding-left: 1.2em; }
+.pasos-ayuda li { margin-bottom: 4px; }

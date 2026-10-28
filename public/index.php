@@ -29,6 +29,10 @@ header('Referrer-Policy: same-origin');
 // Solo se ejecuta JavaScript de archivos de este sitio (public/app.js): un script pegado en la pagina
 // o traido de otro sitio no corre, aunque alguien lograra inyectarlo
 header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; style-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'");
+// Con HTTPS, el navegador recuerda por un año que este sitio solo se abre cifrado
+if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
 try {
     $db = Database::conexion();
@@ -94,7 +98,7 @@ Controller::marcarRuta($ruta);
 $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
     'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
-    'venta_devolver', 'caja_movimiento',
+    'venta_devolver', 'caja_movimiento', 'catalogo_subir',
     'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
@@ -133,6 +137,7 @@ try {
                 'stock_minimo'       => $productoController->fijarMinimo($_POST),
                 'categoria_crear'    => $productoController->crearCategoria($_POST),
                 'marca_crear'        => $productoController->crearMarca($_POST),
+                'catalogo_subir'     => $productoController->subirCatalogo($_POST, is_array($_FILES['archivo'] ?? null) ? $_FILES['archivo'] : null),
                 'empleado_crear'     => $empleadoController->crear($_POST),
                 'empleado_guardar'   => $empleadoController->guardar($_POST),
                 'empleado_clave'     => $empleadoController->reiniciarClave($_POST),
@@ -230,6 +235,14 @@ try {
                 $productoController->formulario($leer('id'));
                 break;
 
+            case 'catalogo_importar':
+                $productoController->importar();
+                break;
+
+            case 'catalogo_plantilla':
+                $productoController->plantilla();
+                break;
+
             case 'catalogo':
                 $productoController->catalogo();
                 break;
@@ -252,6 +265,18 @@ try {
 
             case 'reportes':
                 $reporteController->ventas($leer('desde'), $leer('hasta'));
+                break;
+
+            case 'utilidad':
+                $reporteController->utilidad($leer('desde'), $leer('hasta'));
+                break;
+
+            case 'reponer':
+                $panelController->reponer();
+                break;
+
+            case 'reponer_csv':
+                $panelController->reponerCsv();
                 break;
 
             case 'reporte_csv':
