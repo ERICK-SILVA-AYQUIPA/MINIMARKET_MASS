@@ -71,7 +71,7 @@ if ($usuario !== null && !$usuario->estaActivo()) {
 $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
-    new VentaServicio($db));
+    new VentaServicio($db), $catalogo);
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $ingresos = new IngresoRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
@@ -99,7 +99,7 @@ $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
     'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
     'venta_devolver', 'caja_movimiento', 'catalogo_subir',
-    'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
+    'producto_guardar', 'producto_estado', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
 ];
@@ -133,6 +133,7 @@ try {
                 'caja_movimiento'    => $cajaController->movimiento($_POST),
                 'mi_clave_guardar'   => $auth->cambiarClave($_POST),
                 'producto_guardar'   => $productoController->guardar($_POST),
+                'producto_foto'      => $productoController->cambiarFoto($_POST, is_array($_FILES['foto'] ?? null) ? $_FILES['foto'] : null),
                 'producto_estado'    => $productoController->cambiarEstado($_POST),
                 'stock_minimo'       => $productoController->fijarMinimo($_POST),
                 'categoria_crear'    => $productoController->crearCategoria($_POST),
@@ -164,7 +165,7 @@ try {
                 break;
 
             case 'productos':
-                $productoController->lista($leer('tienda'), $leer('ver'));
+                $productoController->lista($leer('tienda'), $leer('ver'), $leer('vista'), $leer('categoria'));
                 break;
 
             case 'producto':

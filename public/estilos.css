@@ -622,3 +622,147 @@ body.entrada-pagina::after {
 .lista-errores li { margin-bottom: 4px; }
 .pasos-ayuda { margin: 0 0 var(--e3); padding-left: 1.2em; }
 .pasos-ayuda li { margin-bottom: 4px; }
+
+/* ---------- 18. Fotos de producto, tarjetas, venta con cuadrícula y guías ---------- */
+/* Foto del producto o, si no tiene, el icono de su categoría sobre su color */
+.foto {
+    display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radio-chico);
+    overflow: hidden; background: var(--tono-fondo, var(--superficie-2)); color: var(--tono, var(--suave));
+}
+.foto img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.foto .icono { width: 42%; height: 42%; stroke-width: 1.5; transition: transform .25s ease; }
+.foto.chica { width: 44px; flex: none; }
+.foto.chica .icono { width: 56%; height: 56%; }
+.foto.grande { width: 160px; flex: none; border-radius: var(--radio); }
+.tono-1 { --tono: #1d4ed8; --tono-fondo: #e0ebff; }
+.tono-2 { --tono: #92400e; --tono-fondo: #fdf0d5; }
+.tono-3 { --tono: #b42318; --tono-fondo: #fde7e4; }
+.tono-4 { --tono: #166534; --tono-fondo: #dcf5e3; }
+.tono-5 { --tono: #0e7490; --tono-fondo: #d9f3f8; }
+.tono-6 { --tono: #9a3412; --tono-fondo: #fde8dc; }
+.tono-7 { --tono: #7c2d12; --tono-fondo: #fbe9c8; }
+.tono-8 { --tono: #6d28d9; --tono-fondo: #ede5fe; }
+.con-foto { display: flex; gap: var(--e3); align-items: center; }
+
+/* Barra del catálogo: chips de categoría y Tarjetas/Tabla */
+.barra-catalogo { display: flex; flex-wrap: wrap; gap: var(--e3); align-items: flex-start; justify-content: space-between; margin: var(--e3) 0 var(--e4); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips a, .chips button {
+    display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px;
+    border: 1px solid var(--borde-fuerte); background: var(--superficie); color: var(--texto); font: inherit; font-size: .88rem;
+    text-decoration: none; cursor: pointer; transition: background .15s, border-color .15s, transform .15s;
+}
+.chips a span { color: var(--tenue); font-size: .8rem; }
+.chips a:hover, .chips button:hover { border-color: var(--tinta); transform: translateY(-1px); }
+.chips [aria-current="true"], .chips [aria-pressed="true"] { background: var(--tinta); border-color: var(--tinta); color: #fff; }
+.chips [aria-current="true"] span { color: #cbd5e1; }
+.alternar { display: inline-flex; border: 1px solid var(--borde-fuerte); border-radius: var(--radio-chico); overflow: hidden; flex: none; }
+.alternar a { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; color: var(--texto); text-decoration: none; font-size: .88rem; background: var(--superficie); }
+.alternar a + a { border-left: 1px solid var(--borde-fuerte); }
+.alternar a[aria-current="true"] { background: var(--marca); color: var(--tinta); font-weight: 600; }
+
+/* Catálogo en tarjetas */
+.rejilla-productos { list-style: none; margin: 0 0 var(--e3); padding: 0; display: grid; gap: var(--e4); grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.rejilla-productos > li { animation: aparecer .35s ease both; }
+.rejilla-productos > li.sin-resultados { grid-column: 1 / -1; padding: var(--e5); animation: none; }
+.tarjeta-producto {
+    position: relative; display: flex; flex-direction: column; gap: 4px; height: 100%; padding: var(--e3);
+    background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra);
+    color: var(--texto); text-decoration: none; transition: transform .2s ease, box-shadow .2s ease, border-color .2s;
+}
+.tarjeta-producto:hover, .tarjeta-producto:focus-visible { transform: translateY(-4px); box-shadow: var(--sombra-alta); border-color: var(--marca); }
+.tarjeta-producto:hover .foto .icono { transform: scale(1.12) rotate(-4deg); }
+.tarjeta-producto .foto { margin-bottom: var(--e2); }
+.tarjeta-producto.inactivo { opacity: .6; }
+.tarjeta-categoria { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tenue); }
+.tarjeta-nombre { font-family: var(--titulos); font-size: .98rem; line-height: 1.3; color: var(--tinta); }
+.tarjeta-marca { font-size: .82rem; color: var(--suave); }
+.tarjeta-pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: var(--e2); }
+.tarjeta-precio { font-family: var(--titulos); font-weight: 700; font-size: 1.1rem; color: var(--tinta); }
+.tarjeta-precio small { font-weight: 500; color: var(--suave); }
+.tarjeta-ver {
+    position: absolute; top: calc(var(--e3) + 8px); right: calc(var(--e3) + 8px); padding: 4px 10px; border-radius: 999px;
+    background: var(--tinta); color: #fff; font-size: .75rem; font-weight: 600; opacity: 0; transform: translateY(-4px); transition: opacity .2s, transform .2s;
+}
+.tarjeta-producto:hover .tarjeta-ver, .tarjeta-producto:focus-visible .tarjeta-ver { opacity: 1; transform: none; }
+
+/* Ficha: foto grande con precio */
+.ficha-cabecera { display: flex; gap: var(--e4); align-items: flex-start; margin-bottom: var(--e4); }
+.ficha-precio { font-family: var(--titulos); font-size: 1.6rem; font-weight: 800; color: var(--tinta); margin: 0; }
+.ficha-precio small { font-size: .9rem; font-weight: 500; color: var(--suave); }
+.form-foto { display: flex; flex-wrap: wrap; gap: var(--e2); align-items: center; margin-top: var(--e2); }
+.form-foto label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.form-foto input[type=file] { max-width: 100%; font-size: .85rem; }
+.js [data-sin-js] { display: none !important; }
+
+/* Venta: escanear, buscar, chips y cuadrícula para tocar */
+.selector-productos { margin-bottom: var(--e4); }
+.selector-barra { display: grid; grid-template-columns: 1.2fr 1fr; gap: var(--e2); margin-bottom: var(--e3); }
+.selector-barra label {
+    display: flex; align-items: center; gap: var(--e2); padding: 0 var(--e3); min-height: var(--alto-control);
+    border: 1px solid var(--borde-fuerte); border-radius: var(--radio-chico); background: var(--superficie); color: var(--suave);
+}
+.selector-barra label.escanear { border-color: var(--marca); box-shadow: 0 0 0 3px rgba(255, 196, 0, .2); }
+.selector-barra input { flex: 1; min-width: 0; border: 0; outline: 0; padding: 8px 0; font: inherit; background: none; color: var(--texto); }
+.selector-barra label:focus-within { border-color: var(--foco); box-shadow: 0 0 0 3px rgba(29, 78, 216, .2); }
+.selector-productos .chips { margin-bottom: var(--e3); }
+.rejilla-venta {
+    list-style: none; margin: 0; padding: 2px; display: grid; gap: var(--e2); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    max-height: 340px; overflow-y: auto; overscroll-behavior: contain;
+}
+.rejilla-venta > li.sin-resultados { grid-column: 1 / -1; padding: var(--e4); }
+.producto-venta {
+    display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; gap: 4px var(--e2); width: 100%; height: 100%;
+    padding: var(--e2); text-align: left; background: var(--superficie); color: var(--texto); border: 1px solid var(--borde);
+    border-radius: var(--radio-chico); font: inherit; font-weight: 400; min-height: 0; cursor: pointer;
+    transition: transform .15s ease, border-color .15s, box-shadow .15s;
+}
+.producto-venta .foto { grid-row: 1 / 3; }
+.producto-venta-nombre { font-size: .85rem; line-height: 1.25; }
+.producto-venta-pie { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; justify-content: space-between; font-size: .85rem; }
+.producto-venta-pie small { color: var(--suave); }
+.producto-venta-pie .etiqueta { font-size: .7rem; }
+.producto-venta:hover { border-color: var(--marca); transform: translateY(-2px); box-shadow: var(--sombra); background: var(--superficie); }
+.producto-venta:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.producto-venta.agregado { animation: latido .45s ease; }
+[data-lineas] tr.recien { animation: resaltar 1s ease; }
+
+/* Guía "Cómo se usa" */
+.guia { margin: 0 0 var(--e4); border: 1px solid var(--azul-fondo); border-left: 4px solid var(--azul); border-radius: var(--radio-chico); background: #f5f9ff; }
+.guia summary {
+    display: flex; align-items: center; gap: var(--e2); padding: var(--e2) var(--e3); cursor: pointer; font-weight: 600; color: var(--azul); list-style: none;
+}
+.guia summary::-webkit-details-marker { display: none; }
+.guia summary::after { content: "Ocultar"; margin-left: auto; font-size: .8rem; font-weight: 500; color: var(--suave); }
+.guia:not([open]) summary::after { content: "Ver"; }
+.guia ol { margin: 0; padding: 0 var(--e4) var(--e3) calc(var(--e4) + 18px); }
+.guia li { margin-bottom: 4px; }
+.guia li::marker { color: var(--azul); font-weight: 700; }
+
+/* Aviso corto que se va solo */
+.toast {
+    position: fixed; left: 50%; bottom: 24px; z-index: 60; max-width: min(92vw, 440px); padding: 10px 16px; border-radius: 999px;
+    background: var(--tinta); color: #fff; font-size: .92rem; box-shadow: var(--sombra-alta);
+    opacity: 0; transform: translate(-50%, 12px); pointer-events: none; transition: opacity .2s, transform .2s;
+}
+.toast.visible { opacity: 1; transform: translate(-50%, 0); }
+.toast.error { background: var(--rojo); }
+
+@keyframes aparecer { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes latido { 0% { transform: scale(1); } 40% { transform: scale(.94); border-color: var(--marca); } 100% { transform: scale(1); } }
+@keyframes resaltar { from { background: var(--ambar-fondo); } to { background: transparent; } }
+
+@media (max-width: 700px) {
+    .selector-barra { grid-template-columns: 1fr; }
+    .rejilla-productos { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--e2); }
+    .ficha-cabecera { flex-direction: column; }
+    .foto.grande { width: 120px; }
+}
+/* Dentro del formulario de venta pesan mas que las reglas generales de form.formulario */
+form.formulario .selector-barra label { display: flex; margin: 0; font-weight: 400; color: var(--suave); }
+form.formulario .selector-barra input { width: auto; min-height: 0; border: 0; box-shadow: none; padding: 8px 0; background: none; }
+form.formulario .selector-barra input:focus-visible { outline: 0; }
+.producto-venta { white-space: normal; justify-content: stretch; align-items: start; }
+.producto-venta-pie { grid-column: 2; }
+.producto-venta-nombre { grid-column: 2; overflow-wrap: anywhere; }
+.rejilla-venta { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }

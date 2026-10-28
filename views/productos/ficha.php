@@ -8,7 +8,8 @@ declare(strict_types=1);
  * @var ?Categoria $categoria
  * @var ?Marca $marca
  * @var ?UnidadMedida $unidad
- * @var bool $puedeEditar       administrador: editar y descontinuar
+ * @var array{url: ?string, icono: string, tono: int, categoria: string} $foto
+ * @var bool $puedeEditar       administrador: editar, descontinuar y cambiar la foto
  * @var bool $puedeFijarMinimo  administrador de esta tienda
  * @var ?string $csrf
  */
@@ -16,6 +17,31 @@ declare(strict_types=1);
 $cantidadEjemplo = $producto->esAlPeso() ? 1.25 : 1.0;
 $decimales = $producto->esAlPeso() ? 3 : 0;
 ?>
+<div class="ficha-cabecera">
+    <?php $fotoClase = 'grande'; require __DIR__ . '/../parciales/foto_producto.php'; ?>
+    <div>
+        <p class="ficha-precio"><?= e(soles($producto->getPrecioVenta())) ?><?= $producto->esAlPeso() ? '<small> /kg</small>' : '' ?></p>
+        <p class="sutil"><?= e($foto['categoria']) ?><?= e($marca !== null ? ' · ' . $marca->getNombreMarca() : '') ?></p>
+        <?php if ($puedeEditar): ?>
+            <form class="form-foto" method="post" action="/?ruta=producto_foto" enctype="multipart/form-data">
+                <?= campoCsrf($csrf) ?>
+                <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
+                <label for="foto-<?= $producto->getIdProducto() ?>"><?= icono('foto') ?><?= $foto['url'] === null ? 'Subir una foto' : 'Cambiar la foto' ?></label>
+                <input id="foto-<?= $producto->getIdProducto() ?>" name="foto" type="file" accept="image/jpeg,image/png,image/webp" data-enviar-al-elegir required>
+                <button class="chico" type="submit" data-sin-js>Guardar foto</button>
+            </form>
+            <?php if ($foto['url'] !== null): ?>
+                <form method="post" action="/?ruta=producto_foto" data-confirmar="¿Quitar la foto? Se verá el icono de su categoría." data-confirmar-boton="Sí, quitar">
+                    <?= campoCsrf($csrf) ?>
+                    <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
+                    <input type="hidden" name="quitar" value="1">
+                    <button class="enlace chico" type="submit">Quitar foto</button>
+                </form>
+            <?php endif; ?>
+            <p class="ayuda">JPG, PNG o WebP de hasta 2 MB. Se guarda achicada (600 px).</p>
+        <?php endif; ?>
+    </div>
+</div>
 <dl class="datos">
     <dt>Stock en <?= e($tienda->getNombreTienda()) ?></dt>
     <dd>
@@ -30,7 +56,6 @@ $decimales = $producto->esAlPeso() ? 3 : 0;
             <?php endif; ?>
         <?php endif; ?>
     </dd>
-    <dt>Precio de venta</dt><dd><?= e(soles($producto->getPrecioVenta())) ?><?= $producto->esAlPeso() ? ' por kg' : '' ?></dd>
     <dt>Código de barras</dt><dd><?= e($producto->getCodigoBarras() ?? '(no tiene: se vende al peso)') ?></dd>
     <dt>Se vende</dt><dd><?= $producto->esAlPeso() ? 'Al peso (kg con hasta 3 decimales)' : 'Por unidad (cantidades enteras)' ?></dd>
     <dt>Importe de ejemplo</dt>

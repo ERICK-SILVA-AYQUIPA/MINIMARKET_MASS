@@ -184,7 +184,7 @@ $carmen = new Navegador();
 revisar('Luis (cajero) y Carmen (almacenero) entran', $luis->entrar('70000002') === 303 && $carmen->entrar('70000003') === 303);
 $todas = ['inicio', 'productos', 'stock', 'ventas', 'kardex', 'traslados', 'mermas', 'tiendas', 'mi_clave',
     'comprobante&serie=B001&numero=1', 'comprobante_imprimir&serie=F001&numero=1', 'producto&id=8', 'catalogo',
-    'stock_csv', 'kardex_csv&tienda=1'];
+    'stock_csv', 'kardex_csv&tienda=1', 'productos&vista=tabla', 'productos&categoria=2', 'productos&categoria=999&vista=x'];
 $matriz = [
     // ruta                => [Rosa, Luis, Carmen]
     'caja'                 => [200, 200, 403],
@@ -267,6 +267,35 @@ revisar('Un CSV con otras columnas: 422 y dice cuáles van', $rosa->subir('catal
     && $rosa->tiene('La primera fila debe ser'));
 revisar('Un archivo que no es .csv: 422', $rosa->subir('catalogo_subir', [], 'archivo', $plantilla, 'foto.png') === 422);
 @unlink($plantilla);
+revisar('El catálogo sale en tarjetas con chips de categoría y guía', $rosa->get('ruta=productos') === 200 && $rosa->tiene('id="tarjetas-productos"')
+    && $rosa->tiene('data-chips="tarjetas-productos"') && $rosa->tiene('data-guia="catalogo"') && $rosa->tiene('iconos.svg#lacteo'));
+revisar('Filtrar por categoría deja solo esa (Lacteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
+    && substr_count($rosa->cuerpo, '<li id="fila-') === 12 && substr_count($rosa->cuerpo, '" data-categoria="2">') === 12);
+revisar('La vista en tabla también tiene foto chica', $rosa->get('ruta=productos&vista=tabla') === 200 && $rosa->tiene('id="filas-productos"')
+    && $rosa->tiene('class="foto chica'));
+revisar('La venta tiene la cuadrícula, el campo del lector y el código en cada opción', $luis->get('ruta=venta_nueva') === 200
+    && $luis->tiene('data-escanear') && $luis->tiene('data-agregar="1"') && $luis->tiene('data-codigo="7750000000011"'));
+$fotoPrueba = tempnam(sys_get_temp_dir(), 'foto');
+$lienzo = imagecreatetruecolor(300, 200);
+imagepng($lienzo, $fotoPrueba);
+revisar('Rosa sube la foto de la leche y la ficha la muestra', $rosa->subir('producto_foto', ['id' => '1'], 'foto', $fotoPrueba, 'leche.png') === 303
+    && $rosa->get('ruta=productos&ver=1') === 200 && $rosa->tiene('src="/img/productos/1.jpg?v=') && $rosa->tiene('Quitar foto'));
+revisar('La foto se sirve como imagen', $rosa->get('') !== 0 && (function () use ($rosa): bool {
+    $c = curl_init(BASE . '/img/productos/1.jpg');
+    curl_setopt_array($c, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => false]);
+    $cuerpo = (string) curl_exec($c);
+    $tipo = (string) curl_getinfo($c, CURLINFO_CONTENT_TYPE);
+    curl_close($c);
+    return str_starts_with($tipo, 'image/jpeg') && str_starts_with($cuerpo, "\xFF\xD8");
+})());
+file_put_contents($fotoPrueba, '<?php echo "hola"; ?>');
+revisar('Un archivo que no es imagen no se acepta como foto', $rosa->subir('producto_foto', ['id' => '2'], 'foto', $fotoPrueba, 'foto.png') === 303
+    && $rosa->get('ruta=productos&ver=2') === 200 && $rosa->tiene('Sube una foto JPG, PNG o WebP') && !$rosa->tiene('src="/img/productos/2.jpg'));
+revisar('El cajero y el almacenero no cambian fotos', $luis->subir('producto_foto', ['id' => '1'], 'foto', $fotoPrueba, 'f.png') === 403
+    && $carmen->post('producto_foto', ['id' => '1', 'quitar' => '1']) === 403 && $carmen->get('ruta=productos&ver=1') === 200 && !$carmen->tiene('producto_foto'));
+revisar('Rosa quita la foto y vuelve el icono de la categoría', $rosa->post('producto_foto', ['id' => '1', 'quitar' => '1']) === 303
+    && $rosa->get('ruta=productos&ver=1') === 200 && !$rosa->tiene('/img/productos/1.jpg') && $rosa->tiene('Subir una foto'));
+@unlink($fotoPrueba);
 revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
 revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));

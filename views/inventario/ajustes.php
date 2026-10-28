@@ -26,6 +26,15 @@ $motivoViejo = is_string($viejo['motivo'] ?? null) ? $viejo['motivo'] : 'CONTEO_
         <p class="sutil">Si lo contado no coincide con el sistema, el ajuste corrige el stock y deja la diferencia en el kardex.</p>
     </div>
 </div>
+<?php
+$guiaClave = 'conteo';
+$guiaTitulo = 'Cómo hacer el conteo físico';
+$guiaPasos = [
+    'Cuenta lo que hay en el anaquel y escribe la cantidad real de cada producto.',
+    'El sistema compara con lo que dice el stock y registra la diferencia como ajuste de entrada o de salida en el kardex.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <?php if ($puedeRegistrar): ?>

@@ -22,6 +22,16 @@ require __DIR__ . '/../layout_inicio.php';
     </div>
     <?php if ($filas !== []): ?><div class="acciones"><a class="boton secundario" href="/?ruta=reponer_csv"><?= icono('descarga') ?>Lista de pedido en CSV</a></div><?php endif; ?>
 </div>
+<?php
+$guiaClave = 'reponer';
+$guiaTitulo = 'Cómo decidir qué pedir';
+$guiaPasos = [
+    'Aquí salen los productos que llegaron a su stock mínimo, del más urgente al menos urgente.',
+    '"Alcanza" dice cuántos días dura lo que queda al ritmo de venta de las últimas 2 semanas. "Pedir" sugiere cuánto comprar.',
+    'Si otra tienda tiene de sobra, pide un traslado en vez de comprar. Descarga la lista en CSV para enviarla al proveedor.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 
 <?php if ($filas === []): ?>
     <?php

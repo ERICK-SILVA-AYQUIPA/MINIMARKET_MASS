@@ -27,6 +27,7 @@ require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../views/parciales/funciones.php';
+require_once __DIR__ . '/../models/FotoProducto.php';
 
 $ok = 0;
 $fallas = 0;
@@ -158,6 +159,35 @@ revisar('Solo encabezado: avisa que no hay productos', CatalogoCsv::leer("codigo
 echo "Fechas en pantalla\n";
 revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-10-19 08:05:00') === '19/10/2026 08:05');
 revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
+
+echo "Fotos de producto\n";
+revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Embutidos y huevos') === 'embutido'
+    && FotoProducto::icono('Frutas y verduras') === 'fruta' && FotoProducto::tono('Bebidas') === 3);
+revisar('Una categoría nueva usa el icono general y siempre el mismo color', FotoProducto::icono('Mascotas') === 'catalogo'
+    && FotoProducto::tono('Mascotas') === FotoProducto::tono('MASCOTAS') && FotoProducto::tono('Mascotas') >= 1 && FotoProducto::tono('Mascotas') <= 8);
+$carpetaFotos = sys_get_temp_dir() . '/mass_fotos_' . getmypid();
+$fotos = new FotoProducto($carpetaFotos);
+$lienzo = imagecreatetruecolor(1200, 800);
+ob_start();
+imagepng($lienzo);
+$png = (string) ob_get_clean();
+$fotos->guardar(5, $png);
+$guardada = getimagesize($carpetaFotos . '/5.jpg');
+revisar('Una foto de 1200x800 se guarda como JPEG de 600x400', $guardada !== false && $guardada[0] === 600 && $guardada[1] === 400 && $guardada[2] === IMAGETYPE_JPEG
+    && str_starts_with((string) $fotos->url(5), '/img/productos/5.jpg?v='));
+$rechazaFoto = function (string $contenido) use ($fotos): bool {
+    try {
+        $fotos->guardar(6, $contenido);
+        return false;
+    } catch (ReglaNegocioException) {
+        return true;
+    }
+};
+revisar('Un archivo que no es imagen no se guarda', $rechazaFoto('<?php echo 1; ?>') && $rechazaFoto("GIF89a<script>"));
+revisar('Una foto de más de 2 MB no se guarda', $rechazaFoto(str_repeat('a', FotoProducto::MAXIMO_BYTES + 1)));
+revisar('Sin foto: url null y la vista dibuja la categoría', $fotos->url(6) === null && $fotos->datos(6, 'Bebidas')['icono'] === 'bebida');
+revisar('Quitar la foto borra el archivo', $fotos->borrar(5) && $fotos->url(5) === null && !$fotos->borrar(5));
+@rmdir($carpetaFotos);
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);

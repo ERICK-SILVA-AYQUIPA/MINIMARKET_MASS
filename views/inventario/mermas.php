@@ -23,6 +23,15 @@ require __DIR__ . '/../layout_inicio.php';
     </div>
     <?php if ($puedeRegistrar): ?><div class="acciones"><a class="boton acento" href="#nueva-merma"><?= icono('mermas') ?>Registrar merma</a></div><?php endif; ?>
 </div>
+<?php
+$guiaClave = 'mermas';
+$guiaTitulo = 'Cuándo registrar una merma';
+$guiaPasos = [
+    'Producto vencido, roto, malogrado o perdido: regístralo como merma con su motivo.',
+    'El stock baja y queda en el kardex, así el sistema no ofrece en venta lo que ya no está.',
+];
+require __DIR__ . '/../parciales/guia.php';
+?>
 <?php require __DIR__ . '/../parciales/selector_tienda.php'; ?>
 
 <?php if ($filas === []): ?>

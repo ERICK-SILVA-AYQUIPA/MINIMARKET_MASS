@@ -67,8 +67,8 @@ if ($usuarioActual !== null) {
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
     <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/estilos.css?v=8">
-    <script src="/app.js?v=1" defer></script>
+    <link rel="stylesheet" href="/estilos.css?v=9">
+    <script src="/app.js?v=2" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

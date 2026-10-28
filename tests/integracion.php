@@ -35,6 +35,7 @@ require __DIR__ . '/../models/InventarioRepository.php';
 require __DIR__ . '/../models/PanelRepository.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
+require_once __DIR__ . '/../models/FotoProducto.php';
 
 $db = Database::conexion();
 
@@ -343,6 +344,24 @@ $otraVez = $catalogo->importarCatalogo($rosa, $filasCsv, false);
 revisar('Subir el mismo archivo otra vez no duplica nada', $otraVez['creados'] === 0 && $otraVez['sinCambios'] === 3);
 revisar('...y "Camote" a granel se encuentra por nombre', (int) valor($db, "SELECT COUNT(*) FROM producto WHERE nombre_producto = 'Camote amarillo'") === 1);
 rechaza('Un almacenero no importa el catálogo', fn() => $catalogo->importarCatalogo($carmen, $filasCsv, true));
+
+echo "Fotos de producto\n";
+$fotosPrueba = new FotoProducto(sys_get_temp_dir() . '/mass_fotos_integracion_' . getmypid());
+$lienzo = imagecreatetruecolor(50, 50);
+ob_start();
+imagepng($lienzo);
+$png = (string) ob_get_clean();
+$catalogo->cambiarFoto($rosa, 3, $png, $fotosPrueba);
+revisar('Rosa sube la foto de la gaseosa y queda en la auditoría', $fotosPrueba->url(3) !== null
+    && valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRODUCTO_FOTO' AND detalle LIKE '3 %foto nueva'") === '1');
+rechaza('Un cajero no cambia fotos', fn() => $catalogo->cambiarFoto($luis, 3, null, $fotosPrueba));
+rechaza('Foto de un producto que no existe', fn() => $catalogo->cambiarFoto($rosa, 99999, $png, $fotosPrueba));
+rechaza('Una foto que no es imagen', fn() => $catalogo->cambiarFoto($rosa, 4, 'no soy una foto', $fotosPrueba));
+$catalogo->cambiarFoto($rosa, 3, null, $fotosPrueba);
+revisar('Quitar la foto la borra y también queda en la auditoría', $fotosPrueba->url(3) === null
+    && valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRODUCTO_FOTO' AND detalle LIKE '3 %'") === '2');
+rechaza('Quitar una foto que no hay', fn() => $catalogo->cambiarFoto($rosa, 3, null, $fotosPrueba));
+@rmdir(sys_get_temp_dir() . '/mass_fotos_integracion_' . getmypid());
 
 echo "Personal y claves\n";
 $idNuevo = $personal->crear($rosa, 'Diana', 'Torres Lazo', '70000010', 2, 'Caja2026x');
