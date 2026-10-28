@@ -83,6 +83,7 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Reponer | **Reponer**, igual que el almacenero, para decidir el pedido |
 | Productos | **Catálogo** → **Nuevo producto**, o tocar uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
 | Categorías y marcas | **Categorías y marcas** → agregar nuevas |
+| Importar el catálogo | **Catálogo** → **Importar CSV** → **Descargar el catálogo actual**, editarlo en Excel (agregar filas o cambiar precios) y guardarlo como CSV. Subirlo con **Solo revisar**: dice cuántos productos son nuevos, cuáles cambian y qué línea tiene un error, sin guardar nada. Si está bien, subirlo otra vez con **Importar**. Los productos nuevos entran con stock 0: el stock llega con **Ingresos**. Cada cambio de precio queda en la **Auditoría** |
 | Personal | **Personal** → **Registrar empleado**, editar, desactivar y poner una clave nueva a un empleado de su tienda |
 | Tienda y cajas | **Tiendas** → **Mi tienda, cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
 | Abrir una tienda nueva | **Tiendas** → **Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |

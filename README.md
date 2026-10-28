@@ -20,6 +20,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
 - **`database/ingresos.sql`**: Ingreso de mercadería: tablas `ingreso_mercaderia` y `detalle_ingreso` (documento del emisor, cantidades y costo) y su movimiento en el kardex.
 - **`database/operaciones.sql`**: Devoluciones parciales (`devolucion_venta`, `detalle_devolucion`), retiros e ingresos de efectivo en la caja (`movimiento_caja`), la fecha de vencimiento de cada lote recibido y 3 ingresos de ejemplo para la pantalla **Por vencer**.
+- **`database/catalogo.sql`**: Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más de marcas reales (Laive, Coca-Cola, San Fernando, Bimbo, Field, Sapolio...) con precios de referencia, 4 categorías nuevas y su primer ingreso en las 3 tiendas. **`database/catalogo_inicial.csv`** es el mismo catálogo en CSV, para importarlo desde la pantalla **Importar CSV**.
 - **`database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
 - **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
@@ -118,6 +119,7 @@ mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ajustes.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/auditoria.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ingresos.sql"
 mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/operaciones.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/catalogo.sql"
 ```
 
 El diseño base son 26 tablas. La aplicación agrega 8 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), y `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`). Ver `docs/diseno_bd.md`, sección 5.
@@ -132,7 +134,7 @@ La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas 
 # 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
 copy .env.example .env
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql, auditoria.sql, ingresos.sql y operaciones.sql
+# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql, auditoria.sql, ingresos.sql, operaciones.sql y catalogo.sql
 docker compose up -d
 
 # 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
@@ -223,21 +225,21 @@ Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos 
 
 **Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). Para restaurar, programar el respaldo diario o instalar en un servidor, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
-**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
+**Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, `catalogo.sql` los 94 productos de ejemplo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 157 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 165 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 73 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 25 formularios, escapado, SQL preparado y JavaScript seguro
-php tests/web.php           # 139 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
-php tests/integracion.php   # 157 comprobaciones contra MySQL, con la base recién creada
+php tests/unitarios.php     # 78 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 28 formularios, escapado, SQL preparado y JavaScript seguro
+php tests/web.php           # 148 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
+php tests/integracion.php   # 165 comprobaciones contra MySQL, con la base recién creada
 ```
 
 En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.
