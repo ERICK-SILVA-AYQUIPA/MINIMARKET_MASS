@@ -29,7 +29,8 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
 - **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
-- **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`).
+- **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
+- **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 
 ---
 
@@ -223,7 +224,7 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 
 Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`). Detalle en `docs/seguridad.md`.
 
-**Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). Para restaurar, programar el respaldo diario o instalar en un servidor, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
+**Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). `scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
 **Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, `catalogo.sql` los 94 productos de ejemplo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
