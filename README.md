@@ -238,7 +238,7 @@ php tests/integracion.php   # 165 comprobaciones; solo con la base recién cread
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 78 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/unitarios.php     # 80 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
 php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 28 formularios, escapado, SQL preparado y JavaScript seguro
 php tests/web.php           # 148 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
 php tests/integracion.php   # 165 comprobaciones contra MySQL, con la base recién creada

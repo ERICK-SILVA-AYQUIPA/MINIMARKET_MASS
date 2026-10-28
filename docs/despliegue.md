@@ -154,7 +154,7 @@ Si la versión nueva trae un script nuevo en `database/` (por ejemplo `ingresos.
 ## 9. Comprobar que todo funciona
 
 ```powershell
-php tests/unitarios.php     # 78, sin base de datos
+php tests/unitarios.php     # 80, sin base de datos
 php tests/seguridad.php     # 19, revisa CSRF, escapado, SQL y JavaScript en todo el código
 php tests/web.php           # 148, por HTTP con los 3 roles; no cambia datos
 php tests/integracion.php   # 165, contra MySQL; solo con la base recién creada (cambia datos)
