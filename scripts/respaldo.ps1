@@ -20,3 +20,10 @@ if (-not (Get-Content $archivo -Tail 1 | Select-String 'Dump completed')) {
     Write-Error 'El respaldo no se completo.'
 }
 Write-Host "Respaldo listo: $archivo"
+
+# Se guardan los ultimos 30 respaldos (un mes si es diario); los mas antiguos se borran
+$guardar = 30
+Get-ChildItem respaldos\minimarket_mass_*.sql | Sort-Object LastWriteTime -Descending | Select-Object -Skip $guardar | ForEach-Object {
+    Remove-Item $_.FullName
+    Write-Host "Borrado por antiguo: $($_.Name)"
+}
