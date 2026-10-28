@@ -60,7 +60,7 @@ $totalCompras = array_sum(array_map(static fn (array $f): float => $f['venta']->
         ?>
         <tr>
             <td class="codigo"><a class="fila-enlace" href="<?= e($enlace) ?>"><?= e($s->formatear($v->getNumeroCorrelativo())) ?></a></td>
-            <td class="fecha"><?= e($v->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($v->getFechaHora())) ?></td>
             <td><?= e($fila['tienda']?->getNombreTienda() ?? '-') ?></td>
             <td class="num"><?= e(soles($v->getTotal())) ?></td>
             <td><span class="etiqueta <?= $v->estaAnulada() ? 'anulada' : 'ok' ?>"><?= e($v->getEstado()) ?></span></td>

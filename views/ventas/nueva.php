@@ -29,7 +29,7 @@ $conSip = $v('sip_monto') !== '';
 <div class="cabecera">
     <div>
         <h1>Nueva venta</h1>
-        <p class="sutil"><?= e($tienda->getNombreTienda()) ?><?= e($turno !== null ? ' · turno ' . $turno->getIdCajaTurno() . ' abierto desde ' . $turno->getFechaHoraApertura() : '') ?></p>
+        <p class="sutil"><?= e($tienda->getNombreTienda()) ?><?= e($turno !== null ? ' · turno ' . $turno->getIdCajaTurno() . ' abierto desde ' . fecha($turno->getFechaHoraApertura()) : '') ?></p>
     </div>
     <?php if ($turno !== null): ?><div class="acciones"><a class="boton secundario" href="/?ruta=caja"><?= icono('caja') ?>Mi caja</a></div><?php endif; ?>
 </div>

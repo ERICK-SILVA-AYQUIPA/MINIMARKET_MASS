@@ -45,6 +45,8 @@ require __DIR__ . '/../layout_inicio.php';
         <?php
         $hay = cantidad($f['actual'], $f['al_peso']) . ' ' . $f['unidad'];
         $alcanza = $f['cobertura'] === null ? 'sin ventas' : ($f['cobertura'] === 1 ? '1 día' : $f['cobertura'] . ' días');
+        // Por unidad, un decimal basta ("2.5 und al día"); al peso, en kg con 3
+        $diaria = $f['al_peso'] ? Cantidad::aTexto($f['ventaDiaria']) : number_format($f['ventaDiaria'] / 1000, 1);
         $claseHay = $f['actual'] === 0 ? 'error' : 'reponer';
         $otras = implode(' · ', array_map(fn(array $o): string => $o['tienda'] . ': ' . cantidad($o['sobrante'], $f['al_peso']), $f['otras']));
         ?>
@@ -52,7 +54,7 @@ require __DIR__ . '/../layout_inicio.php';
             <td><a class="fila-enlace" href="/?ruta=productos&amp;ver=<?= (int) $f['id_producto'] ?>"><?= e($f['nombre']) ?></a></td>
             <td class="num"><span class="etiqueta <?= e($claseHay) ?>"><?= e($hay) ?></span></td>
             <td class="num"><?= e(cantidad($f['minimo'], $f['al_peso'])) ?></td>
-            <td class="num"><?= e(Cantidad::aTexto($f['ventaDiaria'])) ?></td>
+            <td class="num"><?= e($diaria) ?></td>
             <td class="num"><?= e($alcanza) ?></td>
             <td class="num"><strong><?= e(cantidad($f['sugerido'], $f['al_peso']) . ' ' . $f['unidad']) ?></strong></td>
             <td><?= $otras === '' ? '<span class="sutil">ninguna</span>' : e($otras) ?></td>

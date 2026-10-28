@@ -918,3 +918,8 @@ INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id
     (NOW() - INTERVAL 30 DAY, 39.000, 39.000, 'FACTURA F001-00002103', 3, 92, 8, 9, 6),
     (NOW() - INTERVAL 30 DAY, 50.000, 50.000, 'FACTURA F001-00002103', 3, 93, 8, 9, 6),
     (NOW() - INTERVAL 30 DAY, 24.000, 24.000, 'FACTURA F001-00002103', 3, 94, 8, 9, 6);
+
+-- En Mass Cayma estos tres rotan mas: su minimo es mas alto y ya llegaron a el,
+-- asi la pantalla Reponer y el inicio tienen que mostrar algo que pedir
+UPDATE stock SET stock_minimo = 36.000 WHERE id_tienda = 1 AND id_producto IN (43, 60);
+UPDATE stock SET stock_minimo = 30.000 WHERE id_tienda = 1 AND id_producto = 19;

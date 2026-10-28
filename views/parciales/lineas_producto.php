@@ -18,8 +18,6 @@ $stockPorProducto ??= [];
 $productosViejos = is_array($viejo['producto'] ?? null) ? $viejo['producto'] : [];
 $cantidadesViejas = is_array($viejo['cantidad'] ?? null) ? $viejo['cantidad'] : [];
 $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
-// En orden alfabetico: con el catalogo completo, el cajero escribe las primeras letras en la lista
-usort($opciones, static fn (Producto $a, Producto $b): int => strnatcasecmp($a->getNombreProducto(), $b->getNombreProducto()));
 ?>
 <div class="tabla lineas" data-lineas>
 <table>
