@@ -16,10 +16,11 @@ class ProductoRepository
 
     public function __construct(private PDO $db) {}
 
+    // En orden alfabetico: asi salen el catalogo, el stock, la hoja de conteo y las listas para elegir
     /** @return Producto[] */
     public function todos(): array
     {
-        $consulta = $this->db->query('SELECT ' . self::COLUMNAS . ' FROM producto ORDER BY id_producto');
+        $consulta = $this->db->query('SELECT ' . self::COLUMNAS . ' FROM producto ORDER BY nombre_producto, id_producto');
         return array_map(fn(array $fila): Producto => $this->crear($fila), $consulta->fetchAll());
     }
 

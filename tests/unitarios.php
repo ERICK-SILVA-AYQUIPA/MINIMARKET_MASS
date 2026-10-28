@@ -24,6 +24,9 @@ require __DIR__ . '/../models/IngresoMercaderia.php';
 require __DIR__ . '/../models/DetalleIngreso.php';
 require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
+require __DIR__ . '/../models/Reposicion.php';
+require __DIR__ . '/../models/CatalogoCsv.php';
+require __DIR__ . '/../views/parciales/funciones.php';
 
 $ok = 0;
 $fallas = 0;
@@ -129,6 +132,32 @@ revisar('Días de la URL: 15 vale; 0, 999 y texto usan 30', Vencimiento::leerDia
     && Vencimiento::leerDias('999') === 30 && Vencimiento::leerDias('x') === 30 && Vencimiento::leerDias(null) === 30);
 revisar('Textos: vencido hace 1 día, vence hoy, vence en 4 días', Vencimiento::describir(-1) === 'Vencido hace 1 día'
     && Vencimiento::describir(0) === 'Vence hoy' && Vencimiento::describir(4) === 'Vence en 4 días');
+
+echo "Reposición (cuánto pedir)\n";
+revisar('70 vendidos en 14 días = 5 por día', Reposicion::ventaDiaria(70000) === 5000 && Reposicion::ventaDiaria(0) === 0);
+revisar('Con 3 y venta de 5 por día se piden 67 para 14 días', Reposicion::sugerido(3000, 10000, 5000, false) === 67000);
+revisar('Sin ventas se pide hasta el doble del mínimo', Reposicion::sugerido(4000, 10000, 0, false) === 16000);
+revisar('Por unidad se redondea hacia arriba; al peso no', Reposicion::sugerido(0, 0, 333, false) === 5000
+    && Reposicion::sugerido(0, 0, 333, true) === 4662);
+revisar('Días que alcanza: 10 con venta de 4 por día = 2; sin ventas, null', Reposicion::diasCobertura(10000, 4000) === 2
+    && Reposicion::diasCobertura(10000, 0) === null);
+
+echo "Catálogo en CSV (lo que guarda Excel)\n";
+$csv = CatalogoCsv::leer("\xEF\xBB\xBFcodigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso\r\n"
+    . "7750000000011;Leche Gloria 400 g;Lacteos;Gloria;und;4.50;N\r\n;;;;;;\r\n;Papa amarilla;Verduras;Mass;kg;3.20;S\r\n");
+revisar('Lee el CSV con ; y BOM, salta filas vacías y guarda el número de línea', $csv['errores'] === []
+    && array_keys($csv['filas']) === [2, 4] && $csv['filas'][4]['nombre'] === 'Papa amarilla' && $csv['filas'][2]['precio_venta'] === '4.50');
+$csv = CatalogoCsv::leer("codigo_barras,nombre,categoria,marca,unidad,precio_venta,al_peso\n\"7750000000028\",\"Arroz, extra\",Abarrotes,Coste\xF1o,und,5.20,N\n");
+revisar('También con comas, comillas y en ANSI (ñ de Windows)', $csv['errores'] === [] && $csv['filas'][2]['nombre'] === 'Arroz, extra'
+    && $csv['filas'][2]['marca'] === 'Costeño');
+revisar('Encabezado distinto: no lee nada', CatalogoCsv::leer("nombre;precio\nLeche;4.50\n")['filas'] === []);
+$csv = CatalogoCsv::leer("codigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso\n123;Leche\n");
+revisar('Una fila con columnas de menos se reporta con su línea', $csv['filas'] === [] && str_starts_with($csv['errores'][0], 'Línea 2:'));
+revisar('Solo encabezado: avisa que no hay productos', CatalogoCsv::leer("codigo_barras;nombre;categoria;marca;unidad;precio_venta;al_peso\n")['errores'] !== []);
+
+echo "Fechas en pantalla\n";
+revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-10-19 08:05:00') === '19/10/2026 08:05');
+revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);

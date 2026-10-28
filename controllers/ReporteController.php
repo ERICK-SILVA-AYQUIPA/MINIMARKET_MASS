@@ -5,7 +5,7 @@ require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/ReporteRepository.php';
 
 /**
- * C: reportes de venta de la tienda del administrador, en pantalla o en CSV (para Excel).
+ * C: reportes de venta y de utilidad de la tienda del administrador, en pantalla o en CSV (para Excel).
  */
 class ReporteController extends Controller
 {
@@ -38,6 +38,39 @@ class ReporteController extends Controller
         $this->vista('reportes/ventas', get_defined_vars());
     }
 
+    // GET /?ruta=utilidad&desde=2026-10-01&hasta=2026-10-31: ventas netas menos costo, por producto y por tienda
+    public function utilidad(?string $desdePedido, ?string $hastaPedido): void
+    {
+        if (!$this->puedeVer()) {
+            $this->prohibido('Los reportes son para el administrador de la tienda.');
+            return;
+        }
+        $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
+        [$desde, $hasta, $error] = $this->rango($desdePedido, $hastaPedido);
+        $productos = $this->reportes->utilidadPorProducto($tienda->getIdTienda(), $desde, $hasta);
+        $conCosto = array_filter($productos, fn(array $p): bool => $p['costo'] !== null);
+        $ventasConCosto = round(array_sum(array_column($conCosto, 'ventas')), 2);
+        $totales = [
+            'ventas'   => round(array_sum(array_column($productos, 'ventas')), 2),
+            'costo'    => round(array_sum(array_column($conCosto, 'costo')), 2),
+            'utilidad' => round(array_sum(array_column($conCosto, 'utilidad')), 2),
+            'sinCosto' => count($productos) - count($conCosto),
+        ];
+        $totales['margen'] = $ventasConCosto > 0 ? round($totales['utilidad'] / $ventasConCosto * 100, 1) : null;
+
+        // Comparacion entre tiendas: el administrador tambien abre tiendas, asi que ve la cadena completa
+        $porTienda = [];
+        if ($this->usuario->puedeAbrirTiendas()) {
+            $nombres = [];
+            foreach ($this->tiendas->todas() as $id => $t) {
+                $nombres[$id] = $t->getNombreTienda();
+            }
+            $porTienda = $this->reportes->utilidadPorTienda($nombres, $desde, $hasta);
+        }
+        unset($conCosto);
+        $this->vista('reportes/utilidad', get_defined_vars());
+    }
+
     // GET /?ruta=reporte_csv&tipo=productos&desde=...&hasta=...
     public function csv(?string $tipo, ?string $desdePedido, ?string $hastaPedido): void
     {
@@ -51,6 +84,9 @@ class ReporteController extends Controller
             'productos' => [['producto', 'unidad', 'cantidad', 'importe'], $this->reportes->masVendidos($id, $desde, $hasta, 100)],
             'cajeros'   => [['cajero', 'comprobantes', 'total'], $this->reportes->porCajero($id, $desde, $hasta)],
             'metodos'   => [['metodo', 'pagos', 'monto'], $this->reportes->porMetodoPago($id, $desde, $hasta)],
+            'utilidad'  => [['producto', 'unidad', 'cantidad_neta', 'ventas_netas', 'costo_unitario', 'costo', 'utilidad', 'margen_%'],
+                array_map(fn(array $p): array => [$p['producto'], $p['unidad'], $p['cantidad'], $p['ventas'], $p['costo_unitario'] ?? '',
+                    $p['costo'] ?? '', $p['utilidad'] ?? '', $p['margen'] ?? ''], $this->reportes->utilidadPorProducto($id, $desde, $hasta))],
             default     => [['dia', 'comprobantes', 'total'], $this->reportes->porDia($id, $desde, $hasta)],
         };
         $nombre = sprintf('ventas_%s_%s_%s.csv', preg_replace('/[^a-z]/', '', (string) $tipo) ?: 'dias', $desde, $hasta);

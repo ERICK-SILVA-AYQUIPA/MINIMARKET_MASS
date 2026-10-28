@@ -64,6 +64,7 @@ Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tie
 |---|---|
 | Recibir mercadería | **Ingresos** → **Registrar ingreso** (o, desde el inicio, **Recibir mercadería**) → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad, su costo unitario y, si tiene, su fecha de vencimiento → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
 | Trasladar mercadería | **Traslados** → **Enviar mercadería** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
+| Qué pedir | **Reponer** → lista de lo que llegó a su stock mínimo: cuánto hay, cuánto se vende por día, para cuántos días alcanza y cuánto pedir (para 14 días de venta). Si otra tienda tiene sobrante, aparece para pedir un traslado. **Lista de pedido en CSV** la baja para Excel |
 | Productos por vencer | **Por vencer** → elegir 7, 15, 30 o 60 días. Cada lote dice cuándo vence, cuánto queda (estimado: se vende primero lo más antiguo) y su valor al costo. Lo vencido sale en rojo; **Dar de baja lo vencido** lleva a registrar la merma |
 | Registrar una merma | **Mermas** → **Registrar merma** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
 | Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
@@ -77,9 +78,12 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 |---|---|
 | Anular una venta | **Ventas** → tocar el comprobante → **Abrir comprobante (para anular)** → escribir el motivo → **Anular venta**. Devuelve el stock y anula los pagos. No se puede deshacer |
 | Arqueo de caja | **Caja**: ve cada turno con el efectivo esperado y el contado; **Ver** abre la cuenta del turno (inicial, cobrado, devoluciones, ingresos y retiros, con su motivo) y dice si hubo sobrante o faltante |
-| Reportes | **Reportes** → elegir fechas: vendido, ventas por día, más vendidos, por categoría, por cajero y por método de pago. Cada uno se descarga en CSV |
+| Reportes | **Reportes** → elegir fechas: vendido, devuelto y neto, ventas por día, más vendidos, por categoría, por cajero y por método de pago. Cada uno se descarga en CSV |
+| Utilidad | **Utilidad** → elegir fechas: ventas netas, costo de lo vendido, utilidad y margen de cada producto, y la comparación entre las tiendas de la cadena. El costo sale del promedio de lo comprado en **Ingresos**; un producto que nunca entró por un ingreso aparece "sin costo". Margen bajo 15 % en amarillo y negativo en rojo |
+| Reponer | **Reponer**, igual que el almacenero, para decidir el pedido |
 | Productos | **Catálogo** → **Nuevo producto**, o tocar uno para editar, descontinuar o reactivar y fijar el stock mínimo de su tienda |
 | Categorías y marcas | **Categorías y marcas** → agregar nuevas |
+| Importar el catálogo | **Catálogo** → **Importar CSV** → **Descargar el catálogo actual**, editarlo en Excel (agregar filas o cambiar precios) y guardarlo como CSV. Subirlo con **Solo revisar**: dice cuántos productos son nuevos, cuáles cambian y qué línea tiene un error, sin guardar nada. Si está bien, subirlo otra vez con **Importar**. Los productos nuevos entran con stock 0: el stock llega con **Ingresos**. Cada cambio de precio queda en la **Auditoría** |
 | Personal | **Personal** → **Registrar empleado**, editar, desactivar y poner una clave nueva a un empleado de su tienda |
 | Tienda y cajas | **Tiendas** → **Mi tienda, cajas y series**: editar los datos de su tienda, agregar cajas y activarlas o desactivarlas |
 | Abrir una tienda nueva | **Tiendas** → **Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |

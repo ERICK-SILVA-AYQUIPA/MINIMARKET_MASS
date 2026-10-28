@@ -14,7 +14,7 @@ declare(strict_types=1);
  */
 ?>
 <dl class="datos">
-    <dt>Fecha</dt><dd><?= e($venta->getFechaHora()) ?></dd>
+    <dt>Fecha</dt><dd><?= e(fecha($venta->getFechaHora())) ?></dd>
     <dt>Tienda</dt><dd><?= e($tienda->getNombreTienda()) ?> · <?= e($tienda->getDireccion()) ?></dd>
     <dt>Caja y cajero</dt><dd>Caja <?= $caja?->getNumeroCaja() ?? '-' ?> · <?= e($cajero?->nombreCompleto() ?? '-') ?></dd>
     <dt>Cliente</dt><dd><?= e($cliente) ?></dd>

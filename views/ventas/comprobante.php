@@ -27,7 +27,7 @@ require __DIR__ . '/../layout_inicio.php';
 <div class="cabecera">
     <div>
         <h1><?= e($serie->nombreComprobante()) ?> <?= e($numero) ?></h1>
-        <p class="sutil">Total <?= e(soles($venta->getTotal())) ?> · <?= e($venta->getFechaHora()) ?></p>
+        <p class="sutil">Total <?= e(soles($venta->getTotal())) ?> · <?= e(fecha($venta->getFechaHora())) ?></p>
     </div>
     <div class="acciones">
         <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>"><?= icono('imprimir') ?>Imprimir ticket / PDF</a>
@@ -58,7 +58,7 @@ require __DIR__ . '/../layout_inicio.php';
         <?php foreach ($devoluciones as $dev): ?>
             <?php $d = $dev['devolucion']; ?>
             <div class="devolucion">
-                <p><strong><?= e(soles($d->getTotal())) ?></strong> devueltos el <span class="fecha"><?= e($d->getFechaHora()) ?></span> · <?= e($d->getMotivo()) ?></p>
+                <p><strong><?= e(soles($d->getTotal())) ?></strong> devueltos el <span class="fecha"><?= e(fecha($d->getFechaHora())) ?></span> · <?= e($d->getMotivo()) ?></p>
                 <ul>
                     <?php foreach ($dev['lineas'] as $l): ?>
                         <?php $cantidadDevuelta = number_format($l['cantidad'], ($alPesoPorId[$l['id_producto']] ?? true) ? 3 : 0, '.', ''); ?>
@@ -105,7 +105,7 @@ require __DIR__ . '/../layout_inicio.php';
     <?php if ($anulacion !== null): ?>
         <h2>Anulación</h2>
         <dl class="datos">
-            <dt>Fecha</dt><dd><?= e($anulacion->getFechaHora()) ?></dd>
+            <dt>Fecha</dt><dd><?= e(fecha($anulacion->getFechaHora())) ?></dd>
             <dt>Motivo</dt><dd><?= e($anulacion->getMotivo()) ?></dd>
             <dt>Anulada por</dt><dd><?= e($anuladaPor?->nombreCompleto() ?? '-') ?> (<?= e($anuladaPor?->getNombreRol() ?? '-') ?>)</dd>
         </dl>

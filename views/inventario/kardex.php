@@ -69,7 +69,7 @@ require __DIR__ . '/../parciales/buscador.php';
         ?>
         <tr id="fila-mov-<?= $m->getIdMovimiento() ?>">
             <td><?= $m->getIdMovimiento() ?></td>
-            <td class="fecha"><?= e($m->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($m->getFechaHora())) ?></td>
             <td><?= e($producto?->getNombreProducto() ?? '-') ?></td>
             <td><span class="etiqueta <?= $tipo?->esEntrada() ? 'ok' : 'reponer' ?>"><?= e($tipo?->getNombreMovimiento() ?? '-') ?></span></td>
             <td class="num"><?= $tipo?->esEntrada() ? '+' : '−' ?><?= e(number_format($m->getCantidad(), $decimales)) ?></td>

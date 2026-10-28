@@ -42,7 +42,7 @@ require __DIR__ . '/../layout_inicio.php';
         <?php $t = $fila['traslado']; ?>
         <tr>
             <td><?= $t->getIdTraslado() ?></td>
-            <td class="fecha"><?= e($t->getFechaHora()) ?></td>
+            <td class="fecha"><?= e(fecha($t->getFechaHora())) ?></td>
             <td><?= e(($tiendas[$t->getIdTiendaOrigen()] ?? null)?->getNombreTienda() ?? '-') ?> → <?= e(($tiendas[$t->getIdTiendaDestino()] ?? null)?->getNombreTienda() ?? '-') ?></td>
             <td>
                 <?php foreach ($fila['movimientos'] as $m): ?>

@@ -56,7 +56,7 @@ require __DIR__ . '/../layout_inicio.php';
     <?php else: ?>
         <section class="tarjetas" aria-label="Tu turno">
             <div><span>Turno abierto</span><strong>N.° <?= $miTurno->getIdCajaTurno() ?></strong><small>Caja <?= $numeroCaja[$miTurno->getIdCaja()] ?? '-' ?></small></div>
-            <div><span>Desde</span><strong class="fecha"><?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></strong><small><?= e(substr($miTurno->getFechaHoraApertura(), 0, 10)) ?></small></div>
+            <div><span>Desde</span><strong class="fecha"><?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></strong><small><?= e(fecha(substr($miTurno->getFechaHoraApertura(), 0, 10))) ?></small></div>
             <div><span>Monto inicial</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong><small>en efectivo</small></div>
             <div><span>En gaveta ahora</span><strong><?= e(soles($miArqueo['esperado'] ?? $miTurno->getMontoInicial())) ?></strong><small>lo que deberías contar</small></div>
         </section>
@@ -116,7 +116,7 @@ require __DIR__ . '/../layout_inicio.php';
             <td><?= $t->getIdCajaTurno() ?> <span class="etiqueta <?= $t->estaAbierto() ? 'ok' : 'neutra' ?>"><?= e($t->getEstado()) ?></span></td>
             <td><?= $numeroCaja[$t->getIdCaja()] ?? '-' ?></td>
             <td><?= e($nombresEmpleado[$t->getIdEmpleado()] ?? '-') ?></td>
-            <td class="fecha"><?= e($t->getFechaHoraApertura()) ?></td>
+            <td class="fecha"><?= e(fecha($t->getFechaHoraApertura())) ?></td>
             <td class="num"><?= e(soles($fila['esperado'])) ?></td>
             <td class="num"><?= $t->getMontoCierre() === null ? '—' : e(soles($t->getMontoCierre())) ?></td>
             <td class="num">
@@ -142,8 +142,8 @@ require __DIR__ . '/../layout_inicio.php';
     ?>
     <dl class="datos">
         <dt>Estado</dt><dd><span class="etiqueta <?= $t->estaAbierto() ? 'ok' : 'neutra' ?>"><?= e($t->getEstado()) ?></span></dd>
-        <dt>Apertura</dt><dd><?= e($t->getFechaHoraApertura()) ?></dd>
-        <dt>Cierre</dt><dd><?= e($t->getFechaHoraCierre() ?? 'Sigue abierto') ?></dd>
+        <dt>Apertura</dt><dd><?= e(fecha($t->getFechaHoraApertura())) ?></dd>
+        <dt>Cierre</dt><dd><?= e($t->getFechaHoraCierre() === null ? 'Sigue abierto' : fecha($t->getFechaHoraCierre())) ?></dd>
         <dt>Monto inicial</dt><dd><?= e(soles($t->getMontoInicial())) ?></dd>
         <dt>+ Efectivo cobrado</dt><dd><?= e(soles($fila['efectivoCobrado'])) ?></dd>
         <dt>− Devoluciones</dt><dd><?= e(soles($fila['devoluciones'])) ?></dd>
