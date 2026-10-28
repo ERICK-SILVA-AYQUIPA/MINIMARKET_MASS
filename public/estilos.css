@@ -608,3 +608,11 @@ body.entrada-pagina::after {
     main { padding: 0; max-width: none; }
     .panel, .comprobante, .tabla { box-shadow: none; border-color: #ccc; }
 }
+
+/* ---------- 16. Devoluciones, movimientos de caja y por vencer ---------- */
+.lista-movimientos, .lista-vencimientos { list-style: none; padding: 0; margin: 0 0 var(--e3); display: grid; gap: var(--e2); }
+.lista-movimientos li, .lista-vencimientos li { display: flex; flex-wrap: wrap; gap: var(--e2); align-items: center; }
+.devolucion { padding: var(--e3) 0; border-bottom: 1px solid var(--borde); }
+.devolucion p { margin: 0 0 var(--e2); }
+.devolucion ul { margin: 0; padding-left: 1.2em; color: var(--suave); font-size: .92rem; }
+#devoluciones form.formulario { margin-top: var(--e4); }

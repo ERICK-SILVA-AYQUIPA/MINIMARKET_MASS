@@ -89,12 +89,14 @@ abstract class Controller
         $productos = is_array($post['producto'] ?? null) ? $post['producto'] : [];
         $cantidades = is_array($post['cantidad'] ?? null) ? $post['cantidad'] : [];
         $costos = is_array($post['costo'] ?? null) ? $post['costo'] : [];   // solo el ingreso de mercaderia
+        $vences = is_array($post['vence'] ?? null) ? $post['vence'] : [];   // idem: fecha de vencimiento
         $lineas = [];
         foreach ($productos as $i => $idProducto) {
             $lineas[] = [
                 'id_producto' => is_string($idProducto) ? $idProducto : '',
                 'cantidad'    => is_string($cantidades[$i] ?? null) ? $cantidades[$i] : '',
                 'costo'       => is_string($costos[$i] ?? null) ? $costos[$i] : '',
+                'vence'       => is_string($vences[$i] ?? null) ? $vences[$i] : '',
             ];
         }
         return $lineas;

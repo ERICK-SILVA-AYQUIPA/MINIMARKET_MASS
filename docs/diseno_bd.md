@@ -214,7 +214,7 @@ erDiagram
         VARCHAR modalidad_pago
         VARCHAR codigo_operacion UK
     }
-    %% EXTENSIONES DE LA APLICACION (ajustes.sql, seguridad.sql, auditoria.sql e ingresos.sql)
+    %% EXTENSIONES DE LA APLICACION (ajustes.sql, seguridad.sql, auditoria.sql, ingresos.sql y operaciones.sql)
     ajuste_inventario {
         INT id_ajuste PK
         DATETIME fecha_hora
@@ -257,6 +257,32 @@ erDiagram
         DECIMAL cantidad
         DECIMAL costo_unitario
         DECIMAL costo_total
+        DATE fecha_vencimiento
+    }
+    devolucion_venta {
+        INT id_devolucion PK
+        DATETIME fecha_hora
+        VARCHAR motivo
+        DECIMAL total
+        BIGINT id_venta FK
+        INT id_caja_turno FK
+        MEDIUMINT id_empleado FK
+    }
+    detalle_devolucion {
+        INT id_devolucion PK,FK
+        INT id_producto PK,FK
+        DECIMAL cantidad
+        DECIMAL precio_unitario
+        DECIMAL importe
+    }
+    movimiento_caja {
+        INT id_movimiento_caja PK
+        DATETIME fecha_hora
+        VARCHAR tipo
+        DECIMAL monto
+        VARCHAR motivo
+        INT id_caja_turno FK
+        MEDIUMINT id_empleado FK
     }
     movimiento_stock {
         BIGINT id_movimiento PK
@@ -269,6 +295,7 @@ erDiagram
         INT id_merma FK
         INT id_ajuste FK
         INT id_ingreso FK
+        INT id_devolucion FK
         DECIMAL cantidad
         DECIMAL stock_nuevo
         DATETIME fecha_hora
@@ -321,6 +348,14 @@ erDiagram
     ingreso_mercaderia ||--|{ detalle_ingreso : "contiene"
     producto ||--o{ detalle_ingreso : "comprado"
     ingreso_mercaderia ||--o{ movimiento_stock : "origen_ingreso"
+    venta ||--o{ devolucion_venta : "devuelta_en_parte"
+    caja_turno ||--o{ devolucion_venta : "paga"
+    empleado ||--o{ devolucion_venta : "atiende_devolucion"
+    devolucion_venta ||--|{ detalle_devolucion : "contiene"
+    producto ||--o{ detalle_devolucion : "devuelto"
+    devolucion_venta ||--o{ movimiento_stock : "origen_devolucion"
+    caja_turno ||--o{ movimiento_caja : "retiros_e_ingresos"
+    empleado ||--o{ movimiento_caja : "mueve_efectivo"
 ```
 
 ---
@@ -591,6 +626,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `ajustes.sql` | Tabla `ajuste_inventario`, tipos de movimiento 6 y 7, columna `movimiento_stock.id_ajuste` | Ajuste de stock por conteo físico |
 | `auditoria.sql` | Tabla `auditoria` | Bitácora de acciones delicadas: quién, qué, cuándo y en qué tienda |
 | `ingresos.sql` | Tablas `ingreso_mercaderia` y `detalle_ingreso`, tipo de movimiento 8, columna `movimiento_stock.id_ingreso` | Mercadería recibida con su documento, cantidades y costo |
+| `operaciones.sql` | Tablas `devolucion_venta`, `detalle_devolucion` y `movimiento_caja`, tipo de movimiento 9, columnas `movimiento_stock.id_devolucion` y `detalle_ingreso.fecha_vencimiento`, 3 ingresos de ejemplo | Devoluciones parciales, retiros e ingresos de efectivo en la caja y productos por vencer |
 
 #### `ajuste_inventario`
 Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.
@@ -611,7 +647,7 @@ Cabecera de un conteo físico o corrección en una tienda; las diferencias por p
 Solo se inserta (la aplicación nunca la cambia ni la borra). La escribe `Servicio::auditar()` dentro de la misma transacción que el cambio.
 - `id_auditoria` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
 - `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
-- `accion` (VARCHAR(30), NOT NULL): `VENTA_ANULADA`, `PRODUCTO_CREADO`, `PRODUCTO_EDITADO`, `PRECIO_CAMBIADO`, `PRODUCTO_ESTADO`, `STOCK_MINIMO`, `CATEGORIA_CREADA`, `MARCA_CREADA`, `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA`, `CLIENTE_DOCUMENTO`, `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO`, `INGRESO_REGISTRADO`
+- `accion` (VARCHAR(30), NOT NULL): `VENTA_ANULADA`, `PRODUCTO_CREADO`, `PRODUCTO_EDITADO`, `PRECIO_CAMBIADO`, `PRODUCTO_ESTADO`, `STOCK_MINIMO`, `CATEGORIA_CREADA`, `MARCA_CREADA`, `EMPLEADO_CREADO`, `EMPLEADO_EDITADO`, `CLAVE_REINICIADA`, `CLAVE_CAMBIADA`, `CLIENTE_DOCUMENTO`, `TIENDA_ABIERTA`, `TIENDA_EDITADA`, `CAJA_AGREGADA`, `CAJA_ESTADO`, `DISTRITO_CREADO`, `INGRESO_REGISTRADO`, `DEVOLUCION_REGISTRADA`, `CAJA_RETIRO`, `CAJA_INGRESO`
 - `detalle` (VARCHAR(250), NULL): qué cambió, en palabras (el DNI o RUC de un cliente no se copia)
 - `id_tienda` (SMALLINT UNSIGNED, NOT NULL, FK → `tienda.id_tienda`): la tienda de quien lo hizo
 - `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
@@ -636,8 +672,31 @@ Mercadería que llega a una tienda con el documento del emisor. El emisor se gua
 - `cantidad` (DECIMAL(10,3), NOT NULL, CHECK > 0)
 - `costo_unitario` (DECIMAL(10,2), NOT NULL, CHECK ≥ 0): lo que pagó la tienda; no cambia `producto.precio_venta`
 - `costo_total` (DECIMAL(10,2), NOT NULL, CHECK = `ROUND(cantidad * costo_unitario, 2)`, igual que `detalle_venta.importe`)
+- `fecha_vencimiento` (DATE, NULL, `operaciones.sql`): la fecha del lote; vacía si el producto no vence. La aplicación no acepta un lote ya vencido
+
+#### `devolucion_venta`
+El cliente devuelve parte (o todo) de una venta EMITIDA de los últimos 7 días. La registra un cajero de la tienda de la venta, con su turno abierto: el efectivo sale de su gaveta y el producto vuelve al stock. Una venta con devoluciones ya no se anula.
+- `id_devolucion` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP), `motivo` (VARCHAR(150), NOT NULL)
+- `total` (DECIMAL(10,2), NOT NULL, CHECK > 0): efectivo devuelto, suma de `detalle_devolucion.importe`
+- `id_venta` (BIGINT UNSIGNED, NOT NULL, FK → `venta.id_venta`), con índice
+- `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`): de cuya gaveta salió el dinero
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+
+#### `detalle_devolucion`
+- PK `(id_devolucion, id_producto)`
+- `cantidad` (DECIMAL(10,3), NOT NULL, CHECK > 0): la suma de todas las devoluciones de un producto no pasa lo vendido (consulta 29)
+- `precio_unitario` (DECIMAL(10,2), NOT NULL, CHECK > 0): el de la venta, no el precio de hoy
+- `importe` (DECIMAL(10,2), NOT NULL, CHECK = `ROUND(cantidad * precio_unitario, 2)`)
+
+#### `movimiento_caja`
+Efectivo que sale de la gaveta durante un turno (RETIRO: depósito al banco, un pago menor) o que entra (INGRESO de sencillo). El arqueo lo usa: esperado = monto inicial + efectivo cobrado − devoluciones + ingresos − retiros.
+- `id_movimiento_caja` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `tipo` (VARCHAR(7), NOT NULL, CHECK IN ('RETIRO', 'INGRESO')), `monto` (DECIMAL(10,2), NOT NULL, CHECK > 0), `motivo` (VARCHAR(150), NOT NULL)
+- `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`), con índice; `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK): el cajero del turno (consulta 31)
 
 #### Cambios a tablas existentes
-- `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E), 7 `AJUSTE DE SALIDA` (S) y 8 `INGRESO DE MERCADERIA` (E).
-- `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`) e `id_ingreso` (INT UNSIGNED, NULL, FK → `ingreso_mercaderia.id_ingreso`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) + (id_ingreso IS NOT NULL) = 1`.
+- `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E), 7 `AJUSTE DE SALIDA` (S), 8 `INGRESO DE MERCADERIA` (E) y 9 `DEVOLUCION DE VENTA` (E).
+- `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`) `id_ingreso` (INT UNSIGNED, NULL, FK → `ingreso_mercaderia.id_ingreso`) e `id_devolucion` (INT UNSIGNED, NULL, FK → `devolucion_venta.id_devolucion`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) + (id_ingreso IS NOT NULL) + (id_devolucion IS NOT NULL) = 1`.
 - `producto.estado`: VARCHAR(13) en `schema.sql` (antes 10, donde `'DESCONTINUADO'` no cabía).

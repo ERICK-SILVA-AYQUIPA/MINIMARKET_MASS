@@ -8,7 +8,7 @@ declare(strict_types=1);
  * OJO: escribe ventas, traslados, mermas, ajustes, turnos, productos, empleados y tiendas de verdad. Para volver a los datos de datos.sql:
  *   docker compose down -v ; docker compose up -d
  *
- * Al final corre las consultas 20 a 28 de consultas.sql: cada una debe devolver 0 filas.
+ * Al final corre las consultas 20 a 31 de consultas.sql: cada una debe devolver 0 filas.
  */
 if (PHP_SAPI !== 'cli') {
     exit('Solo desde la terminal.');
@@ -28,6 +28,10 @@ require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/Paginacion.php';
 require __DIR__ . '/../models/IngresoRepository.php';
+require __DIR__ . '/../models/CajaRepository.php';
+require __DIR__ . '/../models/VentaRepository.php';
+require __DIR__ . '/../models/Vencimiento.php';
+require __DIR__ . '/../models/InventarioRepository.php';
 
 $db = Database::conexion();
 
@@ -139,13 +143,14 @@ revisar("Merma $id descuenta 2 leches", $stock(1, 1) === number_format((float) $
 rechaza('Motivo de merma no válido', fn() => $inventario->registrarMerma($carmen, 'PERDIDO', null, [['id_producto' => '1', 'cantidad' => '1']]));
 
 echo "Ingreso de mercadería\n";
+$ingresosAntes = (int) valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia');   // operaciones.sql trae 3 de ejemplo
 $documento = ['tipo' => 'FACTURA', 'numero' => 'f001-00012345', 'fecha' => date('Y-m-d'), 'ruc' => '20100055237',
     'razon_social' => 'Distribuidora de Prueba S.A.C.', 'observacion' => 'Pedido semanal'];
 $lecheAntes = $stock(1, 1);
 $papaAntes = $stock(1, 8);
 $idIngreso = $inventario->registrarIngreso($carmen, $documento, [
     ['id_producto' => '1', 'cantidad' => '24', 'costo' => '3.60'],
-    ['id_producto' => '8', 'cantidad' => '10.5', 'costo' => '1.95'],
+    ['id_producto' => '8', 'cantidad' => '10.5', 'costo' => '1.95', 'vence' => date('Y-m-d', strtotime('+5 days'))],
     ['id_producto' => '', 'cantidad' => '', 'costo' => ''],
 ]);
 revisar("Ingreso $idIngreso suma 24 leches y 10.5 kg de papa", $stock(1, 1) === number_format((float) $lecheAntes + 24, 3, '.', '')
@@ -175,13 +180,31 @@ rechaza('Un producto en dos líneas', fn() => $inventario->registrarIngreso($car
     [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60'], ['id_producto' => '1', 'cantidad' => '2', 'costo' => '3.50']]));
 rechaza('Media leche (se vende por unidad)', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-7'] + $documento,
     [['id_producto' => '1', 'cantidad' => '0.5', 'costo' => '3.60']]));
-revisar('...los rechazados no dejaron ingreso ni stock', valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia') === '1'
+rechaza('Un lote que ya venció', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-8'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60', 'vence' => date('Y-m-d', strtotime('-1 day'))]]));
+rechaza('Fecha de vencimiento que no existe', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'F001-9'] + $documento,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60', 'vence' => '2027-02-30']]));
+revisar('...los rechazados no dejaron ingreso ni stock', (int) valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia') === $ingresosAntes + 1
     && $stock(1, 1) === number_format((float) $lecheAntes + 24, 3, '.', ''));
 $ingresosRepo = new IngresoRepository($db);
 $detalle = $ingresosRepo->detalle($idIngreso);
-revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->contar(1) === 1
+revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->contar(1) === $ingresosAntes + 1
     && $ingresosRepo->pagina(1, 25, 0)[0]->documento() === 'FACTURA F001-00012345'
-    && count($detalle) === 2 && $detalle[1]->getCostoTotal() === 20.48);
+    && count($detalle) === 2 && $detalle[1]->getCostoTotal() === 20.48
+    && $detalle[0]->getFechaVencimiento() === null && $detalle[1]->getFechaVencimiento() === date('Y-m-d', strtotime('+5 days')));
+
+echo "Por vencer\n";
+$lotes = $ingresosRepo->lotesConVencimiento(1);
+$porVencer = [];
+foreach ($lotes as $idProducto => $datos) {
+    foreach (Vencimiento::porVencer(Vencimiento::repartirStock($datos['lotes'], $datos['stock']), date('Y-m-d'), 30) as $lote) {
+        $porVencer[] = $idProducto . '/' . $lote['id_ingreso'] . '/' . $lote['dias'];
+    }
+}
+revisar('Leche, plátano, yogurt y la papa recién recibida tienen lotes con fecha', array_keys($lotes) === [1, 8, 9, 11]);
+revisar('Por vencer en 30 días: leche vencida, plátano, yogurt (dos lotes) y la papa: ' . implode(' ', $porVencer),
+    in_array('1/1/-1', $porVencer, true) && in_array('9/3/2', $porVencer, true) && in_array('11/2/4', $porVencer, true)
+    && in_array('11/3/25', $porVencer, true) && in_array("8/$idIngreso/5", $porVencer, true) && count($porVencer) === 5);
 
 echo "Caja\n";
 rechaza('Abrir con un turno ya abierto', fn() => $caja->abrirTurno($luis, 2, '100'));
@@ -192,6 +215,64 @@ $ventas->registrar($miguel, 'B', '', [['id_producto' => '3', 'cantidad' => '2']]
 $caja->cerrarTurno($miguel, '163.00');
 revisar('Cierra con 150 + 13 cobrados = 163.00', valor($db, 'SELECT monto_cierre FROM caja_turno WHERE id_caja_turno = ?', [$idTurno]) === '163.00');
 rechaza('Cerrar sin turno abierto', fn() => $caja->cerrarTurno($miguel, '0'));
+
+echo "Devoluciones\n";
+// Venta B001-7 de Luis: 1 yogurt (7.90). Y una nueva con 3 leches y 2 kg de plátano para devolver parte.
+$r = $ventas->registrar($luis, 'B', '', [['id_producto' => '1', 'cantidad' => '3'], ['id_producto' => '9', 'cantidad' => '2']], ['efectivo_recibido' => '50']);
+$idVentaDev = (int) valor($db, 'SELECT id_venta FROM venta WHERE id_serie = 1 AND numero_correlativo = ?', [$r['numero']]);
+$precioPlatano = valor($db, 'SELECT precio_unitario FROM detalle_venta WHERE id_venta = ? AND id_producto = 9', [$idVentaDev]);
+$lecheAntes = $stock(1, 1);
+$platanoAntes = $stock(1, 9);
+rechaza('Un administrador no registra devoluciones', fn() => $ventas->devolver($rosa, $idVentaDev, [['id_producto' => '1', 'cantidad' => '1']], 'Prueba'));
+rechaza('Un cajero de otra tienda tampoco', fn() => $ventas->devolver($miguel, $idVentaDev, [['id_producto' => '1', 'cantidad' => '1']], 'Prueba'));
+rechaza('Sin motivo', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '1']], ' '));
+rechaza('Más de lo vendido', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '4']], 'Prueba'));
+rechaza('Un producto que no estaba en la venta', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '2', 'cantidad' => '1']], 'Prueba'));
+rechaza('Media leche', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '0.5']], 'Prueba'));
+rechaza('Nada que devolver', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '']], 'Prueba'));
+$devuelto = $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '1'], ['id_producto' => '9', 'cantidad' => '0.500'],
+    ['id_producto' => '', 'cantidad' => '']], 'Leche abollada y plátano maduro');
+$esperado = 450 + Cantidad::importe(500, Dinero::deTexto($precioPlatano));
+revisar('Devuelve 1 leche y 0.5 kg de plátano al precio de la venta: S/ ' . Dinero::aTexto($devuelto), $devuelto === $esperado);
+revisar('...el stock vuelve con el kardex DEVOLUCION DE VENTA', $stock(1, 1) === number_format((float) $lecheAntes + 1, 3, '.', '')
+    && $stock(1, 9) === number_format((float) $platanoAntes + 0.5, 3, '.', '')
+    && valor($db, 'SELECT COUNT(*) FROM movimiento_stock WHERE id_devolucion IS NOT NULL AND id_tipo_movimiento = 9 AND observacion LIKE ?',
+        ['Devolución de B001-%']) === '2');
+$kardexLeche = (new InventarioRepository($db))->kardex(1, 1, 1);
+revisar('El kardex lee el movimiento con su origen: ' . $kardexLeche[0]->origen(), str_starts_with($kardexLeche[0]->origen(), 'Devolución '));
+rechaza('Otra vez 3 leches: solo quedan 2', fn() => $ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '3']], 'Prueba'));
+$ventas->devolver($luis, $idVentaDev, [['id_producto' => '1', 'cantidad' => '2']], 'Cambió de opinión');
+$ventasRepo = new VentaRepository($db);
+revisar('VentaRepository lista las 2 devoluciones y lo devuelto por producto', count($ventasRepo->devolucionesDeVenta($idVentaDev)) === 2
+    && $ventasRepo->cantidadesDevueltas($idVentaDev) === [1 => 3000, 9 => 500]);
+rechaza('Con devoluciones ya no se anula', fn() => $ventas->anular($rosa, $idVentaDev, 'Prueba'));
+$idAnulada = (int) valor($db, "SELECT id_venta FROM venta WHERE estado = 'ANULADA' LIMIT 1");
+rechaza('Una venta anulada no se devuelve', fn() => $ventas->devolver($luis, $idAnulada, [['id_producto' => '1', 'cantidad' => '1']], 'Prueba'));
+$idVieja = (int) valor($db, "SELECT v.id_venta FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+    WHERE s.id_tienda = 1 AND v.estado = 'EMITIDA' AND v.fecha_hora < NOW() - INTERVAL 7 DAY LIMIT 1");
+if ($idVieja > 0) {
+    rechaza('Una venta de hace más de 7 días', fn() => $ventas->devolver($luis, $idVieja, [['id_producto' => '1', 'cantidad' => '1']], 'Prueba'));
+}
+revisar('Las devoluciones quedaron en la auditoría', (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'DEVOLUCION_REGISTRADA'") === 2);
+
+echo "Retiros e ingresos de caja\n";
+$cajasRepo = new CajaRepository($db);
+$turnoLuis = $cajasRepo->turnoAbiertoDe(2)->getIdCajaTurno();
+$fila = fn(): array => array_values(array_filter($cajasRepo->arqueoDeTienda(1), fn(array $f): bool => $f['turno']->getIdCajaTurno() === $turnoLuis))[0];
+$esperadoAntes = $fila()['esperado'];
+rechaza('Un almacenero no saca efectivo', fn() => $caja->registrarMovimiento($carmen, 'RETIRO', '10', 'Prueba'));
+rechaza('Tipo que no existe', fn() => $caja->registrarMovimiento($luis, 'PRESTAMO', '10', 'Prueba'));
+rechaza('Monto 0', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '0', 'Prueba'));
+rechaza('Sin motivo', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '10', ''));
+rechaza('Retirar más de lo que hay en la gaveta', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '99999', 'Prueba'));
+$caja->registrarMovimiento($luis, 'RETIRO', '50.00', 'Depósito al banco');
+$caja->registrarMovimiento($luis, 'INGRESO', '20.00', 'Sencillo del almacén');
+revisar('El arqueo resta el retiro y suma el ingreso: esperado baja 30.00', round($esperadoAntes - $fila()['esperado'], 2) === 30.0
+    && $fila()['retiros'] === 50.0 && $fila()['ingresos'] === 20.0 && count($cajasRepo->movimientosDeTurno($turnoLuis)) === 2);
+revisar('...y el arqueo ya restaba las devoluciones', $fila()['devoluciones'] === round(($devuelto + 900) / 100, 2));
+revisar('Retiro e ingreso quedaron en la auditoría', (int) valor($db,
+    "SELECT COUNT(*) FROM auditoria WHERE accion IN ('CAJA_RETIRO', 'CAJA_INGRESO')") === 2);
+rechaza('Miguel sin turno no mueve efectivo', fn() => $caja->registrarMovimiento($miguel, 'INGRESO', '10', 'Prueba'));
 
 echo "Catálogo y stock mínimo\n";
 $producto = [
@@ -350,9 +431,9 @@ $antesAuditoria = valor($db, 'SELECT COUNT(*) FROM auditoria');
 rechaza('Una acción rechazada no deja rastro en la auditoría', fn() => $catalogo->crearCategoria($rosa, 'Panadería'));
 revisar('...la auditoría sigue igual', valor($db, 'SELECT COUNT(*) FROM auditoria') === $antesAuditoria);
 
-echo "Reglas del diseño (consultas 20 a 28 de consultas.sql: 0 filas)\n";
+echo "Reglas del diseño (consultas 20 a 31 de consultas.sql: 0 filas)\n";
 $sql = file_get_contents(__DIR__ . '/../database/consultas.sql');
-preg_match_all('/^-- (2[0-8])\. .*?\n(SELECT.*?);/ms', $sql, $consultas, PREG_SET_ORDER);
+preg_match_all('/^-- (2[0-9]|3[01])\. .*?\n(SELECT.*?);/ms', $sql, $consultas, PREG_SET_ORDER);
 foreach ($consultas as [, $numero, $consulta]) {
     $filas = $db->query($consulta)->fetchAll();
     revisar("Consulta $numero", count($filas) === 0);

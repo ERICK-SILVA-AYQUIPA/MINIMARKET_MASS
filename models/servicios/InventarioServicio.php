@@ -17,7 +17,7 @@ class InventarioServicio extends Servicio
      * El almacenero recibe mercaderia en SU tienda con el documento del emisor (guia, factura o boleta).
      * Suma el stock, deja cada producto en el kardex y anota el ingreso en la auditoria. Devuelve el id del ingreso.
      * @param array{tipo?: string, numero?: string, fecha?: string, ruc?: string, razon_social?: string, observacion?: ?string} $documento
-     * @param array<int, array{id_producto?: string, cantidad?: string, costo?: string}> $lineas
+     * @param array<int, array{id_producto?: string, cantidad?: string, costo?: string, vence?: string}> $lineas
      */
     public function registrarIngreso(Usuario $almacenero, array $documento, array $lineas): int
     {
@@ -97,14 +97,15 @@ class InventarioServicio extends Servicio
             $documento = $tipo . ' ' . $numero;
             foreach ($productos as $idProducto => $p) {
                 $this->db->prepare(
-                    'INSERT INTO detalle_ingreso (id_ingreso, id_producto, cantidad, costo_unitario, costo_total)
-                     VALUES (:ingreso, :producto, :cantidad, :costo, :total)'
+                    'INSERT INTO detalle_ingreso (id_ingreso, id_producto, cantidad, costo_unitario, costo_total, fecha_vencimiento)
+                     VALUES (:ingreso, :producto, :cantidad, :costo, :total, :vence)'
                 )->execute([
                     'ingreso'  => $idIngreso,
                     'producto' => $idProducto,
                     'cantidad' => Cantidad::aTexto($p['milesimas']),
                     'costo'    => Dinero::aTexto($p['costo']),
                     'total'    => Dinero::aTexto($p['costoTotal']),
+                    'vence'    => $p['vence'],
                 ]);
                 $this->moverStock($idTienda, $idProducto, $p['milesimas'], TipoMovimiento::INGRESO,
                     $almacenero->getIdEmpleado(), ['id_ingreso' => $idIngreso], $documento);
@@ -245,9 +246,9 @@ class InventarioServicio extends Servicio
     }
 
     /**
-     * Lineas del ingreso -> [id_producto => milesimas, costo y costo total en centimos], ordenado por id.
-     * Cada producto va una sola vez, porque cada uno tiene su costo.
-     * @return array<int, array{milesimas: int, costo: int, costoTotal: int}>
+     * Lineas del ingreso -> [id_producto => milesimas, costo y costo total en centimos, vencimiento], ordenado por id.
+     * Cada producto va una sola vez, porque cada uno tiene su costo y su fecha de vencimiento.
+     * @return array<int, array{milesimas: int, costo: int, costoTotal: int, vence: ?string}>
      */
     private function leerLineasIngreso(array $lineas): array
     {
@@ -272,7 +273,16 @@ class InventarioServicio extends Servicio
             if ($costoTotal > Dinero::MAXIMO_CENTIMOS) {
                 throw new ReglaNegocioException($nombre . ': el costo total es demasiado grande.');
             }
-            $resultado[$idProducto] = ['milesimas' => $leida[$idProducto]['milesimas'], 'costo' => $costo, 'costoTotal' => $costoTotal];
+            // Vencimiento opcional (no todo producto vence); un lote ya vencido no se recibe
+            $vence = trim((string) ($linea['vence'] ?? ''));
+            if ($vence === '') {
+                $vence = null;
+            } elseif (preg_match('/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/', $vence, $m) !== 1 || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+                throw new ReglaNegocioException($nombre . ': la fecha de vencimiento no es válida.');
+            } elseif ($vence < date('Y-m-d')) {
+                throw new ReglaNegocioException($nombre . ': ese lote ya está vencido, no lo recibas.');
+            }
+            $resultado[$idProducto] = ['milesimas' => $leida[$idProducto]['milesimas'], 'costo' => $costo, 'costoTotal' => $costoTotal, 'vence' => $vence];
         }
         if ($resultado === []) {
             throw new ReglaNegocioException('Agrega al menos un producto con su cantidad y costo.');

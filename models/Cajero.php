@@ -19,4 +19,10 @@ class Cajero extends Usuario
     {
         return $this->estaActivo();
     }
+
+    // Devuelve parte de una venta de su tienda, con el efectivo de su turno abierto
+    public function puedeDevolverVenta(int $idTiendaDeLaVenta): bool
+    {
+        return $this->estaActivo() && $idTiendaDeLaVenta === $this->getIdTienda();
+    }
 }

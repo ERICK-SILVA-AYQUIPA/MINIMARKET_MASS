@@ -81,7 +81,7 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
     </dl>
     <div class="tabla bloque">
     <table>
-        <thead><tr><th scope="col">Producto</th><th scope="col" class="num">Cantidad</th><th scope="col" class="num">Costo unit.</th><th scope="col" class="num">Costo total</th></tr></thead>
+        <thead><tr><th scope="col">Producto</th><th scope="col" class="num">Cantidad</th><th scope="col" class="num">Costo unit.</th><th scope="col" class="num">Costo total</th><th scope="col">Vence</th></tr></thead>
         <tbody>
         <?php foreach ($fila['detalle'] as $d): ?>
             <?php $p = $productos[$d->getIdProducto()] ?? null; ?>
@@ -90,10 +90,11 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
                 <td class="num"><?= e(number_format($d->getCantidad(), $p?->esAlPeso() ? 3 : 0)) ?></td>
                 <td class="num"><?= e(soles($d->getCostoUnitario())) ?></td>
                 <td class="num"><?= e(soles($d->getCostoTotal())) ?></td>
+                <td class="fecha"><?= e($d->getFechaVencimiento() ?? '—') ?></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
-        <tfoot><tr><th scope="row" colspan="3">TOTAL</th><td class="num"><?= e(soles($i->getTotal())) ?></td></tr></tfoot>
+        <tfoot><tr><th scope="row" colspan="3">TOTAL</th><td class="num"><?= e(soles($i->getTotal())) ?></td><td></td></tr></tfoot>
     </table>
     </div>
     <p class="sutil">Cada producto entró al kardex como INGRESO DE MERCADERIA. El costo no cambia el precio de venta.</p>
@@ -106,6 +107,7 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
     $opciones = array_filter($productos, fn(Producto $p): bool => $p->estaActivo());
     $filasLineas = 6;
     $conCosto = true;
+    $conVence = true;
     $tipoViejo = $valorViejo('tipo_documento');
     $drawerId = 'nuevo-ingreso';
     $drawerTitulo = 'Registrar ingreso';
