@@ -1,6 +1,6 @@
 # Propuesta: boleta electrónica SUNAT y lector de código de barras
 
-Esta es una **propuesta escrita, todavía sin implementar**. Explica qué haría falta para que Minimarket Mass emita comprobantes electrónicos válidos ante SUNAT y para vender con un lector de código de barras. Los dos puntos se pueden hacer por separado. Antes de programar, el grupo debe confirmar los datos marcados como **[revisar]** en la página de SUNAT, porque la norma cambia.
+La parte de **SUNAT es una propuesta escrita, todavía sin implementar**. La del **lector de código de barras ya está hecha en Nueva venta** (paso 24 de la bitácora) y aquí queda lo que falta. Explica qué haría falta para que Minimarket Mass emita comprobantes electrónicos válidos ante SUNAT y para vender con un lector de código de barras. Los dos puntos se pueden hacer por separado. Antes de programar, el grupo debe confirmar los datos marcados como **[revisar]** en la página de SUNAT, porque la norma cambia.
 
 ## 1. Situación actual
 
@@ -100,22 +100,22 @@ El catálogo ya está listo para esto:
 - Ya existe `ProductoRepository::buscarPorCodigo`.
 - La ficha se abre por código (`?ruta=producto&codigo=...`).
 
-### 3.2 Cambios propuestos
+### 3.2 Cambios
 
-1. **Nueva venta:**
+1. **Nueva venta (hecho):**
    - Un campo "Escanear código" arriba de la lista de productos, con el cursor puesto ahí al abrir la pantalla.
    - En `views/parciales/lineas_producto.php`, cada `<option>` gana `data-codigo="..."`.
    - En `public/app.js`, al recibir Enter en ese campo:
      - Busca la opción con ese código.
      - Si el producto ya está en una fila, suma 1 a la cantidad. Si no, lo pone en la primera fila vacía.
      - Limpia el campo y deja el cursor ahí para el siguiente producto.
-     - Si el código no existe, muestra "Código no registrado" y suena un aviso.
+     - Si el código no existe, muestra un aviso rojo con el código leído (sin sonido por ahora).
      - Con `textContent`, sin `innerHTML`, como pide `tests/seguridad.php`.
    - El Enter del lector **no** debe enviar el formulario: se ataja con `preventDefault` solo en ese campo.
 2. **Sin JavaScript** sigue funcionando: el cajero elige en la lista como hoy, y el servidor sigue validando todo en `VentaServicio`.
-3. **Ingreso de mercadería, traslado, merma y conteo:** el mismo campo, para que el almacenero escanee al recibir. El conteo físico es donde más tiempo ahorra.
+3. **Ingreso de mercadería, traslado, merma y conteo (falta):** el mismo campo, para que el almacenero escanee al recibir. El conteo físico es donde más tiempo ahorra.
 4. **Catálogo:** el buscador ya acepta el código. Si el campo recibe un código exacto, abre la ficha.
-5. **Productos al peso:**
+5. **Productos al peso (falta):**
    - Papa, plátano y similares no tienen código fijo.
    - Con una **balanza etiquetadora**, la etiqueta trae un EAN-13 que empieza con 2: código interno del producto más peso o precio.
    - Se puede leer en una segunda etapa, con una columna `codigo_balanza` en `producto` **[revisar formato de la balanza]**.
@@ -125,9 +125,9 @@ El catálogo ya está listo para esto:
 - Una prueba web que mande el código como lo haría el lector.
 - En el navegador (Playwright): "escribir" `7750000000011` + Enter dos veces deja 1 fila de leche con cantidad 2 y el total correcto.
 
-**Esfuerzo estimado:** de 1 a 2 días para la venta y el ingreso. La balanza etiquetadora es aparte.
+**Esfuerzo estimado:** la venta ya está; el ingreso y el conteo, 1 día más. La balanza etiquetadora es aparte.
 
 ## 4. Orden sugerido
 
-1. **Lector de código de barras**: es poco trabajo, se nota al momento en la caja y no depende de nadie de afuera.
+1. **Lector de código de barras**: hecho en la venta; falta llevarlo al ingreso y al conteo.
 2. **Comprobante electrónico**: primero elegir proveedor y conseguir el acceso de pruebas. Después boletas y facturas, y al final notas de crédito y bajas.

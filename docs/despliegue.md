@@ -83,7 +83,7 @@ y poner en `.env` `DB_PORT=3306` y esa clave.
 
 ```bash
 # 1. Programas (Docker según docs.docker.com/engine/install/ubuntu)
-sudo apt update && sudo apt install -y nginx php8.3-fpm php8.3-mysql php8.3-mbstring git certbot python3-certbot-nginx
+sudo apt update && sudo apt install -y nginx php8.3-fpm php8.3-mysql php8.3-mbstring php8.3-gd git certbot python3-certbot-nginx
 sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 
 # 2. Proyecto y base
@@ -92,6 +92,7 @@ cd /var/www/minimarket_mass
 sudo cp .env.example .env && sudo nano .env        # claves largas y distintas
 sudo chown root:www-data .env && sudo chmod 640 .env
 sudo docker compose up -d                           # esperar "healthy" con: sudo docker compose ps
+sudo chown www-data public/img/productos           # PHP guarda aquí las fotos de producto
 
 # 3. Sitio con HTTPS (antes, apuntar el dominio a la IP del servidor)
 sudo cp deploy/nginx-mass.conf /etc/nginx/sites-available/mass    # cambiar mass.ejemplo.pe por el dominio
@@ -130,6 +131,7 @@ Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean la
 | Restaurar | `powershell -ExecutionPolicy Bypass -File scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
 - El respaldo guarda todo: las 34 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
+- Las **fotos de producto** no van en la base: están en `public/img/productos/`. Copiar esa carpeta junto con el respaldo (por ejemplo, comprimida en el mismo disco o nube) y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo, sin detenerla.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
 - **Se guardan los últimos 30 respaldos** (un mes si es diario); cada respaldo nuevo borra los más antiguos.
@@ -154,10 +156,10 @@ Si la versión nueva trae un script nuevo en `database/` (por ejemplo `ingresos.
 ## 9. Comprobar que todo funciona
 
 ```powershell
-php tests/unitarios.php     # 80, sin base de datos
+php tests/unitarios.php     # 87, sin base de datos
 php tests/seguridad.php     # 19, revisa CSRF, escapado, SQL y JavaScript en todo el código
-php tests/web.php           # 148, por HTTP con los 3 roles; no cambia datos
-php tests/integracion.php   # 165, contra MySQL; solo con la base recién creada (cambia datos)
+php tests/web.php           # 160, por HTTP con los 3 roles; solo deja en la auditoría la foto de prueba que sube y quita
+php tests/integracion.php   # 171, contra MySQL; solo con la base recién creada (cambia datos)
 ```
 
 En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
@@ -170,6 +172,8 @@ En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
 | `docker compose up` dice "Falta DB_PASSWORD en .env" | No existe `.env` o falta la clave: copiar `.env.example` |
 | El puerto 3307 está ocupado | Laragon u otro MySQL lo usa: detenerlo o cambiar `DB_PORT` a `3308` |
 | "could not find driver" | PHP sin `pdo_mysql`: activar `extension=pdo_mysql` en `php.ini` |
+| Al subir una foto: "Call to undefined function imagecreatefromstring" | PHP sin `gd`: activar `extension=gd` en `php.ini` (o `apt install php8.3-gd`) y reiniciar el servidor web |
+| "No se pudo guardar la foto" | PHP no puede escribir en `public/img/productos/`: darle permiso al usuario del servidor web |
 | Falta una tabla (por ejemplo `ingreso_mercaderia`) | El volumen se creó con una versión anterior: ver sección 8 |
 | "Demasiados intentos fallidos" al entrar | 5 claves erradas seguidas con ese DNI (o 20 desde la misma PC). Esperar, o en el aula `docker compose down -v` |
 | La hora de las ventas está corrida 5 horas | MySQL sin `TZ: America/Lima` (ver sección 5) |
