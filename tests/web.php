@@ -73,6 +73,14 @@ final class Navegador
         return $this->pedir('/?ruta=' . $ruta, http_build_query($datos));
     }
 
+    /** POST multipart con un archivo (como el formulario de importar catalogo) */
+    public function subir(string $ruta, array $datos, string $campo, string $archivo, string $nombre): int
+    {
+        $datos['csrf'] = $this->token();
+        $datos[$campo] = new CURLFile($archivo, 'text/csv', $nombre);
+        return $this->pedir('/?ruta=' . $ruta, $datos);
+    }
+
     public function entrar(string $dni, string $clave = CLAVE): int
     {
         $this->get('ruta=login');
@@ -95,7 +103,7 @@ final class Navegador
         return str_contains($this->cuerpo, $texto);
     }
 
-    private function pedir(string $url, ?string $post): int
+    private function pedir(string $url, string|array|null $post): int
     {
         $c = curl_init(BASE . $url);
         curl_setopt_array($c, [
@@ -203,6 +211,8 @@ $matriz = [
     'reponer_csv'          => [200, 403, 200],
     'utilidad'             => [200, 403, 403],
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
+    'catalogo_importar'    => [200, 403, 403],
+    'catalogo_plantilla'   => [200, 403, 403],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -243,6 +253,22 @@ revisar('La utilidad muestra la comparación por tienda y el margen', $rosa->get
 revisar('Reponer sugiere cuánto pedir y sale en el menú del almacenero', $carmen->get('ruta=reponer') === 200
     && ($carmen->tiene('Pedir') || $carmen->tiene('Nada por reponer')) && $carmen->get('ruta=inicio') === 200 && $carmen->tiene('ruta=reponer"'));
 revisar('El CSV de utilidad trae el margen', $rosa->get('ruta=reporte_csv&tipo=utilidad&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'margen_%'));
+revisar('El catálogo ofrece Importar CSV solo al administrador', $rosa->get('ruta=productos') === 200 && $rosa->tiene('ruta=catalogo_importar"')
+    && $carmen->get('ruta=productos') === 200 && !$carmen->tiene('catalogo_importar'));
+revisar('La plantilla es el catálogo actual en CSV con las columnas para importar', $rosa->get('ruta=catalogo_plantilla') === 200
+    && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv')
+    && str_contains($rosa->cuerpo, 'codigo_barras,nombre,categoria,marca,unidad,precio_venta,al_peso') && str_contains($rosa->cuerpo, 'Leche'));
+$plantilla = tempnam(sys_get_temp_dir(), 'csv');
+file_put_contents($plantilla, $rosa->cuerpo);
+revisar('Subir la plantilla tal cual: se revisa sin errores ni cambios', $rosa->subir('catalogo_subir', ['modo' => 'revisar'], 'archivo', $plantilla, 'catalogo.csv') === 200
+    && $rosa->tiene('Revisión del archivo') && $rosa->tiene('Productos nuevos</span><strong>0<'));
+file_put_contents($plantilla, "codigo_barras;nombre\n1;x\n");
+revisar('Un CSV con otras columnas: 422 y dice cuáles van', $rosa->subir('catalogo_subir', ['modo' => 'importar'], 'archivo', $plantilla, 'malo.csv') === 422
+    && $rosa->tiene('La primera fila debe ser'));
+revisar('Un archivo que no es .csv: 422', $rosa->subir('catalogo_subir', [], 'archivo', $plantilla, 'foto.png') === 422);
+@unlink($plantilla);
+revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
+revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));

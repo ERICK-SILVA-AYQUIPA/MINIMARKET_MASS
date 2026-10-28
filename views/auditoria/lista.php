@@ -12,7 +12,7 @@ declare(strict_types=1);
 $titulo = 'Auditoría';
 require __DIR__ . '/../layout_inicio.php';
 // Acciones que conviene mirar primero
-$delicada = fn(string $a): bool => in_array($a, ['VENTA_ANULADA', 'PRECIO_CAMBIADO', 'DEVOLUCION_REGISTRADA', 'CAJA_RETIRO'], true);
+$delicada = fn(string $a): bool => in_array($a, ['VENTA_ANULADA', 'PRECIO_CAMBIADO', 'DEVOLUCION_REGISTRADA', 'CAJA_RETIRO', 'CATALOGO_IMPORTADO'], true);
 ?>
 <div class="cabecera">
     <div>

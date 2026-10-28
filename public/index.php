@@ -94,7 +94,7 @@ Controller::marcarRuta($ruta);
 $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
     'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
-    'venta_devolver', 'caja_movimiento',
+    'venta_devolver', 'caja_movimiento', 'catalogo_subir',
     'producto_guardar', 'producto_estado', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
@@ -133,6 +133,7 @@ try {
                 'stock_minimo'       => $productoController->fijarMinimo($_POST),
                 'categoria_crear'    => $productoController->crearCategoria($_POST),
                 'marca_crear'        => $productoController->crearMarca($_POST),
+                'catalogo_subir'     => $productoController->subirCatalogo($_POST, is_array($_FILES['archivo'] ?? null) ? $_FILES['archivo'] : null),
                 'empleado_crear'     => $empleadoController->crear($_POST),
                 'empleado_guardar'   => $empleadoController->guardar($_POST),
                 'empleado_clave'     => $empleadoController->reiniciarClave($_POST),
@@ -228,6 +229,14 @@ try {
 
             case 'producto_form':
                 $productoController->formulario($leer('id'));
+                break;
+
+            case 'catalogo_importar':
+                $productoController->importar();
+                break;
+
+            case 'catalogo_plantilla':
+                $productoController->plantilla();
                 break;
 
             case 'catalogo':

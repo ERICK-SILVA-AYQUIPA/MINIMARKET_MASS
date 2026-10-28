@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Controller.php';
+require_once __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/servicios/ProductoServicio.php';
@@ -263,6 +264,84 @@ class ProductoController extends Controller
             return;
         }
         $this->redirigir('/?ruta=catalogo', 'Marca creada.');
+    }
+
+    // GET /?ruta=catalogo_importar: subir el catalogo en CSV (y el resultado de la ultima subida)
+    public function importar(?array $resultado = null, ?string $error = null, bool $soloRevisar = true): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
+        $columnas = CatalogoCsv::COLUMNAS;
+        $maximoFilas = CatalogoCsv::MAXIMO_FILAS;
+        $this->vista('productos/importar', get_defined_vars());
+    }
+
+    // GET /?ruta=catalogo_plantilla: el CSV con el catalogo actual, para editarlo en Excel y volver a subirlo
+    public function plantilla(): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
+        $categorias = [];
+        foreach ($this->catalogo->categorias() as $c) {
+            $categorias[$c->getIdCategoria()] = $c->getNombreCategoria();
+        }
+        $marcas = [];
+        foreach ($this->catalogo->marcas() as $m) {
+            $marcas[$m->getIdMarca()] = $m->getNombreMarca();
+        }
+        $filas = [];
+        foreach ($this->repo->todos() as $p) {
+            $filas[] = [$p->getCodigoBarras() ?? '', $p->getNombreProducto(), $categorias[$p->getIdCategoria()] ?? '', $marcas[$p->getIdMarca()] ?? '',
+                $this->repo->abreviaturaUnidad($p->getIdUnidad()), number_format($p->getPrecioVenta(), 2, '.', ''), $p->getSeVendePorPeso()];
+        }
+        $this->enviarCsv('catalogo_' . date('Y-m-d') . '.csv', CatalogoCsv::COLUMNAS, $filas);
+    }
+
+    /**
+     * POST /?ruta=catalogo_subir con el archivo (de $_FILES, que solo lee public/index.php).
+     * @param ?array{error?: int, size?: int, tmp_name?: string, name?: string} $archivo
+     */
+    public function subirCatalogo(array $post, ?array $archivo): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
+        $soloRevisar = $this->campo($post, 'modo') !== 'importar';
+        if ($archivo === null || ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+            || !is_string($archivo['tmp_name'] ?? null) || !is_uploaded_file($archivo['tmp_name'])) {
+            http_response_code(422);
+            $this->importar(null, 'Elige el archivo CSV del catálogo (hasta 1 MB).', $soloRevisar);
+            return;
+        }
+        if ((int) ($archivo['size'] ?? 0) > CatalogoCsv::MAXIMO_BYTES
+            || preg_match('/\.(csv|txt)$/i', (string) ($archivo['name'] ?? '')) !== 1) {
+            http_response_code(422);
+            $this->importar(null, 'Sube un archivo .csv de hasta 1 MB (en Excel: Guardar como → CSV).', $soloRevisar);
+            return;
+        }
+
+        $leido = CatalogoCsv::leer((string) file_get_contents($archivo['tmp_name']));
+        if ($leido['errores'] !== [] && $leido['filas'] === []) {
+            http_response_code(422);
+            $this->importar(null, implode(' ', $leido['errores']), $soloRevisar);
+            return;
+        }
+        $resultado = $this->servicio->importarCatalogo($this->usuario, $leido['filas'], $soloRevisar);
+        $resultado['errores'] = [...$leido['errores'], ...$resultado['errores']];
+        $resultado['soloRevisar'] = $soloRevisar;
+        if ($resultado['errores'] !== []) {
+            http_response_code(422);
+        } elseif (!$soloRevisar) {
+            $this->redirigir('/?ruta=productos', sprintf('Catálogo importado: %d productos nuevos y %d actualizados.',
+                $resultado['creados'], $resultado['actualizados']));
+            return;
+        }
+        $this->importar($resultado, null, $soloRevisar);
     }
 
     private function puedeEditarCatalogo(): bool
