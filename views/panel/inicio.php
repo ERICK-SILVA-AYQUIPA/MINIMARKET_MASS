@@ -15,6 +15,8 @@ declare(strict_types=1);
  * @var array<int, Producto> $productosPorId
  * @var array<int, TipoMovimiento> $tipos
  * @var bool $esAdministrador
+ * @var bool $veVencimientos
+ * @var array<int, array{nombre: string, dias: int, vencido: bool, fecha_vencimiento: string}> $porVencer  lotes de esta semana
  */
 $titulo = 'Inicio';
 require __DIR__ . '/../layout_inicio.php';
@@ -120,6 +122,19 @@ $totalPeriodo = array_sum($ventasPorDia);
         <?php endif; ?>
     </section>
 </div>
+
+<?php if ($veVencimientos && $porVencer !== []): ?>
+<section class="panel">
+    <h2>Vencen esta semana</h2>
+    <ul class="lista-vencimientos">
+        <?php foreach (array_slice($porVencer, 0, 6) as $f): ?>
+            <?php $claseVence = $f['vencido'] ? 'error' : 'reponer'; ?>
+            <li><span class="etiqueta <?= e($claseVence) ?>"><?= e(Vencimiento::describir($f['dias'])) ?></span> <?= e($f['nombre']) ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <p class="sutil"><a href="/?ruta=vencimientos">Ver todo lo que está por vencer</a></p>
+</section>
+<?php endif; ?>
 
 <section class="panel">
     <h2>Cajas abiertas</h2>

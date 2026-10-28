@@ -14,7 +14,8 @@ class DetalleIngreso
         private int $idProducto,
         private float $cantidad,          // cantidad DECIMAL(10,3)
         private float $costoUnitario,     // costo_unitario DECIMAL(10,2)
-        private float $costoTotal         // costo_total DECIMAL(10,2) = ROUND(cantidad * costo_unitario, 2)
+        private float $costoTotal,        // costo_total DECIMAL(10,2) = ROUND(cantidad * costo_unitario, 2)
+        private ?string $fechaVencimiento = null   // fecha_vencimiento DATE NULL (operaciones.sql)
     ) {
         if ($cantidad <= 0 || $costoUnitario < 0) {
             throw new InvalidArgumentException('Cantidad o costo no validos');
@@ -32,4 +33,5 @@ class DetalleIngreso
     public function getCantidad(): float { return $this->cantidad; }
     public function getCostoUnitario(): float { return $this->costoUnitario; }
     public function getCostoTotal(): float { return $this->costoTotal; }
+    public function getFechaVencimiento(): ?string { return $this->fechaVencimiento; }
 }

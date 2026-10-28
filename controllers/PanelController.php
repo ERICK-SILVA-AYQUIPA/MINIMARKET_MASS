@@ -8,6 +8,8 @@ require_once __DIR__ . '/../models/InventarioRepository.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
+require_once __DIR__ . '/../models/IngresoRepository.php';
+require_once __DIR__ . '/../models/Vencimiento.php';
 
 /**
  * C: panel de inicio. Cada rol ve los indicadores de SU tienda que le sirven para trabajar.
@@ -15,6 +17,7 @@ require_once __DIR__ . '/../models/CatalogoRepository.php';
 class PanelController extends Controller
 {
     private const DIAS_GRAFICO = 14;
+    private const DIAS_POR_VENCER = 7;   // el panel avisa solo lo urgente; la pantalla "Por vencer" llega a 60
 
     public function __construct(
         TiendaRepository $tiendas,
@@ -25,7 +28,8 @@ class PanelController extends Controller
         private InventarioRepository $inventario,
         private CajaRepository $cajas,
         private ProductoRepository $productos,
-        private CatalogoRepository $catalogo
+        private CatalogoRepository $catalogo,
+        private IngresoRepository $ingresos
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -54,6 +58,18 @@ class PanelController extends Controller
             $productosPorId[$p->getIdProducto()] = $p;
         }
         $tipos = $this->catalogo->tiposMovimiento();
+
+        // Lotes que vencen esta semana (o ya vencieron), para quien recibe la mercaderia y su administrador
+        $porVencer = [];
+        $veVencimientos = $usuario->puedeVerIngresos($id);
+        if ($veVencimientos) {
+            foreach ($this->ingresos->lotesConVencimiento($id) as $idProducto => $datos) {
+                foreach (Vencimiento::porVencer(Vencimiento::repartirStock($datos['lotes'], $datos['stock']), $hoy, self::DIAS_POR_VENCER) as $lote) {
+                    $porVencer[] = $lote + ['nombre' => ($productosPorId[$idProducto] ?? null)?->getNombreProducto() ?? '-'];
+                }
+            }
+            usort($porVencer, fn(array $a, array $b): int => $a['dias'] <=> $b['dias']);
+        }
 
         $esAdministrador = $usuario->puedeAdministrarTienda($id);
         $this->vista('panel/inicio', get_defined_vars());

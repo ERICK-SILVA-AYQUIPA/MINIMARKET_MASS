@@ -20,14 +20,15 @@ class MovimientoStock
         private ?int $idTraslado,
         private ?int $idMerma,
         private ?int $idAjuste = null,    // ajustes.sql: conteo fisico
-        private ?int $idIngreso = null    // ingresos.sql: compra recibida
+        private ?int $idIngreso = null,   // ingresos.sql: compra recibida
+        private ?int $idDevolucion = null // operaciones.sql: devolucion de parte de una venta
     ) {
         if ($cantidad <= 0 || $stockNuevo < 0) {
             throw new InvalidArgumentException('Movimiento con cantidad o saldo invalido');
         }
         // CHECK ck_movimiento_origen: exactamente un origen
         if ((int) ($idVenta !== null) + (int) ($idTraslado !== null) + (int) ($idMerma !== null) + (int) ($idAjuste !== null)
-            + (int) ($idIngreso !== null) !== 1) {
+            + (int) ($idIngreso !== null) + (int) ($idDevolucion !== null) !== 1) {
             throw new InvalidArgumentException('El movimiento debe tener un solo origen');
         }
     }
@@ -46,6 +47,7 @@ class MovimientoStock
     public function getIdMerma(): ?int { return $this->idMerma; }
     public function getIdAjuste(): ?int { return $this->idAjuste; }
     public function getIdIngreso(): ?int { return $this->idIngreso; }
+    public function getIdDevolucion(): ?int { return $this->idDevolucion; }
 
     // De donde salio el movimiento, para el kardex y su CSV
     public function origen(): string
@@ -55,7 +57,8 @@ class MovimientoStock
             $this->idTraslado !== null => 'Traslado ' . $this->idTraslado,
             $this->idMerma !== null    => 'Merma ' . $this->idMerma,
             $this->idAjuste !== null   => 'Ajuste ' . $this->idAjuste,
-            default                    => 'Ingreso ' . $this->idIngreso,
+            $this->idIngreso !== null  => 'Ingreso ' . $this->idIngreso,
+            default                    => 'Devolución ' . $this->idDevolucion,
         };
     }
 }

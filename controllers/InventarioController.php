@@ -8,10 +8,11 @@ require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
+require_once __DIR__ . '/../models/Vencimiento.php';
 require_once __DIR__ . '/../models/servicios/InventarioServicio.php';
 
 /**
- * C: kardex, ingresos de mercaderia, traslados entre tiendas, mermas y ajustes por conteo fisico.
+ * C: kardex, ingresos de mercaderia, productos por vencer, traslados entre tiendas, mermas y ajustes por conteo fisico.
  */
 class InventarioController extends Controller
 {
@@ -155,6 +156,7 @@ class InventarioController extends Controller
                         number_format($d->getCantidad(), 3, '.', ''),
                         number_format($d->getCostoUnitario(), 2, '.', ''),
                         number_format($d->getCostoTotal(), 2, '.', ''),
+                        $d->getFechaVencimiento() ?? '',
                         $nombresEmpleado[$ingreso->getIdEmpleado()] ?? '',
                     ];
                 }
@@ -162,7 +164,39 @@ class InventarioController extends Controller
         }
         $this->enviarCsv(sprintf('ingresos_tienda%d_%s.csv', $tienda->getIdTienda(), date('Y-m-d')),
             ['id_ingreso', 'registrado', 'tipo_documento', 'numero_documento', 'fecha_documento', 'ruc_emisor',
-             'razon_social', 'producto', 'cantidad', 'costo_unitario', 'costo_total', 'registro'], $filas);
+             'razon_social', 'producto', 'cantidad', 'costo_unitario', 'costo_total', 'vence', 'registro'], $filas);
+    }
+
+    // GET /?ruta=vencimientos&dias=30: lotes de la tienda del usuario que vencen pronto o ya vencieron
+    public function vencimientos(?string $diasTexto): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
+            $this->prohibido('Los productos por vencer los ven el almacenero y el administrador de la tienda.');
+            return;
+        }
+        $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
+        $dias = Vencimiento::leerDias($diasTexto);
+        $diasPermitidos = Vencimiento::DIAS_PERMITIDOS;
+        $productos = $this->productosPorId();
+        $puedeDarDeBaja = $this->usuario->puedeMoverMercaderia();
+
+        $filas = [];
+        foreach ($this->ingresos->lotesConVencimiento($tienda->getIdTienda()) as $idProducto => $datos) {
+            $vigentes = Vencimiento::repartirStock($datos['lotes'], $datos['stock']);
+            foreach (Vencimiento::porVencer($vigentes, date('Y-m-d'), $dias) as $lote) {
+                $producto = $productos[$idProducto] ?? null;
+                $filas[] = $lote + [
+                    'producto' => $producto,
+                    'unidad'   => $producto !== null ? $this->productos->abreviaturaUnidad($producto->getIdUnidad()) : '-',
+                    'valor'    => round($lote['restante'] / 1000 * $lote['costo'], 2),
+                ];
+            }
+        }
+        usort($filas, fn(array $a, array $b): int => [$a['fecha_vencimiento'], $a['id_ingreso']] <=> [$b['fecha_vencimiento'], $b['id_ingreso']]);
+        $vencidos = count(array_filter($filas, fn(array $f): bool => $f['vencido']));
+        $valorEnRiesgo = round(array_sum(array_column($filas, 'valor')), 2);
+        unset($idProducto, $datos, $vigentes, $lote, $producto);
+        $this->vista('inventario/vencimientos', get_defined_vars());
     }
 
     // GET /?ruta=traslados&tienda=1
