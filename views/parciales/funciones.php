@@ -4,6 +4,8 @@ declare(strict_types=1);
 /**
  * Funciones que usan todas las vistas. Se cargan una sola vez (require_once).
  */
+require_once __DIR__ . '/../../models/Cantidad.php';
+
 // Escapa todo lo que se imprime en el HTML
 function e(string $texto): string
 {
@@ -13,6 +15,12 @@ function e(string $texto): string
 function soles(float $monto): string
 {
     return 'S/ ' . number_format($monto, 2);
+}
+
+// Milesimas -> texto: "1.250" si se vende por kg, "12" si es por unidad
+function cantidad(int $milesimas, bool $alPeso): string
+{
+    return $alPeso ? Cantidad::aTexto($milesimas) : (string) intdiv($milesimas, 1000);
 }
 
 // Campo oculto con el token CSRF: va en TODOS los formularios POST

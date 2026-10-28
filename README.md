@@ -228,16 +228,16 @@ Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 151 comprobaciones; solo con la base recién creada
+php tests/integracion.php   # 157 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 68 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php tests/unitarios.php     # 73 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
 php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 25 formularios, escapado, SQL preparado y JavaScript seguro
-php tests/web.php           # 132 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
-php tests/integracion.php   # 151 comprobaciones contra MySQL, con la base recién creada
+php tests/web.php           # 139 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado y paneles laterales; no cambia datos
+php tests/integracion.php   # 157 comprobaciones contra MySQL, con la base recién creada
 ```
 
 En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.

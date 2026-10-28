@@ -7,7 +7,7 @@ declare(strict_types=1);
  * @var string $desde
  * @var string $hasta
  * @var ?string $error
- * @var array{comprobantes: int, total: float, ticketPromedio: float, anuladas: int} $resumen
+ * @var array{comprobantes: int, total: float, devuelto: float, neto: float, ticketPromedio: float, anuladas: int} $resumen
  * @var array<int, array<string, string>> $porDia
  * @var array<int, array<string, string>> $porTipo
  * @var array<int, array<string, string>> $masVendidos
@@ -50,6 +50,7 @@ $tabla = static function (array $filas, array $columnas): void {
         <h1>Reportes de <?= e($tienda->getNombreTienda()) ?></h1>
         <p class="sutil">Solo ventas EMITIDAS entre <?= e($desde) ?> y <?= e($hasta) ?>. Cada tabla se descarga en CSV para Excel.</p>
     </div>
+    <div class="acciones"><a class="boton secundario" href="/?ruta=utilidad&amp;desde=<?= e($desde) ?>&amp;hasta=<?= e($hasta) ?>"><?= icono('utilidad') ?>Ver utilidad</a></div>
 </div>
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="reportes">
@@ -61,6 +62,7 @@ $tabla = static function (array $filas, array $columnas): void {
 
 <section class="tarjetas" aria-label="Resumen del periodo">
     <div><span>Vendido</span><strong><?= e(soles($resumen['total'])) ?></strong></div>
+    <div><span>Devuelto</span><strong><?= e(soles($resumen['devuelto'])) ?></strong><small>neto <?= e(soles($resumen['neto'])) ?></small></div>
     <div><span>Comprobantes</span><strong><?= (int) $resumen['comprobantes'] ?></strong></div>
     <div><span>Ticket promedio</span><strong><?= e(soles($resumen['ticketPromedio'])) ?></strong></div>
     <div><span>Anuladas</span><strong><?= (int) $resumen['anuladas'] ?></strong></div>

@@ -100,13 +100,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `servicios/TiendaServicio.php` | Abrir una tienda (caja 1, series, stock en 0 y su administrador), editar la propia, cajas y distritos. |
 | `AjusteInventario.php` | Cabecera de un conteo físico (motivo CONTEO_FISICO o CORRECCION). |
 | `servicios/ClienteServicio.php` | Agrega el DNI o RUC que le falta a un cliente (no cambia uno existente). |
-| `ReporteRepository.php` | Consultas 10 a 16 de `consultas.sql` filtradas por tienda y fechas. |
+| `ReporteRepository.php` | Consultas 10 a 16 de `consultas.sql` filtradas por tienda y fechas, lo devuelto y el neto, y la utilidad por producto y por tienda (ventas menos devoluciones, menos el costo promedio de los ingresos). |
 | `IntentoLoginRepository.php` | Cuenta las claves erradas recientes y dice si el DNI o la IP deben esperar. |
 | `Paginacion.php` | Calcula la página, el `LIMIT` y el `OFFSET` de una lista larga. |
 | `Clave.php` | Regla de la clave (8 a 72 caracteres, letras y números) y su hash. |
-| `PanelRepository.php` | Indicadores del panel: productos por reponer, turnos abiertos con lo cobrado y ventas de los últimos 14 días. |
+| `PanelRepository.php` | Indicadores del panel: productos por reponer, turnos abiertos con lo cobrado y ventas de los últimos 14 días. `reposicion()` da lo que llegó a su mínimo con lo vendido y el sobrante de las otras tiendas. |
 | `IngresoMercaderia.php`, `DetalleIngreso.php` | Cabecera del ingreso (tipo de documento de una lista fija, RUC de 11 dígitos) y cada producto recibido; `DetalleIngreso` rechaza un costo total distinto de `ROUND(cantidad × costo, 2)`. |
 | `IngresoRepository.php` | Lee los ingresos de una tienda (paginados), el detalle de cada uno con su vencimiento, y los lotes de los productos que vencen. |
+| `Reposicion.php` | Sin base de datos: venta diaria promedio, días que alcanza el stock y cuánto pedir (14 días de venta, nunca menos que el doble del mínimo; por unidad, en enteros). |
 | `Vencimiento.php` | Sin base de datos: reparte el stock actual entre los lotes recibidos (se vende primero lo más antiguo) y filtra los que vencen en los próximos días. |
 | `AuditoriaRepository.php` | Lee la auditoría de una tienda, filtrada por acción y paginada, con el nombre y rol de quien lo hizo. |
 
@@ -123,8 +124,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `CajaController.php` | Panel de caja: abrir y cerrar turno, retiros e ingresos de efectivo, y arqueo para el administrador. |
 | `EmpleadoController.php` | Personal de la tienda del administrador. |
 | `ClienteController.php` | Lista paginada, búsqueda por documento, compras del cliente. |
-| `ReporteController.php` | Reportes en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. |
-| `PanelController.php` | Panel de inicio de la tienda del usuario: hoy contra ayer, gráfico, por reponer, cajas abiertas y kardex reciente. |
+| `ReporteController.php` | Reportes de venta y de utilidad en pantalla y CSV; el rango por defecto son los últimos 30 días y como máximo un año. La comparación entre tiendas solo la ve un administrador. |
+| `PanelController.php` | Panel de inicio de la tienda del usuario: hoy contra ayer, gráfico, por reponer, por vencer, cajas abiertas y kardex reciente. También la lista para reponer (`reponer` y su CSV) para el almacenero y el administrador. |
 | `AuditoriaController.php` | Auditoría de la tienda, solo para su administrador; valida la acción pedida contra las que existen. |
 
 ## views/ (V · muestra)
@@ -135,6 +136,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00), `campoCsrf()` e `icono()` (dibuja un ícono de `public/iconos.svg`). La usan el layout y el ticket. |
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
+| `panel/reponer.php` | Lo que llegó a su stock mínimo: cuánto hay, venta diaria, días que alcanza, cuánto pedir y qué tienda tiene sobrante para trasladar. |
 | `productos/lista.php` | Tabla del catálogo con el stock de la tienda elegida y la etiqueta REPONER. Al tocar un producto (`&ver=ID`) abre su ficha en un panel lateral. |
 | `productos/ficha.php` | Datos y acciones de un producto (stock, precio, mínimo, editar, descontinuar). La usan la página del producto y el panel lateral. |
 | `productos/detalle.php` | Página propia de un producto; muestra `productos/ficha.php`. |
@@ -159,7 +161,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `productos/formulario.php`, `productos/catalogo.php` | Formulario de producto; categorías, marcas y unidades. |
 | `empleados/lista.php`, `empleados/formulario.php` | Personal (el alta en un panel lateral) y su edición. |
 | `clientes/lista.php`, `clientes/detalle.php`, `clientes/ficha.php` | Clientes; la ficha (documento y compras) se abre en un panel con `&ver=ID` o en su propia página. |
-| `reportes/ventas.php` | Tarjetas de resumen y tablas de reporte. |
+| `reportes/ventas.php` | Tarjetas de resumen (con lo devuelto y el neto) y tablas de reporte. |
+| `reportes/utilidad.php` | Utilidad por tienda y por producto con su margen; avisa los productos vendidos sin costo conocido. |
 | `auth/mi_clave.php` | Cambiar la clave propia. |
 | `inventario/ajustes.php` | Hoja de conteo (sistema vs. contado) y ajustes registrados. |
 | `tiendas/formulario.php`, `tiendas/nueva.php` | Mi tienda (datos, cajas, series) y abrir una tienda. |
@@ -186,10 +189,10 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `tests/unitarios.php` | 68 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería y el reparto de lotes por vencer. |
+| `tests/unitarios.php` | 73 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer y cuánto pedir al reponer. |
 | `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 25 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 132 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
-| `tests/integracion.php` | 151 comprobaciones contra MySQL: ventas, anulaciones, devoluciones, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
+| `tests/web.php` | 139 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
+| `tests/integracion.php` | 157 comprobaciones contra MySQL: ventas, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar

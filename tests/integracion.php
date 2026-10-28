@@ -32,6 +32,8 @@ require __DIR__ . '/../models/CajaRepository.php';
 require __DIR__ . '/../models/VentaRepository.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/InventarioRepository.php';
+require __DIR__ . '/../models/PanelRepository.php';
+require __DIR__ . '/../models/Reposicion.php';
 
 $db = Database::conexion();
 
@@ -341,6 +343,27 @@ $reportes = new ReporteRepository($db);
 $resumen = $reportes->resumen(1, '2026-10-17', '2026-10-19');
 revisar('Cayma vendió S/ 323.00 del 17 al 19/10 (como el paso 7)', abs($resumen['total'] - 323.00) < 0.001);
 revisar('Más vendido en Cayma tiene importe', ($reportes->masVendidos(1, '2026-01-01', '2026-12-31')[0]['importe'] ?? '0') > 0);
+$hoy = date('Y-m-d');
+$resumenHoy = $reportes->resumen(1, $hoy, $hoy);
+revisar('El resumen de hoy resta las devoluciones: devuelto S/ ' . number_format($resumenHoy['devuelto'], 2),
+    abs($resumenHoy['devuelto'] - ($devuelto + 900) / 100) < 0.001 && abs($resumenHoy['neto'] - ($resumenHoy['total'] - $resumenHoy['devuelto'])) < 0.001);
+$utilidad = $reportes->utilidadPorProducto(1, '2026-01-01', $hoy);
+$porNombre = array_column($utilidad, null, 'producto');
+$yogurt = $porNombre['Yogurt Gloria fresa 1 L'] ?? null;
+revisar('Utilidad del yogurt: costo promedio S/ 5.90 de sus 2 ingresos y utilidad = ventas − costo', $yogurt !== null
+    && $yogurt['costo_unitario'] === 5.9 && abs($yogurt['utilidad'] - ($yogurt['ventas'] - round($yogurt['cantidad'] * 5.9, 2))) < 0.001);
+$leche = $porNombre['Leche evaporada Gloria entera 400 g'] ?? null;
+revisar('La leche resta lo devuelto: 3 vendidas y 3 devueltas no cuentan', $leche !== null
+    && abs($leche['cantidad'] - ((float) valor($db, "SELECT SUM(d.cantidad) FROM detalle_venta d JOIN venta v ON v.id_venta = d.id_venta
+        JOIN serie_comprobante s ON s.id_serie = v.id_serie WHERE d.id_producto = 1 AND s.id_tienda = 1 AND v.estado = 'EMITIDA'") - 3)) < 0.001);
+revisar('Un producto que nunca entró por ingreso queda sin costo', array_filter($utilidad, fn(array $p): bool => $p['costo'] === null) !== []);
+$porTienda = $reportes->utilidadPorTienda([1 => 'Mass Cayma', 2 => 'Mass Cerro Colorado'], '2026-01-01', $hoy);
+revisar('La utilidad de Cayma en la tabla por tienda suma la de sus productos', abs($porTienda[0]['utilidad']
+    - array_sum(array_map(fn(array $p): float => $p['utilidad'] ?? 0.0, $utilidad))) < 0.01 && $porTienda[1]['tienda'] === 'Mass Cerro Colorado');
+$reposicion = (new PanelRepository($db))->reposicion(1, Reposicion::DIAS_VENTA);
+revisar('La lista para reponer trae lo que está en su mínimo, con lo vendido y el sobrante de otras tiendas',
+    count($reposicion) === (new PanelRepository($db))->contarPorReponer(1)
+    && array_filter($reposicion, fn(array $f): bool => $f['actual'] > $f['minimo']) === []);
 $pagina = new Paginacion(51, '99', 25);
 revisar('Página 99 de 51 filas se corrige a la 3 (offset 50)', $pagina->getPagina() === 3 && $pagina->offset() === 50);
 

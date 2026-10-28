@@ -117,7 +117,12 @@ $totalPeriodo = array_sum($ventasPorDia);
             </table>
             </div>
             <?php if ($totalPorReponer > count($porReponer)): ?>
-                <p class="sutil">Y <?= $totalPorReponer - count($porReponer) ?> más. <a href="/?ruta=productos">Ver el catálogo</a></p>
+                <p class="sutil">Y <?= $totalPorReponer - count($porReponer) ?> más.</p>
+            <?php endif; ?>
+            <?php if ($veVencimientos): ?>
+                <p class="sutil"><a href="/?ruta=reponer">Ver cuánto pedir de cada uno</a></p>
+            <?php else: ?>
+                <p class="sutil"><a href="/?ruta=productos">Ver el catálogo</a></p>
             <?php endif; ?>
         <?php endif; ?>
     </section>

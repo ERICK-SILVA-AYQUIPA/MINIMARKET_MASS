@@ -199,6 +199,10 @@ $matriz = [
     'ingresos_csv'         => [200, 403, 200],
     'vencimientos'         => [200, 403, 200],
     'vencimientos&dias=7'  => [200, 403, 200],
+    'reponer'              => [200, 403, 200],
+    'reponer_csv'          => [200, 403, 200],
+    'utilidad'             => [200, 403, 403],
+    'reporte_csv&tipo=utilidad' => [200, 403, 403],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -234,6 +238,11 @@ revisar('La caja del cajero muestra lo que hay en gaveta y el retiro', $luis->ge
     && $luis->tiene('action="/?ruta=caja_movimiento"') && $rosa->get('ruta=caja') === 200 && !$rosa->tiene('caja_movimiento'));
 revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
+revisar('La utilidad muestra la comparación por tienda y el margen', $rosa->get('ruta=utilidad&desde=2026-01-01') === 200
+    && $rosa->tiene('Por tienda') && $rosa->tiene('Mass Cerro Colorado') && $rosa->tiene('Margen'));
+revisar('Reponer sugiere cuánto pedir y sale en el menú del almacenero', $carmen->get('ruta=reponer') === 200
+    && ($carmen->tiene('Pedir') || $carmen->tiene('Nada por reponer')) && $carmen->get('ruta=inicio') === 200 && $carmen->tiene('ruta=reponer"'));
+revisar('El CSV de utilidad trae el margen', $rosa->get('ruta=reporte_csv&tipo=utilidad&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'margen_%'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));
