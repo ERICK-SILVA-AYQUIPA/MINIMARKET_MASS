@@ -197,7 +197,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `tests/unitarios.php` | 78 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer y la lectura del CSV del catálogo. |
+| `tests/unitarios.php` | 80 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer y la lectura del CSV del catálogo. |
 | `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 28 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
 | `tests/web.php` | 148 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad y que los paneles laterales se abran solo con un id que existe. No cambia datos. |
 | `tests/integracion.php` | 165 comprobaciones contra MySQL: ventas, importar el catálogo, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
