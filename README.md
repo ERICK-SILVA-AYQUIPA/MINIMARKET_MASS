@@ -47,7 +47,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`backend/database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
 - **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
-- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
+- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 36 tablas (26 del diseño y 10 de apoyo de la aplicación).
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
@@ -125,32 +125,27 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 
 ## Cómo Ejecutar la Base de Datos (MySQL)
 
-Si no usas Docker, puedes recrear la base de datos en Laragon (puerto `3307`) o MySQL estándar (puerto `3306`) ejecutando los scripts en el orden indicado. En ese caso pon en `.env` el usuario y la clave de tu MySQL:
+Con Docker, `docker compose up -d` crea la base sola. En Laragon basta con `iniciar_servidor_laragon.bat` o con cargar `backend/database/instalar_laragon.sql` en HeidiSQL (`docs/guia_laragon.md`). Con otro MySQL (puerto `3306`), se ejecutan los 11 scripts en este orden y una sola vez; luego se pone en `.env` el usuario y la clave de ese MySQL:
 
 ```powershell
-# 1. Crear base de datos y las 26 tablas
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/schema.sql"
+# schema.sql crea la base desde cero (borra una que ya exista) con las 26 tablas del diseño
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/schema.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/datos.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/boleta.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/login.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/seguridad.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/ajustes.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/auditoria.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/ingresos.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/operaciones.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/catalogo.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/api_movil.sql"
 
-# 2. Cargar datos de prueba
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/datos.sql"
-
-# 3. Ejecutar consultas y reportes de negocio
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/consultas.sql"
-
-# 4. Probar vista y emisión de boleta formateada
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/boleta.sql"
-
-# 5. Lo que agrega la aplicación PHP (en este orden): login, intentos de ingreso, ajuste por conteo y auditoría
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/login.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/seguridad.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/ajustes.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/auditoria.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/ingresos.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/operaciones.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/catalogo.sql"
+# Opcional, al final: las consultas del negocio (solo leen; usan tablas de operaciones.sql)
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/consultas.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 8 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), y `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`). Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 10 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), y `api_token` y `api_operacion` (`api_movil.sql`). En total son 36. Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 

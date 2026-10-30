@@ -1172,15 +1172,22 @@ ALTER TABLE detalle_ingreso
    Datos de ejemplo: 3 ingresos de Mass Cayma registrados por Carmen (almacenero),
    con fechas calculadas desde HOY para que siempre haya algo "por vencer".
    Cada ingreso sube el stock y deja su entrada en el kardex, igual que la aplicacion.
+   Los ingresos van DESPUES de la ultima venta de datos.sql (19/10/2026 11:30): si la
+   base se instala antes del 08/11/2026, "hoy - 20 dias" caeria antes de esas ventas
+   y el kardex quedaria con fechas que retroceden.
    --------------------------------------------------------------------- */
+
+SET @ingreso1 = GREATEST(NOW() - INTERVAL 20 DAY, TIMESTAMP '2026-10-19 12:00:00');
+SET @ingreso2 = GREATEST(NOW() - INTERVAL 10 DAY, TIMESTAMP '2026-10-19 12:10:00');
+SET @ingreso3 = GREATEST(NOW() - INTERVAL 3 DAY,  TIMESTAMP '2026-10-19 12:20:00');
 
 INSERT INTO ingreso_mercaderia (id_ingreso, fecha_hora, tipo_documento, numero_documento, fecha_documento, ruc_emisor,
                                 razon_social, total, observacion, id_tienda, id_empleado) VALUES
-    (1, NOW() - INTERVAL 20 DAY, 'GUIA', 'T001-00004521', CURDATE() - INTERVAL 20 DAY, '20456789123',
+    (1, @ingreso1, 'GUIA', 'T001-00004521', DATE(@ingreso1), '20456789123',
         'Distribuidora Arequipa Sur S.A.C.', 40.80, NULL, 1, 3),
-    (2, NOW() - INTERVAL 10 DAY, 'FACTURA', 'F001-00000877', CURDATE() - INTERVAL 10 DAY, '20456789123',
+    (2, @ingreso2, 'FACTURA', 'F001-00000877', DATE(@ingreso2), '20456789123',
         'Distribuidora Arequipa Sur S.A.C.', 304.80, 'Pedido semanal', 1, 3),
-    (3, NOW() - INTERVAL 3 DAY, 'BOLETA', 'B002-00000315', CURDATE() - INTERVAL 3 DAY, '20601234567',
+    (3, @ingreso3, 'BOLETA', 'B002-00000315', DATE(@ingreso3), '20601234567',
         'Frutas del Valle de Majes E.I.R.L.', 120.80, NULL, 1, 3);
 
 INSERT INTO detalle_ingreso (id_ingreso, id_producto, cantidad, costo_unitario, costo_total, fecha_vencimiento) VALUES
@@ -1193,21 +1200,21 @@ INSERT INTO detalle_ingreso (id_ingreso, id_producto, cantidad, costo_unitario, 
 -- Stock y kardex en el mismo orden que los ingresos (el saldo de cada movimiento es el stock despues)
 UPDATE stock SET cantidad_actual = cantidad_actual + 12 WHERE id_tienda = 1 AND id_producto = 1;
 INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_ingreso)
-    SELECT NOW() - INTERVAL 20 DAY, 12.000, cantidad_actual, 'GUIA T001-00004521', 1, 1, 8, 3, 1 FROM stock WHERE id_tienda = 1 AND id_producto = 1;
+    SELECT @ingreso1, 12.000, cantidad_actual, 'GUIA T001-00004521', 1, 1, 8, 3, 1 FROM stock WHERE id_tienda = 1 AND id_producto = 1;
 
 UPDATE stock SET cantidad_actual = cantidad_actual + 48 WHERE id_tienda = 1 AND id_producto = 1;
 INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_ingreso)
-    SELECT NOW() - INTERVAL 10 DAY, 48.000, cantidad_actual, 'FACTURA F001-00000877', 1, 1, 8, 3, 2 FROM stock WHERE id_tienda = 1 AND id_producto = 1;
+    SELECT @ingreso2, 48.000, cantidad_actual, 'FACTURA F001-00000877', 1, 1, 8, 3, 2 FROM stock WHERE id_tienda = 1 AND id_producto = 1;
 UPDATE stock SET cantidad_actual = cantidad_actual + 24 WHERE id_tienda = 1 AND id_producto = 11;
 INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_ingreso)
-    SELECT NOW() - INTERVAL 10 DAY, 24.000, cantidad_actual, 'FACTURA F001-00000877', 1, 11, 8, 3, 2 FROM stock WHERE id_tienda = 1 AND id_producto = 11;
+    SELECT @ingreso2, 24.000, cantidad_actual, 'FACTURA F001-00000877', 1, 11, 8, 3, 2 FROM stock WHERE id_tienda = 1 AND id_producto = 11;
 
 UPDATE stock SET cantidad_actual = cantidad_actual + 20 WHERE id_tienda = 1 AND id_producto = 9;
 INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_ingreso)
-    SELECT NOW() - INTERVAL 3 DAY, 20.000, cantidad_actual, 'BOLETA B002-00000315', 1, 9, 8, 3, 3 FROM stock WHERE id_tienda = 1 AND id_producto = 9;
+    SELECT @ingreso3, 20.000, cantidad_actual, 'BOLETA B002-00000315', 1, 9, 8, 3, 3 FROM stock WHERE id_tienda = 1 AND id_producto = 9;
 UPDATE stock SET cantidad_actual = cantidad_actual + 12 WHERE id_tienda = 1 AND id_producto = 11;
 INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id_tienda, id_producto, id_tipo_movimiento, id_empleado, id_ingreso)
-    SELECT NOW() - INTERVAL 3 DAY, 12.000, cantidad_actual, 'BOLETA B002-00000315', 1, 11, 8, 3, 3 FROM stock WHERE id_tienda = 1 AND id_producto = 11;
+    SELECT @ingreso3, 12.000, cantidad_actual, 'BOLETA B002-00000315', 1, 11, 8, 3, 3 FROM stock WHERE id_tienda = 1 AND id_producto = 11;
 
 
 -- >>> INICIO DE database/catalogo.sql <<<

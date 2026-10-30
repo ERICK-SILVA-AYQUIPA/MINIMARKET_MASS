@@ -4,7 +4,7 @@ Documento técnico de especificación y diccionario de datos del sistema relacio
 
 - **Motor de Base de Datos:** MySQL 8.4.11 en Docker (compatible con MySQL 8.0.16+ y Laragon, InnoDB)
 - **Codificación / Collation:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Total de tablas:** 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 5 tablas de apoyo de la aplicación (sección 5)
+- **Total de tablas:** 36: las 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 10 tablas de apoyo de la aplicación (sección 5)
 - **Objetos de programación:** 1 vista (`vw_comprobante`) y 1 procedimiento almacenado (`sp_boleta`)
 
 ---
@@ -27,13 +27,13 @@ El diseño se organiza en **7 niveles de integridad referencial**, garantizando 
 
 ## 2. Diagrama Entidad-Relación (EER)
 
-El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 5 tablas de apoyo de la aplicación (`ajuste_inventario`, `intento_login`, `auditoria`, `ingreso_mercaderia` y `detalle_ingreso`, sección 5):
+El repositorio incluye el diagrama visual de alta resolución con las 26 tablas del diseño y las 5 tablas de apoyo de la aplicación (`ajuste_inventario`, `intento_login`, `auditoria`, `ingreso_mercaderia` y `detalle_ingreso`, sección 5). La imagen no tiene las 5 que llegaron después (`devolucion_venta`, `detalle_devolucion`, `movimiento_caja`, `api_token` y `api_operacion`); el diagrama Mermaid de abajo sí tiene las 36:
 
 ![Diagrama Entidad-Relación](./diagrama-er.png)
 
 ### Diagrama ER en Notación Mermaid
 
-A continuación se presenta la definición vectorial e interactiva de las 26 entidades del diseño, más las 5 de apoyo, y sus relaciones:
+A continuación se presenta la definición vectorial e interactiva de las 26 entidades del diseño, más las 10 de apoyo, y sus relaciones:
 
 ```mermaid
 erDiagram
@@ -284,6 +284,24 @@ erDiagram
         INT id_caja_turno FK
         MEDIUMINT id_empleado FK
     }
+    api_token {
+        BIGINT id_token PK
+        CHAR token_hash UK
+        MEDIUMINT id_empleado FK
+        VARCHAR dispositivo
+        DATETIME fecha_creacion
+        DATETIME ultimo_uso
+        DATETIME fecha_expira
+        CHAR revocado
+    }
+    api_operacion {
+        BIGINT id_operacion PK
+        VARCHAR clave
+        MEDIUMINT id_empleado FK
+        VARCHAR tipo
+        DATETIME fecha_hora
+        JSON respuesta
+    }
     movimiento_stock {
         BIGINT id_movimiento PK
         SMALLINT id_tienda FK
@@ -356,6 +374,8 @@ erDiagram
     devolucion_venta ||--o{ movimiento_stock : "origen_devolucion"
     caja_turno ||--o{ movimiento_caja : "retiros_e_ingresos"
     empleado ||--o{ movimiento_caja : "mueve_efectivo"
+    empleado ||--o{ api_token : "entra_desde_la_app"
+    empleado ||--o{ api_operacion : "opera_desde_la_app"
 ```
 
 ---
@@ -627,6 +647,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `auditoria.sql` | Tabla `auditoria` | Bitácora de acciones delicadas: quién, qué, cuándo y en qué tienda |
 | `ingresos.sql` | Tablas `ingreso_mercaderia` y `detalle_ingreso`, tipo de movimiento 8, columna `movimiento_stock.id_ingreso` | Mercadería recibida con su documento, cantidades y costo |
 | `operaciones.sql` | Tablas `devolucion_venta`, `detalle_devolucion` y `movimiento_caja`, tipo de movimiento 9, columnas `movimiento_stock.id_devolucion` y `detalle_ingreso.fecha_vencimiento`, 3 ingresos de ejemplo | Devoluciones parciales, retiros e ingresos de efectivo en la caja y productos por vencer |
+| `api_movil.sql` | Tablas `api_token` y `api_operacion` | Sesiones de la app Android y respuestas guardadas para que un reintento no repita una venta o un ingreso |
 | `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
 
 #### `ajuste_inventario`
@@ -696,6 +717,26 @@ Efectivo que sale de la gaveta durante un turno (RETIRO: depósito al banco, un 
 - `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
 - `tipo` (VARCHAR(7), NOT NULL, CHECK IN ('RETIRO', 'INGRESO')), `monto` (DECIMAL(10,2), NOT NULL, CHECK > 0), `motivo` (VARCHAR(150), NOT NULL)
 - `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`), con índice; `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK): el cajero del turno (consulta 31)
+
+#### `api_token`
+La sesión de un celular con la app Android. Se guarda el SHA-256 del token, nunca el token.
+- `id_token` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `token_hash` (CHAR(64), NOT NULL, UNIQUE): SHA-256 en hexadecimal
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`), con índice
+- `dispositivo` (VARCHAR(60), NULL): modelo del celular, solo para reconocerlo
+- `fecha_creacion` y `ultimo_uso` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `fecha_expira` (DATETIME, NOT NULL, CHECK > `fecha_creacion`)
+- `revocado` (CHAR(1), NOT NULL, DEFAULT 'N', CHECK IN ('S', 'N')): S = cerró sesión
+
+#### `api_operacion`
+La respuesta de cada venta o ingreso hecho desde la app, guardada con la cabecera `Idempotency-Key`: si la red se corta y la app reintenta, el servidor devuelve la misma respuesta y no registra la operación dos veces.
+- `id_operacion` (BIGINT UNSIGNED, AUTO_INCREMENT, PK)
+- `clave` (VARCHAR(64), NOT NULL): la `Idempotency-Key` (un UUID de la app)
+- `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`)
+- `tipo` (VARCHAR(10), NOT NULL, CHECK IN ('VENTA', 'INGRESO'))
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `respuesta` (JSON, NULL): lo que se respondió la primera vez
+- UNIQUE `(id_empleado, clave)`
 
 #### Cambios a tablas existentes
 - `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E), 7 `AJUSTE DE SALIDA` (S), 8 `INGRESO DE MERCADERIA` (E) y 9 `DEVOLUCION DE VENTA` (E).
