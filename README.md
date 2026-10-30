@@ -4,7 +4,7 @@ Sistema relacional y lógica de negocio para la administración de ventas, inven
 ## Integrantes del Grupo
 - ERICK SILVA AYQUIPA
 - Alexander Emmanuel Moreno Flores
-- Suhaily Luana Huaypar Quijhua
+- Suhaily Luana Huaypar Quijhuanh
 
 
 ## Estructura del Repositorio
