@@ -6,10 +6,10 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 0. Antes de todo, `index.php` revisa la sesión: sin login manda a `?ruta=login`, y en un POST exige el token CSRF.
 1. El navegador pide `http://localhost:8000/?ruta=comprobante&serie=B001&numero=1`.
-2. `public/index.php` lee `ruta` y llama a `VentaController->comprobante('B001', '1')`.
+2. `frontend/public/index.php` lee `ruta` y llama a `VentaController->comprobante('B001', '1')`.
 3. El controlador valida la serie y el número, y le pide a `VentaRepository` la venta, su detalle y sus pagos. A los otros Repository les pide la tienda, el cajero, el cliente y los productos.
 4. Los Repository devuelven objetos (`Venta`, `DetalleVenta`, `PagoEfectivo`...), sin HTML.
-5. El controlador carga `views/ventas/comprobante.php`, que dibuja la boleta.
+5. El controlador carga `frontend/views/ventas/comprobante.php`, que dibuja la boleta.
 
 ## Pantallas
 
@@ -45,21 +45,21 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 |---|---|
 | `docker-compose.yml` | Levanta MySQL 8.4.11 en Docker en el puerto 3307. La primera vez ejecuta `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql` (columna `clave_hash` con la clave de prueba `Mass2026!` en hash), `seguridad.sql` (tabla `intento_login`), `ajustes.sql` (ajuste por conteo), `auditoria.sql` (bitácora de acciones), `ingresos.sql` (ingreso de mercadería), `operaciones.sql` (devoluciones, retiros de caja y vencimientos) y `catalogo.sql` (94 productos de ejemplo). Los datos quedan en el volumen `mysql_datos`. |
 | `.env.example` | Plantilla de la configuración. Se copia como `.env` (que no se sube) y se cambian las claves. |
-| `config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
-| `database/ingresos.sql` | Tablas `ingreso_mercaderia` (documento, emisor, total) y `detalle_ingreso` (cantidad y costo por producto), tipo de movimiento 8 y `movimiento_stock.id_ingreso` como quinto origen. |
-| `database/operaciones.sql` | Tablas `devolucion_venta` y `detalle_devolucion` (lo que el cliente devuelve, al precio de la venta), `movimiento_caja` (retiros e ingresos de efectivo del turno), tipo de movimiento 9, `movimiento_stock.id_devolucion` como sexto origen y `detalle_ingreso.fecha_vencimiento`. Trae 3 ingresos de ejemplo de Mass Cayma con fechas cercanas a hoy. **Laragon:** el kit de Laragon no lo incluye; después de `instalar_laragon.sql` hay que ejecutar también este archivo. |
-| `database/catalogo.sql` | Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más (lácteos, abarrotes, bebidas, desayuno, snacks, limpieza, cuidado personal, embutidos y huevos, frutas y verduras) de marcas reales con precios de referencia, sus 4 categorías y 55 marcas nuevas, y un primer ingreso por tienda (FACTURA de la distribuidora) que deja stock y su entrada en el kardex. Los códigos de barras son de ejemplo. **Laragon:** se ejecuta después de `operaciones.sql`. |
-| `database/catalogo_inicial.csv` | Los 94 productos en CSV (separado por `;`), el formato que lee **Importar CSV**. |
-| `database/auditoria.sql` | Tabla `auditoria`: fecha, acción, detalle, tienda y empleado de cada cambio sensible. |
-| `scripts/respaldo.ps1` / `respaldo.sh` | Sacan un respaldo completo con `mysqldump` a `respaldos/` (que no se sube) y revisan que termine bien. |
-| `scripts/restaurar.ps1` / `restaurar.sh` | Cargan un respaldo; piden escribir SI porque reemplazan todos los datos. |
-| `scripts/programar_respaldo.ps1` / `programar_respaldo.sh` | Programan el respaldo diario a las 23:00 (Programador de tareas de Windows o `crontab`), sin duplicarlo si se corren dos veces; con `-Quitar` / `quitar` lo sacan. El respaldo guarda los últimos 30. |
-| `scripts/verificar_instalacion.php` | Revisión antes de abrir la tienda (no cambia nada): PHP y extensiones, claves de `.env`, archivos que no deben estar en `public/`, usuario de MySQL, 36 tablas, hora de Lima, empleados con la clave de prueba y respaldo reciente. |
+| `backend/config/Sesion.php` | Sesión con cookie `httponly` y `SameSite=Lax`. Cambia el id al entrar, guarda el token CSRF y el aviso de una sola vez. |
+| `backend/database/ingresos.sql` | Tablas `ingreso_mercaderia` (documento, emisor, total) y `detalle_ingreso` (cantidad y costo por producto), tipo de movimiento 8 y `movimiento_stock.id_ingreso` como quinto origen. |
+| `backend/database/operaciones.sql` | Tablas `devolucion_venta` y `detalle_devolucion` (lo que el cliente devuelve, al precio de la venta), `movimiento_caja` (retiros e ingresos de efectivo del turno), tipo de movimiento 9, `movimiento_stock.id_devolucion` como sexto origen y `detalle_ingreso.fecha_vencimiento`. Trae 3 ingresos de ejemplo de Mass Cayma con fechas cercanas a hoy. **Laragon:** el kit de Laragon no lo incluye; después de `instalar_laragon.sql` hay que ejecutar también este archivo. |
+| `backend/database/catalogo.sql` | Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más (lácteos, abarrotes, bebidas, desayuno, snacks, limpieza, cuidado personal, embutidos y huevos, frutas y verduras) de marcas reales con precios de referencia, sus 4 categorías y 55 marcas nuevas, y un primer ingreso por tienda (FACTURA de la distribuidora) que deja stock y su entrada en el kardex. Los códigos de barras son de ejemplo. **Laragon:** se ejecuta después de `operaciones.sql`. |
+| `backend/database/catalogo_inicial.csv` | Los 94 productos en CSV (separado por `;`), el formato que lee **Importar CSV**. |
+| `backend/database/auditoria.sql` | Tabla `auditoria`: fecha, acción, detalle, tienda y empleado de cada cambio sensible. |
+| `backend/scripts/respaldo.ps1` / `respaldo.sh` | Sacan un respaldo completo con `mysqldump` a `respaldos/` (que no se sube) y revisan que termine bien. |
+| `backend/scripts/restaurar.ps1` / `restaurar.sh` | Cargan un respaldo; piden escribir SI porque reemplazan todos los datos. |
+| `backend/scripts/programar_respaldo.ps1` / `programar_respaldo.sh` | Programan el respaldo diario a las 23:00 (Programador de tareas de Windows o `crontab`), sin duplicarlo si se corren dos veces; con `-Quitar` / `quitar` lo sacan. El respaldo guarda los últimos 30. |
+| `backend/scripts/verificar_instalacion.php` | Revisión antes de abrir la tienda (no cambia nada): PHP y extensiones, claves de `.env`, archivos que no deben estar en `frontend/public/`, usuario de MySQL, 36 tablas, hora de Lima, empleados con la clave de prueba y respaldo reciente. |
 | `docs/propuesta_sunat_y_lector.md` | Propuesta escrita, sin código: qué falta para la boleta electrónica (proveedor PSE/OSE, tablas, envío aparte de la venta, notas de crédito) y para el lector de código de barras. |
-| `deploy/apache-mass.conf`, `deploy/nginx-mass.conf` | Configuración del servidor web con HTTPS (Let's Encrypt): la raíz es `public/`, http pasa a https y el límite de subida alcanza para el CSV del catálogo. |
-| `config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
+| `deploy/apache-mass.conf`, `deploy/nginx-mass.conf` | Configuración del servidor web con HTTPS (Let's Encrypt): la raíz es `frontend/public/`, http pasa a https y el límite de subida alcanza para el CSV del catálogo. |
+| `backend/config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
 
-## models/ (M · datos y reglas)
+## backend/models/ (M · datos y reglas)
 
 | Archivo | Qué hace |
 |---|---|
@@ -83,7 +83,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `EmpleadoRepository.php` | Lee los empleados de MySQL y, con `match`, crea un Administrador, Cajero o Almacenero según `id_rol`. |
 | `Producto.php` | Una fila de la tabla `producto`. El constructor rechaza datos que la base tampoco aceptaría (precio 0, código mal formado). Reglas: `esAlPeso()`, `estaActivo()`, `cantidadValida()` (kg con 3 decimales o unidades enteras) e `importe()` = cantidad × precio redondeado a 2. |
 | `Stock.php` | Cuánto hay de un producto en una tienda (tabla `stock`). `necesitaReponer()` es verdadero cuando lo actual llega al mínimo; `hayStock()` dice si alcanza para vender una cantidad. |
-| `FotoProducto.php` | La foto de un producto, guardada como `public/img/productos/{id}.jpg` (no en la base). `guardar()` revisa que sea una imagen de hasta 2 MB y la vuelve a dibujar con GD como JPEG de hasta 600 px; `datos()` da la dirección de la foto o, si no hay, el ícono y el color de su categoría (`icono()`, `tono()`). |
+| `FotoProducto.php` | La foto de un producto, guardada como `frontend/public/img/productos/{id}.jpg` (no en la base). `guardar()` revisa que sea una imagen de hasta 2 MB y la vuelve a dibujar con GD como JPEG de hasta 600 px; `datos()` da la dirección de la foto o, si no hay, el ícono y el color de su categoría (`icono()`, `tono()`). |
 | `ProductoRepository.php` | Lee de MySQL los productos, el stock por tienda y las unidades de medida. Busca por código o por id y devuelve `null` si no encuentra. Convierte los DECIMAL, que MySQL entrega como texto (`"4.50"`), a `float`. |
 | `Usuario.php` | Clase base `abstract` de los roles (tabla `empleado`). Guarda lo común (nombres, DNI, tienda) y por defecto niega todos los permisos. El DNI solo se muestra oculto. |
 | `Administrador.php` | Hereda de Usuario. Puede anular ventas, pero solo de su propia tienda. |
@@ -119,7 +119,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `Vencimiento.php` | Sin base de datos: reparte el stock actual entre los lotes recibidos (se vende primero lo más antiguo) y filtra los que vencen en los próximos días. |
 | `AuditoriaRepository.php` | Lee la auditoría de una tienda, filtrada por acción y paginada, con el nombre y rol de quien lo hizo. |
 
-## controllers/ (C · coordina)
+## backend/controllers/ (C · coordina)
 
 | Archivo | Qué hace |
 |---|---|
@@ -136,12 +136,12 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `PanelController.php` | Panel de inicio de la tienda del usuario: hoy contra ayer, gráfico, por reponer, por vencer, cajas abiertas y kardex reciente. También la lista para reponer (`reponer` y su CSV) para el almacenero y el administrador. |
 | `AuditoriaController.php` | Auditoría de la tienda, solo para su administrador; valida la acción pedida contra las que existen. |
 
-## views/ (V · muestra)
+## frontend/views/ (V · muestra)
 
 | Archivo | Qué hace |
 |---|---|
 | `layout_inicio.php` | Cabecera HTML y menú lateral agrupado (Ventas, Inventario, Administración) que resalta la página actual y muestra solo lo que el rol puede usar. En celular el menú se abre con el botón **Menú** (una casilla, que funciona aun sin JavaScript). Enlaza `/estilos.css` y `/app.js`, y carga `parciales/funciones.php`. |
-| `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00), `campoCsrf()` e `icono()` (dibuja un ícono de `public/iconos.svg`). La usan el layout y el ticket. |
+| `parciales/funciones.php` | Define `e()` (escapa texto con `htmlspecialchars` para evitar XSS), `soles()` (formato S/ 0.00), `campoCsrf()` e `icono()` (dibuja un ícono de `frontend/public/iconos.svg`). La usan el layout y el ticket. |
 | `layout_fin.php` | Pie de página y cierre del HTML que abrió el layout de inicio. |
 | `panel/inicio.php` | Tarjetas de indicadores, gráfico de barras en CSS (sin JavaScript) y tablas del panel. |
 | `panel/reponer.php` | Lo que llegó a su stock mínimo: cuánto hay, venta diaria, días que alcanza, cuánto pedir y qué tienda tiene sobrante para trasladar. |
@@ -182,7 +182,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `errores/404.php` | Página "No encontrado" con un mensaje fijo, que no copia nada de la URL. |
 | `errores/500.php` | Página de error cuando la base no responde (503) o algo falla (500). No muestra el detalle técnico. |
 
-## public/ (lo único que abre el navegador)
+## frontend/public/ (lo único que abre el navegador)
 
 | Archivo | Qué hace |
 |---|---|
@@ -197,14 +197,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `poo_ventas.php` | Prueba de ventas y pagos: la factura F001-1 cuadra con sus dos pagos y no con uno solo, y cinco datos inválidos se rechazan. |
 | `poo_repository.php` | Prueba del paso 3: busca un código que existe y uno que no (`null`), y lista lo que hay que reponer. |
 
-## tests/ y .github/ (revisión automática)
+## backend/tests/ y .github/ (revisión automática)
 
 | Archivo | Qué hace |
 |---|---|
-| `tests/unitarios.php` | 87 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer la lectura del CSV del catálogo y las fotos de producto (achicar, rechazar lo que no es imagen, ícono de cada categoría). |
-| `tests/seguridad.php` | 19 comprobaciones leyendo el código: los 30 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
-| `tests/web.php` | 160 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad que los paneles laterales se abran solo con un id que existe, el catálogo en tarjetas con sus filtros y subir o quitar una foto. |
-| `tests/integracion.php` | 171 comprobaciones contra MySQL: ventas, fotos de producto con su auditoría, importar el catálogo, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
+| `backend/tests/unitarios.php` | 87 comprobaciones sin base de datos: montos y cantidades enteros, paginación, regla de la clave, Producto y Stock rechazan datos inválidos, los permisos de cada rol (también devolver), las reglas del ingreso de mercadería el reparto de lotes por vencer, cuánto pedir al reponer la lectura del CSV del catálogo y las fotos de producto (achicar, rechazar lo que no es imagen, ícono de cada categoría). |
+| `backend/tests/seguridad.php` | 19 comprobaciones leyendo el código: los 30 formularios POST llevan token CSRF, las salidas de las vistas pasan por `e()`, ningún `prepare()` pega datos de afuera, `strict_types`, sin propiedades `public`, y JavaScript solo desde `/app.js` sin `innerHTML` ni `eval`. Ver `docs/seguridad.md`. |
+| `backend/tests/web.php` | 160 comprobaciones por HTTP con un `php -S` propio: qué pantalla abre cada rol, formularios de otro rol (403), token CSRF, 404, 405, validación (422), escapado de lo escrito, bloqueo del login, cabeceras de seguridad que los paneles laterales se abran solo con un id que existe, el catálogo en tarjetas con sus filtros y subir o quitar una foto. |
+| `backend/tests/integracion.php` | 171 comprobaciones contra MySQL: ventas, fotos de producto con su auditoría, importar el catálogo, anulaciones, devoluciones, utilidad, reposición, ingresos de mercadería y vencimientos, inventario, caja con retiros e ingresos, mantenimiento, reportes, auditoría, topes de las columnas y las consultas 20 a 31 en 0 filas. |
 | `.github/workflows/ci.yml` | En cada push a `main` y cada pull request: `php -l` de todos los archivos, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo. |
 
 ## Conceptos que te pueden preguntar

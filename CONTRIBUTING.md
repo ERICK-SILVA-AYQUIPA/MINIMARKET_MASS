@@ -25,8 +25,8 @@ git pull origin main
 git checkout -b feature/<tu-nombre>-<tarea>
 
 # 4. Probar
-php -S localhost:8000 -t public
-php tests/unitarios.php
+php -S localhost:8000 -t frontend/public
+php backend/tests/unitarios.php
 
 # 5. Guardar y subir solo tus archivos
 git status
@@ -50,16 +50,16 @@ Tipos de commit: `feat` (función nueva), `fix` (corrección), `docs` (documenta
 
 | Carpeta | Qué contiene |
 |---|---|
-| `config/` | Conexión a MySQL y sesión |
-| `controllers/` | Controladores web; `controllers/api/` los de la API de la app Android |
-| `models/` | Clases del negocio, repositorios, `pagos/` y `servicios/` |
-| `views/` | Pantallas por módulo, `parciales/` y `errores/` |
-| `public/` | Lo único que ve el navegador: `index.php`, `api/index.php`, CSS, JS, fuentes, fotos y las pruebas `poo_*.php` de la sesión 4 |
-| `database/` | `schema.sql` y los scripts que se ejecutan en el orden de `docker-compose.yml`; `instalar_laragon.sql` los junta todos |
-| `tests/` | Pruebas que corre la CI |
-| `scripts/` | Respaldo, restauración y revisión de la instalación |
+| `backend/config/` | Conexión a MySQL y sesión |
+| `backend/controllers/` | Controladores web; `backend/controllers/api/` los de la API de la app Android |
+| `backend/models/` | Clases del negocio, repositorios, `pagos/` y `servicios/` |
+| `frontend/views/` | Pantallas por módulo, `parciales/` y `errores/` |
+| `frontend/public/` | Lo único que ve el navegador: `index.php`, `api/index.php`, CSS, JS, fuentes, fotos y las pruebas `poo_*.php` de la sesión 4 |
+| `backend/database/` | `schema.sql` y los scripts que se ejecutan en el orden de `docker-compose.yml`; `instalar_laragon.sql` los junta todos |
+| `backend/tests/` | Pruebas que corre la CI |
+| `backend/scripts/` | Respaldo, restauración y revisión de la instalación |
 | `deploy/` | Configuración de Apache y Nginx |
 | `docs/` | Documentación; `docs/equipo/` tiene la nota de cada integrante |
 | `android-app/` | App Android (proyecto Gradle aparte) |
 
-Nunca subas `.env` (tiene claves) ni fotos de `public/img/productos/`: ya están en `.gitignore`.
+Nunca subas `.env` (tiene claves) ni fotos de `frontend/public/img/productos/`: ya están en `.gitignore`.

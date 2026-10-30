@@ -2,10 +2,10 @@
 
 La app del celular (`android-app/`) no se conecta a MySQL. Llama a esta API, que corre en el mismo PHP y la misma base que la web, y usa los mismos servicios (`VentaServicio`, `InventarioServicio`, `CajaServicio`). Ninguna regla de negocio está copiada: una venta por la API pasa por exactamente el mismo código que una venta en la web.
 
-- Punto de entrada: `public/api/index.php`. Con `php -S localhost:8000 -t public` la base es `http://localhost:8000/api/v1/`.
+- Punto de entrada: `frontend/public/api/index.php`. Con `php -S localhost:8000 -t frontend/public` la base es `http://localhost:8000/api/v1/`.
 - En producción, nginx (`try_files $uri /api/index.php`) y Apache (`FallbackResource` y `CGIPassAuth On`, para que llegue la cabecera `Authorization`) ya están configurados en `deploy/`.
-- Tablas propias: `api_token` y `api_operacion` (`database/api_movil.sql`, 36 tablas en total). Una base creada antes necesita correr ese archivo una vez.
-- Pruebas: `php tests/api.php` (levanta su propio servidor en el puerto 8097; usar con la base recién creada).
+- Tablas propias: `api_token` y `api_operacion` (`backend/database/api_movil.sql`, 36 tablas en total). Una base creada antes necesita correr ese archivo una vez.
+- Pruebas: `php backend/tests/api.php` (levanta su propio servidor en el puerto 8097; usar con la base recién creada).
 
 ## Formato
 

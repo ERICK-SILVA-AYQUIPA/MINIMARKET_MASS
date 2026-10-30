@@ -11,57 +11,57 @@ Cambia `<nombre>` por tu nombre en minúsculas y sin tildes (por ejemplo `gerald
 ```powershell
 git checkout main
 git pull
-php -S localhost:8000 -t public   # en otra terminal, para probar
+php -S localhost:8000 -t frontend/public   # en otra terminal, para probar
 ```
 
 ## Integrante 1 · Paso 1 · Modelo
 
-Archivos: `models/Producto.php`, `models/Stock.php`, `public/poo_producto.php`
+Archivos: `backend/models/Producto.php`, `backend/models/Stock.php`, `frontend/public/poo_producto.php`
 
 ```powershell
 git checkout -b feature/<nombre>-modelo
 # ... editar y probar en http://localhost:8000/poo_producto.php
 git status
-git add models/Producto.php models/Stock.php public/poo_producto.php docs/bitacora_ia.md
+git add backend/models/Producto.php backend/models/Stock.php frontend/public/poo_producto.php docs/bitacora_ia.md
 git commit -m "feat: revisar clase Producto y Stock"
 git push -u origin feature/<nombre>-modelo
 ```
 
 ## Integrante 2 · Paso 2 · Roles y herencia
 
-Archivos: `models/Usuario.php`, `models/Administrador.php`, `models/Cajero.php`, `models/Almacenero.php`, `public/poo_roles.php`
+Archivos: `backend/models/Usuario.php`, `backend/models/Administrador.php`, `backend/models/Cajero.php`, `backend/models/Almacenero.php`, `frontend/public/poo_roles.php`
 
 ```powershell
 git checkout -b feature/<nombre>-roles
 # ... editar y probar en http://localhost:8000/poo_roles.php
 git status
-git add models/Usuario.php models/Administrador.php models/Cajero.php models/Almacenero.php public/poo_roles.php docs/bitacora_ia.md
+git add backend/models/Usuario.php backend/models/Administrador.php backend/models/Cajero.php backend/models/Almacenero.php frontend/public/poo_roles.php docs/bitacora_ia.md
 git commit -m "feat: revisar roles con herencia"
 git push -u origin feature/<nombre>-roles
 ```
 
 ## Integrante 3 · Pasos 3 y 4 · Repository y controlador
 
-Archivos: `models/ProductoRepository.php`, `controllers/ProductoController.php`, `public/poo_repository.php`
+Archivos: `backend/models/ProductoRepository.php`, `backend/controllers/ProductoController.php`, `frontend/public/poo_repository.php`
 
 ```powershell
 git checkout -b feature/<nombre>-repository
 # ... editar y probar en http://localhost:8000/poo_repository.php
 git status
-git add models/ProductoRepository.php controllers/ProductoController.php public/poo_repository.php docs/bitacora_ia.md
+git add backend/models/ProductoRepository.php backend/controllers/ProductoController.php frontend/public/poo_repository.php docs/bitacora_ia.md
 git commit -m "feat: revisar Repository y controlador"
 git push -u origin feature/<nombre>-repository
 ```
 
 ## Integrante 4 · Pasos 5 y 6 · Vistas e index
 
-Archivos: `views/layout_inicio.php`, `views/layout_fin.php`, `views/productos/lista.php`, `views/productos/detalle.php`, `views/errores/404.php`, `public/index.php`
+Archivos: `frontend/views/layout_inicio.php`, `frontend/views/layout_fin.php`, `frontend/views/productos/lista.php`, `frontend/views/productos/detalle.php`, `frontend/views/errores/404.php`, `frontend/public/index.php`
 
 ```powershell
 git checkout -b feature/<nombre>-vista
 # ... editar y probar en http://localhost:8000 y http://localhost:8000/?ruta=xyz
 git status
-git add views/layout_inicio.php views/layout_fin.php views/productos/lista.php views/productos/detalle.php views/errores/404.php public/index.php docs/bitacora_ia.md
+git add frontend/views/layout_inicio.php frontend/views/layout_fin.php frontend/views/productos/lista.php frontend/views/productos/detalle.php frontend/views/errores/404.php frontend/public/index.php docs/bitacora_ia.md
 git commit -m "feat: revisar vistas y punto de entrada"
 git push -u origin feature/<nombre>-vista
 ```

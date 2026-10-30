@@ -9,7 +9,7 @@ Al pasar de listas fijas a MySQL, los controladores y las vistas no cambiaron: e
 php -v                                  # PHP 8.3...
 copy .env.example .env                  # solo la primera vez; cambia las claves
 docker compose up -d                    # MySQL 8.4.11 con schema.sql, datos.sql y boleta.sql
-php -S localhost:8000 -t public         # déjalo abierto
+php -S localhost:8000 -t frontend/public         # déjalo abierto
 ```
 
 | URL | Qué muestra |
@@ -25,7 +25,7 @@ php -S localhost:8000 -t public         # déjalo abierto
 | http://localhost:8000/?ruta=tiendas | Las 3 tiendas con cajas, series y personal |
 | /poo_producto.php · /poo_roles.php · /poo_repository.php · /poo_ventas.php | Páginas de prueba |
 
-Pruebas: `php tests/unitarios.php` (sin base), `php tests/seguridad.php` (revisión del código), `php tests/web.php` (por HTTP, sin cambiar datos) y `php tests/integracion.php` (con la base recién creada). En GitHub las corre `.github/workflows/ci.yml` en cada pull request.
+Pruebas: `php backend/tests/unitarios.php` (sin base), `php backend/tests/seguridad.php` (revisión del código), `php backend/tests/web.php` (por HTTP, sin cambiar datos) y `php backend/tests/integracion.php` (con la base recién creada). En GitHub las corre `.github/workflows/ci.yml` en cada pull request.
 
 La lista completa de archivos está en `docs/explicacion_archivos.md`.
 
@@ -33,8 +33,8 @@ La lista completa de archivos está en `docs/explicacion_archivos.md`.
 
 ```
 MinimarketMass/
-├── controllers/ProductoController.php  C: valida la entrada, llama al Repository y elige la vista
-├── models/
+├── backend/controllers/ProductoController.php  C: valida la entrada, llama al Repository y elige la vista
+├── backend/models/
 │   ├── Producto.php                    M: tabla producto + reglas (al peso, importe, estado)
 │   ├── Stock.php                       M: tabla stock + regla REPONER (cantidad_actual <= stock_minimo)
 │   ├── ProductoRepository.php          M: de dónde salen los datos (MySQL con PDO)
@@ -42,12 +42,12 @@ MinimarketMass/
 │   ├── Administrador.php               id_rol 1: anula ventas de su tienda
 │   ├── Cajero.php                      id_rol 2: vende
 │   └── Almacenero.php                  id_rol 3: ingresos, traslados, mermas y conteo
-├── views/
+├── frontend/views/
 │   ├── layout_inicio.php / layout_fin.php   cabecera, estilos y e() = htmlspecialchars
 │   ├── productos/lista.php · productos/detalle.php
 │   └── errores/404.php
-├── public/index.php                    único punto de entrada (switch de rutas + 404)
-├── database/                           schema.sql, datos.sql, consultas.sql, boleta.sql (sesión 3, sin cambios)
+├── frontend/public/index.php                    único punto de entrada (switch de rutas + 404)
+├── backend/database/                           schema.sql, datos.sql, consultas.sql, boleta.sql (sesión 3, sin cambios)
 └── docs/bitacora_ia.md
 ```
 
@@ -63,17 +63,17 @@ MinimarketMass/
 
 | Integrante | Pasos | Rama | Archivos | Commit sugerido |
 |---|---|---|---|---|
-| 1 | 1 · Modelo | `feature/<nombre>-modelo` | models/Producto.php, models/Stock.php, public/poo_producto.php | `feat: clase Producto y Stock con reglas de peso, importe y reposicion` |
-| 2 | 2 · Roles | `feature/<nombre>-roles` | models/Usuario.php, Administrador.php, Cajero.php, Almacenero.php, public/poo_roles.php | `feat: roles con herencia desde Usuario y permisos por rol` |
-| 3 | 3 y 4 · Repository y controlador | `feature/<nombre>-repository` | models/ProductoRepository.php, controllers/ProductoController.php, public/poo_repository.php | `feat: ProductoRepository con datos de prueba y ProductoController` |
-| 4 | 5 y 6 · Vista e index | `feature/<nombre>-vista` | views/, public/index.php | `feat: vistas del catalogo, ficha, 404 y punto de entrada` |
+| 1 | 1 · Modelo | `feature/<nombre>-modelo` | backend/models/Producto.php, backend/models/Stock.php, frontend/public/poo_producto.php | `feat: clase Producto y Stock con reglas de peso, importe y reposicion` |
+| 2 | 2 · Roles | `feature/<nombre>-roles` | backend/models/Usuario.php, Administrador.php, Cajero.php, Almacenero.php, frontend/public/poo_roles.php | `feat: roles con herencia desde Usuario y permisos por rol` |
+| 3 | 3 y 4 · Repository y controlador | `feature/<nombre>-repository` | backend/models/ProductoRepository.php, backend/controllers/ProductoController.php, frontend/public/poo_repository.php | `feat: ProductoRepository con datos de prueba y ProductoController` |
+| 4 | 5 y 6 · Vista e index | `feature/<nombre>-vista` | frontend/views/, frontend/public/index.php | `feat: vistas del catalogo, ficha, 404 y punto de entrada` |
 
 Cada uno, desde `main` actualizado:
 
 ```powershell
 git pull
 git switch -c feature/<nombre>-modelo
-git add models/Producto.php models/Stock.php public/poo_producto.php
+git add backend/models/Producto.php backend/models/Stock.php frontend/public/poo_producto.php
 git commit -m "feat: clase Producto y Stock con reglas de peso, importe y reposicion"
 git push -u origin feature/<nombre>-modelo
 ```
@@ -99,4 +99,4 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Un monto o una cantidad que no cabe en su columna (DECIMAL(10,2) o DECIMAL(10,3)) se rechaza con un mensaje, en vez de un error de MySQL.
 - El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula.
 - Las acciones sensibles (anular, cambiar precios, personal, claves, tiendas, cajas e ingresos de mercadería) quedan en la tabla `auditoria`, dentro de la misma transacción; el administrador la ve en `?ruta=auditoria`.
-- `tests/seguridad.php` revisa todo el código en cada push: que los 28 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.
+- `backend/tests/seguridad.php` revisa todo el código en cada push: que los 28 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.

@@ -34,28 +34,28 @@ Abrir `.env` y cambiar **las dos claves** (`DB_PASSWORD` y `DB_ROOT_PASSWORD`). 
 ```powershell
 docker compose up -d          # crea la base y corre los 10 scripts en orden
 docker compose ps             # esperar a que diga "healthy"
-php -S localhost:8000 -t public
+php -S localhost:8000 -t frontend/public
 ```
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba (ver `docs/manual_usuario.md`).
 
-Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql`, `operaciones.sql` y `catalogo.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
+Los scripts de `backend/database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql`, `operaciones.sql` y `catalogo.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
 
 ## 4. Opción B: MySQL sin Docker (Laragon)
 
 Ejecutar los mismos scripts, en el mismo orden, con el usuario root de su MySQL:
 
 ```powershell
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/schema.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/datos.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/boleta.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/login.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/seguridad.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/ajustes.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/auditoria.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/ingresos.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/operaciones.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < database/catalogo.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/schema.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/datos.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/boleta.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/login.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/seguridad.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/ajustes.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/auditoria.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/ingresos.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/operaciones.sql
+mysql -u root -p -h 127.0.0.1 -P 3306 < backend/database/catalogo.sql
 ```
 
 Luego crear el usuario de la aplicación con solo los permisos que necesita (no root):
@@ -73,11 +73,11 @@ y poner en `.env` `DB_PORT=3306` y esa clave.
 
 **Reglas que no cambian:**
 
-- **La raíz del sitio es la carpeta `public/`**, nunca la carpeta del proyecto. Así nadie puede descargar `.env`, `config/`, `database/` ni `respaldos/`.
-- **HTTPS obligatorio**: sin él, la clave y la cookie de sesión viajan sin cifrar. Con HTTPS la cookie se marca `Secure` sola (`config/Sesion.php`) y la aplicación envía `Strict-Transport-Security`, así el navegador ya no vuelve a abrir el sitio sin cifrar.
+- **La raíz del sitio es la carpeta `frontend/public/`**, nunca la carpeta del proyecto. Así nadie puede descargar `.env`, `backend/config/`, `backend/database/` ni `respaldos/`.
+- **HTTPS obligatorio**: sin él, la clave y la cookie de sesión viajan sin cifrar. Con HTTPS la cookie se marca `Secure` sola (`backend/config/Sesion.php`) y la aplicación envía `Strict-Transport-Security`, así el navegador ya no vuelve a abrir el sitio sin cifrar.
 - **MySQL no queda abierto a internet**: `docker-compose.yml` publica el puerto solo en `127.0.0.1`. El firewall abre solo 22, 80 y 443.
 - En el `php.ini` del servidor web: `display_errors = Off`, `log_errors = On`, `upload_max_filesize = 2M` y `post_max_size = 8M` (para importar el catálogo).
-- La hora es la de Lima: PHP la fija en `public/index.php` y MySQL en `docker-compose.yml` (`TZ: America/Lima`). Si MySQL no está en Docker, ponerle la misma zona.
+- La hora es la de Lima: PHP la fija en `frontend/public/index.php` y MySQL en `docker-compose.yml` (`TZ: America/Lima`). Si MySQL no está en Docker, ponerle la misma zona.
 
 **Paso a paso (Ubuntu 24.04, con Nginx):**
 
@@ -92,7 +92,7 @@ cd /var/www/minimarket_mass
 sudo cp .env.example .env && sudo nano .env        # claves largas y distintas
 sudo chown root:www-data .env && sudo chmod 640 .env
 sudo docker compose up -d                           # esperar "healthy" con: sudo docker compose ps
-sudo chown www-data public/img/productos           # PHP guarda aquí las fotos de producto
+sudo chown www-data frontend/public/img/productos           # PHP guarda aquí las fotos de producto
 
 # 3. Sitio con HTTPS (antes, apuntar el dominio a la IP del servidor)
 sudo cp deploy/nginx-mass.conf /etc/nginx/sites-available/mass    # cambiar mass.ejemplo.pe por el dominio
@@ -101,8 +101,8 @@ sudo certbot --nginx -d mass.ejemplo.pe             # crea el certificado y lo r
 sudo nginx -t && sudo systemctl reload nginx
 
 # 4. Revisar y programar el respaldo
-php scripts/verificar_instalacion.php
-sudo bash scripts/programar_respaldo.sh
+php backend/scripts/verificar_instalacion.php
+sudo bash backend/scripts/programar_respaldo.sh
 ```
 
 Con Apache es igual, pero en el paso 3 se usa `deploy/apache-mass.conf` (`sudo a2enmod ssl headers rewrite`, `sudo a2ensite mass` y `sudo certbot --apache -d mass.ejemplo.pe`).
@@ -116,22 +116,22 @@ Con Apache es igual, pero en el paso 3 se usa `deploy/apache-mass.conf` (`sudo a
 5. Correr la revisión de la instalación. No cambia nada; dice qué falta corregir:
 
 ```bash
-php scripts/verificar_instalacion.php
+php backend/scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean las de ejemplo, que `public/` no tenga archivos que no deben descargarse, que la aplicación no entre a MySQL como root, las 36 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina en `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga archivos que no deben descargarse, que la aplicación no entre a MySQL como root, las 36 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina en `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque la clave de prueba.
 
 ## 7. Respaldo y restauración
 
 | | Windows (PowerShell) | Linux / macOS |
 |---|---|---|
-| Sacar respaldo | `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` | `bash scripts/respaldo.sh` |
-| Programar el diario (23:00) | `powershell -ExecutionPolicy Bypass -File scripts\programar_respaldo.ps1` | `bash scripts/programar_respaldo.sh` |
-| Quitar el diario | `... programar_respaldo.ps1 -Quitar` | `bash scripts/programar_respaldo.sh quitar` |
-| Restaurar | `powershell -ExecutionPolicy Bypass -File scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash scripts/restaurar.sh respaldos/ARCHIVO.sql` |
+| Sacar respaldo | `powershell -ExecutionPolicy Bypass -File backend\scripts\respaldo.ps1` | `bash backend/scripts/respaldo.sh` |
+| Programar el diario (23:00) | `powershell -ExecutionPolicy Bypass -File backend\scripts\programar_respaldo.ps1` | `bash backend/scripts/programar_respaldo.sh` |
+| Quitar el diario | `... programar_respaldo.ps1 -Quitar` | `bash backend/scripts/programar_respaldo.sh quitar` |
+| Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash backend/scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
 - El respaldo guarda todo: las 36 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
-- Las **fotos de producto** no van en la base: están en `public/img/productos/`. Copiar esa carpeta junto con el respaldo (por ejemplo, comprimida en el mismo disco o nube) y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
+- Las **fotos de producto** no van en la base: están en `frontend/public/img/productos/`. Copiar esa carpeta junto con el respaldo (por ejemplo, comprimida en el mismo disco o nube) y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo, sin detenerla.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
 - **Se guardan los últimos 30 respaldos** (un mes si es diario); cada respaldo nuevo borra los más antiguos.
@@ -143,23 +143,23 @@ Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean la
 ## 8. Actualizar a una versión nueva
 
 ```powershell
-bash scripts/respaldo.sh        # o respaldo.ps1: siempre respaldar antes
+bash backend/scripts/respaldo.sh        # o respaldo.ps1: siempre respaldar antes
 git pull origin main
 ```
 
-Si la versión nueva trae un script nuevo en `database/` (por ejemplo `ingresos.sql`), hay dos caminos:
+Si la versión nueva trae un script nuevo en `backend/database/` (por ejemplo `ingresos.sql`), hay dos caminos:
 
 - **Aula, sin datos que cuidar**: `docker compose down -v` y `docker compose up -d` (se vuelve a crear todo).
 - **Con datos reales**: ejecutar solo el script nuevo sobre la base que ya existe:
-  `docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < database/ingresos.sql`
+  `docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < backend/database/ingresos.sql`
 
 ## 9. Comprobar que todo funciona
 
 ```powershell
-php tests/unitarios.php     # 87, sin base de datos
-php tests/seguridad.php     # 19, revisa CSRF, escapado, SQL y JavaScript en todo el código
-php tests/web.php           # 160, por HTTP con los 3 roles; solo deja en la auditoría la foto de prueba que sube y quita
-php tests/integracion.php   # 171, contra MySQL; solo con la base recién creada (cambia datos)
+php backend/tests/unitarios.php     # 87, sin base de datos
+php backend/tests/seguridad.php     # 19, revisa CSRF, escapado, SQL y JavaScript en todo el código
+php backend/tests/web.php           # 160, por HTTP con los 3 roles; solo deja en la auditoría la foto de prueba que sube y quita
+php backend/tests/integracion.php   # 171, contra MySQL; solo con la base recién creada (cambia datos)
 ```
 
 En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
@@ -173,7 +173,7 @@ En GitHub corren solas en cada push (`.github/workflows/ci.yml`).
 | El puerto 3307 está ocupado | Laragon u otro MySQL lo usa: detenerlo o cambiar `DB_PORT` a `3308` |
 | "could not find driver" | PHP sin `pdo_mysql`: activar `extension=pdo_mysql` en `php.ini` |
 | Al subir una foto: "Call to undefined function imagecreatefromstring" | PHP sin `gd`: activar `extension=gd` en `php.ini` (o `apt install php8.3-gd`) y reiniciar el servidor web |
-| "No se pudo guardar la foto" | PHP no puede escribir en `public/img/productos/`: darle permiso al usuario del servidor web |
+| "No se pudo guardar la foto" | PHP no puede escribir en `frontend/public/img/productos/`: darle permiso al usuario del servidor web |
 | Falta una tabla (por ejemplo `ingreso_mercaderia`) | El volumen se creó con una versión anterior: ver sección 8 |
 | "Demasiados intentos fallidos" al entrar | 5 claves erradas seguidas con ese DNI (o 20 desde la misma PC). Esperar, o en el aula `docker compose down -v` |
 | La hora de las ventas está corrida 5 horas | MySQL sin `TZ: America/Lima` (ver sección 5) |

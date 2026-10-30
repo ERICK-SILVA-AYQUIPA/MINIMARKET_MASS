@@ -40,7 +40,7 @@ Para un minimarket con 3 tiendas, el camino **A** es el más realista. El códig
 
 ### 2.3 Cambios en el sistema (camino A)
 
-**Base de datos** (un script nuevo, por ejemplo `database/sunat.sql`):
+**Base de datos** (un script nuevo, por ejemplo `backend/database/sunat.sql`):
 
 - Tabla `comprobante_electronico`:
   - Columnas: `id_venta`, `tipo` (`BOLETA`, `FACTURA`, `NOTA_CREDITO`, `BAJA`), `estado` (`PENDIENTE`, `ACEPTADO`, `OBSERVADO`, `RECHAZADO`), `hash`, `enlace_pdf`, `codigo_respuesta`, `mensaje_respuesta`, `intentos`, `fecha_envio`, `fecha_respuesta`.
@@ -57,7 +57,7 @@ Para un minimarket con 3 tiendas, el camino **A** es el más realista. El códig
    - Arma el JSON de la venta (cabecera, detalle con IGV 18 % incluido en el precio, total en letras y pagos).
    - Lo envía con `curl`, con tiempo límite.
    - Guarda la respuesta del proveedor.
-3. Un **script programado** cada 5 minutos, igual que el respaldo (`scripts/enviar_sunat.php`):
+3. Un **script programado** cada 5 minutos, igual que el respaldo (`backend/scripts/enviar_sunat.php`):
    - Reintenta los comprobantes `PENDIENTE`.
    - Avisa en el inicio del administrador si alguno quedó `RECHAZADO`.
 4. **Ticket:**
@@ -104,13 +104,13 @@ El catálogo ya está listo para esto:
 
 1. **Nueva venta (hecho):**
    - Un campo "Escanear código" arriba de la lista de productos, con el cursor puesto ahí al abrir la pantalla.
-   - En `views/parciales/lineas_producto.php`, cada `<option>` gana `data-codigo="..."`.
-   - En `public/app.js`, al recibir Enter en ese campo:
+   - En `frontend/views/parciales/lineas_producto.php`, cada `<option>` gana `data-codigo="..."`.
+   - En `frontend/public/js/app.js`, al recibir Enter en ese campo:
      - Busca la opción con ese código.
      - Si el producto ya está en una fila, suma 1 a la cantidad. Si no, lo pone en la primera fila vacía.
      - Limpia el campo y deja el cursor ahí para el siguiente producto.
      - Si el código no existe, muestra un aviso rojo con el código leído (sin sonido por ahora).
-     - Con `textContent`, sin `innerHTML`, como pide `tests/seguridad.php`.
+     - Con `textContent`, sin `innerHTML`, como pide `backend/tests/seguridad.php`.
    - El Enter del lector **no** debe enviar el formulario: se ataja con `preventDefault` solo en ese campo.
 2. **Sin JavaScript** sigue funcionando: el cajero elige en la lista como hoy, y el servidor sigue validando todo en `VentaServicio`.
 3. **Ingreso de mercadería, traslado, merma y conteo (falta):** el mismo campo, para que el almacenero escanee al recibir. El conteo físico es donde más tiempo ahorra.
