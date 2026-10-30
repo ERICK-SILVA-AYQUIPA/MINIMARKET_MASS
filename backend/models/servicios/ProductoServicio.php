@@ -24,26 +24,59 @@ class ProductoServicio extends Servicio
         $porPeso = ($datos['por_peso'] ?? '') === 'S' ? 'S' : 'N';
         $campos = $this->leerDatos($datos, $porPeso);
 
-        return $this->enTransaccion(function () use ($admin, $campos, $porPeso): int {
-            try {
-                $this->db->prepare(
-                    'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
-                                           id_categoria, id_marca, id_unidad)
-                     VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad)'
-                )->execute($campos + ['peso' => $porPeso]);
-            } catch (PDOException $ex) {
-                throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
-            }
-            $id = (int) $this->db->lastInsertId();
+        return $this->enTransaccion(fn(): int => $this->insertarProducto($admin, $campos, $porPeso, ''));
+    }
 
-            // Asi el producto aparece en el stock de cada tienda desde el primer dia
-            $this->db->prepare(
-                'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo)
-                 SELECT id_tienda, :producto, 0, 0 FROM tienda'
-            )->execute(['producto' => $id]);
-            $this->auditar($admin, 'PRODUCTO_CREADO', sprintf('%d %s a S/ %s', $id, $campos['nombre'], $campos['precio']));
-            return $id;
+    /**
+     * Producto nuevo desde el escaner de la app: llego mercaderia con un codigo que aun no esta en el catalogo.
+     * Lo hacen el almacenero y el administrador. Siempre por unidad y con el codigo leido.
+     * La marca se elige de la lista (marca) o se escribe (marca_nombre): si no existe, se crea.
+     * @param array{nombre?: string, codigo?: string, precio?: string, categoria?: string, marca?: string, marca_nombre?: string, unidad?: string} $datos
+     */
+    public function crearAlEscanear(Usuario $usuario, array $datos): int
+    {
+        if (!$usuario->puedeCrearProducto()) {
+            throw new ReglaNegocioException('Solo el almacenero o el administrador registran un producto nuevo.');
+        }
+        if (trim((string) ($datos['codigo'] ?? '')) === '') {
+            throw new ReglaNegocioException('Escanea el código de barras del producto.');
+        }
+
+        return $this->enTransaccion(function () use ($usuario, $datos): int {
+            $marcaNombre = trim((string) ($datos['marca_nombre'] ?? ''));
+            if (trim((string) ($datos['marca'] ?? '')) === '' && $marcaNombre !== '') {
+                $creadas = [];
+                $datos['marca'] = (string) $this->idPorNombre(true, $marcaNombre, $creadas);
+                if ($creadas !== []) {
+                    $this->auditar($usuario, 'MARCA_CREADA', $datos['marca'] . ' ' . $creadas[0] . ' (app)');
+                }
+            }
+            $campos = $this->leerDatos($datos, 'N');
+            return $this->insertarProducto($usuario, $campos, 'N', ' (app)');
         });
+    }
+
+    // Crea un producto ACTIVO y su fila de stock (en 0) en cada tienda. Va dentro de una transaccion.
+    private function insertarProducto(Usuario $usuario, array $campos, string $porPeso, string $origen): int
+    {
+        try {
+            $this->db->prepare(
+                'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
+                                       id_categoria, id_marca, id_unidad)
+                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad)'
+            )->execute($campos + ['peso' => $porPeso]);
+        } catch (PDOException $ex) {
+            throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
+        }
+        $id = (int) $this->db->lastInsertId();
+
+        // Asi el producto aparece en el stock de cada tienda desde el primer dia
+        $this->db->prepare(
+            'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo)
+             SELECT id_tienda, :producto, 0, 0 FROM tienda'
+        )->execute(['producto' => $id]);
+        $this->auditar($usuario, 'PRODUCTO_CREADO', sprintf('%d %s a S/ %s%s', $id, $campos['nombre'], $campos['precio'], $origen));
+        return $id;
     }
 
     /**

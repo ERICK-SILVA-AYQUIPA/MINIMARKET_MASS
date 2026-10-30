@@ -170,8 +170,6 @@ rechaza('El mismo documento dos veces', fn() => $inventario->registrarIngreso($c
     [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
 rechaza('Un cajero no registra ingresos', fn() => $inventario->registrarIngreso($luis, ['numero' => 'F001-1'] + $documento,
     [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
-rechaza('El administrador tampoco: lo revisa', fn() => $inventario->registrarIngreso($rosa, ['numero' => 'F001-2'] + $documento,
-    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
 rechaza('RUC de 10 dígitos', fn() => $inventario->registrarIngreso($carmen, ['ruc' => '2010005523', 'numero' => 'F001-3'] + $documento,
     [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.60']]));
 rechaza('Fecha del documento futura', fn() => $inventario->registrarIngreso($carmen,
@@ -196,6 +194,11 @@ revisar('IngresoRepository devuelve la cabecera y su detalle', $ingresosRepo->co
     && $ingresosRepo->pagina(1, 25, 0)[0]->documento() === 'FACTURA F001-00012345'
     && count($detalle) === 2 && $detalle[1]->getCostoTotal() === 20.48
     && $detalle[0]->getFechaVencimiento() === null && $detalle[1]->getFechaVencimiento() === date('Y-m-d', strtotime('+5 days')));
+
+$fideosAntes = $stock(1, 2);
+$idIngresoAdmin = $inventario->registrarIngreso($rosa, ['numero' => 'F001-2'] + $documento, [['id_producto' => '2', 'cantidad' => '2', 'costo' => '2.10']]);
+revisar('El administrador también recibe mercadería de su tienda', $idIngresoAdmin > 0
+    && $stock(1, 2) === number_format((float) $fideosAntes + 2, 3, '.', ''));
 
 echo "Por vencer\n";
 $lotes = $ingresosRepo->lotesConVencimiento(1);
@@ -291,6 +294,25 @@ rechaza('Producto por unidad sin código', fn() => $catalogo->crear($rosa, ['cod
 rechaza('Producto al peso que no usa kg', fn() => $catalogo->crear($rosa, ['por_peso' => 'S', 'codigo' => ''] + $producto));
 rechaza('Precio 0', fn() => $catalogo->crear($rosa, ['precio' => '0', 'codigo' => '7750000000110'] + $producto));
 rechaza('Un cajero no cambia el catálogo', fn() => $catalogo->crear($luis, ['codigo' => '7750000000127'] + $producto));
+rechaza('El almacenero no usa el formulario del catálogo de la web', fn() => $catalogo->crear($carmen, ['codigo' => '7750000000134'] + $producto));
+$escaneado = ['nombre' => 'Chifles Inka Chips 150 g', 'codigo' => '7750000000141', 'precio' => '5.20', 'categoria' => '1',
+    'marca' => '', 'marca_nombre' => 'Marca Escaneada Prueba', 'unidad' => '1'];
+$idEscaneado = $catalogo->crearAlEscanear($carmen, $escaneado);
+revisar("Carmen registra al escanear el producto $idEscaneado, con stock 0 en las 3 tiendas",
+    valor($db, 'SELECT COUNT(*) FROM stock WHERE id_producto = ? AND cantidad_actual = 0', [$idEscaneado]) === '3');
+revisar('...con la marca nueva que escribió y siempre por unidad', valor($db,
+    'SELECT CONCAT(m.nombre_marca, \'/\', p.se_vende_por_peso) FROM producto p JOIN marca m ON m.id_marca = p.id_marca WHERE p.id_producto = ?',
+    [$idEscaneado]) === 'Marca Escaneada Prueba/N');
+revisar('...y la auditoría dice quién y que fue desde la app', (int) valor($db,
+    "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRODUCTO_CREADO' AND id_empleado = 3 AND detalle LIKE ?", ["$idEscaneado %(app)"]) === 1);
+$otraMarca = (int) valor($db, 'SELECT COUNT(*) FROM marca');
+$catalogo->crearAlEscanear($rosa, ['codigo' => '7750000000158', 'nombre' => 'Chifles salados 80 g', 'marca_nombre' => 'marca escaneada prueba'] + $escaneado);
+revisar('Una marca escrita que ya existe (sin importar mayúsculas) no se repite', (int) valor($db, 'SELECT COUNT(*) FROM marca') === $otraMarca);
+rechaza('Al escanear, el código es obligatorio', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => ''] + $escaneado));
+rechaza('Al escanear, un código que ya existe', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000011'] + $escaneado));
+rechaza('Al escanear, no se usa la unidad kg', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000165',
+    'unidad' => valor($db, "SELECT id_unidad FROM unidad_medida WHERE abreviatura = 'kg'")] + $escaneado));
+rechaza('Un cajero no registra productos al escanear', fn() => $catalogo->crearAlEscanear($luis, ['codigo' => '7750000000172'] + $escaneado));
 $catalogo->editar($rosa, 1, [
     'nombre' => 'Leche evaporada Gloria entera 400 g', 'codigo' => '7750000000011', 'precio' => '4.80',
     'categoria' => '2', 'marca' => '1', 'unidad' => '1',

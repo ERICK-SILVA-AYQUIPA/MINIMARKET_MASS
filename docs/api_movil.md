@@ -27,6 +27,7 @@ Un `POST` lleva `Content-Type: application/json` y como máximo 256 KB. Las resp
 | 404 | `NO_ENCONTRADO`, `RUTA_DESCONOCIDA` | Producto, código, venta o ruta que no existe |
 | 405 | `METODO_NO_PERMITIDO` | Verbo equivocado (lleva la cabecera `Allow`) |
 | 409 | `PRECIO_CAMBIO` | El total que vio la app ya no es el del servidor |
+| 409 | `YA_EXISTE` | Producto nuevo con un código que ya está en el catálogo (otro celular lo registró antes, o es un reintento). La app lo vuelve a buscar por código |
 | 413 / 415 | `MUY_GRANDE` / `TIPO_NO_SOPORTADO` | Cuerpo de más de 256 KB, o no es JSON |
 | 422 | `REGLA_NEGOCIO` | Lo rechazó una regla del sistema (stock, turno, cantidades, documento, Idempotency-Key...) con el mismo mensaje que la web |
 | 429 | `BLOQUEADO` | Demasiados intentos de ingreso fallidos (el mismo bloqueo que la web) |
@@ -46,7 +47,7 @@ El token se manda en cada pedido como `Authorization: Bearer <token>`. Vence a l
 |---|---|
 | `GET v1/salud` | Sin token. Para probar la dirección del servidor desde la app |
 | `POST v1/auth/logout` | Revoca el token |
-| `GET v1/auth/yo` | Perfil: nombre, rol, tienda, DNI enmascarado y `permisos` (`vender`, `manejar_caja`, `registrar_ingreso`, `ver_ingresos`, `anular_venta`, `ver_inventario`, `ver_ventas`) |
+| `GET v1/auth/yo` | Perfil: nombre, rol, tienda, DNI enmascarado y `permisos` (`vender`, `manejar_caja`, `registrar_ingreso`, `ver_ingresos`, `anular_venta`, `ver_inventario`, `ver_ventas`, `crear_producto`) |
 
 Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en cada ruta.
 
@@ -58,6 +59,23 @@ Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en ca
 | `GET v1/productos/codigo/{código}` | El escáner. Un UPC-A de 12 dígitos también encuentra el mismo producto guardado como EAN-13 con un 0 adelante, y al revés |
 | `GET v1/productos/{id}` | Ficha con los últimos 15 movimientos del kardex |
 | `GET v1/movimientos?producto={id}&pagina=1` | Kardex de la tienda |
+| `GET v1/catalogo` | Almacenero, administrador. Categorías, marcas y unidades (sin `kg`) para el formulario de producto nuevo |
+| `POST v1/productos` | Almacenero, administrador. Registra el código escaneado que no existe (201) con `ProductoServicio::crearAlEscanear`: siempre por unidad, stock 0 en todas las tiendas y auditoría `PRODUCTO_CREADO ... (app)`. Cuerpo: `{"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}`; con una marca nueva, `"marca": ""` y `"marca_nombre": "Gloria"` (si ya existe con otras mayúsculas, se usa esa) |
+
+### Quién hace qué
+
+| Acción | Cajero | Almacenero | Administrador |
+|---|---|---|---|
+| Vender | Sí, con su turno de caja abierto | No | No |
+| Consultar precio y stock | Sí | Sí | Sí |
+| Entrada de stock | No | Sí, en su tienda | Sí, en su tienda |
+| Registrar un producto nuevo al escanear | No: la app le pide avisar al almacenero | Sí | Sí |
+| Cambiar el precio o los datos de un producto que ya existe | No | No | Sí, en la web (Catálogo) |
+| Ajuste por conteo | No | Sí | Sí |
+
+No hay restricción por horario: las ventas ya dependen del turno de caja abierto, y cada operación queda en la auditoría con quién la hizo y a qué hora.
+
+En la app, si el código no está registrado, el almacenero o el administrador ven el formulario ahí mismo (en Entrada de stock y en Consultar producto). La app busca el código en [Open Food Facts](https://world.openfoodfacts.org) (base pública y gratuita) para sugerir el nombre y la marca; esa consulta sale directo del celular a internet, sin el token de la tienda, y si no hay internet o no lo conoce simplemente se escribe a mano. El precio siempre lo pone el trabajador.
 
 ## Caja y ventas
 
@@ -88,7 +106,7 @@ Idempotency-Key: 6f1c2b9e-0d4a-4b7e-9a51-2f0e8c3d1a77
 
 | Ruta | Quién | Qué hace |
 |---|---|---|
-| `POST v1/ingresos` | Almacenero | `InventarioServicio::registrarIngreso` |
+| `POST v1/ingresos` | Almacenero, administrador | `InventarioServicio::registrarIngreso` |
 | `GET v1/ingresos?pagina=1` | Almacenero, administrador | Últimos ingresos de la tienda |
 | `GET v1/ingresos/{id}` | Almacenero, administrador | Detalle con el stock actual de cada producto. Otra tienda: 403 |
 

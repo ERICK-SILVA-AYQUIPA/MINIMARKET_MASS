@@ -11,8 +11,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import pe.mass.minimarket.BuildConfig
+import pe.mass.minimarket.dominio.Sugerencia
+import pe.mass.minimarket.dominio.Sugerencias
 import pe.mass.minimarket.data.api.AbrirTurnoPedido
 import pe.mass.minimarket.data.api.AnularPedido
 import pe.mass.minimarket.data.api.EstadoCaja
@@ -20,11 +23,13 @@ import pe.mass.minimarket.data.api.Ingreso
 import pe.mass.minimarket.data.api.IngresoPedido
 import pe.mass.minimarket.data.api.LoginPedido
 import pe.mass.minimarket.data.api.MassApi
+import pe.mass.minimarket.data.api.OpcionesCatalogo
 import pe.mass.minimarket.data.api.PaginaIngresos
 import pe.mass.minimarket.data.api.PaginaProductos
 import pe.mass.minimarket.data.api.PaginaVentas
 import pe.mass.minimarket.data.api.Perfil
 import pe.mass.minimarket.data.api.Producto
+import pe.mass.minimarket.data.api.ProductoNuevoPedido
 import pe.mass.minimarket.data.api.RespuestaApi
 import pe.mass.minimarket.data.api.Salud
 import pe.mass.minimarket.data.api.Vacio
@@ -176,6 +181,35 @@ class Repositorio(private val config: Configuracion) {
     suspend fun productoPorCodigo(codigo: String): Resultado<Producto> = llamar { productoPorCodigo(codigo) }
 
     suspend fun producto(idProducto: Int): Resultado<Producto> = llamar { producto(idProducto) }
+
+    suspend fun opcionesCatalogo(): Resultado<OpcionesCatalogo> = llamar { opcionesCatalogo() }
+
+    suspend fun crearProducto(pedido: ProductoNuevoPedido): Resultado<Producto> = llamar { crearProducto(pedido) }
+
+    // Cliente aparte, SIN el token de la tienda: la consulta sale a internet, no a nuestro servidor
+    private val clientePublico by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(4, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * Nombre y marca de un codigo que no esta en el catalogo, segun Open Food Facts (base publica y gratuita).
+     * Solo ayuda a llenar el formulario: sin internet o si no lo conoce, devuelve null y se escribe a mano.
+     */
+    suspend fun sugerenciaPublica(codigo: String): Sugerencia? = withContext(Dispatchers.IO) {
+        if (!Regex("^[0-9]{8,14}$").matches(codigo)) return@withContext null
+        val pedido = Request.Builder()
+            .url("https://world.openfoodfacts.org/api/v2/product/$codigo.json?fields=product_name,product_name_es,brands,quantity")
+            .header("User-Agent", "MassTienda-Android/${BuildConfig.VERSION_NAME}")
+            .build()
+        runCatching {
+            clientePublico.newCall(pedido).execute().use { r ->
+                if (r.isSuccessful) r.body?.string()?.let(Sugerencias::desdeOpenFoodFacts) else null
+            }
+        }.getOrNull()
+    }
 
     // ---------- Caja y ventas ----------
 

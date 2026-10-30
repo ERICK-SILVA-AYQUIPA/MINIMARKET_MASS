@@ -64,6 +64,7 @@ import pe.mass.minimarket.ui.comun.Aviso
 import pe.mass.minimarket.ui.comun.BarraSuperior
 import pe.mass.minimarket.ui.comun.BotonGrande
 import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
+import pe.mass.minimarket.ui.comun.DialogoProductoNuevo
 import pe.mass.minimarket.ui.comun.TarjetaAviso
 import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
@@ -99,6 +100,8 @@ data class EstadoEntrada(
     val claveEnvio: String? = null,
     val pendiente: Boolean = false,
     val resultado: Ingreso? = null,
+    // Codigo escaneado que no esta en el catalogo y que este usuario puede registrar
+    val codigoNuevo: String? = null,
 ) {
     val errorDocumento: String?
         get() = when {
@@ -113,7 +116,8 @@ data class EstadoEntrada(
 
 /**
  * Entrada de mercaderia (recepcion): se escanean los productos, se anota cantidad y costo,
- * se revisa y se confirma. El servidor registra el ingreso con su documento, sube el stock
+ * se revisa y se confirma. Un codigo que no esta en el catalogo se registra en el momento
+ * (DialogoProductoNuevo) y entra a la lista con 1. El servidor registra el ingreso con su documento, sube el stock
  * y deja cada producto en el kardex como INGRESO DE MERCADERIA (InventarioServicio::registrarIngreso).
  */
 class EntradaViewModel(private val repo: Repositorio) : ViewModel() {
@@ -132,7 +136,13 @@ class EntradaViewModel(private val repo: Repositorio) : ViewModel() {
                     alEncontrar()
                 }
                 is Resultado.Error -> {
-                    _estado.update { it.copy(aviso = Aviso(r.mensaje, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
+                    if (r.http == 404 && repo.perfil?.permisos?.crearProducto == true) {
+                        // Producto que llega por primera vez: se registra aqui mismo y entra a la lista
+                        _estado.update { it.copy(codigoNuevo = codigo) }
+                    } else {
+                        val texto = if (r.http == 404) "${r.mensaje} Pídele al administrador que lo registre." else r.mensaje
+                        _estado.update { it.copy(aviso = Aviso(texto, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
+                    }
                     alFallar()
                 }
             }
@@ -222,6 +232,13 @@ class EntradaViewModel(private val repo: Repositorio) : ViewModel() {
     fun avisar(texto: String) = _estado.update { it.copy(aviso = Aviso(texto, TipoAviso.ALERTA)) }
 
     fun cerrarAviso() = _estado.update { it.copy(aviso = null) }
+
+    fun productoCreado(producto: Producto) {
+        _estado.update { it.copy(codigoNuevo = null) }
+        agregar(producto)
+    }
+
+    fun cancelarProductoNuevo() = _estado.update { it.copy(codigoNuevo = null) }
 }
 
 @Composable
@@ -254,7 +271,7 @@ fun PantallaEntrada(onAtras: () -> Unit) {
                     PanelEscaner(
                         onCodigo = { codigo -> vm.leerCodigo(codigo, alEncontrar = confirmacion::exito, alFallar = confirmacion::error) },
                         onBuscarPorNombre = { buscar = true },
-                        activo = !estado.consultando,
+                        activo = !estado.consultando && estado.codigoNuevo == null,
                     )
                 }
             }
@@ -293,6 +310,9 @@ fun PantallaEntrada(onAtras: () -> Unit) {
     }
     if (buscar) {
         DialogoBuscarProducto(onElegir = { buscar = false; vm.agregar(it) }, onCerrar = { buscar = false })
+    }
+    estado.codigoNuevo?.let { codigo ->
+        DialogoProductoNuevo(codigo, onCreado = vm::productoCreado, onCerrar = vm::cancelarProductoNuevo)
     }
 }
 

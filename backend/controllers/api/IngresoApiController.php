@@ -34,7 +34,7 @@ class IngresoApiController extends ApiController
     {
         $almacenero = $this->usuario();
         if (!$almacenero->puedeRegistrarIngreso($almacenero->getIdTienda())) {
-            $this->prohibido('Solo el almacenero de la tienda registra el ingreso de mercadería.');
+            $this->prohibido('Solo el almacenero o el administrador de la tienda registran el ingreso de mercadería.');
         }
         $documento = is_array($datos['documento'] ?? null) ? $datos['documento'] : [];
         $cabecera = [

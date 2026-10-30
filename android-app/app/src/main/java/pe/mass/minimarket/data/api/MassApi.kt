@@ -37,6 +37,14 @@ interface MassApi {
     @GET("api/v1/productos/codigo/{codigo}")
     suspend fun productoPorCodigo(@Path("codigo") codigo: String): Response<RespuestaApi<Producto>>
 
+    // Producto nuevo con el codigo escaneado: 201, o 409 YA_EXISTE si otro lo registro antes
+    @POST("api/v1/productos")
+    suspend fun crearProducto(@Body pedido: ProductoNuevoPedido): Response<RespuestaApi<Producto>>
+
+    // Categorias, marcas y unidades del formulario de producto nuevo
+    @GET("api/v1/catalogo")
+    suspend fun opcionesCatalogo(): Response<RespuestaApi<OpcionesCatalogo>>
+
     @GET("api/v1/productos/{id}")
     suspend fun producto(@Path("id") idProducto: Int): Response<RespuestaApi<Producto>>
 

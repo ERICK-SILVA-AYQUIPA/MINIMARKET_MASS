@@ -91,6 +91,13 @@ abstract class Usuario
         return false;
     }
 
+    // Registrar un producto nuevo que llega con un codigo de barras que aun no esta en el catalogo
+    // (desde el escaner de la app). Cambiar el precio de uno que ya existe sigue siendo del administrador.
+    public function puedeCrearProducto(): bool
+    {
+        return $this->puedeAdministrarCatalogo();
+    }
+
     // Corregir el stock de una tienda con un conteo fisico
     public function puedeAjustarStock(int $idTienda): bool
     {

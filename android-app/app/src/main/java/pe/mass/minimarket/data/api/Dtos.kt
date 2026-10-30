@@ -58,6 +58,8 @@ data class Permisos(
     @SerialName("anular_venta") val anularVenta: Boolean = false,
     @SerialName("ver_inventario") val verInventario: Boolean = false,
     @SerialName("ver_ventas") val verVentas: Boolean = false,
+    // Registrar un codigo que no esta en el catalogo (almacenero y administrador)
+    @SerialName("crear_producto") val crearProducto: Boolean = false,
 )
 
 // ---------- Productos e inventario ----------
@@ -84,6 +86,30 @@ data class Producto(
 ) {
     val activo: Boolean get() = estado == "ACTIVO"
 }
+
+// ---------- Producto nuevo al escanear (GET /catalogo y POST /productos) ----------
+
+@Serializable
+data class OpcionCatalogo(val id: Int, val nombre: String, val abreviatura: String = "")
+
+@Serializable
+data class OpcionesCatalogo(
+    val categorias: List<OpcionCatalogo> = emptyList(),
+    val marcas: List<OpcionCatalogo> = emptyList(),
+    val unidades: List<OpcionCatalogo> = emptyList(),
+)
+
+/** marca: id de la lista; o marca vacia y marcaNombre para una marca nueva (el servidor la crea). */
+@Serializable
+data class ProductoNuevoPedido(
+    val codigo: String,
+    val nombre: String,
+    val precio: String,
+    val categoria: String,
+    val marca: String,
+    @SerialName("marca_nombre") val marcaNombre: String,
+    val unidad: String,
+)
 
 @Serializable
 data class PaginaProductos(

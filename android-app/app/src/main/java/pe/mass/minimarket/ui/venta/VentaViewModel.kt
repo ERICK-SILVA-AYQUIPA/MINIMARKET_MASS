@@ -135,7 +135,9 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
             when (val r = repo.productoPorCodigo(codigo)) {
                 is Resultado.Ok -> if (agregar(r.datos)) alEncontrar() else alFallar()
                 is Resultado.Error -> {
-                    _estado.update { it.copy(aviso = Aviso(r.mensaje, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
+                    // El cajero no registra productos: lo hace el almacenero o el administrador
+                    val texto = if (r.http == 404) "${r.mensaje} Avísale al almacenero para que lo registre." else r.mensaje
+                    _estado.update { it.copy(aviso = Aviso(texto, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
                     alFallar()
                 }
             }

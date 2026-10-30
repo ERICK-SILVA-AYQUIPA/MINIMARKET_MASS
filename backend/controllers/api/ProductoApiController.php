@@ -3,17 +3,24 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ApiController.php';
 require_once __DIR__ . '/../../models/ConsultaMovilRepository.php';
+require_once __DIR__ . '/../../models/CatalogoRepository.php';
+require_once __DIR__ . '/../../models/servicios/ProductoServicio.php';
 
 /**
  * Inventario de la app: buscar productos, leer un codigo de barras y ver el kardex.
- * Solo lectura; el stock que se muestra es el de la tienda del usuario.
+ * El stock que se muestra es el de la tienda del usuario.
+ * Si el codigo escaneado no existe, el almacenero o el administrador pueden registrarlo (crear()).
  */
 class ProductoApiController extends ApiController
 {
     private const POR_PAGINA = 40;
 
-    public function __construct(?Usuario $usuario, private ConsultaMovilRepository $consultas)
-    {
+    public function __construct(
+        ?Usuario $usuario,
+        private ConsultaMovilRepository $consultas,
+        private CatalogoRepository $catalogo,
+        private ProductoServicio $servicio
+    ) {
         parent::__construct($usuario);
     }
 
@@ -38,7 +45,7 @@ class ProductoApiController extends ApiController
     {
         $producto = $this->consultas->productoPorCodigo(trim($codigo), $this->usuario()->getIdTienda());
         if ($producto === null) {
-            // No se inventa nada: el producto se registra en la pagina web (Catálogo)
+            // No se inventa nada: lo registra quien puede (permisos.crear_producto) o se avisa al almacenero
             $this->noEncontrado('El código ' . preg_replace('/[^0-9A-Za-z-]/', '', mb_substr($codigo, 0, 30))
                 . ' no está registrado en el catálogo.');
         }
@@ -65,5 +72,50 @@ class ProductoApiController extends ApiController
             'movimientos' => $this->consultas->kardex($this->usuario()->getIdTienda(), $idProducto, 50, ($numero - 1) * 50),
             'pagina'      => $numero,
         ];
+    }
+
+    // GET /api/v1/catalogo: las listas del formulario de producto nuevo (sin la unidad kg: desde la app es por unidad)
+    public function opciones(): array
+    {
+        if (!$this->usuario()->puedeCrearProducto()) {
+            $this->prohibido('Solo el almacenero o el administrador registran un producto nuevo.');
+        }
+        $unidades = array_filter($this->catalogo->unidades(), static fn(UnidadMedida $u): bool => $u->getAbreviatura() !== 'kg');
+        return [
+            'categorias' => array_values(array_map(static fn(Categoria $c): array => ['id' => $c->getIdCategoria(), 'nombre' => $c->getNombreCategoria()], $this->catalogo->categorias())),
+            'marcas'     => array_values(array_map(static fn(Marca $m): array => ['id' => $m->getIdMarca(), 'nombre' => $m->getNombreMarca()], $this->catalogo->marcas())),
+            'unidades'   => array_values(array_map(static fn(UnidadMedida $u): array => ['id' => $u->getIdUnidad(), 'nombre' => $u->getNombreUnidad(), 'abreviatura' => $u->getAbreviatura()], $unidades)),
+        ];
+    }
+
+    /**
+     * POST /api/v1/productos: registra el producto del codigo escaneado (stock 0 en todas las tiendas)
+     * {"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}
+     * o, con una marca nueva, "marca_nombre": "Gloria" en vez de "marca".
+     * Si el codigo ya existe (otro lo registro, o es un reintento) responde 409 YA_EXISTE: la app lo vuelve a buscar.
+     */
+    public function crear(array $datos): array
+    {
+        $usuario = $this->usuario();
+        if (!$usuario->puedeCrearProducto()) {
+            $this->prohibido('Solo el almacenero o el administrador registran un producto nuevo. Avísale al almacenero.');
+        }
+        $campos = [];
+        foreach (['codigo', 'nombre', 'precio', 'categoria', 'marca', 'marca_nombre', 'unidad'] as $clave) {
+            $campos[$clave] = trim($this->texto($datos, $clave));
+        }
+        if ($campos['codigo'] !== '' && $this->consultas->productoPorCodigo($campos['codigo'], $usuario->getIdTienda()) !== null) {
+            throw new ErrorApi(409, 'YA_EXISTE', 'Ese código ya está registrado en el catálogo.');
+        }
+        try {
+            $id = $this->servicio->crearAlEscanear($usuario, $campos);
+        } catch (ReglaNegocioException $ex) {
+            // Otro celular lo registro en el mismo instante
+            if (str_starts_with($ex->getMessage(), 'Ya hay un producto con ese código')) {
+                throw new ErrorApi(409, 'YA_EXISTE', 'Ese código ya está registrado en el catálogo.');
+            }
+            throw $ex;
+        }
+        return (array) $this->consultas->productoPorId($id, $usuario->getIdTienda());
     }
 }

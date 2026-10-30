@@ -8,9 +8,11 @@ La app **no tiene base de datos propia ni se conecta a MySQL**. Habla solo con e
 
 | Rol | En la app |
 |---|---|
-| Cajero | Vende con el escáner (abre su turno si no tiene), consulta precios y stock, ve sus ventas |
-| Almacenero | Registra entradas de mercadería, ve el inventario y las fichas de producto |
-| Administrador | Inventario, historial de ventas de su tienda y **anulación** (por el mismo proceso que la web, nunca se borra una venta) |
+| Cajero | Vende con el escáner (abre su turno si no tiene), consulta precios y stock, ve sus ventas. Si escanea un código que no existe, la app le pide avisar al almacenero |
+| Almacenero | Registra entradas de mercadería, ve el inventario y las fichas de producto. **Si escanea un código nuevo, registra el producto ahí mismo** (nombre, precio, categoría, marca) y luego le suma stock |
+| Administrador | Lo mismo que el almacenero (entradas y productos nuevos), más el historial de ventas de su tienda y la **anulación** (por el mismo proceso que la web, nunca se borra una venta) |
+
+Al registrar un producto nuevo, la app busca el código en Open Food Facts (base pública de productos) para sugerir el nombre y la marca. Es solo una ayuda: el trabajador lo revisa y siempre pone el precio. Sin internet se escribe a mano. Detalle de permisos en [`docs/api_movil.md`](../docs/api_movil.md#quién-hace-qué).
 
 El menú de inicio solo muestra lo que el rol puede hacer, y el servidor vuelve a revisar cada permiso.
 
@@ -46,7 +48,7 @@ O desde la terminal, dentro de `android-app`:
 ```powershell
 .\gradlew.bat assembleDebug          # Windows
 ./gradlew assembleDebug              # Linux o macOS
-./gradlew testDebugUnitTest          # pruebas del carrito
+./gradlew testDebugUnitTest          # pruebas del carrito y de la sugerencia de nombre
 ```
 
 El APK queda en `android-app/app/build/outputs/apk/debug/app-debug.apk` (se crea al compilar; no está en GitHub).

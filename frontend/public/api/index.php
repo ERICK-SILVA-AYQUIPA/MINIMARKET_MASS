@@ -21,6 +21,7 @@ require __DIR__ . '/../../../backend/models/TiendaRepository.php';
 require __DIR__ . '/../../../backend/models/ConsultaMovilRepository.php';
 require __DIR__ . '/../../../backend/models/VentaRepository.php';
 require __DIR__ . '/../../../backend/models/CajaRepository.php';
+require __DIR__ . '/../../../backend/models/CatalogoRepository.php';
 require __DIR__ . '/../../../backend/controllers/api/AuthApiController.php';
 require __DIR__ . '/../../../backend/controllers/api/ProductoApiController.php';
 require __DIR__ . '/../../../backend/controllers/api/VentaApiController.php';
@@ -106,7 +107,7 @@ $tiendas = new TiendaRepository($db);
 $consultas = new ConsultaMovilRepository($db);
 $operaciones = new OperacionMovilServicio($db);
 $auth = new AuthApiController($usuario, $empleados, new IntentoLoginRepository($db), $tokens, $tiendas);
-$productos = new ProductoApiController($usuario, $consultas);
+$productos = new ProductoApiController($usuario, $consultas, new CatalogoRepository($db), new ProductoServicio($db));
 $ventas = new VentaApiController($usuario, $consultas, new VentaRepository($db), new CajaRepository($db), $tiendas,
     new VentaServicio($db), new CajaServicio($db), $operaciones);
 $ingresos = new IngresoApiController($usuario, $consultas, new InventarioServicio($db), $operaciones);
@@ -122,6 +123,8 @@ $rutas = [
     ['POST', '#^v1/auth/logout$#',              true,  fn(array $p): array => $auth->salir($token)],
     ['GET',  '#^v1/auth/yo$#',                  true,  fn(array $p): array => $auth->yo()],
     ['GET',  '#^v1/productos$#',                true,  fn(array $p): array => $productos->lista($leer('q'), $leer('filtro'), $leer('pagina'))],
+    ['POST', '#^v1/productos$#',                true,  fn(array $p): array => $productos->crear($datos)],
+    ['GET',  '#^v1/catalogo$#',                 true,  fn(array $p): array => $productos->opciones()],
     ['GET',  '#^v1/productos/codigo/([^/]{1,40})$#', true, fn(array $p): array => $productos->porCodigo(rawurldecode($p[1]))],
     ['GET',  '#^v1/productos/([0-9]{1,9})$#',   true,  fn(array $p): array => $productos->detalle($p[1])],
     ['GET',  '#^v1/movimientos$#',              true,  fn(array $p): array => $productos->movimientos($leer('producto'), $leer('pagina'))],
@@ -169,7 +172,8 @@ try {
     if ($metodo === 'POST' && in_array($ruta, $conClave, true)) {
         $responder($resultado['repetida'] ? 200 : 201, ['ok' => true, 'repetida' => $resultado['repetida'], 'datos' => $resultado['respuesta']]);
     } else {
-        $responder($ruta === 'v1/caja/turno' ? 201 : 200, ['ok' => true, 'datos' => $resultado]);
+        $creado = $metodo === 'POST' && in_array($ruta, ['v1/caja/turno', 'v1/productos'], true);
+        $responder($creado ? 201 : 200, ['ok' => true, 'datos' => $resultado]);
     }
 } catch (ErrorApi $ex) {
     $fallar($ex->getHttp(), $ex->getClave(), $ex->getMessage());
