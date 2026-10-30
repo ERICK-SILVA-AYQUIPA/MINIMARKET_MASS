@@ -28,10 +28,10 @@ jobs:
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l > /dev/null
 
       - name: Pruebas unitarias (sin base)
-        run: php tests/unitarios.php
+        run: php backend/tests/unitarios.php
 
       - name: Revision de seguridad del codigo (CSRF, escapado, SQL)
-        run: php tests/seguridad.php
+        run: php backend/tests/seguridad.php
 
       # Las claves de .env.example son de ejemplo: solo existen dentro del runner y se borran al terminar
       - name: Levantar MySQL 8.4.11
@@ -42,14 +42,14 @@ jobs:
 
       # No cambian datos: van antes de las de integracion, que piden la base recien creada
       - name: Pruebas web (cada rol, CSRF, 403 y 422)
-        run: php tests/web.php
+        run: php backend/tests/web.php
 
       - name: Pruebas de integracion
-        run: php tests/integracion.php
+        run: php backend/tests/integracion.php
 
       # Despues de integracion: esa prueba pide la base recien creada y esta registra ventas e ingresos
       - name: Pruebas de la API de la app Android
-        run: php tests/api.php
+        run: php backend/tests/api.php
 
       - name: Log de MySQL si algo fallo
         if: failure()

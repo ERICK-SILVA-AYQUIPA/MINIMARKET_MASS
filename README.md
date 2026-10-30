@@ -8,26 +8,51 @@ Sistema relacional y lógica de negocio para la administración de ventas, inven
 
 
 ## Estructura del Repositorio
+
+El sistema está separado en **backend** (lógica y datos) y **frontend** (lo que ve el usuario). La app Android es un cliente aparte que usa la API del backend.
+
+```
+minimarket_mass/
+├── backend/
+│   ├── config/          conexión a MySQL y sesión
+│   ├── controllers/     controladores web y api/ (la API de la app Android)
+│   ├── models/          clases del negocio, repositorios, pagos/ y servicios/
+│   ├── database/        schema.sql, los scripts en orden e instalar_laragon.sql
+│   ├── scripts/         respaldo, restauración y revisión de la instalación
+│   └── tests/           pruebas que corre la CI
+├── frontend/
+│   ├── views/           pantallas por módulo, parciales/ y errores/
+│   └── public/          raíz web: index.php, api/index.php, css/, js/, fuentes/, img/ y poo_*.php
+├── android-app/         app Android (Kotlin)
+├── deploy/              Apache y Nginx
+├── docs/                documentación, bitácora de IA, Kanban y docs/equipo/
+├── docker-compose.yml   MySQL 8.4.11
+├── iniciar_servidor_laragon.bat
+├── CONTRIBUTING.md
+└── final.docx           informe con los diagramas UML
+```
+
+El servidor web solo ve `frontend/public/`: el backend, la base y el `.env` quedan fuera de su alcance.
 El repositorio cuenta con una arquitectura modular en scripts SQL y documentación técnica:
 
-- **`database/schema.sql`**: Script DDL que crea la base de datos `minimarket_mass` y sus **26 tablas relacionales** organizadas en 7 niveles de dependencia, con claves foráneas, restricciones de unicidad y validaciones `CHECK`.
-- **`database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
-- **`database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
-- **`database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
-- **`database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
-- **`database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
-- **`database/ingresos.sql`**: Ingreso de mercadería: tablas `ingreso_mercaderia` y `detalle_ingreso` (documento del emisor, cantidades y costo) y su movimiento en el kardex.
-- **`database/operaciones.sql`**: Devoluciones parciales (`devolucion_venta`, `detalle_devolucion`), retiros e ingresos de efectivo en la caja (`movimiento_caja`), la fecha de vencimiento de cada lote recibido y 3 ingresos de ejemplo para la pantalla **Por vencer**.
-- **`database/catalogo.sql`**: Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más de marcas reales (Laive, Coca-Cola, San Fernando, Bimbo, Field, Sapolio...) con precios de referencia, 4 categorías nuevas y su primer ingreso en las 3 tiendas. **`database/catalogo_inicial.csv`** es el mismo catálogo en CSV, para importarlo desde la pantalla **Importar CSV**.
-- **`database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
-- **`database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
+- **`backend/database/schema.sql`**: Script DDL que crea la base de datos `minimarket_mass` y sus **26 tablas relacionales** organizadas en 7 niveles de dependencia, con claves foráneas, restricciones de unicidad y validaciones `CHECK`.
+- **`backend/database/datos.sql`**: Script DML con datos de prueba realistas (3 tiendas en Arequipa: Cayma, Cerro Colorado y Yanahuara, personal, catálogo de productos, existencias en stock, ventas, turnos de caja y auditoría en kardex).
+- **`backend/database/consultas.sql`**: Consultas comerciales categorizadas que resuelven preguntas clave del negocio (catálogo, personal, inventario y reposición, ventas, facturación y arqueo de cajas).
+- **`backend/database/boleta.sql`**: Vista `vw_comprobante` y procedimiento almacenado `sp_boleta(serie, correlativo)` para generar la impresión completa del comprobante (cabecera, detalle y desglose de pagos).
+- **`backend/database/ajustes.sql`**: Migración del ajuste por conteo físico: tabla `ajuste_inventario`, tipos de movimiento AJUSTE DE ENTRADA y DE SALIDA, y `movimiento_stock.id_ajuste` como cuarto origen.
+- **`backend/database/seguridad.sql`**: Tabla `intento_login` para bloquear un rato a quien prueba muchas claves.
+- **`backend/database/ingresos.sql`**: Ingreso de mercadería: tablas `ingreso_mercaderia` y `detalle_ingreso` (documento del emisor, cantidades y costo) y su movimiento en el kardex.
+- **`backend/database/operaciones.sql`**: Devoluciones parciales (`devolucion_venta`, `detalle_devolucion`), retiros e ingresos de efectivo en la caja (`movimiento_caja`), la fecha de vencimiento de cada lote recibido y 3 ingresos de ejemplo para la pantalla **Por vencer**.
+- **`backend/database/catalogo.sql`**: Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más de marcas reales (Laive, Coca-Cola, San Fernando, Bimbo, Field, Sapolio...) con precios de referencia, 4 categorías nuevas y su primer ingreso en las 3 tiendas. **`backend/database/catalogo_inicial.csv`** es el mismo catálogo en CSV, para importarlo desde la pantalla **Importar CSV**.
+- **`backend/database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
+- **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 26 tablas.
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
 - **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
-- **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
+- **`backend/scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
 - **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 - **`docs/equipo/`**: Nota de cada integrante (qué hizo, qué aprendió y cómo usó la IA), con su plantilla.
@@ -91,9 +116,9 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 | **RN-08: Origen Único de Kardex** | Cada movimiento de inventario procede de exactamente una fuente (venta, traslado o merma). | `CHECK ((id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) = 1)` en `movimiento_stock`. |
 | **RN-09: Medios de Pago Oficiales** | Tienda Mass opera exclusivamente con Efectivo, Tarjeta y Billetera Digital Sip. | Subtipos relacionales `efectivo`, `tarjeta` y `billetera_digital_sip` vinculados a `pago_venta`. |
 | **RN-10: Vuelto en Efectivo** | El vuelto entregado no puede ser negativo ni igual o superior al dinero recibido. | `CHECK (vuelto >= 0 AND vuelto < monto_recibido)` en `efectivo`. |
-| **RN-11: Ajuste por Conteo** | Lo contado reemplaza al stock del sistema y la diferencia queda en el kardex como un cuarto origen. | Tabla `ajuste_inventario` y `CHECK` de RN-08 ampliado a 4 orígenes (`database/ajustes.sql`). |
+| **RN-11: Ajuste por Conteo** | Lo contado reemplaza al stock del sistema y la diferencia queda en el kardex como un cuarto origen. | Tabla `ajuste_inventario` y `CHECK` de RN-08 ampliado a 4 orígenes (`backend/database/ajustes.sql`). |
 | **RN-12: Permisos por Rol** | Cajero vende y maneja su caja; almacenero recibe mercadería con su documento, traslada, registra mermas y cuenta; administrador anula, ve reportes y maneja personal, catálogo, tienda y cajas. | Métodos `puede...()` de `Usuario` y sus hijas, revisados en el controlador y otra vez en el servicio. |
-| **RN-13: Tienda Inactiva** | En una tienda o caja INACTIVA no se abre turno ni se vende, y no recibe traslados. No se desactiva con turnos abiertos. | `models/servicios/` (`CajaServicio`, `VentaServicio`, `InventarioServicio`, `TiendaServicio`). |
+| **RN-13: Tienda Inactiva** | En una tienda o caja INACTIVA no se abre turno ni se vende, y no recibe traslados. No se desactiva con turnos abiertos. | `backend/models/servicios/` (`CajaServicio`, `VentaServicio`, `InventarioServicio`, `TiendaServicio`). |
 | **RN-14: Series sin Huecos** | Cada tienda nueva recibe la siguiente serie libre de la cadena (B004, F004...) y el correlativo solo avanza con cada venta. | `TiendaServicio::abrir()` y `SELECT ... FOR UPDATE` de la serie en `VentaServicio`. |
 
 ---
@@ -104,25 +129,25 @@ Si no usas Docker, puedes recrear la base de datos en Laragon (puerto `3307`) o 
 
 ```powershell
 # 1. Crear base de datos y las 26 tablas
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/schema.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/schema.sql"
 
 # 2. Cargar datos de prueba
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/datos.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/datos.sql"
 
 # 3. Ejecutar consultas y reportes de negocio
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/consultas.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/consultas.sql"
 
 # 4. Probar vista y emisión de boleta formateada
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/boleta.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/boleta.sql"
 
 # 5. Lo que agrega la aplicación PHP (en este orden): login, intentos de ingreso, ajuste por conteo y auditoría
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/login.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/seguridad.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ajustes.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/auditoria.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/ingresos.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/operaciones.sql"
-mysql -u root -h 127.0.0.1 -P 3307 -e "source ./database/catalogo.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/login.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/seguridad.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/ajustes.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/auditoria.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/ingresos.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/operaciones.sql"
+mysql -u root -h 127.0.0.1 -P 3307 -e "source ./backend/database/catalogo.sql"
 ```
 
 El diseño base son 26 tablas. La aplicación agrega 8 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), y `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`). Ver `docs/diseno_bd.md`, sección 5.
@@ -144,7 +169,7 @@ docker compose up -d
 docker compose ps
 
 # 4. Levantar la aplicación
-php -S localhost:8000 -t public
+php -S localhost:8000 -t frontend/public
 ```
 
 | Variable de `.env` | Para qué sirve | Valor por defecto |
@@ -165,13 +190,13 @@ php -S localhost:8000 -t public
 
 ## Aplicación PHP con POO y MVC (Sesión 4)
 
-Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador, que cubre las 3 tiendas. Los Repository leen de MySQL con PDO y consultas preparadas (`config/Database.php`). Al pasar de listas fijas a MySQL no cambió ningún controlador ni ninguna vista.
+Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador, que cubre las 3 tiendas. Los Repository leen de MySQL con PDO y consultas preparadas (`backend/config/Database.php`). Al pasar de listas fijas a MySQL no cambió ningún controlador ni ninguna vista.
 
-- **`config/Database.php`**: conexión PDO única; lee host, puerto, base, usuario y clave del `.env`.
-- **`models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
-- **`controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController`, `CajaController`, `EmpleadoController`, `ClienteController` y `ReporteController`. Validan la entrada, piden datos y eligen la vista.
-- **`views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
-- **`public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
+- **`backend/config/Database.php`**: conexión PDO única; lee host, puerto, base, usuario y clave del `.env`.
+- **`backend/models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
+- **`backend/controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController`, `CajaController`, `EmpleadoController`, `ClienteController` y `ReporteController`. Validan la entrada, piden datos y eligen la vista.
+- **`frontend/views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
+- **`frontend/public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
 - **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
 - **`docs/explicacion_archivos.md`**: qué hace cada archivo, para estudiar antes de la entrega.
 - **`docs/reparto.md`**: comandos git por integrante si se pide un Pull Request por persona.
@@ -179,7 +204,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 
 ```powershell
 docker compose up -d                 # MySQL 8.4.11 (ver la sección de Docker)
-php -S localhost:8000 -t public
+php -S localhost:8000 -t frontend/public
 # http://localhost:8000                                   catálogo de Mass Cayma
 # http://localhost:8000/?ruta=stock                       stock de las 3 tiendas (REPONER)
 # http://localhost:8000/?ruta=ventas&tienda=2             ventas de Mass Cerro Colorado
@@ -189,7 +214,7 @@ php -S localhost:8000 -t public
 
 ### Backend completo: login, ventas, anulaciones, inventario y caja
 
-Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave de prueba de los 9 empleados es `Mass2026!` (está en `database/login.sql` solo como hash; cámbienla fuera del aula).
+Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave de prueba de los 9 empleados es `Mass2026!` (está en `backend/database/login.sql` solo como hash; cámbienla fuera del aula).
 
 | Rol | Ejemplo (Cayma) | Qué puede hacer |
 |---|---|---|
@@ -197,7 +222,7 @@ Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave 
 | Administrador | Rosa · `70000001` | Anular ventas de su tienda, ver el arqueo y los reportes, manejar su personal, el catálogo y el stock mínimo |
 | Almacenero | Carmen · `70000003` | Recibir mercadería con su guía o factura, trasladarla a otra tienda, registrar mermas y contar el stock |
 
-Cada operación escribe en MySQL dentro de una **transacción** (`models/servicios/`): si un paso falla, no queda nada a medias. Toda salida o entrada de stock deja su fila en el kardex (`movimiento_stock`).
+Cada operación escribe en MySQL dentro de una **transacción** (`backend/models/servicios/`): si un paso falla, no queda nada a medias. Toda salida o entrada de stock deja su fila en el kardex (`movimiento_stock`).
 
 | Ruta | Qué hace |
 |---|---|
@@ -224,41 +249,41 @@ Cada operación escribe en MySQL dentro de una **transacción** (`models/servici
 | `?ruta=comprobante_imprimir&...` | Ticket de 80 mm para imprimir o guardar como PDF |
 | `?ruta=stock_csv` y `?ruta=kardex_csv&tienda=1` | Descargar el stock de las 3 tiendas y el kardex en CSV para Excel |
 
-Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`). Detalle en `docs/seguridad.md`.
+Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`backend/database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`). Detalle en `docs/seguridad.md`.
 
-**Respaldo**: `powershell -ExecutionPolicy Bypass -File scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). `scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
+**Respaldo**: `powershell -ExecutionPolicy Bypass -File backend\scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). `backend\scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
-**Fotos de producto**: el administrador las sube desde la ficha del producto. Se guardan como archivo en `public/img/productos/` (no van en la base ni en GitHub), así que esa carpeta se copia junto con el respaldo. PHP necesita la extensión **gd** (en Laragon y XAMPP ya viene activa).
+**Fotos de producto**: el administrador las sube desde la ficha del producto. Se guardan como archivo en `frontend/public/img/productos/` (no van en la base ni en GitHub), así que esa carpeta se copia junto con el respaldo. PHP necesita la extensión **gd** (en Laragon y XAMPP ya viene activa).
 
 **Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, `catalogo.sql` los 94 productos de ejemplo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php tests/integracion.php   # 171 comprobaciones; solo con la base recién creada
+php backend/tests/integracion.php   # 171 comprobaciones; solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php tests/unitarios.php     # 87 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 30 formularios, escapado, SQL preparado y JavaScript seguro
-php tests/web.php           # 160 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
-php tests/integracion.php   # 171 comprobaciones contra MySQL, con la base recién creada
-php tests/api.php           # 81 comprobaciones de la API de la app Android, con la base recién creada
+php backend/tests/unitarios.php     # 87 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
+php backend/tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 30 formularios, escapado, SQL preparado y JavaScript seguro
+php backend/tests/web.php           # 160 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
+php backend/tests/integracion.php   # 171 comprobaciones contra MySQL, con la base recién creada
+php backend/tests/api.php           # 81 comprobaciones de la API de la app Android, con la base recién creada
 ```
 
 En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web, las de integración y las de la API de la app contra un MySQL 8.4.11 nuevo.
 
-`tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
+`backend/tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
 
 ### App Android (`android-app/`)
 
-La app **Mass Tienda** para el celular consulta productos con la cámara, muestra el inventario, registra entradas de mercadería, vende en caja y revisa el historial. No tiene base propia ni se conecta a MySQL: usa la API `/api/v1` del mismo PHP (`public/api/index.php`), así que una venta en el celular aparece al instante en la web y al revés.
+La app **Mass Tienda** para el celular consulta productos con la cámara, muestra el inventario, registra entradas de mercadería, vende en caja y revisa el historial. No tiene base propia ni se conecta a MySQL: usa la API `/api/v1` del mismo PHP (`frontend/public/api/index.php`), así que una venta en el celular aparece al instante en la web y al revés.
 
 - Cómo compilar, instalar y apuntar al servidor: [`android-app/README.md`](android-app/README.md).
 - Rutas, formato y errores de la API: [`docs/api_movil.md`](docs/api_movil.md).
-- Una base creada antes necesita `database/api_movil.sql` (2 tablas: `api_token` y `api_operacion`).
+- Una base creada antes necesita `backend/database/api_movil.sql` (2 tablas: `api_token` y `api_operacion`).
 
 ---
 

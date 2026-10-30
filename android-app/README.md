@@ -25,12 +25,12 @@ Kotlin, Jetpack Compose (Material 3), MVVM con `ViewModel` y `StateFlow`, Camera
 1. Levantar la base y la web como dice el README principal (`docker compose up -d`).
 2. Si la base se creó **antes** de esta versión, falta crear las 2 tablas de la API:
    ```powershell
-   docker exec -i minimarket_mass_db mysql -u root -p minimarket_mass < database/api_movil.sql
+   docker exec -i minimarket_mass_db mysql -u root -p minimarket_mass < backend/database/api_movil.sql
    ```
-   (en Laragon, ejecutar `database/api_movil.sql` en HeidiSQL). Un contenedor nuevo ya la corre solo.
+   (en Laragon, ejecutar `backend/database/api_movil.sql` en HeidiSQL). Un contenedor nuevo ya la corre solo.
 3. Encender el servidor PHP:
-   - Emulador: `php -S localhost:8000 -t public`
-   - Celular real en el mismo Wi-Fi: `php -S 0.0.0.0:8000 -t public` y usar la IP de la PC (por ejemplo `http://192.168.1.50:8000/`). Puede que haya que permitir el puerto 8000 en el firewall de Windows.
+   - Emulador: `php -S localhost:8000 -t frontend/public`
+   - Celular real en el mismo Wi-Fi: `php -S 0.0.0.0:8000 -t frontend/public` y usar la IP de la PC (por ejemplo `http://192.168.1.50:8000/`). Puede que haya que permitir el puerto 8000 en el firewall de Windows.
 4. Probar en el navegador: `http://localhost:8000/api/v1/salud` debe responder `{"ok":true,...}`.
 
 ## Compilar el APK de prueba (debug)
@@ -68,7 +68,7 @@ La primera vez que se escanea, la app pide permiso para la cámara. Si se niega,
 
 ## APK de lanzamiento (release)
 
-El APK final **solo** habla con un servidor HTTPS (el de `docs/despliegue.md`; nginx y Apache ya envían `/api/` a `public/api/index.php`).
+El APK final **solo** habla con un servidor HTTPS (el de `docs/despliegue.md`; nginx y Apache ya envían `/api/` a `frontend/public/api/index.php`).
 
 1. Crear la llave de firma una sola vez y guardarla fuera del repositorio:
    ```powershell

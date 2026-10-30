@@ -18,17 +18,17 @@ services:
       # Solo esta PC: en un servidor, MySQL no queda abierto a internet
       - "127.0.0.1:${DB_PORT:-3307}:3306"
     volumes:
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./database/datos.sql:/docker-entrypoint-initdb.d/02_datos.sql:ro
-      - ./database/boleta.sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro
-      - ./database/login.sql:/docker-entrypoint-initdb.d/04_login.sql:ro
-      - ./database/seguridad.sql:/docker-entrypoint-initdb.d/05_seguridad.sql:ro
-      - ./database/ajustes.sql:/docker-entrypoint-initdb.d/06_ajustes.sql:ro
-      - ./database/auditoria.sql:/docker-entrypoint-initdb.d/07_auditoria.sql:ro
-      - ./database/ingresos.sql:/docker-entrypoint-initdb.d/08_ingresos.sql:ro
-      - ./database/operaciones.sql:/docker-entrypoint-initdb.d/09_operaciones.sql:ro
-      - ./database/catalogo.sql:/docker-entrypoint-initdb.d/10_catalogo.sql:ro
-      - ./database/api_movil.sql:/docker-entrypoint-initdb.d/11_api_movil.sql:ro
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/database/datos.sql:/docker-entrypoint-initdb.d/02_datos.sql:ro
+      - ./backend/database/boleta.sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro
+      - ./backend/database/login.sql:/docker-entrypoint-initdb.d/04_login.sql:ro
+      - ./backend/database/seguridad.sql:/docker-entrypoint-initdb.d/05_seguridad.sql:ro
+      - ./backend/database/ajustes.sql:/docker-entrypoint-initdb.d/06_ajustes.sql:ro
+      - ./backend/database/auditoria.sql:/docker-entrypoint-initdb.d/07_auditoria.sql:ro
+      - ./backend/database/ingresos.sql:/docker-entrypoint-initdb.d/08_ingresos.sql:ro
+      - ./backend/database/operaciones.sql:/docker-entrypoint-initdb.d/09_operaciones.sql:ro
+      - ./backend/database/catalogo.sql:/docker-entrypoint-initdb.d/10_catalogo.sql:ro
+      - ./backend/database/api_movil.sql:/docker-entrypoint-initdb.d/11_api_movil.sql:ro
       - mysql_datos:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]

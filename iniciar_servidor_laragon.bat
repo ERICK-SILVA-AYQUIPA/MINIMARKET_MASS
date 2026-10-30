@@ -39,8 +39,8 @@ echo [INFO] Verificando base de datos en Laragon...
 "%MYSQL_CMD%" -u root -e "USE minimarket_mass; SELECT 1 FROM producto LIMIT 1;" >nul 2>nul
 if errorlevel 1 (
     echo [INFO] Instalando base de datos minimarket_mass automaticamente...
-    if exist "database\instalar_laragon.sql" (
-        "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon.sql"
+    if exist "backend\database\instalar_laragon.sql" (
+        "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "backend\database\instalar_laragon.sql"
         echo [OK] Base de datos instalada exitosamente con todas las tablas y datos.
     ) else (
         echo [AVISO] Revisa que MySQL este iniciado en Laragon con el boton "Iniciar Todo".
@@ -62,6 +62,6 @@ echo   Servidor iniciado en http://localhost:8000
 echo   Presiona Ctrl + C para detener el servidor.
 echo ====================================================
 echo.
-"%PHP_CMD%" -S localhost:8000 -t public
+"%PHP_CMD%" -S localhost:8000 -t frontend\public
 
 pause

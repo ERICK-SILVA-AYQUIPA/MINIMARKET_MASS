@@ -13,7 +13,7 @@ Esta guía es para los integrantes del equipo que trabajan en Windows usando **L
 ---
 
 ## 2. Instalar la Base de Datos (1 solo paso)
-Hemos creado un único archivo con todo listo: [`database/instalar_laragon.sql`](../database/instalar_laragon.sql).
+Hemos creado un único archivo con todo listo: [`backend/database/instalar_laragon.sql`](../backend/database/instalar_laragon.sql).
 
 1. En Laragon, da clic en el botón **"Base de datos"** (se abrirá HeidiSQL).
 2. Conéctate con los datos normales de Laragon:
@@ -24,7 +24,7 @@ Hemos creado un único archivo con todo listo: [`database/instalar_laragon.sql`]
 3. En el menú superior de HeidiSQL, ve a:
    **Archivo** ➔ **Cargar archivo SQL...**
 4. Selecciona el archivo:
-   `database/instalar_laragon.sql`
+   `backend/database/instalar_laragon.sql`
 5. Presiona la tecla **F9** (o el botón azul de Ejecutar).
 6. ¡Listo! El archivo creará automáticamente la base de datos `minimarket_mass` con todas sus tablas, datos iniciales, claves de acceso, ingresos y auditoría.
 
