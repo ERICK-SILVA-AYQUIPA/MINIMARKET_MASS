@@ -23,7 +23,7 @@ class InventarioServicio extends Servicio
     {
         $idTienda = $almacenero->getIdTienda();
         if (!$almacenero->puedeRegistrarIngreso($idTienda)) {
-            throw new ReglaNegocioException('Solo el almacenero de la tienda registra el ingreso de mercadería.');
+            throw new ReglaNegocioException('Solo el almacenero o el administrador de la tienda registran el ingreso de mercadería.');
         }
         $tipo = (string) ($documento['tipo'] ?? '');
         if (!in_array($tipo, IngresoMercaderia::TIPOS_DOCUMENTO, true)) {

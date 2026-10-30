@@ -38,6 +38,12 @@ class Administrador extends Usuario
         return $this->puedeAdministrarTienda($idTienda);
     }
 
+    // En una tienda chica el jefe tambien recibe la mercaderia de SU tienda
+    public function puedeRegistrarIngreso(int $idTienda): bool
+    {
+        return $this->puedeAdministrarTienda($idTienda);
+    }
+
     // Abrir una tienda es una decision de la cadena: la toma un administrador activo
     public function puedeAbrirTiendas(): bool
     {

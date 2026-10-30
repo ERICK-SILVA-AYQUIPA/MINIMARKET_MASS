@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +40,8 @@ import pe.mass.minimarket.dominio.soles
 import pe.mass.minimarket.dominio.textoCantidad
 import pe.mass.minimarket.ui.comun.Aviso
 import pe.mass.minimarket.ui.comun.BarraSuperior
+import pe.mass.minimarket.ui.comun.BotonGrande
+import pe.mass.minimarket.ui.comun.DialogoProductoNuevo
 import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
 import pe.mass.minimarket.ui.comun.EtiquetaStock
 import pe.mass.minimarket.ui.comun.TarjetaAviso
@@ -48,6 +52,8 @@ data class EstadoConsulta(
     val consultando: Boolean = false,
     val producto: Producto? = null,
     val aviso: Aviso? = null,
+    // Ultimo codigo que no esta en el catalogo: el almacenero o el administrador pueden registrarlo
+    val codigoDesconocido: String? = null,
 )
 
 /** Consulta de producto: lee el codigo, pregunta al servidor y muestra precio y stock. No cambia nada. */
@@ -57,7 +63,7 @@ class ConsultaViewModel(private val repo: Repositorio) : ViewModel() {
 
     fun consultar(codigo: String, alEncontrar: (Producto) -> Unit = {}) {
         if (_estado.value.consultando) return
-        _estado.update { it.copy(consultando = true, aviso = null) }
+        _estado.update { it.copy(consultando = true, aviso = null, codigoDesconocido = null) }
         viewModelScope.launch {
             when (val r = repo.productoPorCodigo(codigo)) {
                 is Resultado.Ok -> {
@@ -66,13 +72,14 @@ class ConsultaViewModel(private val repo: Repositorio) : ViewModel() {
                 }
                 is Resultado.Error -> _estado.update {
                     // 404: el codigo no esta en el catalogo. No se inventa un producto.
-                    it.copy(consultando = false, producto = null, aviso = Aviso(r.mensaje, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR))
+                    it.copy(consultando = false, producto = null, aviso = Aviso(r.mensaje, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR),
+                        codigoDesconocido = codigo.takeIf { r.http == 404 && repo.perfil?.permisos?.crearProducto == true })
                 }
             }
         }
     }
 
-    fun mostrar(producto: Producto) = _estado.update { it.copy(producto = producto, aviso = null) }
+    fun mostrar(producto: Producto) = _estado.update { it.copy(producto = producto, aviso = null, codigoDesconocido = null) }
 }
 
 /**
@@ -85,6 +92,7 @@ fun PantallaConsulta(onAtras: () -> Unit, onAbrirFicha: ((Int) -> Unit)?) {
     val estado by vm.estado.collectAsState()
     val confirmacion = rememberConfirmacion()
     var buscar by remember { mutableStateOf(false) }
+    var registrar by remember { mutableStateOf(false) }
 
     // Codigo no registrado o error: pitido distinto al de exito
     LaunchedEffect(estado.aviso) { if (estado.aviso != null) confirmacion.error() }
@@ -103,10 +111,24 @@ fun PantallaConsulta(onAtras: () -> Unit, onAbrirFicha: ((Int) -> Unit)?) {
         ) {
             PanelEscaner(onCodigo = alLeer, onBuscarPorNombre = { buscar = true }, activo = !estado.consultando, altoCamara = 260)
             TarjetaAviso(estado.aviso)
+            if (estado.codigoDesconocido != null) {
+                BotonGrande("Registrar este producto", onClick = { registrar = true }, icono = Icons.Filled.AddBox)
+            }
             estado.producto?.let { TarjetaProducto(it) }
         }
     }
 
+    val codigoNuevo = estado.codigoDesconocido
+    if (registrar && codigoNuevo != null) {
+        DialogoProductoNuevo(
+            codigoNuevo,
+            onCreado = { p ->
+                registrar = false
+                if (onAbrirFicha != null) onAbrirFicha(p.idProducto) else vm.mostrar(p)
+            },
+            onCerrar = { registrar = false },
+        )
+    }
     if (buscar) {
         DialogoBuscarProducto(
             soloActivos = false,

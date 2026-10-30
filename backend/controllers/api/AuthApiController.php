@@ -87,6 +87,7 @@ class AuthApiController extends ApiController
                 'manejar_caja'      => $u->puedeManejarCaja(),
                 'registrar_ingreso' => $u->puedeRegistrarIngreso($idTienda),
                 'ver_ingresos'      => $u->puedeVerIngresos($idTienda),
+                'crear_producto'    => $u->puedeCrearProducto(),
                 'anular_venta'      => $u->puedeAnularVenta($idTienda),
                 'ver_inventario'    => true,
                 'ver_ventas'        => true,

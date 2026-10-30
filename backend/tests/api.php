@@ -228,6 +228,11 @@ revisar('Almacenero no puede registrar ventas (403)',
     $carmen->post('ventas', ['tipo_comprobante' => 'B', 'lineas' => [['id_producto' => '1', 'cantidad' => '1']], 'pago' => ['metodo' => 'EFECTIVO', 'efectivo_recibido' => '100']], nuevaClave()) === 403);
 revisar('Cajero no puede registrar ingresos (403)', $luis->post('ingresos', ['documento' => [], 'lineas' => [['id_producto' => '1', 'cantidad' => '1']]], nuevaClave()) === 403);
 revisar('Cajero no ve los ingresos con costos (403)', $luis->get('ingresos') === 403);
+revisar('Producto nuevo al escanear: el almacenero y el administrador sí, el cajero no',
+    ($permisosCarmen['crear_producto'] ?? null) === true && ($permisosLuis['crear_producto'] ?? null) === false);
+$rosa->get('auth/yo');
+revisar('El administrador también recibe mercadería', ($rosa->datos()['permisos']['registrar_ingreso'] ?? null) === true
+    && ($rosa->datos()['permisos']['crear_producto'] ?? null) === true);
 
 echo "Escáner y consulta de productos\n";
 revisar('Código registrado: devuelve el producto con precio y stock',
@@ -399,6 +404,36 @@ revisar('El ingreso aparece en la lista', $carmen->get('ingresos') === 200 && ($
 revisar('La web ve el stock nuevo', stockWeb($web, 1, 1) === (int) stockApp($carmen, 1));
 $web->get('ruta=ingresos');
 revisar('La web lista el ingreso hecho desde la app', str_contains($web->cuerpo, $numeroDoc));
+
+echo "Producto nuevo al escanear\n";
+$codigoNuevo = '779' . random_int(1000000000, 9999999999);
+revisar('Código desconocido: 404 NO_ENCONTRADO', $carmen->get('productos/codigo/' . $codigoNuevo) === 404
+    && ($carmen->json['error']['codigo'] ?? '') === 'NO_ENCONTRADO');
+revisar('El cajero no ve el formulario de producto nuevo (403)', $luis->get('catalogo') === 403);
+revisar('Listas del formulario: categorías, marcas y unidades sin kg', $carmen->get('catalogo') === 200
+    && ($carmen->datos()['categorias'] ?? []) !== [] && ($carmen->datos()['marcas'] ?? []) !== []
+    && !in_array('kg', array_column($carmen->datos()['unidades'] ?? [], 'abreviatura'), true));
+$opciones = $carmen->datos();
+$nuevo = ['codigo' => $codigoNuevo, 'nombre' => 'Galleta de prueba escaneada 40 g', 'precio' => '1.20',
+    'categoria' => $opciones['categorias'][0]['id'] ?? 0, 'marca' => $opciones['marcas'][0]['id'] ?? 0, 'unidad' => $opciones['unidades'][0]['id'] ?? 0];
+revisar('El cajero no registra productos (403)', $luis->post('productos', $nuevo) === 403);
+revisar('Sin nombre: 422 con el mensaje de la web', $carmen->post('productos', ['nombre' => ''] + $nuevo) === 422);
+revisar('Precio 0: 422', $carmen->post('productos', ['precio' => '0'] + $nuevo) === 422);
+revisar('El almacenero registra el producto: 201', $carmen->post('productos', $nuevo) === 201, $carmen->mensaje());
+$creado = $carmen->datos();
+revisar('...con su código, precio y stock 0 en su tienda', ($creado['codigo_barras'] ?? '') === $codigoNuevo
+    && ($creado['precio_venta'] ?? '') === '1.20' && (float) ($creado['stock'] ?? -1) === 0.0, json_encode($creado));
+revisar('Escanearlo otra vez ya lo encuentra', $carmen->get('productos/codigo/' . $codigoNuevo) === 200
+    && ($carmen->datos()['id_producto'] ?? 0) === ($creado['id_producto'] ?? -1));
+revisar('El mismo código otra vez (reintento u otro celular): 409 YA_EXISTE', $rosa->post('productos', $nuevo) === 409
+    && ($rosa->json['error']['codigo'] ?? '') === 'YA_EXISTE');
+$ingresoNuevo = ['documento' => ['numero' => 'T' . random_int(100, 999) . '-' . random_int(10000, 99999)] + $ingreso['documento'],
+    'lineas' => [['id_producto' => (string) ($creado['id_producto'] ?? 0), 'cantidad' => '12', 'costo' => '0.80', 'vence' => '']]];
+revisar('Y se le pone stock con una entrada: 201', $carmen->post('ingresos', $ingresoNuevo, nuevaClave()) === 201, $carmen->mensaje());
+revisar('...el stock queda en 12', (float) stockApp($carmen, (int) ($creado['id_producto'] ?? 0)) === 12.0);
+revisar('La web ya lo muestra con su stock', stockWeb($web, (int) ($creado['id_producto'] ?? 0), 1) === 12);
+revisar('Con una marca nueva escrita a mano', $rosa->post('productos', ['codigo' => '779' . random_int(1000000000, 9999999999),
+    'marca' => '', 'marca_nombre' => 'Marca App ' . random_int(1000, 9999)] + $nuevo) === 201, $rosa->mensaje());
 
 echo "Cerrar sesión\n";
 revisar('Logout', $luis->post('auth/logout', []) === 200);

@@ -231,8 +231,8 @@ revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_i
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
     && $carmen->get('ruta=kardex_csv&tienda=2&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
-revisar('Solo el almacenero ve el formulario de ingreso; el administrador lo revisa', $carmen->get('ruta=ingresos') === 200
-    && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && !$rosa->tiene('ingreso_registrar'));
+revisar('El almacenero y el administrador ven el formulario de ingreso', $carmen->get('ruta=ingresos') === 200
+    && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && $rosa->tiene('ingreso_registrar'));
 revisar('Ingresos está en el menú del almacenero y del administrador, no del cajero', $carmen->get('ruta=inicio') === 200
     && $carmen->tiene('ruta=ingresos"') && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=ingresos"')
     && $luis->get('ruta=inicio') === 200 && !$luis->tiene('ruta=ingresos"'));
@@ -343,7 +343,7 @@ $prohibidos = [
     [$rosa, 'Rosa', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
     [$rosa, 'Rosa', 'venta_registrar', ['tipo' => 'B']],
     [$rosa, 'Rosa', 'traslado_registrar', ['destino' => '2']],
-    [$rosa, 'Rosa', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
+    [$luis, 'Luis', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
 ];
 foreach ($prohibidos as [$quien, $nombre, $ruta, $datos]) {
     revisar("$nombre → $ruta: 403", $quien->post($ruta, $datos) === 403);

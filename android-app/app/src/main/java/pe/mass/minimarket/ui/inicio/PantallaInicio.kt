@@ -61,7 +61,10 @@ private data class Opcion(val titulo: String, val detalle: String, val icono: Im
 private fun opciones(perfil: Perfil): List<Opcion> = buildList {
     val p = perfil.permisos
     if (p.vender) add(Opcion("Nueva venta", "Escanea y cobra", Icons.Filled.PointOfSale, Rutas.VENTA, principal = true))
-    if (p.registrarIngreso) add(Opcion("Entrada de stock", "Recibir mercadería con su guía o factura", Icons.Filled.LocalShipping, Rutas.ENTRADA, principal = true))
+    if (p.registrarIngreso) {
+        val detalle = if (p.crearProducto) "Escanea lo que llega; si es nuevo, regístralo ahí mismo" else "Recibir mercadería con su guía o factura"
+        add(Opcion("Entrada de stock", detalle, Icons.Filled.LocalShipping, Rutas.ENTRADA, principal = true))
+    }
     add(Opcion("Consultar producto", "Precio y stock, sin cambiar nada", Icons.Filled.QrCodeScanner, Rutas.CONSULTA))
     if (p.verInventario) add(Opcion("Inventario", "Stock de la tienda, agotados y por reponer", Icons.Filled.Inventory2, Rutas.INVENTARIO))
     if (p.verVentas) add(Opcion("Historial de ventas", "Comprobantes de la tienda", Icons.AutoMirrored.Filled.ReceiptLong, Rutas.HISTORIAL))

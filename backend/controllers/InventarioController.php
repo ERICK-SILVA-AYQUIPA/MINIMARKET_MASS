@@ -108,7 +108,7 @@ class InventarioController extends Controller
     public function registrarIngreso(array $post): void
     {
         if ($this->usuario === null || !$this->usuario->puedeRegistrarIngreso($this->usuario->getIdTienda())) {
-            $this->prohibido('Solo el almacenero de la tienda registra el ingreso de mercadería.');
+            $this->prohibido('Solo el almacenero o el administrador de la tienda registran el ingreso de mercadería.');
             return;
         }
         try {
