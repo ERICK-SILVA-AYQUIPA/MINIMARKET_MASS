@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- La ventana antes de que cargue Compose; los colores de la app estan en ui/tema/Tema.kt -->
+    <style name="Theme.MinimarketMass" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#16202B</item>
+        <item name="android:windowBackground">#F4F5F7</item>
+    </style>
+</resources>

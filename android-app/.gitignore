@@ -1,0 +1,16 @@
+# Android Studio / Gradle
+.gradle/
+.idea/
+.kotlin/
+build/
+app/build/
+local.properties
+captures/
+*.iml
+.externalNativeBuild/
+.cxx/
+
+# Llaves de firma: nunca se suben (ver README.md, "APK de lanzamiento")
+*.jks
+*.keystore
+keystore.properties

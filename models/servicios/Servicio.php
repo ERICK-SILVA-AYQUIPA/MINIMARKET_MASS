@@ -23,6 +23,11 @@ abstract class Servicio
      */
     protected function enTransaccion(callable $operacion): mixed
     {
+        // Ya hay una transaccion abierta (la API la abre para guardar la respuesta junto con la venta):
+        // la operacion se une a ella y el commit o el rollBack los hace quien la abrio
+        if ($this->db->inTransaction()) {
+            return $operacion();
+        }
         $this->db->beginTransaction();
         try {
             $resultado = $operacion();

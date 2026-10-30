@@ -54,7 +54,7 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `scripts/respaldo.ps1` / `respaldo.sh` | Sacan un respaldo completo con `mysqldump` a `respaldos/` (que no se sube) y revisan que termine bien. |
 | `scripts/restaurar.ps1` / `restaurar.sh` | Cargan un respaldo; piden escribir SI porque reemplazan todos los datos. |
 | `scripts/programar_respaldo.ps1` / `programar_respaldo.sh` | Programan el respaldo diario a las 23:00 (Programador de tareas de Windows o `crontab`), sin duplicarlo si se corren dos veces; con `-Quitar` / `quitar` lo sacan. El respaldo guarda los últimos 30. |
-| `scripts/verificar_instalacion.php` | Revisión antes de abrir la tienda (no cambia nada): PHP y extensiones, claves de `.env`, archivos que no deben estar en `public/`, usuario de MySQL, 34 tablas, hora de Lima, empleados con la clave de prueba y respaldo reciente. |
+| `scripts/verificar_instalacion.php` | Revisión antes de abrir la tienda (no cambia nada): PHP y extensiones, claves de `.env`, archivos que no deben estar en `public/`, usuario de MySQL, 36 tablas, hora de Lima, empleados con la clave de prueba y respaldo reciente. |
 | `docs/propuesta_sunat_y_lector.md` | Propuesta escrita, sin código: qué falta para la boleta electrónica (proveedor PSE/OSE, tablas, envío aparte de la venta, notas de crédito) y para el lector de código de barras. |
 | `deploy/apache-mass.conf`, `deploy/nginx-mass.conf` | Configuración del servidor web con HTTPS (Let's Encrypt): la raíz es `public/`, http pasa a https y el límite de subida alcanza para el CSV del catálogo. |
 | `config/Database.php` | Crea una sola conexión PDO con los datos del `.env`. Activa excepciones en errores y consultas preparadas reales. |
