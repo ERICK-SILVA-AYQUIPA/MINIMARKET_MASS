@@ -244,11 +244,20 @@ php tests/unitarios.php     # 87 comprobaciones de las clases del modelo, sin ba
 php tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 30 formularios, escapado, SQL preparado y JavaScript seguro
 php tests/web.php           # 160 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
 php tests/integracion.php   # 171 comprobaciones contra MySQL, con la base recién creada
+php tests/api.php           # 81 comprobaciones de la API de la app Android, con la base recién creada
 ```
 
-En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web y las de integración contra un MySQL 8.4.11 nuevo.
+En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web, las de integración y las de la API de la app contra un MySQL 8.4.11 nuevo.
 
 `tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
+
+### App Android (`android-app/`)
+
+La app **Mass Tienda** para el celular consulta productos con la cámara, muestra el inventario, registra entradas de mercadería, vende en caja y revisa el historial. No tiene base propia ni se conecta a MySQL: usa la API `/api/v1` del mismo PHP (`public/api/index.php`), así que una venta en el celular aparece al instante en la web y al revés.
+
+- Cómo compilar, instalar y apuntar al servidor: [`android-app/README.md`](android-app/README.md).
+- Rutas, formato y errores de la API: [`docs/api_movil.md`](docs/api_movil.md).
+- Una base creada antes necesita `database/api_movil.sql` (2 tablas: `api_token` y `api_operacion`).
 
 ---
 

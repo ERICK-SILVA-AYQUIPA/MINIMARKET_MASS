@@ -119,7 +119,7 @@ Con Apache es igual, pero en el paso 3 se usa `deploy/apache-mass.conf` (`sudo a
 php scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean las de ejemplo, que `public/` no tenga archivos que no deben descargarse, que la aplicación no entre a MySQL como root, las 34 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina en `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean las de ejemplo, que `public/` no tenga archivos que no deben descargarse, que la aplicación no entre a MySQL como root, las 36 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina en `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque la clave de prueba.
 
 ## 7. Respaldo y restauración
 
@@ -130,7 +130,7 @@ Revisa la versión de PHP y sus extensiones, que las claves de `.env` no sean la
 | Quitar el diario | `... programar_respaldo.ps1 -Quitar` | `bash scripts/programar_respaldo.sh quitar` |
 | Restaurar | `powershell -ExecutionPolicy Bypass -File scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `bash scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
-- El respaldo guarda todo: las 34 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
+- El respaldo guarda todo: las 36 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`.
 - Las **fotos de producto** no van en la base: están en `public/img/productos/`. Copiar esa carpeta junto con el respaldo (por ejemplo, comprimida en el mismo disco o nube) y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo, sin detenerla.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.

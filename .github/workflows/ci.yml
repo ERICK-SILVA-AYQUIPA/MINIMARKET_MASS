@@ -1,6 +1,6 @@
 # Revision automatica en cada push y pull request:
 # 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) revision de seguridad del codigo,
-# 4) pruebas web por rol y 5) pruebas de integracion, las dos contra MySQL en Docker.
+# 4) pruebas web por rol, 5) pruebas de integracion y 6) API de la app Android, contra MySQL en Docker.
 name: CI
 
 on:
@@ -46,6 +46,10 @@ jobs:
 
       - name: Pruebas de integracion
         run: php tests/integracion.php
+
+      # Despues de integracion: esa prueba pide la base recien creada y esta registra ventas e ingresos
+      - name: Pruebas de la API de la app Android
+        run: php tests/api.php
 
       - name: Log de MySQL si algo fallo
         if: failure()

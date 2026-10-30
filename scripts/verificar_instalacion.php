@@ -85,7 +85,7 @@ echo "Base de datos\n";
 $usuario = (string) $db->query('SELECT CURRENT_USER()')->fetchColumn();
 revisar(!str_starts_with($usuario, 'root@'), 'La aplicación no entra como root', 'La aplicación entra como root: usa el usuario mass_app (docs/despliegue.md)');
 $tablas = (int) $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")->fetchColumn();
-revisar($tablas === 34, 'Las 34 tablas', "Hay $tablas tablas y deben ser 34: falta correr algún script de database/ (docs/despliegue.md, sección 8)");
+revisar($tablas === 36, 'Las 36 tablas', "Hay $tablas tablas y deben ser 36: falta correr algún script de database/ (docs/despliegue.md, sección 8)");
 $boleta = (int) $db->query("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema = DATABASE() AND routine_name = 'sp_boleta'")->fetchColumn();
 revisar($boleta === 1, 'Procedimiento sp_boleta', 'Falta sp_boleta: corre database/boleta (1).sql', 'AVISO');
 $minutos = (int) $db->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();

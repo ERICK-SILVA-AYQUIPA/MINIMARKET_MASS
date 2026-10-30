@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Solo el APK de prueba (debug): permite http:// para el servidor `php -S` de la PC en la red local.
+     El APK de lanzamiento usa src/main/res/xml/network_security_config.xml (solo HTTPS). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -217,14 +217,15 @@ foreach ($todos as $archivo) {
         && !str_starts_with($archivo, 'tests/')) {
         $publicas[] = $archivo;
     }
-    if ($archivo !== 'public/index.php' && !str_starts_with($archivo, 'tests/') && !str_starts_with($archivo, 'public/poo_')
+    // Las dos entradas leen la peticion: la pagina web (public/index.php) y la API de la app (public/api/index.php)
+    if (!in_array($archivo, ['public/index.php', 'public/api/index.php'], true) && !str_starts_with($archivo, 'tests/') && !str_starts_with($archivo, 'public/poo_')
         && preg_match('/\$_(GET|POST|REQUEST|COOKIE)\b/', $texto) === 1) {
         $entradaCruda[] = $archivo;
     }
 }
 revisar('Todos los archivos PHP tienen declare(strict_types=1)', $sinStrict === [], $sinStrict);
 revisar('Ninguna clase tiene propiedades public', $publicas === [], $publicas);
-revisar('$_GET y $_POST solo se leen en public/index.php', $entradaCruda === [], $entradaCruda);
+revisar('$_GET y $_POST solo se leen en public/index.php y public/api/index.php', $entradaCruda === [], $entradaCruda);
 revisar('.env está en .gitignore', in_array('.env', array_map('trim', file($raiz . '/.gitignore')), true));
 $claves = [];
 foreach (array_merge(archivosPhp($raiz, 'config'), archivosPhp($raiz, 'models'), archivosPhp($raiz, 'controllers')) as $archivo) {
