@@ -39,7 +39,7 @@ php -S localhost:8000 -t public
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba (ver `docs/manual_usuario.md`).
 
-Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta (1).sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql`, `operaciones.sql` y `catalogo.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
+Los scripts de `database/` se ejecutan solo la primera vez, cuando el volumen está vacío, en este orden: `schema.sql`, `datos.sql`, `boleta.sql`, `login.sql`, `seguridad.sql`, `ajustes.sql`, `auditoria.sql`, `ingresos.sql`, `operaciones.sql` y `catalogo.sql`. Para empezar de cero (**se borran los datos**): `docker compose down -v` y luego `docker compose up -d`.
 
 ## 4. Opción B: MySQL sin Docker (Laragon)
 
@@ -48,7 +48,7 @@ Ejecutar los mismos scripts, en el mismo orden, con el usuario root de su MySQL:
 ```powershell
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/schema.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/datos.sql
-mysql -u root -p -h 127.0.0.1 -P 3306 < "database/boleta (1).sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 < database/boleta.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/login.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/seguridad.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 < database/ajustes.sql

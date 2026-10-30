@@ -42,9 +42,6 @@ if errorlevel 1 (
     if exist "database\instalar_laragon.sql" (
         "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon.sql"
         echo [OK] Base de datos instalada exitosamente con todas las tablas y datos.
-    ) else if exist "database\instalar_laragon (1).sql" (
-        "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon (1).sql"
-        echo [OK] Base de datos instalada exitosamente con todas las tablas y datos.
     ) else (
         echo [AVISO] Revisa que MySQL este iniciado en Laragon con el boton "Iniciar Todo".
     )

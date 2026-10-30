@@ -87,7 +87,7 @@ revisar(!str_starts_with($usuario, 'root@'), 'La aplicación no entra como root'
 $tablas = (int) $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")->fetchColumn();
 revisar($tablas === 36, 'Las 36 tablas', "Hay $tablas tablas y deben ser 36: falta correr algún script de database/ (docs/despliegue.md, sección 8)");
 $boleta = (int) $db->query("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema = DATABASE() AND routine_name = 'sp_boleta'")->fetchColumn();
-revisar($boleta === 1, 'Procedimiento sp_boleta', 'Falta sp_boleta: corre database/boleta (1).sql', 'AVISO');
+revisar($boleta === 1, 'Procedimiento sp_boleta', 'Falta sp_boleta: corre database/boleta.sql', 'AVISO');
 $minutos = (int) $db->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();
 revisar($minutos === -300, 'MySQL tiene la hora de Lima', 'MySQL no está en la hora de Lima: las ventas saldrían con otra fecha (TZ: America/Lima)');
 

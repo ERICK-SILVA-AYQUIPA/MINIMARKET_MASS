@@ -20,7 +20,7 @@ services:
     volumes:
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
       - ./database/datos.sql:/docker-entrypoint-initdb.d/02_datos.sql:ro
-      - "./database/boleta (1).sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro"
+      - ./database/boleta.sql:/docker-entrypoint-initdb.d/03_boleta.sql:ro
       - ./database/login.sql:/docker-entrypoint-initdb.d/04_login.sql:ro
       - ./database/seguridad.sql:/docker-entrypoint-initdb.d/05_seguridad.sql:ro
       - ./database/ajustes.sql:/docker-entrypoint-initdb.d/06_ajustes.sql:ro
