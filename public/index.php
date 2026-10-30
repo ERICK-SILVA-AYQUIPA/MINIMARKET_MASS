@@ -93,6 +93,11 @@ $leer = static function (string $clave): ?string {
 $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $ruta = $leer('ruta') ?? 'inicio';
 Controller::marcarRuta($ruta);
+// El modo del menu lateral lo guarda app.js en una cookie por usuario de este navegador
+if ($usuario !== null) {
+    $cookieMenu = $_COOKIE['menu_' . $usuario->getIdEmpleado()] ?? null;
+    Controller::marcarModoMenu(is_string($cookieMenu) ? $cookieMenu : null);
+}
 
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
 $rutasPost = [

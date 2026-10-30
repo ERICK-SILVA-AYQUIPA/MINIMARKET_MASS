@@ -25,6 +25,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 ### Cómo moverse
 
 - **Menú de la izquierda**: agrupado en Ventas, Inventario y Administración. Arriba dice la tienda de quien entró. En el celular se abre con el botón **Menú**.
+- **Menú lateral** (al pie del menú, en la computadora): cada empleado elige cómo verlo y se recuerda en ese navegador. **Fijo** lo deja siempre abierto; **Íconos** lo pliega y muestra el nombre de cada opción al pasar el cursor; **Auto** lo deja plegado y lo abre solo al pasar el cursor o al llegar con `Tab`. El botón junto al logo lo pliega o lo abre con un clic.
 - **Paneles laterales**: al tocar un producto, un cliente, un comprobante, un turno de caja, un movimiento del kardex, un ingreso o una fila de la auditoría, su detalle se abre a la derecha sin salir de la lista. Se cierra con la **X**, tocando el fondo oscuro o con **Atrás** del navegador.
 - **Botón amarillo**: la acción principal de cada pantalla (Nueva venta, Registrar ingreso, Enviar mercadería, Registrar merma, Nuevo producto, Registrar empleado).
 - Si una lista está vacía, la pantalla dice por qué y qué hacer.

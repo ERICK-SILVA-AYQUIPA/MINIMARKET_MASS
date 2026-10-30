@@ -41,6 +41,7 @@
     --sombra: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .08);
     --sombra-alta: 0 12px 32px rgba(16, 24, 40, .18);
     --ancho-lateral: 248px;
+    --ancho-plegado: 72px;
     --alto-control: 40px;
     --titulos: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     --brillo: 0 8px 24px rgba(255, 196, 0, .35);
@@ -95,11 +96,15 @@ td.recortado { max-width: 360px; overflow: hidden; text-overflow: ellipsis; whit
     background: radial-gradient(260px 200px at 0 0, rgba(255, 210, 0, .1), transparent 70%), linear-gradient(180deg, var(--lateral), #0e151d);
     display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
+.lateral-cabeza { display: flex; align-items: center; gap: var(--e1); padding-right: var(--e3); }
+.lateral .lateral-cabeza .marca { padding-right: 0; font-size: 1.05rem; }
 .lateral .marca {
+    flex: 1; min-width: 0; white-space: nowrap;
     display: flex; align-items: center; gap: var(--e2); padding: var(--e4) var(--e4) var(--e3);
     color: #fff; text-decoration: none; font-weight: 700; font-size: 1.15rem; letter-spacing: .2px; font-family: var(--titulos);
 }
 .logo {
+    flex: none;
     display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
     background: linear-gradient(135deg, #ffe14d, var(--marca) 55%, #ffb800); color: var(--tinta);
     font-family: var(--titulos); font-weight: 800; font-size: 1.05rem; box-shadow: 0 4px 14px rgba(255, 196, 0, .3);
@@ -160,6 +165,96 @@ footer.pie { text-align: center; color: var(--tenue); font-size: .8rem; padding:
     }
     main { padding: var(--e4); }
 }
+
+/* Menú plegable (computadora). app.js pone el modo en <html data-menu>:
+   sin atributo = fijo; "iconos" = solo iconos; "auto" = iconos que se abren al pasar el cursor o con Tab. */
+.menu-plegar {
+    flex: none; display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
+    border: 0; border-radius: var(--radio-chico); background: rgba(255, 255, 255, .06); color: var(--lateral-texto); cursor: pointer;
+}
+.menu-plegar:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+.menu-plegar .icono { width: 18px; height: 18px; transition: transform .26s ease; }
+.menu-plegar .texto-menu, .modo-menu input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.modo-menu { border: 0; margin: var(--e3) 0 0; padding: 0; min-width: 0; }
+.modo-menu legend { padding: 0; margin-bottom: var(--e1); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); }
+.modo-menu { display: flex; flex-wrap: wrap; }
+.modo-menu legend { width: 100%; }
+.modo-menu label { flex: 1; cursor: pointer; }
+.modo-menu label span {
+    display: block; padding: 5px 0; text-align: center; font-size: .78rem; font-weight: 600;
+    background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .1);
+}
+.modo-menu label:first-of-type span { border-radius: var(--radio-chico) 0 0 var(--radio-chico); }
+.modo-menu label:last-of-type span { border-radius: 0 var(--radio-chico) var(--radio-chico) 0; }
+.modo-menu label:hover span { color: #fff; }
+.modo-menu input:checked + span { background: var(--marca); border-color: var(--marca); color: var(--tinta); }
+.modo-menu input:focus-visible + span { outline: 3px solid var(--marca); outline-offset: 2px; }
+.menu-globo {
+    position: fixed; z-index: 70; pointer-events: none; padding: 6px 10px; border-radius: var(--radio-chico);
+    background: var(--tinta); color: #fff; font-size: .85rem; font-weight: 600; white-space: nowrap; box-shadow: var(--sombra-alta);
+    transform: translateY(-50%);
+}
+
+@media (max-width: 960px) {
+    .menu-plegar, .modo-menu { display: none; }
+}
+@media (min-width: 961px) {
+    /* Animación: el ancho se desliza, los textos no se parten mientras tanto y entran con un fundido */
+    .lateral { transition: width .26s cubic-bezier(.2, .8, .2, 1), box-shadow .26s ease; overflow-x: hidden; }
+    .lateral nav a, .lateral .grupo, .lateral .tienda-actual, .lateral .usuario { white-space: nowrap; }
+    .lateral .usuario .acciones-usuario { flex-wrap: nowrap; }
+    [data-menu] .menu-plegar .icono { transform: scaleX(-1); } /* la flecha apunta hacia afuera: "abrir" */
+    .menu-animando .lateral :is(.texto-menu, .grupo, .tienda-actual, .usuario-datos, .modo-menu),
+    [data-menu="auto"] .lateral:hover :is(.texto-menu, .grupo, .tienda-actual, .usuario-datos, .modo-menu),
+    [data-menu="auto"] .lateral:focus-within :is(.texto-menu, .grupo, .tienda-actual, .usuario-datos, .modo-menu) {
+        animation: menu-aparece .28s ease .08s both;
+    }
+    [data-menu="auto"] .lateral:hover :is(.texto-menu, .grupo, .tienda-actual, .usuario-datos, .modo-menu) { animation-delay: .2s; }
+    [data-menu] .lateral nav a .icono { transition: transform .15s ease; }
+    [data-menu] .lateral nav a:hover .icono { transform: scale(1.12); }
+    [data-menu] main:not(.angosto) { max-width: calc(1180px + var(--ancho-lateral) - var(--ancho-plegado)); }
+
+    /* Automático: el menú flota sobre el contenido y se abre tras una pausa corta */
+    [data-menu="auto"] .app { padding-left: var(--ancho-plegado); }
+    [data-menu="auto"] .lateral { position: fixed; left: 0; top: 0; z-index: 50; }
+    [data-menu="auto"] .lateral:hover, [data-menu="auto"] .lateral:focus-within { transition-delay: .12s; box-shadow: 8px 0 32px rgba(16, 24, 40, .28); }
+
+    /* Plegado: "iconos" siempre; "auto" mientras no se usa */
+    /* (sin anidar CSS, para navegadores de aula algo antiguos) */
+    [data-menu="iconos"] .lateral, [data-menu="auto"] .lateral:not(:hover):not(:focus-within) { width: var(--ancho-plegado); }
+    [data-menu="iconos"] .lateral .texto-menu,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .texto-menu { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    [data-menu="iconos"] .lateral .lateral-cabeza,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .lateral-cabeza { flex-direction: column; gap: var(--e2); padding: var(--e4) 0 var(--e3); }
+    [data-menu="iconos"] .lateral .marca,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .marca { flex: none; padding: 0; }
+    [data-menu="iconos"] .lateral .tienda-actual,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .tienda-actual,
+    [data-menu="iconos"] .lateral .usuario-datos,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .usuario-datos,
+    [data-menu="iconos"] .lateral .modo-menu,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .modo-menu { display: none; }
+    [data-menu="iconos"] .lateral nav,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) nav { padding: 0 var(--e3) var(--e4); }
+    [data-menu="iconos"] .lateral nav a,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) nav a { justify-content: center; padding: 10px 0; }
+    [data-menu="iconos"] .lateral .grupo,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .grupo { height: 1px; margin: var(--e3) var(--e2); padding: 0; overflow: hidden; color: transparent; background: rgba(255, 255, 255, .12); }
+    [data-menu="iconos"] .lateral .usuario,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .usuario { padding: var(--e3) 0; }
+    [data-menu="iconos"] .lateral .acciones-usuario,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .acciones-usuario { flex-direction: column; align-items: center; margin-top: 0; }
+    [data-menu="iconos"] .lateral .acciones-usuario a,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .acciones-usuario a,
+    [data-menu="iconos"] .lateral .acciones-usuario button.enlace,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .acciones-usuario button.enlace { padding: 8px; border-radius: var(--radio-chico); }
+    [data-menu="iconos"] .lateral .acciones-usuario a:hover,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .acciones-usuario a:hover,
+    [data-menu="iconos"] .lateral .acciones-usuario button.enlace:hover,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) .acciones-usuario button.enlace:hover { background: rgba(255, 255, 255, .08); }
+}
+
+@keyframes menu-aparece { from { opacity: 0; transform: translateX(-6px); } }
 
 /* ---------- 4. Encabezado de página ---------- */
 .cabecera {
