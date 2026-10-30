@@ -23,6 +23,14 @@ abstract class Controller
         self::$rutaActual = $ruta;
     }
 
+    // Como quiere ver el menu lateral este usuario: '' (fijo), 'iconos' o 'auto' (lo fija public/index.php)
+    private static string $modoMenu = '';
+
+    public static function marcarModoMenu(?string $modo): void
+    {
+        self::$modoMenu = in_array($modo, ['iconos', 'auto'], true) ? $modo : '';
+    }
+
     public function __construct(
         protected TiendaRepository $tiendas,
         protected Sesion $sesion,
@@ -55,6 +63,7 @@ abstract class Controller
         $aviso = $this->sesion->tomarAviso();
         $bienvenida = $this->usuario !== null && $this->sesion->tomarBienvenida();
         $rutaActual = self::$rutaActual;
+        $modoMenu = self::$modoMenu;
         // La tienda del usuario, para el menu lateral
         $nombreTiendaActual = $this->usuario !== null
             ? ($this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda() ?? '') : '';

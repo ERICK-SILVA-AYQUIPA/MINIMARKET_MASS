@@ -214,6 +214,86 @@
         });
     });
 
+    // ---------- Menu lateral plegable (computadora): fijo, solo iconos o automatico ----------
+    // El servidor ya pinto el modo guardado (cookie menu_<id>); aqui van el boton, la eleccion y los globos.
+
+    const raiz = document.documentElement;
+    const lateral = $('#menu-lateral');
+    const botonPlegar = $('[data-menu-plegar]');
+    const modoMenu = $('[data-modo-menu]');
+    if (lateral !== null && botonPlegar !== null && modoMenu !== null) {
+        const cookieMenu = 'menu_' + raiz.dataset.usuario;
+        let relojAnimacion = 0;
+        const ponerModo = (modo, guardar) => {
+            if (modo === 'fijo') {
+                delete raiz.dataset.menu;
+            } else {
+                raiz.dataset.menu = modo;
+            }
+            const abierto = modo === 'fijo';
+            const texto = abierto ? 'Ocultar menú' : 'Fijar menú abierto';
+            botonPlegar.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+            botonPlegar.title = texto;
+            $('.texto-menu', botonPlegar).textContent = texto;
+            $$('input', modoMenu).forEach((radio) => { radio.checked = radio.value === modo; });
+            if (guardar) {
+                // Los textos entran con un fundido corto mientras el menu cambia de ancho (ver estilos.css)
+                raiz.classList.add('menu-animando');
+                clearTimeout(relojAnimacion);
+                relojAnimacion = setTimeout(() => raiz.classList.remove('menu-animando'), 450);
+                // Un año, solo en este navegador; el servidor solo acepta fijo, iconos o auto
+                document.cookie = cookieMenu + '=' + modo + '; path=/; max-age=31536000; SameSite=Lax';
+            }
+        };
+        ponerModo(raiz.dataset.menu || 'fijo', false);
+        botonPlegar.hidden = false;
+        modoMenu.hidden = false;
+        botonPlegar.addEventListener('click', () => {
+            ponerModo(raiz.dataset.menu ? 'fijo' : 'iconos', true);
+            botonPlegar.focus();
+        });
+        modoMenu.addEventListener('change', (evento) => ponerModo(evento.target.value, true));
+        // En "auto" el menu se queda abierto mientras tenga el foco (para Tab). Tras un clic con el
+        // mouse se suelta el foco, asi el menu se pliega apenas el cursor sale.
+        lateral.addEventListener('click', (evento) => {
+            if (evento.detail > 0) {
+                setTimeout(() => { // despues del cambio de modo que hizo este mismo clic
+                    if (raiz.dataset.menu === 'auto' && lateral.contains(document.activeElement)) {
+                        document.activeElement.blur();
+                    }
+                }, 0);
+            }
+        });
+
+        // Con solo iconos, el nombre de cada opcion sale en un globo al pasar el cursor o con Tab.
+        // Va fuera del menu (position: fixed) porque el menu recorta lo que sobresale.
+        const globo = document.createElement('div');
+        globo.className = 'menu-globo';
+        globo.hidden = true;
+        globo.setAttribute('aria-hidden', 'true'); // el lector de pantalla ya lee el texto del enlace
+        document.body.appendChild(globo);
+        const mostrarGlobo = (evento) => {
+            const opcion = evento.target.closest('a, button');
+            const texto = opcion ? $('.texto-menu', opcion) : null;
+            if (raiz.dataset.menu !== 'iconos' || texto === null || window.innerWidth <= 960) {
+                globo.hidden = true;
+                return;
+            }
+            const caja = opcion.getBoundingClientRect();
+            globo.textContent = texto.textContent;
+            globo.style.left = (lateral.getBoundingClientRect().right + 8) + 'px';
+            globo.style.top = (caja.top + caja.height / 2) + 'px';
+            globo.hidden = false;
+        };
+        const ocultarGlobo = () => { globo.hidden = true; };
+        lateral.addEventListener('mouseover', mostrarGlobo);
+        lateral.addEventListener('focusin', mostrarGlobo);
+        lateral.addEventListener('mouseleave', ocultarGlobo);
+        lateral.addEventListener('focusout', ocultarGlobo);
+        lateral.addEventListener('scroll', ocultarGlobo);
+        botonPlegar.addEventListener('click', ocultarGlobo);
+    }
+
     // ---------- Guias "Como se usa": se recuerdan cerradas en este navegador ----------
 
     $$('details[data-guia]').forEach((guia) => {

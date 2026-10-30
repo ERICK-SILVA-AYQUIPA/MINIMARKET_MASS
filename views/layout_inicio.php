@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @var ?string $anchoMain   'angosto' para formularios cortos
  * @var ?string $nombreTiendaActual  la tienda del usuario (la pone Controller::vista)
  * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro
+ * @var ?string $modoMenu  '' (fijo), 'iconos' o 'auto': como ve el menu lateral este usuario
  * @var ?bool $bienvenida  true en la primera pagina despues de entrar: logo con barra de carga
  */
 $usuarioActual ??= null;
@@ -19,6 +20,9 @@ $anchoMain ??= '';
 $nombreTiendaActual ??= '';
 $paginaEntrada ??= false;
 $bienvenida ??= false;
+// Modo del menu lateral ('' fijo, 'iconos' o 'auto'): va en <html data-menu> desde el servidor
+// para que el menu no aparezca abierto y luego se pliegue.
+$modoMenu ??= '';
 // Sin sesion (login y errores) el fondo cambia; el login ademas va en oscuro
 $claseCuerpo = $usuarioActual !== null ? '' : ($paginaEntrada ? 'acceso entrada-pagina' : 'acceso');
 
@@ -60,15 +64,15 @@ if ($usuarioActual !== null) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es"<?php if ($usuarioActual !== null): ?> data-usuario="<?= $usuarioActual->getIdEmpleado() ?>"<?php endif; ?><?php if ($modoMenu !== ''): ?> data-menu="<?= e($modoMenu) ?>"<?php endif; ?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
     <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/estilos.css?v=9">
-    <script src="/app.js?v=2" defer></script>
+    <link rel="stylesheet" href="/estilos.css?v=10">
+    <script src="/app.js?v=3" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -88,7 +92,13 @@ if ($usuarioActual !== null) {
 <div class="app">
     <label class="menu-fondo" for="menu-casilla" aria-hidden="true"></label>
     <aside class="lateral" id="menu-lateral">
-        <a class="marca" href="/?ruta=inicio"><span class="logo" aria-hidden="true">M</span> Minimarket Mass</a>
+        <div class="lateral-cabeza">
+            <a class="marca" href="/?ruta=inicio"><span class="logo" aria-hidden="true">M</span><span class="texto-menu">Minimarket Mass</span></a>
+            <!-- Plegar el menu a solo iconos (lo activa app.js; sin JavaScript el menu queda fijo) -->
+            <button type="button" class="menu-plegar" data-menu-plegar aria-controls="menu-lateral" hidden>
+                <?= icono('plegar') ?><span class="texto-menu">Ocultar menú</span>
+            </button>
+        </div>
         <div class="tienda-actual">
             <span class="sutil">Tienda</span>
             <strong><?= e($nombreTiendaActual) ?></strong>
@@ -99,17 +109,25 @@ if ($usuarioActual !== null) {
                 <?php if ($grupo !== ''): ?><div class="grupo"><?= e($grupo) ?></div><?php endif; ?>
                 <?php foreach ($opciones as $rutaMenu => [$textoMenu, $iconoMenu]): ?>
                     <a href="/?ruta=<?= e($rutaMenu) ?>"<?= $rutaMenu === $rutaActual ? ' class="activo" aria-current="page"' : '' ?>>
-                        <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#<?= e($iconoMenu) ?>"></use></svg><?= e($textoMenu) ?>
+                        <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#<?= e($iconoMenu) ?>"></use></svg><span class="texto-menu"><?= e($textoMenu) ?></span>
                     </a>
                 <?php endforeach; ?>
             <?php endforeach; ?>
         </nav>
         <div class="usuario">
-            <strong><?= e($usuarioActual->nombreCompleto()) ?></strong>
-            <?= e(ucfirst(strtolower($usuarioActual->getNombreRol()))) ?>
+            <div class="usuario-datos">
+                <strong><?= e($usuarioActual->nombreCompleto()) ?></strong>
+                <?= e(ucfirst(strtolower($usuarioActual->getNombreRol()))) ?>
+            </div>
+            <fieldset class="modo-menu" data-modo-menu hidden>
+                <legend>Menú lateral</legend>
+                <label><input type="radio" name="modo-menu" value="fijo"><span>Fijo</span></label>
+                <label><input type="radio" name="modo-menu" value="iconos"><span>Íconos</span></label>
+                <label><input type="radio" name="modo-menu" value="auto"><span>Auto</span></label>
+            </fieldset>
             <div class="acciones-usuario">
-                <a href="/?ruta=mi_clave"><?= icono('clave') ?>Mi clave</a>
-                <form method="post" action="/?ruta=salir"><?= campoCsrf($csrf) ?><button class="enlace" type="submit"><?= icono('salir') ?>Salir</button></form>
+                <a href="/?ruta=mi_clave"><?= icono('clave') ?><span class="texto-menu">Mi clave</span></a>
+                <form method="post" action="/?ruta=salir"><?= campoCsrf($csrf) ?><button class="enlace" type="submit"><?= icono('salir') ?><span class="texto-menu">Salir</span></button></form>
             </div>
         </div>
     </aside>
