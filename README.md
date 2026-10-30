@@ -3,11 +3,9 @@ Sistema relacional y lógica de negocio para la administración de ventas, inven
 
 ## Integrantes del Grupo
 - ERICK SILVA AYQUIPA
-- Gerald Anderson Condori Quispe
 - Alexander Emmanuel Moreno Flores
-- Jhon Alexandro Apaza Belizario
 - Suhaily Luana Huaypar Quijhua
-- Keymer Cesar Machaca Puma
+
 
 ## Estructura del Repositorio
 El repositorio cuenta con una arquitectura modular en scripts SQL y documentación técnica:
