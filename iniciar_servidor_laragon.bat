@@ -39,12 +39,12 @@ echo [INFO] Verificando base de datos en Laragon...
 "%MYSQL_CMD%" -u root -e "USE minimarket_mass; SELECT 1 FROM producto LIMIT 1;" >nul 2>nul
 if errorlevel 1 (
     echo [INFO] Instalando base de datos minimarket_mass automaticamente...
-    if exist "database\instalar_laragon (1).sql" (
+    if exist "database\instalar_laragon.sql" (
+        "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon.sql"
+        echo [OK] Base de datos instalada exitosamente con todas las tablas y datos.
+    ) else if exist "database\instalar_laragon (1).sql" (
         "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon (1).sql"
         echo [OK] Base de datos instalada exitosamente con todas las tablas y datos.
-    ) else if exist "database\instalar_laragon.sql" (
-        "%MYSQL_CMD%" --default-character-set=utf8mb4 -u root < "database\instalar_laragon.sql"
-        echo [OK] Base de datos instalada exitosamente.
     ) else (
         echo [AVISO] Revisa que MySQL este iniciado en Laragon con el boton "Iniciar Todo".
     )
