@@ -6,8 +6,8 @@ Esta guía es para los integrantes del equipo que trabajan en Windows usando **L
 
 ## 1. Requisitos Previos en Laragon
 1. Tener Laragon instalado y abierto.
-2. Asegurarse de tener activado **PHP 8.2 o superior**:
-   - Clic derecho en Laragon ➔ **PHP** ➔ **Version** ➔ Seleccionar PHP 8.2 o PHP 8.4.
+2. Asegurarse de tener activado **PHP 8.3 o superior** (es el mínimo que pide `backend/scripts/verificar_instalacion.php`):
+   - Clic derecho en Laragon ➔ **PHP** ➔ **Version** ➔ Seleccionar PHP 8.3 o PHP 8.4.
 3. Dar clic al botón **"Iniciar todo"** en Laragon (para que MySQL y Apache/Nginx estén corriendo).
 
 ---
@@ -50,14 +50,19 @@ Dentro de la carpeta del proyecto en Windows:
   👉 **`iniciar_servidor_laragon.bat`**
 
 Este archivo se encarga de:
-1. Verificar tu archivo `.env`.
-2. Abrir tu navegador en **`http://localhost:8000`**.
-3. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`public`).
+1. Crear el `.env` copiando `.env.laragon`, si todavía no existe.
+2. Instalar `backend/database/instalar_laragon.sql` si la base `minimarket_mass` no existe o no tiene la tabla `producto` (si ya hiciste el paso 2, no la toca).
+3. Abrir tu navegador en **`http://localhost:8000`**.
+4. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`frontend/public`).
+
+Laragon es solo para las PCs del equipo. Para publicar el sistema en un servidor con HTTPS, ver `docs/despliegue.md`.
 
 ---
 
 ## 5. Datos de Ingreso de Prueba
 Puedes ingresar al sistema con cualquiera de estos usuarios:
-- **Administrador (Tienda Cayma):** DNI `12345678` / Clave `Mass2026!`
-- **Cajero (Tienda Cayma):** DNI `87654321` / Clave `Mass2026!`
-- **Almacenero (Tienda Cayma):** DNI `11223344` / Clave `Mass2026!`
+- **Administradora (Mass Cayma):** DNI `70000001` / Clave `Mass2026!`
+- **Cajero (Mass Cayma):** DNI `70000002` / Clave `Mass2026!`
+- **Almacenera (Mass Cayma):** DNI `70000003` / Clave `Mass2026!`
+
+Los de las otras tiendas están en `docs/manual_usuario.md`.
