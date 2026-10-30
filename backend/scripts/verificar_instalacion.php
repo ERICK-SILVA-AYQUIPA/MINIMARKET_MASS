@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Revisa que una instalacion este lista para usarse con datos reales (no cambia nada).
- *   php scripts/verificar_instalacion.php
+ *   php backend/scripts/verificar_instalacion.php
  * FALLA = hay que corregirlo antes de abrir la tienda. AVISO = conviene revisarlo.
  * No imprime claves ni DNIs. Termina con codigo 1 si hay alguna FALLA.
  */
