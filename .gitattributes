@@ -1,0 +1,18 @@
+# Saltos de linea iguales para todo el equipo (Windows con Laragon y Linux en la CI):
+# en el repositorio todo se guarda con LF; los scripts de Windows se abren con CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# El CSV del catalogo se deja tal cual (lo arma Excel con CRLF)
+*.csv -text
+
+# Binarios: Git no los compara ni les cambia nada
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.woff2 binary
+*.docx binary
+*.pdf binary
+*.jar binary

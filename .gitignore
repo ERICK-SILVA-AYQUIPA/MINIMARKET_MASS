@@ -19,3 +19,7 @@ respaldos/
 # Fotos de productos que sube el administrador (se respaldan copiando la carpeta)
 public/img/productos/*
 !public/img/productos/.gitkeep
+
+# APK y paquetes de Android generados (se descargan desde la CI o Releases, no se suben)
+*.apk
+*.aab

@@ -30,6 +30,9 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
 - **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
+- **`docs/equipo/`**: Nota de cada integrante (qué hizo, qué aprendió y cómo usó la IA), con su plantilla.
+- **`CONTRIBUTING.md`**: Reglas del equipo para ramas, commits y Pull Requests, y dónde va cada archivo.
+- **`.gitattributes`** y **`.editorconfig`**: Mismos saltos de línea y formato para Windows (Laragon) y Linux (CI).
 
 ---
 
@@ -261,19 +264,11 @@ La app **Mass Tienda** para el celular consulta productos con la cámara, muestr
 
 ## Cómo Sincronizar Cambios con Git y GitHub
 
-Si realizaste cambios directos en GitHub o tus compañeros subieron modificaciones, sigue estos pasos para mantener tu copia local actualizada:
+`main` está protegida: cada cambio entra por su rama y un Pull Request revisado por otro integrante, con la CI en verde. Los pasos, los nombres de ramas y commits y dónde va cada archivo están en [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. **Descargar los últimos cambios desde GitHub:**
-   ```bash
-   git pull origin main
-   ```
-2. **Revisar el estado de tus archivos locales:**
-   ```bash
-   git status
-   ```
-3. **Guardar y subir nuevos cambios a GitHub:**
-   ```bash
-   git add .
-   git commit -m "docs: actualizar README y documentacion segun nuevo schema"
-   git push origin main
-   ```
+Para traer lo último que subieron tus compañeros:
+
+```bash
+git checkout main
+git pull origin main
+```
