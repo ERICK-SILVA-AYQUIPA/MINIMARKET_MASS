@@ -26,7 +26,9 @@ minimarket_mass/
 ├── android-app/         app Android (Kotlin)
 ├── deploy/              Apache y Nginx
 ├── docs/                documentación, bitácora de IA, Kanban y docs/equipo/
-├── docker-compose.yml   MySQL 8.4.11
+├── docker/              PHP 8.3 del equipo (web/Dockerfile) y la version de la base (mysql/)
+├── docker-compose.yml   MySQL 8.4.11 y la página web en PHP 8.3
+├── actualizar.bat       pone la PC igual que GitHub con Docker (Linux o Mac: actualizar.sh)
 ├── iniciar_servidor_laragon.bat
 ├── CONTRIBUTING.md
 └── final.docx           informe con los diagramas UML
@@ -149,22 +151,23 @@ El diseño base son 26 tablas. La aplicación agrega 10 tablas de apoyo con migr
 
 ---
 
-## Cómo Levantar la Base de Datos con Docker (MySQL 8.4.11)
+## Cómo Levantar el Proyecto con Docker (MySQL 8.4.11 + PHP 8.3)
 
-La aplicación PHP lee los datos de MySQL 8.4.11 corriendo en Docker. Necesitas Docker Desktop abierto.
+Todo el equipo usa el mismo entorno: MySQL 8.4.11 y PHP 8.3 (igual que el servidor) corren dentro de Docker. Solo se necesita Docker Desktop abierto y Git. **Guía paso a paso para el equipo: [`docs/equipo/docker.md`](docs/equipo/docker.md).**
 
 ```powershell
-# 1. Crear tu archivo de configuración (solo la primera vez) y cambiar las claves
-copy .env.example .env
+git clone https://github.com/rick-back/minimarket_mass.git
+cd minimarket_mass
+./actualizar.bat      # Windows (o doble clic en el archivo). En Linux o Mac: bash actualizar.sh
+```
 
-# 2. Levantar MySQL. La primera vez crea la base y ejecuta schema.sql, datos.sql, boleta.sql, login.sql, seguridad.sql, ajustes.sql, auditoria.sql, ingresos.sql, operaciones.sql y catalogo.sql
-docker compose up -d
+`actualizar.bat` sirve la primera vez y después de cada cambio del equipo: crea `.env` desde `.env.example`, hace `git pull` si estás en `main`, recrea la base si cambió algún script de `backend/database/` (pregunta antes) y levanta todo. Queda la página en `http://localhost:8000` y la API de la app Android en `http://localhost:8000/api/v1/` (en un celular del mismo Wi-Fi: `http://IP-de-la-PC:8000/`).
 
-# 3. Esperar a que diga "healthy" (unos 30 segundos la primera vez)
-docker compose ps
+A mano es lo mismo que:
 
-# 4. Levantar la aplicación
-php -S localhost:8000 -t frontend/public
+```powershell
+copy .env.example .env               # solo la primera vez
+docker compose up -d --build --wait  # MySQL + página web (perfil "web" de .env)
 ```
 
 | Variable de `.env` | Para qué sirve | Valor por defecto |
@@ -174,9 +177,12 @@ php -S localhost:8000 -t frontend/public
 | `DB_NAME` | Base de datos | `minimarket_mass` |
 | `DB_USER` / `DB_PASSWORD` | Usuario que usa la aplicación (lo crea el contenedor) | `mass_app` |
 | `DB_ROOT_PASSWORD` | Clave de root dentro del contenedor | sin valor por defecto |
+| `COMPOSE_PROFILES` | `web` levanta también la página en Docker. En un servidor de producción va vacío | `web` |
+| `WEB_PORT` | Puerto de la página web en tu PC | `8000` |
 
 - El `.env` tiene claves, por eso está en `.gitignore` y **no se sube a GitHub**. En el repositorio solo va `.env.example`.
-- Los scripts solo se ejecutan cuando el volumen está vacío. Para volver a cargar `schema.sql` y `datos.sql` desde cero: `docker compose down -v` y luego `docker compose up -d`.
+- Los scripts solo se ejecutan cuando el volumen está vacío. `actualizar.bat` detecta si cambiaron y ofrece recrear la base; a mano: `docker compose down -v` y luego `docker compose up -d --wait`.
+- Dentro de Docker la página se conecta a MySQL por la red interna (`mysql:3306`); `DB_HOST` y `DB_PORT` de `.env` son para usar PHP o HeidiSQL desde tu PC.
 - Si Laragon ya usa el puerto 3307, detén su MySQL o cambia `DB_PORT` en `.env` (por ejemplo a `3308`).
 - Para entrar a la consola de MySQL: `docker exec -it minimarket_mass_db mysql -u mass_app -p minimarket_mass`.
 - Si MySQL no está corriendo, la aplicación responde 503 con un mensaje, sin mostrar usuario ni claves.
@@ -198,8 +204,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 - **`docs/bitacora_ia.md`**: bitácora del uso de IA.
 
 ```powershell
-docker compose up -d                 # MySQL 8.4.11 (ver la sección de Docker)
-php -S localhost:8000 -t frontend/public
+./actualizar.bat                     # MySQL 8.4.11 + PHP 8.3 en Docker (ver la sección de Docker)
 # http://localhost:8000                                   catálogo de Mass Cayma
 # http://localhost:8000/?ruta=stock                       stock de las 3 tiendas (REPONER)
 # http://localhost:8000/?ruta=ventas&tienda=2             ventas de Mass Cerro Colorado

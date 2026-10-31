@@ -1,6 +1,8 @@
-# Base de datos de Minimarket Mass: MySQL 8.4.11 en Docker.
+# Minimarket Mass en Docker: base de datos (MySQL 8.4.11) y, en las PCs del equipo, la pagina web y la API (PHP 8.3).
+# Guia para el equipo: docs/equipo/docker.md
 # Al crear el contenedor por primera vez, MySQL ejecuta en orden los scripts
-# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql -> auditoria.sql -> ingresos.sql -> operaciones.sql -> catalogo.sql -> api_movil.sql.
+# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql -> auditoria.sql -> ingresos.sql -> operaciones.sql -> catalogo.sql -> api_movil.sql
+# y al final docker/mysql/99_version.sh, que anota con que version de esos scripts se creo la base.
 # Las claves salen del archivo .env (copia de .env.example, no se sube a GitHub).
 services:
   mysql:
@@ -29,12 +31,43 @@ services:
       - ./backend/database/operaciones.sql:/docker-entrypoint-initdb.d/09_operaciones.sql:ro
       - ./backend/database/catalogo.sql:/docker-entrypoint-initdb.d/10_catalogo.sql:ro
       - ./backend/database/api_movil.sql:/docker-entrypoint-initdb.d/11_api_movil.sql:ro
+      # Anota la version de los scripts con la que se creo la base (la usa actualizar.sh / actualizar.bat)
+      - ./docker/mysql/99_version.sh:/docker-entrypoint-initdb.d/99_version.sh:ro
+      - ./docker/mysql/revisar_version.sh:/usr/local/bin/revisar_version.sh:ro
       - mysql_datos:/var/lib/mysql
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
       interval: 5s
       timeout: 5s
       retries: 30
+
+  # Pagina web + API de la app Android en http://localhost:8000 (y http://IP-de-la-PC:8000 en el Wi-Fi).
+  # Solo arranca con el perfil "web" (COMPOSE_PROFILES=web en .env, como viene en .env.example).
+  # En un servidor de produccion se deja COMPOSE_PROFILES vacio: ahi atiende nginx o Apache (docs/despliegue.md).
+  web:
+    build: ./docker/web
+    image: minimarket_mass_web:1
+    container_name: minimarket_mass_web
+    profiles: ["web"]
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # Dentro de Docker, MySQL se llama "mysql" y escucha en 3306 (ganan sobre lo que diga .env)
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      TZ: America/Lima
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      # El codigo de la carpeta del proyecto: un cambio se ve al recargar, sin reconstruir nada
+      - ./:/app
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8000/api/v1/salud') === false ? 1 : 0);"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   mysql_datos:

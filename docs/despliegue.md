@@ -17,7 +17,7 @@ En el servidor se clona el repositorio completo (así `git pull` sirve para actu
 | `backend/config/`, `backend/controllers/`, `backend/models/` | Conexión, sesión y toda la lógica. Los carga `index.php` desde fuera de la raíz web |
 | `backend/database/` (11 scripts) | Crean la base la primera vez (sección 4) y traen los cambios de cada versión nueva (sección 8) |
 | `backend/scripts/` | Respaldo, restauración, respaldo diario y `verificar_instalacion.php`. Se corren desde la consola del servidor |
-| `docker-compose.yml` | MySQL 8.4.11 con la hora de Lima, escuchando solo en `127.0.0.1` |
+| `docker-compose.yml` | MySQL 8.4.11 con la hora de Lima, escuchando solo en `127.0.0.1`. Su servicio `web` (PHP de pruebas) **no** se usa en producción: `.env` lleva `COMPOSE_PROFILES=` vacío |
 | `deploy/nginx-mass.conf` o `deploy/apache-mass.conf` | Se copia a la configuración del servidor web (solo uno de los dos) |
 | `.env` | **Se crea en el servidor** a partir de `.env.example`. Nunca se sube a GitHub |
 
@@ -27,6 +27,7 @@ En el servidor se clona el repositorio completo (así `git pull` sirve para actu
 |---|---|
 | `.env.laragon` | Entra a MySQL como `root` sin clave. Solo para las PCs con Laragon; en un servidor `verificar_instalacion.php` marca FALLA |
 | `iniciar_servidor_laragon.bat` | Solo Windows: abre `php -S localhost:8000`, que es para pruebas |
+| `actualizar.bat`, `actualizar.sh`, `docker/web/` | Levantan la página con `php -S` dentro de Docker en las PCs del equipo (`docs/equipo/docker.md`). En el servidor no se corren: harían `git pull` y podrían recrear la base |
 | `backend/database/instalar_laragon.sql` | Empieza con `DROP DATABASE IF EXISTS minimarket_mass`. **Nunca correrlo en el servidor**: borra todas las ventas reales |
 | `backend/database/consultas.sql` | Consultas de estudio del curso; ningún paso de la instalación las ejecuta |
 | `backend/database/catalogo_inicial.csv` | Ejemplo para la pantalla **Importar CSV**; no se carga solo |
@@ -65,7 +66,10 @@ Abrir `.env` y cambiar **las dos claves** (`DB_PASSWORD` y `DB_ROOT_PASSWORD`) p
 | `DB_USER` | `mass_app` | `mass_app` | `mass_app` | `root` |
 | `DB_PASSWORD` | La que pongan | Clave larga | Clave larga | (vacía) |
 | `DB_ROOT_PASSWORD` | La que pongan | Clave larga, distinta | No se usa | No se usa |
+| `COMPOSE_PROFILES` | `web` | **vacío** | No se usa | No se usa |
+| `WEB_PORT` | `8000` | No se usa | No se usa | No se usa |
 
+- `COMPOSE_PROFILES=web` (lo trae `.env.example`) hace que Docker levante también la página con `php -S` en el puerto 8000, abierto a la red. En producción **va vacío**: ahí atiende nginx o Apache, y Docker abre sus puertos aunque el firewall `ufw` los cierre.
 - Con Docker, el usuario `mass_app` lo crea MySQL al levantar el contenedor, con permisos solo sobre la base `minimarket_mass`. `DB_ROOT_PASSWORD` solo la usan Docker y los scripts de respaldo.
 - Una variable que ya existe en el sistema (por ejemplo, puesta en PHP-FPM) gana sobre la del `.env`.
 
@@ -96,15 +100,19 @@ Al terminar hay **36 tablas**. Si falta `api_movil.sql`, la página web funciona
 
 `php -S` es el servidor de pruebas de PHP: atiende de a una petición y sin HTTPS. Sirve para el aula, no para atender a las tiendas.
 
-### 5.1 Con Docker
+### 5.1 Con Docker (recomendado)
+
+MySQL y PHP corren en Docker; la PC solo necesita Docker Desktop y Git. Paso a paso para el equipo en `docs/equipo/docker.md`.
 
 ```bash
-cp .env.example .env          # y cambiar las dos claves
-docker compose up -d --wait   # crea la base y espera a que diga "healthy"
-php -S localhost:8000 -t frontend/public
+./actualizar.bat      # Windows (o doble clic). Linux o Mac: bash actualizar.sh
 ```
 
-Abrir `http://localhost:8000` y entrar con un DNI de prueba de `docs/manual_usuario.md` (por ejemplo `70000001`, clave `Mass2026!`). La API de la app queda en `http://localhost:8000/api/v1/` (prueba: `http://localhost:8000/api/v1/salud`).
+La primera vez crea `.env` desde `.env.example` y la base con los 11 scripts. Las siguientes veces hace `git pull` (si se está en `main`), reconstruye PHP si cambió `docker/web/Dockerfile` y, si cambió algún script de `backend/database/`, ofrece recrear la base (borra los datos de prueba). La huella de los scripts con que se creó cada base la anota `docker/mysql/99_version.sh` y la compara `docker/mysql/revisar_version.sh`.
+
+Abrir `http://localhost:8000` y entrar con un DNI de prueba de `docs/manual_usuario.md` (por ejemplo `70000001`, clave `Mass2026!`). La API de la app queda en `http://localhost:8000/api/v1/` (prueba: `http://localhost:8000/api/v1/salud`); desde un celular en el mismo Wi-Fi, `http://IP-de-la-PC:8000/`. Las pruebas corren dentro del contenedor: `docker compose exec web php backend/tests/unitarios.php`.
+
+Sin el script es lo mismo que `docker compose up -d --build --wait`. Con PHP instalado en la PC también se puede seguir usando `php -S localhost:8000 -t frontend/public` contra el MySQL de Docker (puerto `3307`), pero entonces no se debe tener el servicio `web` prendido, porque usa el mismo puerto.
 
 ### 5.2 Con Laragon (Windows)
 
@@ -136,7 +144,7 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 # 2. Proyecto, .env y base
 sudo git clone https://github.com/rick-back/minimarket_mass.git /var/www/minimarket_mass
 cd /var/www/minimarket_mass
-sudo cp .env.example .env && sudo nano .env          # claves largas y distintas
+sudo cp .env.example .env && sudo nano .env          # claves largas y distintas, y COMPOSE_PROFILES= vacío
 sudo chown root:www-data .env && sudo chmod 640 .env  # PHP lo lee; los demás usuarios no
 sudo docker compose up -d --wait                      # crea la base con los 11 scripts
 sudo chown www-data frontend/public/img/productos     # PHP guarda aquí las fotos de producto
@@ -236,7 +244,7 @@ Si la versión nueva trae un script nuevo en `backend/database/` (por ejemplo, c
 - **Con datos reales**: ejecutar **solo el script nuevo** sobre la base que ya existe. Nunca `schema.sql` ni `instalar_laragon.sql`, que borran la base.
   - Con Docker: `sudo docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < backend/database/api_movil.sql`
   - Sin Docker: `sudo mysql minimarket_mass < backend/database/api_movil.sql`
-- **PC de pruebas, sin datos que cuidar**: `docker compose down -v` y `docker compose up -d --wait` (se vuelve a crear todo).
+- **PC de pruebas, sin datos que cuidar**: `actualizar.bat` (o `bash actualizar.sh`) lo detecta y ofrece recrear la base. A mano: `docker compose down -v` y `docker compose up -d --wait`.
 
 Después correr otra vez `verificar_instalacion.php`: si dice que faltan tablas, falta algún script.
 
