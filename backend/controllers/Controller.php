@@ -31,6 +31,15 @@ abstract class Controller
         self::$modoMenu = in_array($modo, ['iconos', 'auto'], true) ? $modo : '';
     }
 
+    // Cuantos lotes vencen esta semana y cuantos productos llegaron a su minimo en la tienda del usuario,
+    // para los numeros del menu de Inventario (lo fija public/index.php; solo se calcula si el rol los ve)
+    private static ?Closure $alertasInventario = null;
+
+    public static function usarAlertasInventario(Closure $calcular): void
+    {
+        self::$alertasInventario = $calcular;
+    }
+
     public function __construct(
         protected TiendaRepository $tiendas,
         protected Sesion $sesion,
@@ -64,6 +73,9 @@ abstract class Controller
         $bienvenida = $this->usuario !== null && $this->sesion->tomarBienvenida();
         $rutaActual = self::$rutaActual;
         $modoMenu = self::$modoMenu;
+        $alertasInventario = $this->usuario !== null && self::$alertasInventario !== null
+            && $this->usuario->puedeVerIngresos($this->usuario->getIdTienda())
+            ? (self::$alertasInventario)($this->usuario->getIdTienda()) : [];
         // La tienda del usuario, para el menu lateral
         $nombreTiendaActual = $this->usuario !== null
             ? ($this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda() ?? '') : '';

@@ -30,6 +30,9 @@ require_once __DIR__ . '/parciales/funciones.php';
 
 // Menu agrupado: cada rol ve solo lo que puede usar. [ruta => [texto, icono]]
 $gruposMenu = [];
+$pestanasActuales = [];
+$opcionActual = $rutaActual;
+$rutaMarcada = $rutaActual;
 if ($usuarioActual !== null) {
     $idTiendaActual = $usuarioActual->getIdTienda();
     $ventasMenu = [];
@@ -38,15 +41,24 @@ if ($usuarioActual !== null) {
     $ventasMenu['ventas'] = ['Ventas', 'ventas'];
     if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $ventasMenu['clientes'] = ['Clientes', 'clientes']; }
 
-    $inventarioMenu = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];
+    // Inventario en dos opciones; sus pantallas salen como pestañas arriba del contenido. [ruta => [texto, icono]]
+    $productosPestanas = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];
+    $movimientosPestanas = [];
     if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
-        $inventarioMenu['ingresos'] = ['Ingresos', 'ingresos'];
-        $inventarioMenu['vencimientos'] = ['Por vencer', 'vence'];
-        $inventarioMenu['reponer'] = ['Reponer', 'alerta'];
+        $productosPestanas += ['vencimientos' => ['Por vencer', 'vence'], 'reponer' => ['Reponer', 'alerta']];
+        $movimientosPestanas['ingresos'] = ['Ingresos', 'ingresos'];
     }
-    $inventarioMenu += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];
-    if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $inventarioMenu['ajustes'] = ['Conteo', 'conteo']; }
-    $inventarioMenu['kardex'] = ['Kardex', 'kardex'];
+    $movimientosPestanas += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];
+    if ($usuarioActual->puedeAjustarStock($idTiendaActual)) { $movimientosPestanas['ajustes'] = ['Conteo', 'conteo']; }
+    $movimientosPestanas['kardex'] = ['Kardex', 'kardex'];
+    $primeraMovimientos = array_key_first($movimientosPestanas);
+    $inventarioMenu = ['productos' => ['Productos', 'catalogo'], $primeraMovimientos => ['Movimientos', 'traslados']];
+    // [opcion del menu => [nombre del grupo de pestañas, sus pestañas]]
+    $pestanasMenu = ['productos' => ['Productos', $productosPestanas], $primeraMovimientos => ['Movimientos', $movimientosPestanas]];
+    // Numeros de aviso: en la pestaña y, sumados, en la opcion Productos del menu
+    $alertasInventario ??= [];
+    $alertasMenu = ['productos' => array_sum($alertasInventario)];
+    $avisoPestana = ['vencimientos' => 'lotes vencen en 7 días o ya vencieron', 'reponer' => 'productos llegaron a su stock mínimo'];
 
     $adminMenu = [];
     if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) {
@@ -54,6 +66,15 @@ if ($usuarioActual !== null) {
     }
     if ($usuarioActual->puedeAdministrarCatalogo()) { $adminMenu['catalogo'] = ['Categorías y marcas', 'categorias']; }
     $adminMenu['tiendas'] = ['Tiendas', 'tiendas'];
+
+    // La ficha, el formulario y la importacion de productos marcan la pestaña Catálogo
+    $rutaMarcada = in_array($rutaActual, ['producto', 'producto_form', 'catalogo_importar'], true) ? 'productos' : $rutaActual;
+    foreach ($pestanasMenu as $opcionPestanas => $pestanas) {
+        if (isset($pestanas[1][$rutaMarcada])) {
+            $pestanasActuales = $pestanas;
+            $opcionActual = $opcionPestanas;
+        }
+    }
 
     $gruposMenu = [
         ''               => ['inicio' => ['Inicio', 'inicio']],
@@ -71,8 +92,8 @@ if ($usuarioActual !== null) {
     <meta name="theme-color" content="#16202b">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
     <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/css/estilos.css?v=10">
-    <script src="/js/app.js?v=3" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=12">
+    <script src="/js/app.js?v=4" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -108,8 +129,10 @@ if ($usuarioActual !== null) {
                 <?php if ($opciones === []) { continue; } ?>
                 <?php if ($grupo !== ''): ?><div class="grupo"><?= e($grupo) ?></div><?php endif; ?>
                 <?php foreach ($opciones as $rutaMenu => [$textoMenu, $iconoMenu]): ?>
-                    <a href="/?ruta=<?= e($rutaMenu) ?>"<?= $rutaMenu === $rutaActual ? ' class="activo" aria-current="page"' : '' ?>>
+                    <?php $cuentaMenu = (int) ($alertasMenu[$rutaMenu] ?? 0); ?>
+                    <a href="/?ruta=<?= e($rutaMenu) ?>"<?= $rutaMenu === $opcionActual ? ' class="activo" aria-current="page"' : '' ?><?php if (isset($pestanasMenu[$rutaMenu])): ?> data-pestanas="<?= e($pestanasMenu[$rutaMenu][0]) ?>"<?php endif; ?>>
                         <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#<?= e($iconoMenu) ?>"></use></svg><span class="texto-menu"><?= e($textoMenu) ?></span>
+                        <?php if ($cuentaMenu > 0): ?><span class="menu-cuenta" title="<?= e($cuentaMenu . ' avisos: por vencer y por reponer') ?>"><?= (int) $cuentaMenu ?></span><?php endif; ?>
                     </a>
                 <?php endforeach; ?>
             <?php endforeach; ?>
@@ -137,6 +160,20 @@ if ($usuarioActual !== null) {
     <div class="cuerpo">
 <?php endif; ?>
 <main id="contenido" tabindex="-1" class="<?= e($anchoMain) ?>">
+<?php if ($pestanasActuales !== []): ?>
+    <nav class="pestanas-seccion" aria-label="<?= e($pestanasActuales[0]) ?>" data-pestanas="<?= e($pestanasActuales[0]) ?>">
+        <span class="pestanas-rotulo" aria-hidden="true">Inventario<span>/</span><?= e($pestanasActuales[0]) ?></span>
+        <div class="pestanas-lista">
+            <?php foreach ($pestanasActuales[1] as $rutaPestana => [$textoPestana, $iconoPestana]): ?>
+                <?php $cuentaPestana = (int) ($alertasInventario[$rutaPestana] ?? 0); ?>
+                <a href="/?ruta=<?= e($rutaPestana) ?>"<?= $rutaPestana === $rutaMarcada ? ' aria-current="page"' : '' ?>>
+                    <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#<?= e($iconoPestana) ?>"></use></svg><?= e($textoPestana) ?>
+                    <?php if ($cuentaPestana > 0): ?><span class="pestana-cuenta <?= e($rutaPestana) ?>" title="<?= e($cuentaPestana . ' ' . $avisoPestana[$rutaPestana]) ?>"><?= (int) $cuentaPestana ?></span><?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </nav>
+<?php endif; ?>
 <?php if ($aviso !== null): ?>
     <div class="aviso <?= $aviso['tipo'] === 'ok' ? 'ok' : 'error' ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
 <?php endif; ?>

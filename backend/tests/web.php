@@ -298,6 +298,19 @@ revisar('Rosa quita la foto y vuelve el icono de la categoría', $rosa->post('pr
 @unlink($fotoPrueba);
 revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
 revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
+revisar('Inventario va en dos opciones: Productos y Movimientos', $carmen->get('ruta=inicio') === 200
+    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
+    && str_contains($m[1], '>Productos<') && str_contains($m[1], '>Movimientos<'));
+revisar('Mermas sale como pestaña de Movimientos y queda marcada', $carmen->get('ruta=mermas') === 200
+    && $carmen->tiene('<a href="/?ruta=mermas" aria-current="page">') && $carmen->tiene('<a href="/?ruta=ajustes">')
+    && $carmen->tiene('<a href="/?ruta=ingresos" class="activo" aria-current="page" data-pestanas="Movimientos">'));
+revisar('El cajero ve Movimientos sin Ingresos ni Conteo', $luis->get('ruta=kardex') === 200
+    && $luis->tiene('<a href="/?ruta=traslados" class="activo" aria-current="page" data-pestanas="Movimientos">') && !$luis->tiene('ruta=ingresos"') && !$luis->tiene('ruta=ajustes"'));
+revisar('La ficha de un producto marca Productos y la pestaña Catálogo', $rosa->get('ruta=producto&id=1') === 200
+    && $rosa->tiene('<a href="/?ruta=productos" class="activo" aria-current="page" data-pestanas="Productos">') && $rosa->tiene('<a href="/?ruta=productos" aria-current="page">'));
+revisar('Productos avisa con números lo que vence y lo que hay que reponer; el cajero no los ve', $carmen->get('ruta=stock') === 200
+    && $carmen->tiene('class="menu-cuenta"') && $carmen->tiene('class="pestana-cuenta reponer"') && $carmen->tiene('class="pestanas-rotulo"')
+    && $luis->get('ruta=stock') === 200 && !$luis->tiene('menu-cuenta') && !$luis->tiene('pestana-cuenta'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /js/app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));

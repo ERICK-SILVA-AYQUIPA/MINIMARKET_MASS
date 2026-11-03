@@ -82,6 +82,7 @@ $clienteController = new ClienteController($tiendas, $sesion, $usuario, $cliente
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 $panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
     $productos, $catalogo, $ingresos);
+Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
