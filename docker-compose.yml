@@ -2,7 +2,9 @@
 # Guia para el equipo: docs/equipo/docker.md
 # Al crear el contenedor por primera vez, MySQL ejecuta en orden los scripts
 # de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql -> auditoria.sql -> ingresos.sql -> operaciones.sql -> catalogo.sql -> api_movil.sql -> caja_apertura.sql
-# y al final docker/mysql/99_version.sh, que anota con que version de esos scripts se creo la base.
+# despues docker/mysql/98_migraciones.sh aplica las migraciones de backend/database/migraciones/
+# y al final docker/mysql/99_version.sh anota con que version de los 12 scripts se creo la base.
+# Con una base que ya existe, las migraciones nuevas las aplica backend/scripts/migrar.php (actualizar.sh / actualizar.bat).
 # Las claves salen del archivo .env (copia de .env.example, no se sube a GitHub).
 services:
   mysql:
@@ -32,6 +34,10 @@ services:
       - ./backend/database/catalogo.sql:/docker-entrypoint-initdb.d/10_catalogo.sql:ro
       - ./backend/database/api_movil.sql:/docker-entrypoint-initdb.d/11_api_movil.sql:ro
       - ./backend/database/caja_apertura.sql:/docker-entrypoint-initdb.d/12_caja_apertura.sql:ro
+      # Migraciones (cambios nuevos de la base, sin borrar datos): se aplican al crear la base
+      - ./docker/mysql/98_migraciones.sh:/docker-entrypoint-initdb.d/98_migraciones.sh:ro
+      - ./backend/database/migraciones:/mass_bd/migraciones:ro
+      - ./backend/database/migracion_aplicada.sql:/mass_bd/migracion_aplicada.sql:ro
       # Anota la version de los scripts con la que se creo la base (la usa actualizar.sh / actualizar.bat)
       - ./docker/mysql/99_version.sh:/docker-entrypoint-initdb.d/99_version.sh:ro
       - ./docker/mysql/revisar_version.sh:/usr/local/bin/revisar_version.sh:ro

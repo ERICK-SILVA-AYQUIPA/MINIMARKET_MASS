@@ -31,16 +31,36 @@ class EmpleadoRepository
     }
 
     /**
-     * Para el login: id y hash de la clave del empleado con ese DNI. null si el DNI no existe.
-     * El hash nunca sale de aqui hacia una vista.
-     * @return array{idEmpleado: int, claveHash: ?string}|null
+     * Para el login: id, hash de la clave, version de la clave y si debe cambiarla, del empleado con ese DNI.
+     * null si el DNI no existe. El hash nunca sale de aqui hacia una vista.
+     * @return array{idEmpleado: int, claveHash: ?string, versionClave: int, debeCambiarClave: bool}|null
      */
     public function credencialesPorDni(string $dni): ?array
     {
-        $consulta = $this->db->prepare('SELECT id_empleado, clave_hash FROM empleado WHERE dni = :dni');
+        $consulta = $this->db->prepare(
+            'SELECT id_empleado, clave_hash, version_clave, debe_cambiar_clave FROM empleado WHERE dni = :dni'
+        );
         $consulta->execute(['dni' => $dni]);
         $f = $consulta->fetch();
-        return $f === false ? null : ['idEmpleado' => (int) $f['id_empleado'], 'claveHash' => $f['clave_hash']];
+        return $f === false ? null : [
+            'idEmpleado'       => (int) $f['id_empleado'],
+            'claveHash'        => $f['clave_hash'],
+            'versionClave'     => (int) $f['version_clave'],
+            'debeCambiarClave' => $f['debe_cambiar_clave'] === 'S',
+        ];
+    }
+
+    /**
+     * En cada pedido: la version actual de la clave (si cambio, la sesion web abierta con la anterior se cierra)
+     * y si el empleado debe cambiarla antes de seguir. null si el empleado no existe.
+     * @return array{versionClave: int, debeCambiarClave: bool}|null
+     */
+    public function estadoClave(int $idEmpleado): ?array
+    {
+        $consulta = $this->db->prepare('SELECT version_clave, debe_cambiar_clave FROM empleado WHERE id_empleado = :id');
+        $consulta->execute(['id' => $idEmpleado]);
+        $f = $consulta->fetch();
+        return $f === false ? null : ['versionClave' => (int) $f['version_clave'], 'debeCambiarClave' => $f['debe_cambiar_clave'] === 'S'];
     }
 
     /** @return Usuario[] */

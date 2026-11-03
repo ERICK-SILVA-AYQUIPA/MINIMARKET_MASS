@@ -137,10 +137,18 @@ final class Web
         @unlink($this->cookies);
     }
 
-    public function entrar(string $dni): int
+    public function entrar(string $dni, string $clave = CLAVE): int
     {
-        return $this->post('login', ['dni' => $dni, 'clave' => CLAVE], 'ruta=login');
+        return $this->post('login', ['dni' => $dni, 'clave' => $clave], 'ruta=login');
     }
+
+    // A donde redirige la ultima respuesta ('' si no redirige)
+    public function destino(): string
+    {
+        return $this->destino;
+    }
+
+    private string $destino = '';
 
     public function get(string $consulta): int
     {
@@ -170,6 +178,7 @@ final class Web
         }
         $this->cuerpo = (string) curl_exec($c);
         $this->codigo = (int) curl_getinfo($c, CURLINFO_RESPONSE_CODE);
+        $this->destino = (string) curl_getinfo($c, CURLINFO_REDIRECT_URL);
         curl_close($c);
         return $this->codigo;
     }
@@ -198,6 +207,23 @@ $luis = new App();    // CAJERO Cayma, turno abierto
 $carmen = new App();  // ALMACENERO Cayma
 $rosa = new App();    // ADMINISTRADOR Cayma
 $miguel = new App();  // CAJERO Yanahuara, sin turno
+
+$db = (function (): PDO {
+    require_once __DIR__ . '/../config/Database.php';
+    return Database::conexion();
+})();
+// Los empleados de ejemplo tienen la clave de prueba y deben cambiarla (migracion 013).
+// Primero se prueba eso con uno; despues se usan como si ya la hubieran cambiado.
+$marcarClaveDePrueba = static function (string $debe) use ($db): void {
+    $db->prepare("UPDATE empleado SET debe_cambiar_clave = :debe WHERE dni BETWEEN '70000001' AND '70000009'")->execute(['debe' => $debe]);
+};
+
+echo "Clave de prueba\n";
+$marcarClaveDePrueba('S');
+$tomas = new App();
+revisar('Con la clave de prueba la app no da token: 403 DEBE_CAMBIAR_CLAVE', $tomas->entrar('70000009') === 403
+    && ($tomas->json['error']['codigo'] ?? '') === 'DEBE_CAMBIAR_CLAVE' && str_contains($tomas->mensaje(), 'Mi clave'));
+$marcarClaveDePrueba('N');
 
 echo "Salud y login\n";
 $anonimo = new App();
@@ -451,11 +477,49 @@ echo "Cerrar sesión\n";
 revisar('Logout', $luis->post('auth/logout', []) === 200);
 revisar('El token ya no sirve (401)', $luis->get('productos') === 401);
 
+echo "Cambiar o reiniciar la clave cierra las demás sesiones\n";
+// Luis tiene la app abierta y la página web en dos PCs. Rosa (administradora) le reinicia la clave.
+$luisApp = new App();
+$luisPc1 = new Web();
+$luisPc2 = new Web();
+$rosaWeb = new Web();
+$luisApp->entrar('70000002');
+$luisPc1->entrar('70000002');
+$luisPc2->entrar('70000002');
+$rosaWeb->entrar('70000001');
+revisar('Antes: la app y las dos PCs de Luis funcionan', $luisApp->get('auth/yo') === 200 && $luisPc1->get('ruta=inicio') === 200 && $luisPc2->get('ruta=inicio') === 200);
+$claveDeRosa = 'Reinicio' . random_int(1000, 9999);
+revisar('Rosa reinicia la clave de Luis', $rosaWeb->post('empleado_clave', ['id' => '2', 'clave' => $claveDeRosa]) === 303);
+revisar('El token anterior de la app responde 401', $luisApp->get('productos') === 401);
+revisar('La sesión web de Luis en la PC 1 se cierra (va al login)', $luisPc1->get('ruta=inicio') === 303 && str_contains($luisPc1->destino(), 'ruta=login'));
+revisar('...y le dice que su clave cambió', $luisPc1->get('ruta=login') === 200 && str_contains($luisPc1->cuerpo, 'Tu clave cambió'));
+revisar('La sesión de la PC 2 también se cierra', $luisPc2->get('ruta=ventas') === 303 && str_contains($luisPc2->destino(), 'ruta=login'));
+revisar('Rosa sigue en su sesión', $rosaWeb->get('ruta=inicio') === 200);
+revisar('Ya no entra con la clave vieja', $luisApp->entrar('70000002') === 401);
+revisar('Con la clave que puso Rosa, la app no da token hasta que la cambie (403)', $luisApp->entrar('70000002', $claveDeRosa) === 403
+    && ($luisApp->json['error']['codigo'] ?? '') === 'DEBE_CAMBIAR_CLAVE');
+revisar('En la web entra, pero va directo a Mi clave', $luisPc1->entrar('70000002', $claveDeRosa) === 303 && str_contains($luisPc1->destino(), 'ruta=mi_clave'));
+revisar('No puede ir a vender sin cambiarla', $luisPc1->get('ruta=venta_nueva') === 303 && str_contains($luisPc1->destino(), 'ruta=mi_clave'));
+$claveDeLuis = 'Propia' . random_int(1000, 9999) . 'x';
+revisar('Luis pone una clave que solo él sabe', $luisPc1->post('mi_clave_guardar', ['actual' => $claveDeRosa, 'nueva' => $claveDeLuis, 'repetida' => $claveDeLuis], 'ruta=mi_clave') === 303
+    && str_contains($luisPc1->destino(), 'ruta=inicio'));
+revisar('...y sigue en su sesión, ya sin restricción', $luisPc1->get('ruta=venta_nueva') === 200);
+revisar('La app entra con la clave nueva', $luisApp->entrar('70000002', $claveDeLuis) === 200 && $luisApp->get('productos') === 200);
+
+// Luis cambia su propia clave en la PC 1: la PC 2 y la app se cierran, la PC 1 sigue
+$luisPc2->entrar('70000002', $claveDeLuis);
+revisar('Luis entra en la PC 2', $luisPc2->get('ruta=inicio') === 200);
+$otraClave = 'Otra' . random_int(1000, 9999) . 'clave';
+revisar('Luis cambia su clave en la PC 1', $luisPc1->post('mi_clave_guardar', ['actual' => $claveDeLuis, 'nueva' => $otraClave, 'repetida' => $otraClave], 'ruta=mi_clave') === 303);
+revisar('La PC 1 sigue abierta', $luisPc1->get('ruta=inicio') === 200);
+revisar('La PC 2 se cierra', $luisPc2->get('ruta=inicio') === 303 && str_contains($luisPc2->destino(), 'ruta=login'));
+revisar('El token de la app responde 401', $luisApp->get('productos') === 401);
+$revocados = (int) $db->query("SELECT COUNT(*) FROM api_token WHERE id_empleado = 2 AND revocado = 'N' AND fecha_expira > NOW()")->fetchColumn();
+revisar('Luis no tiene ningún token vigente en la base', $revocados === 0);
+// Luis vuelve a la clave de prueba, para poder correr las pruebas otra vez sobre esta base
+$db->prepare('UPDATE empleado SET clave_hash = :hash WHERE id_empleado = 2')->execute(['hash' => password_hash(CLAVE, PASSWORD_BCRYPT)]);
+
 echo "Base\n";
-$db = (function (): PDO {
-    require_once __DIR__ . '/../config/Database.php';
-    return Database::conexion();
-})();
 revisar('Los tokens se guardan como SHA-256, no en claro', (int) $db->query("SELECT COUNT(*) FROM api_token WHERE CHAR_LENGTH(token_hash) <> 64")->fetchColumn() === 0);
 revisar('Cada operación de la app guardó su respuesta', (int) $db->query('SELECT COUNT(*) FROM api_operacion WHERE respuesta IS NULL')->fetchColumn() === 0);
 revisar('Ningún stock negativo', (int) $db->query('SELECT COUNT(*) FROM stock WHERE cantidad_actual < 0')->fetchColumn() === 0);

@@ -67,6 +67,14 @@ if ($usuario !== null && !$usuario->estaActivo()) {
     $sesion->salir();
     $usuario = null;
 }
+// Si la clave cambio despues de entrar (en otra PC, o la reinicio el administrador), esta sesion ya no vale
+$estadoClave = $usuario !== null ? $empleados->estadoClave($usuario->getIdEmpleado()) : null;
+if ($usuario !== null && ($estadoClave === null || $sesion->versionClave() !== $estadoClave['versionClave'])) {
+    $sesion->cerrarPorClaveCambiada();
+    $usuario = null;
+}
+// Clave puesta por el administrador (o la de prueba): solo puede cambiarla o salir
+$debeCambiarClave = $usuario !== null && $estadoClave['debeCambiarClave'];
 
 $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
@@ -125,6 +133,8 @@ try {
             $productoController->prohibido('El formulario venció. Vuelve a la página y envíalo otra vez.');
         } elseif ($usuario === null && $ruta !== 'login') {
             header('Location: /?ruta=login', true, 303);
+        } elseif ($debeCambiarClave && !in_array($ruta, ['mi_clave_guardar', 'salir'], true)) {
+            header('Location: /?ruta=mi_clave', true, 303);
         } else {
             match ($ruta) {
                 'login'              => $auth->entrar($_POST),
@@ -143,7 +153,7 @@ try {
                 'turno_revisar'      => $cajaController->revisar($_POST),
                 'arqueo_sorpresa'    => $cajaController->arqueoSorpresa($_POST),
                 'regla_caja_guardar' => $cajaController->guardarReglas($_POST),
-                'mi_clave_guardar'   => $auth->cambiarClave($_POST),
+                'mi_clave_guardar'   => $auth->cambiarClave($_POST, $debeCambiarClave),
                 'producto_guardar'   => $productoController->guardar($_POST),
                 'producto_foto'      => $productoController->cambiarFoto($_POST, is_array($_FILES['foto'] ?? null) ? $_FILES['foto'] : null),
                 'producto_estado'    => $productoController->cambiarEstado($_POST),
@@ -170,6 +180,8 @@ try {
     } elseif ($usuario === null) {
         // Todo lo demas necesita haber entrado
         header('Location: /?ruta=login', true, 303);
+    } elseif ($debeCambiarClave && $ruta !== 'mi_clave') {
+        header('Location: /?ruta=mi_clave', true, 303);
     } else {
         switch ($ruta) {
             case 'inicio':
@@ -313,7 +325,7 @@ try {
                 break;
 
             case 'mi_clave':
-                $auth->formularioClave();
+                $auth->formularioClave(null, $debeCambiarClave);
                 break;
 
             default:

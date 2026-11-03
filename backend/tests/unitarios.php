@@ -28,6 +28,7 @@ require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
+require __DIR__ . '/../config/Migraciones.php';
 
 $ok = 0;
 $fallas = 0;
@@ -219,6 +220,27 @@ revisar('Catálogo y nuevas tiendas: solo administradores', $rosa->puedeAdminist
 revisar('El DNI se muestra oculto', $rosa->dniOculto() === '*****001');
 rechazaDato('DNI de 7 dígitos no', fn() => new Cajero(10, 'A', 'B', '1234567', 'ACTIVO', 1));
 rechazaDato('Estado desconocido no', fn() => new Cajero(10, 'A', 'B', '12345678', 'SUSPENDIDO', 1));
+
+echo "Migraciones de la base\n";
+revisar('Divide en sentencias', Migraciones::sentencias("SELECT 1;\nSELECT 2;") === ['SELECT 1', 'SELECT 2']);
+revisar('Un ; dentro de un texto no corta', Migraciones::sentencias("INSERT INTO t VALUES ('a;b', 'it''s; ok');") === ["INSERT INTO t VALUES ('a;b', 'it''s; ok')"]);
+revisar('Comentarios fuera (-- , # y /* */), aunque tengan ;', Migraciones::sentencias("-- uno; dos\n/* tres; */ SELECT 1; # cuatro;\n") === ['SELECT 1']);
+revisar('DELIMITER para procedimientos', Migraciones::sentencias("DELIMITER //\nCREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END //\nDELIMITER ;\nSELECT 3;")
+    === ['CREATE PROCEDURE p() BEGIN SELECT 1; SELECT 2; END', 'SELECT 3']);
+revisar('Saltos de línea de Windows', Migraciones::sentencias("SELECT 1;\r\nSELECT 2;\r\n") === ['SELECT 1', 'SELECT 2']);
+revisar('La huella no cambia con CRLF (Windows) o LF (Linux)', Migraciones::huella("a\r\nb\r\n") === Migraciones::huella("a\nb\n")
+    && Migraciones::huella("a\n") !== Migraciones::huella("b\n"));
+$archivosMigracion = Migraciones::archivos();
+$numeros = array_map(static fn(string $nombre): string => substr($nombre, 0, 3), array_keys($archivosMigracion));
+revisar('Las migraciones empiezan en 013 y no repiten número', ($numeros[0] ?? '') === '013' && count($numeros) === count(array_unique($numeros)));
+$sueltos = array_filter(scandir(__DIR__ . '/../database/migraciones') ?: [], static fn(string $n): bool =>
+    !in_array($n, ['.', '..'], true) && !isset($archivosMigracion[$n]));
+revisar('En migraciones/ solo hay archivos NNN_nombre.sql', $sueltos === []);
+$compose = (string) file_get_contents(__DIR__ . '/../../docker-compose.yml');
+preg_match_all('#backend/database/([a-z_]+)\.sql:/docker-entrypoint-initdb\.d/[0-9]{2}_#', $compose, $montados);
+revisar('docker-compose.yml monta los 12 scripts base en el mismo orden', $montados[1] === Migraciones::BASE);
+revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
+    str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());
 
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

@@ -7,7 +7,8 @@ declare(strict_types=1);
  *   php tests/web.php
  *
  * Levanta solo un servidor `php -S` en el puerto 8099 y usa la base de Docker.
- * No cambia datos: los formularios que manda son rechazados (403 o 422) a proposito.
+ * No cambia datos: los formularios que manda son rechazados (403 o 422) a proposito. Lo unico que toca
+ * es debe_cambiar_clave de los 9 empleados de ejemplo, despues de probar que la clave de prueba obliga a cambiarla.
  * Se puede correr antes o despues de tests/integracion.php.
  */
 if (PHP_SAPI !== 'cli') {
@@ -91,8 +92,11 @@ final class Navegador
     {
         $this->get('ruta=login');
         if (preg_match('/name="csrf" value="([0-9a-f]+)"/', $this->cuerpo, $m) !== 1) {
-            // Con sesion, el login redirige: el token se lee del panel
+            // Con sesion, el login redirige: el token se lee del panel (o de Mi clave, si aun debe cambiarla)
             $this->get('ruta=inicio');
+            if ($this->codigo === 303) {
+                $this->get('ruta=mi_clave');
+            }
             preg_match('/name="csrf" value="([0-9a-f]+)"/', $this->cuerpo, $m);
         }
         return $m[1] ?? '';
@@ -161,6 +165,28 @@ for ($i = 0; $i < 6; $i++) {
     $codigos[] = $anonimo->entrar('79999991', 'otra-clave1');
 }
 revisar('Muchas claves erradas para un DNI: 429', in_array(429, $codigos, true));
+
+echo "Clave de prueba: primero se cambia\n";
+// Los 9 empleados de ejemplo tienen debe_cambiar_clave = 'S' (migracion 013): solo pueden ir a Mi clave o salir.
+// Se vuelve a marcar aqui para que la prueba tambien sirva si se corre otra vez sobre la misma base.
+$marcarClaveDePrueba = static function (string $debe): void {
+    require_once __DIR__ . '/../config/Database.php';
+    Database::conexion()->prepare("UPDATE empleado SET debe_cambiar_clave = :debe WHERE dni BETWEEN '70000001' AND '70000009'")
+        ->execute(['debe' => $debe]);
+};
+$marcarClaveDePrueba('S');
+$nuevo = new Navegador();
+revisar('Con la clave de prueba, el login lleva a Mi clave', $nuevo->entrar('70000009') === 303
+    && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=mi_clave'));
+revisar('Mi clave avisa que es obligatorio cambiarla', $nuevo->get('ruta=mi_clave') === 200 && $nuevo->tiene('para seguir usando el sistema'));
+revisar('Otra pantalla vuelve a Mi clave (303)', $nuevo->get('ruta=productos') === 303
+    && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=mi_clave'));
+revisar('Un formulario de otra ruta tampoco pasa (303 a Mi clave)', $nuevo->post('stock_minimo', ['id_producto' => '1', 'minimo' => '5']) === 303
+    && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=mi_clave'));
+revisar('Salir sí se puede', $nuevo->post('salir', []) === 303 && $nuevo->get('ruta=inicio') === 303
+    && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=login'));
+// El resto de las pruebas usa a los empleados de ejemplo como si ya hubieran cambiado la clave
+$marcarClaveDePrueba('N');
 
 echo "Errores y entrada rara\n";
 $rosa = new Navegador();

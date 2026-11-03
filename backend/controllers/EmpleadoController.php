@@ -75,7 +75,7 @@ class EmpleadoController extends Controller
             $this->lista($post, $ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=empleados', 'Empleado registrado. Entrega la clave en persona.');
+        $this->redirigir('/?ruta=empleados', 'Empleado registrado. Entrega la clave en persona: la cambiará al entrar.');
     }
 
     // POST /?ruta=empleado_guardar
@@ -112,13 +112,20 @@ class EmpleadoController extends Controller
         }
         $id = $this->campo($post, 'id');
         try {
-            $this->servicio->reiniciarClave($this->usuario, $this->leerId($id), $this->campo($post, 'clave'));
+            $idEmpleado = $this->leerId($id);
+            $version = $this->servicio->reiniciarClave($this->usuario, $idEmpleado, $this->campo($post, 'clave'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
             $this->editar($id, [], $ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=empleados', 'Clave cambiada. Entrégala en persona.');
+        if ($idEmpleado === $this->usuario->getIdEmpleado()) {
+            // Se reinicio su propia clave: sigue en esta sesion
+            $this->sesion->actualizarVersionClave($version);
+            $this->redirigir('/?ruta=empleados', 'Tu clave fue cambiada. Se cerraron tus sesiones en otras PCs y en la app.');
+            return;
+        }
+        $this->redirigir('/?ruta=empleados', 'Clave cambiada y sesiones del empleado cerradas. Entrégala en persona: la cambiará al entrar.');
     }
 
     private function esAdministrador(): bool

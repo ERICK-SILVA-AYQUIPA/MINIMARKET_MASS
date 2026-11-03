@@ -71,9 +71,10 @@ class TiendaServicio extends Servicio
             )->execute(['tienda' => $idTienda]);
 
             try {
+                // La clave la eligio quien abrio la tienda: el administrador nuevo la cambia en su primer ingreso
                 $this->db->prepare(
-                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, estado, id_tienda, id_rol)
-                     VALUES (:nombres, :apellidos, :dni, :hash, \'ACTIVO\', :tienda, :rol)'
+                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, debe_cambiar_clave, estado, id_tienda, id_rol)
+                     VALUES (:nombres, :apellidos, :dni, :hash, \'S\', \'ACTIVO\', :tienda, :rol)'
                 )->execute([
                     'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'hash' => Clave::hash($clave),
                     'tienda' => $idTienda, 'rol' => self::ID_ROL_ADMINISTRADOR,

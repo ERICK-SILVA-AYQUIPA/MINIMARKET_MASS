@@ -28,8 +28,9 @@ class EmpleadoServicio extends Servicio
         return $this->enTransaccion(function () use ($admin, $nombres, $apellidos, $dni, $idRol, $clave): int {
             try {
                 $this->db->prepare(
-                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, estado, id_tienda, id_rol)
-                     VALUES (:nombres, :apellidos, :dni, :hash, \'ACTIVO\', :tienda, :rol)'
+                    // La clave la eligio el administrador: el empleado la cambia en su primer ingreso
+                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, debe_cambiar_clave, estado, id_tienda, id_rol)
+                     VALUES (:nombres, :apellidos, :dni, :hash, \'S\', \'ACTIVO\', :tienda, :rol)'
                 )->execute([
                     'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'hash' => Clave::hash($clave),
                     'tienda' => $admin->getIdTienda(), 'rol' => $idRol,
@@ -84,19 +85,29 @@ class EmpleadoServicio extends Servicio
         });
     }
 
-    // El administrador le pone una clave nueva a un empleado de su tienda (por ejemplo, si la olvido)
-    public function reiniciarClave(Usuario $admin, int $idEmpleado, string $claveNueva): void
+    /**
+     * El administrador le pone una clave nueva a un empleado de su tienda (por ejemplo, si la olvido).
+     * El empleado la cambia en su proximo ingreso: asi solo el sabe su clave y la auditoria prueba quien hizo cada venta.
+     * Se cierran sus sesiones abiertas (web y app). Devuelve la version nueva de la clave.
+     */
+    public function reiniciarClave(Usuario $admin, int $idEmpleado, string $claveNueva): int
     {
         $this->exigirClave($claveNueva);
-        $this->enTransaccion(function () use ($admin, $idEmpleado, $claveNueva): void {
+        return $this->enTransaccion(function () use ($admin, $idEmpleado, $claveNueva): int {
             $this->empleadoDeLaTienda($admin, $idEmpleado);
-            $this->guardarClave($idEmpleado, $claveNueva);
+            // Si el administrador se reinicia su propia clave, ya la conoce solo el: no hace falta cambiarla otra vez
+            $version = $this->guardarClave($idEmpleado, $claveNueva, $idEmpleado !== $admin->getIdEmpleado());
             $this->auditar($admin, 'CLAVE_REINICIADA', 'Empleado ' . $idEmpleado);
+            return $version;
         });
     }
 
-    // Cada empleado cambia su propia clave, escribiendo antes la actual
-    public function cambiarMiClave(Usuario $usuario, string $actual, string $nueva, string $repetida): void
+    /**
+     * Cada empleado cambia su propia clave, escribiendo antes la actual.
+     * Se cierran sus otras sesiones (otras PCs y la app). Devuelve la version nueva de la clave,
+     * que la sesion actual guarda para seguir abierta.
+     */
+    public function cambiarMiClave(Usuario $usuario, string $actual, string $nueva, string $repetida): int
     {
         $consulta = $this->db->prepare('SELECT clave_hash FROM empleado WHERE id_empleado = :id');
         $consulta->execute(['id' => $usuario->getIdEmpleado()]);
@@ -111,16 +122,30 @@ class EmpleadoServicio extends Servicio
             throw new ReglaNegocioException('La clave nueva debe ser distinta de la actual.');
         }
         $this->exigirClave($nueva);
-        $this->enTransaccion(function () use ($usuario, $nueva): void {
-            $this->guardarClave($usuario->getIdEmpleado(), $nueva);
+        return $this->enTransaccion(function () use ($usuario, $nueva): int {
+            $version = $this->guardarClave($usuario->getIdEmpleado(), $nueva, false);
             $this->auditar($usuario, 'CLAVE_CAMBIADA', 'Cambió su propia clave');
+            return $version;
         });
     }
 
-    private function guardarClave(int $idEmpleado, string $clave): void
+    /**
+     * Guarda la clave nueva y cierra todas las sesiones del empleado, en la misma transaccion:
+     * - sube version_clave: la sesion web abierta con la clave anterior (en otra PC) deja de valer;
+     * - revoca sus tokens de la app Android: el siguiente pedido de la app responde 401.
+     * Devuelve la version nueva.
+     */
+    private function guardarClave(int $idEmpleado, string $clave, bool $debeCambiar): int
     {
-        $this->db->prepare('UPDATE empleado SET clave_hash = :hash WHERE id_empleado = :id')
-            ->execute(['hash' => Clave::hash($clave), 'id' => $idEmpleado]);
+        $this->db->prepare(
+            'UPDATE empleado SET clave_hash = :hash, version_clave = version_clave + 1, debe_cambiar_clave = :debe
+              WHERE id_empleado = :id'
+        )->execute(['hash' => Clave::hash($clave), 'debe' => $debeCambiar ? 'S' : 'N', 'id' => $idEmpleado]);
+        $this->db->prepare("UPDATE api_token SET revocado = 'S' WHERE id_empleado = :id AND revocado = 'N'")
+            ->execute(['id' => $idEmpleado]);
+        $version = $this->db->prepare('SELECT version_clave FROM empleado WHERE id_empleado = :id');
+        $version->execute(['id' => $idEmpleado]);
+        return (int) $version->fetchColumn();
     }
 
     // Bloquea la fila del empleado y revisa que sea de la tienda del administrador

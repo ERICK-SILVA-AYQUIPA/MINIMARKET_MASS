@@ -55,9 +55,9 @@ Tipos de commit: `feat` (función nueva), `fix` (corrección), `docs` (documenta
 | `backend/models/` | Clases del negocio, repositorios, `pagos/` y `servicios/` |
 | `frontend/views/` | Pantallas por módulo, `parciales/` y `errores/` |
 | `frontend/public/` | Lo único que ve el navegador: `index.php`, `api/index.php`, CSS, JS, fuentes, fotos y las pruebas `poo_*.php` de la sesión 4 |
-| `backend/database/` | `schema.sql` y los scripts que se ejecutan en el orden de `docker-compose.yml`; `instalar_laragon.sql` los junta todos |
+| `backend/database/` | `schema.sql` y los 12 scripts base en el orden de `docker-compose.yml`; `migraciones/` con los cambios nuevos (`NNN_que_hace.sql`); `instalar_laragon.sql` los junta todos y lo arma `backend/scripts/generar_instalador.php` |
 | `backend/tests/` | Pruebas que corre la CI |
-| `backend/scripts/` | Respaldo, restauración y revisión de la instalación |
+| `backend/scripts/` | Respaldo, restauración, migraciones (`migrar.php`), instalador de Laragon, base limpia para producción y revisión de la instalación |
 | `deploy/` | Configuración de Apache y Nginx |
 | `docs/` | Documentación; `docs/equipo/` tiene la nota de cada integrante |
 | `android-app/` | App Android (proyecto Gradle aparte) |

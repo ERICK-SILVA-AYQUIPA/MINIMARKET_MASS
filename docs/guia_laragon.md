@@ -52,8 +52,9 @@ Dentro de la carpeta del proyecto en Windows:
 Este archivo se encarga de:
 1. Crear el `.env` copiando `.env.laragon`, si todavía no existe.
 2. Instalar `backend/database/instalar_laragon.sql` si la base `minimarket_mass` no existe o no tiene la tabla `producto` (si ya hiciste el paso 2, no la toca).
-3. Abrir tu navegador en **`http://localhost:8000`**.
-4. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`frontend/public`).
+3. Aplicar las migraciones nuevas de `backend/database/migraciones/` con `backend/scripts/migrar.php`: así tu base recibe los cambios del equipo sin borrar tus datos.
+4. Abrir tu navegador en **`http://localhost:8000`**.
+5. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`frontend/public`).
 
 Laragon es solo para las PCs del equipo. Para publicar el sistema en un servidor con HTTPS, ver `docs/despliegue.md`.
 
@@ -65,4 +66,4 @@ Puedes ingresar al sistema con cualquiera de estos usuarios:
 - **Cajero (Mass Cayma):** DNI `70000002` / Clave `Mass2026!`
 - **Almacenera (Mass Cayma):** DNI `70000003` / Clave `Mass2026!`
 
-Los de las otras tiendas están en `docs/manual_usuario.md`.
+Los de las otras tiendas están en `docs/manual_usuario.md`. Al entrar por primera vez con `Mass2026!`, el sistema te pide cambiarla por una tuya (es la clave de prueba).

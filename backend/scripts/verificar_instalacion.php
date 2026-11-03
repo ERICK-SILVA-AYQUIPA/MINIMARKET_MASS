@@ -11,6 +11,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Solo desde la consola.');
 }
 require __DIR__ . '/../config/Database.php';
+require __DIR__ . '/../config/Migraciones.php';
 date_default_timezone_set('America/Lima');
 
 $raiz = dirname(__DIR__, 2);
@@ -85,7 +86,16 @@ echo "Base de datos\n";
 $usuario = (string) $db->query('SELECT CURRENT_USER()')->fetchColumn();
 revisar(!str_starts_with($usuario, 'root@'), 'La aplicación no entra como root', 'La aplicación entra como root: usa el usuario mass_app (docs/despliegue.md)');
 $tablas = (int) $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")->fetchColumn();
-revisar($tablas === 39, 'Las 39 tablas', "Hay $tablas tablas y deben ser 39: falta correr algún script de database/ (docs/despliegue.md, sección 8)");
+revisar($tablas === 40, 'Las 40 tablas', "Hay $tablas tablas y deben ser 40: falta correr algún script de database/ o php backend/scripts/migrar.php (docs/despliegue.md, sección 8)");
+try {
+    $estadoMigraciones = (new Migraciones($db))->estado();
+    revisar($estadoMigraciones['pendientes'] === [] && $estadoMigraciones['cambiadas'] === [],
+        'Migraciones al día (' . count(Migraciones::archivos()) . ')',
+        'Faltan migraciones o alguna fue editada (' . implode(', ', array_merge($estadoMigraciones['pendientes'], $estadoMigraciones['cambiadas']))
+        . '): corre php backend/scripts/migrar.php');
+} catch (PDOException) {
+    resultado('FALLA', 'No existe la tabla migracion_aplicada: corre php backend/scripts/migrar.php');
+}
 $boleta = (int) $db->query("SELECT COUNT(*) FROM information_schema.routines WHERE routine_schema = DATABASE() AND routine_name = 'sp_boleta'")->fetchColumn();
 revisar($boleta === 1, 'Procedimiento sp_boleta', 'Falta sp_boleta: corre database/boleta.sql', 'AVISO');
 $minutos = (int) $db->query('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW())')->fetchColumn();
@@ -98,6 +108,9 @@ foreach ($db->query("SELECT nombres, clave_hash FROM empleado WHERE estado = 'AC
         $conClaveDePrueba[] = (string) $empleado['nombres'];
     }
 }
+$porCambiar = (int) $db->query("SELECT COUNT(*) FROM empleado WHERE estado = 'ACTIVO' AND debe_cambiar_clave = 'S'")->fetchColumn();
+revisar($porCambiar === 0, 'Todos los empleados activos ya eligieron su clave',
+    "$porCambiar empleados activos aún no cambian la clave que les puso el administrador (se les pedirá al entrar)", 'AVISO');
 revisar($conClaveDePrueba === [], 'Nadie usa la clave de prueba',
     count($conClaveDePrueba) . ' empleados activos siguen con la clave de prueba (' . implode(', ', array_slice($conClaveDePrueba, 0, 5))
     . (count($conClaveDePrueba) > 5 ? '…' : '') . '): que la cambien en "Mi clave"');
