@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * V: tabla HTML del catalogo. Solo muestra; no calcula reglas ni busca datos.
  * Al tocar un producto se abre su ficha en el panel lateral (&ver=ID) sin salir de la lista.
- * @var array<int, array{producto: Producto, stock: ?Stock, marca: string, foto: array{url: ?string, icono: string, tono: int, categoria: string}}> $filas
+ * @var array<int, array{producto: Producto, stock: ?Stock, marca: string, foto: array{url: ?string, propia: bool, icono: string, tono: int, categoria: string}}> $filas
  * @var array<int, Tienda> $tiendas
  * @var Tienda $tienda
  * @var string $rutaSelector
@@ -44,7 +44,7 @@ $guiaPasos = [
     'La etiqueta REPONER sale cuando el stock llegó a su mínimo. Cambia de tienda con las pestañas de arriba.',
 ];
 if ($puedeEditar) {
-    $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Sin foto, se dibuja el icono de su categoría.';
+    $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Cada producto trae la imagen de su envase; una foto subida la reemplaza.';
 }
 require __DIR__ . '/../parciales/guia.php';
 
