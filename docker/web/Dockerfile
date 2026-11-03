@@ -9,12 +9,16 @@ RUN apt-get update \
       php8.3-cli php8.3-mysql php8.3-gd php8.3-mbstring php8.3-curl tzdata \
  && rm -rf /var/lib/apt/lists/*
 
-# Los mismos limites que produccion y la hora de Lima
+# Los mismos limites que produccion y la hora de Lima.
+# La pagina se ve en todo el Wi-Fi (puerto 8000): los avisos de PHP no se muestran en el navegador
+# (pueden traer rutas y datos), van al log: docker compose logs web
 RUN { \
       echo 'upload_max_filesize = 2M'; \
       echo 'post_max_size = 8M'; \
       echo 'date.timezone = America/Lima'; \
-      echo 'display_errors = On'; \
+      echo 'display_errors = Off'; \
+      echo 'log_errors = On'; \
+      echo 'error_log = /dev/stderr'; \
     } > /etc/php/8.3/cli/conf.d/99-mass.ini
 
 WORKDIR /app
