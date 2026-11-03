@@ -87,6 +87,8 @@ data class EstadoVenta(
     // true: la venta se envio pero no hubo respuesta. El carrito queda bloqueado hasta reintentar.
     val pendiente: Boolean = false,
     val registrada: VentaDetalle? = null,
+    // Codigo escaneado que no esta en el catalogo: se registra ahi mismo y entra al carrito
+    val codigoNuevo: String? = null,
 )
 
 /**
@@ -135,9 +137,12 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
             when (val r = repo.productoPorCodigo(codigo)) {
                 is Resultado.Ok -> if (agregar(r.datos)) alEncontrar() else alFallar()
                 is Resultado.Error -> {
-                    // El cajero no registra productos: lo hace el almacenero o el administrador
-                    val texto = if (r.http == 404) "${r.mensaje} Avísale al almacenero para que lo registre." else r.mensaje
-                    _estado.update { it.copy(aviso = Aviso(texto, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
+                    if (r.http == 404 && repo.perfil?.permisos?.crearProducto == true) {
+                        _estado.update { it.copy(codigoNuevo = codigo) }
+                    } else {
+                        val texto = if (r.http == 404) "${r.mensaje} Avísale al almacenero para que lo registre." else r.mensaje
+                        _estado.update { it.copy(aviso = Aviso(texto, if (r.http == 404) TipoAviso.ALERTA else TipoAviso.ERROR)) }
+                    }
                     alFallar()
                 }
             }
@@ -183,6 +188,14 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
     fun cobro(cambio: (DatosCobro) -> DatosCobro) = _estado.update { if (it.pendiente) it else it.copy(cobro = cambio(it.cobro), claveVenta = null) }
 
     fun cerrarAviso() = _estado.update { it.copy(aviso = null) }
+
+    /** El producto recien registrado entra al carrito con 1. */
+    fun productoCreado(producto: Producto): Boolean {
+        _estado.update { it.copy(codigoNuevo = null) }
+        return agregar(producto)
+    }
+
+    fun cancelarProductoNuevo() = _estado.update { it.copy(codigoNuevo = null) }
 
     /** Envia la venta. Un segundo toque mientras se envia no hace nada; un reintento usa la misma clave. */
     fun cobrar() {

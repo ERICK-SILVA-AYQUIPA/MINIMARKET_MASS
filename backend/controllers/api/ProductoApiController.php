@@ -9,7 +9,7 @@ require_once __DIR__ . '/../../models/servicios/ProductoServicio.php';
 /**
  * Inventario de la app: buscar productos, leer un codigo de barras y ver el kardex.
  * El stock que se muestra es el de la tienda del usuario.
- * Si el codigo escaneado no existe, el almacenero o el administrador pueden registrarlo (crear()).
+ * Si el codigo escaneado no existe, cualquier empleado puede registrarlo (crear()), con su stock inicial opcional.
  */
 class ProductoApiController extends ApiController
 {
@@ -78,7 +78,7 @@ class ProductoApiController extends ApiController
     public function opciones(): array
     {
         if (!$this->usuario()->puedeCrearProducto()) {
-            $this->prohibido('Solo el almacenero o el administrador registran un producto nuevo.');
+            $this->prohibido('Tu usuario no puede registrar productos nuevos.');
         }
         $unidades = array_filter($this->catalogo->unidades(), static fn(UnidadMedida $u): bool => $u->getAbreviatura() !== 'kg');
         return [
@@ -91,17 +91,17 @@ class ProductoApiController extends ApiController
     /**
      * POST /api/v1/productos: registra el producto del codigo escaneado (stock 0 en todas las tiendas)
      * {"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}
-     * o, con una marca nueva, "marca_nombre": "Gloria" en vez de "marca".
+     * o, con una marca nueva, "marca_nombre": "Gloria" en vez de "marca". Opcional "stock_inicial": "6" (cuantos hay en la tienda).
      * Si el codigo ya existe (otro lo registro, o es un reintento) responde 409 YA_EXISTE: la app lo vuelve a buscar.
      */
     public function crear(array $datos): array
     {
         $usuario = $this->usuario();
         if (!$usuario->puedeCrearProducto()) {
-            $this->prohibido('Solo el almacenero o el administrador registran un producto nuevo. Avísale al almacenero.');
+            $this->prohibido('Tu usuario no puede registrar productos nuevos.');
         }
         $campos = [];
-        foreach (['codigo', 'nombre', 'precio', 'categoria', 'marca', 'marca_nombre', 'unidad'] as $clave) {
+        foreach (['codigo', 'nombre', 'precio', 'categoria', 'marca', 'marca_nombre', 'unidad', 'stock_inicial'] as $clave) {
             $campos[$clave] = trim($this->texto($datos, $clave));
         }
         if ($campos['codigo'] !== '' && $this->consultas->productoPorCodigo($campos['codigo'], $usuario->getIdTienda()) !== null) {

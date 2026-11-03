@@ -43,12 +43,15 @@ import pe.mass.minimarket.data.api.ProductoNuevoPedido
 import pe.mass.minimarket.dominio.Validar
 
 /**
- * Producto nuevo con el codigo recien escaneado (almacenero y administrador).
+ * Producto nuevo con el codigo recien escaneado (cualquier empleado: en la venta, la entrada o la consulta).
  * Si Open Food Facts conoce el codigo, el nombre y la marca vienen escritos; el trabajador los revisa y pone el precio.
- * El servidor lo crea con stock 0 en todas las tiendas; el stock se suma despues con la entrada de mercaderia.
+ * El servidor lo crea con stock 0 en todas las tiendas, mas lo que se anote en "cuantos hay" en la tienda de quien lo registra.
+ * @param stock que se pregunta de "cuantos hay": en la venta es obligatorio (sin stock no se cobra);
+ *              en la entrada de mercaderia no se pregunta, porque la cantidad va en la linea del documento
  */
 @Composable
-fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar: () -> Unit) {
+fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar: () -> Unit, stock: PreguntaStock = PreguntaStock.OPCIONAL) {
+    val pedirStock = stock == PreguntaStock.OBLIGATORIO
     val repo = repositorio()
     val alcance = rememberCoroutineScope()
     var opciones by remember { mutableStateOf<OpcionesCatalogo?>(null) }
@@ -56,6 +59,7 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
     var sugerido by remember { mutableStateOf(false) }
     var nombre by remember { mutableStateOf("") }
     var precio by remember { mutableStateOf("") }
+    var hay by remember { mutableStateOf("") }
     var marca by remember { mutableStateOf("") }
     var categoria by remember { mutableStateOf<OpcionCatalogo?>(null) }
     var unidad by remember { mutableStateOf<OpcionCatalogo?>(null) }
@@ -83,12 +87,18 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
 
     val errorNombre = if (nombre.isBlank()) "Escribe el nombre." else null
     val errorPrecio = Validar.monto(precio)
+    // Vacio vale 0; en la venta hace falta al menos 1 para poder cobrarlo
+    val errorHay = when {
+        hay.isBlank() -> if (pedirStock) "Escribe cuántos hay para poder venderlo." else null
+        else -> Validar.cantidad(hay, alPeso = false)
+    }
     val faltante = when {
         errorNombre != null -> errorNombre
         errorPrecio != null -> "Precio de venta: $errorPrecio"
         categoria == null -> "Elige la categoría."
         marca.isBlank() -> "Escribe o elige la marca."
         unidad == null -> "Elige la unidad."
+        errorHay != null -> "Cuántos hay: $errorHay"
         else -> null
     }
 
@@ -104,6 +114,7 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
             marca = existente?.id?.toString().orEmpty(),
             marcaNombre = if (existente == null) marca.trim() else "",
             unidad = unidad!!.id.toString(),
+            stockInicial = hay.trim(),
         )
         guardando = true
         error = null
@@ -174,14 +185,29 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Lista("Unidad", opciones?.unidades.orEmpty(), unidad, intento) { unidad = it }
+                if (stock != PreguntaStock.NO) OutlinedTextField(
+                    value = hay, onValueChange = { hay = it.filter(Char::isDigit).take(7) },
+                    label = { Text(if (pedirStock) "¿Cuántos hay en el estante?" else "¿Cuántos hay en la tienda? (opcional)") },
+                    isError = intento && errorHay != null,
+                    supportingText = { if (intento) errorHay?.let { Text(it) } },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (intento && faltante != null) {
                     Text(faltante, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
-                Text("Queda con stock 0. Luego súmalo con la entrada de mercadería.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    if (pedirStock) "Al guardarlo entra al carrito. El precio y quién lo registró quedan en la auditoría."
+                    else "Lo que llegue después se suma con la entrada de mercadería.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
         },
     )
 }
+
+enum class PreguntaStock { NO, OPCIONAL, OBLIGATORIO }
 
 /** Un boton que abre la lista para elegir (categoria o unidad). */
 @Composable

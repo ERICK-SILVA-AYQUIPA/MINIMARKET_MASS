@@ -59,8 +59,8 @@ Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en ca
 | `GET v1/productos/codigo/{código}` | El escáner. Un UPC-A de 12 dígitos también encuentra el mismo producto guardado como EAN-13 con un 0 adelante, y al revés |
 | `GET v1/productos/{id}` | Ficha con los últimos 15 movimientos del kardex |
 | `GET v1/movimientos?producto={id}&pagina=1` | Kardex de la tienda |
-| `GET v1/catalogo` | Almacenero, administrador. Categorías, marcas y unidades (sin `kg`) para el formulario de producto nuevo |
-| `POST v1/productos` | Almacenero, administrador. Registra el código escaneado que no existe (201) con `ProductoServicio::crearAlEscanear`: siempre por unidad, stock 0 en todas las tiendas y auditoría `PRODUCTO_CREADO ... (app)`. Cuerpo: `{"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}`; con una marca nueva, `"marca": ""` y `"marca_nombre": "Gloria"` (si ya existe con otras mayúsculas, se usa esa) |
+| `GET v1/catalogo` | Cualquier empleado. Categorías, marcas y unidades (sin `kg`) para el formulario de producto nuevo |
+| `POST v1/productos` | Cualquier empleado (el cajero también, desde la venta). Registra el código escaneado que no existe (201) con `ProductoServicio::crearAlEscanear`: siempre por unidad, stock 0 en todas las tiendas y auditoría `PRODUCTO_CREADO ... (app)`. Cuerpo: `{"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}`; con una marca nueva, `"marca": ""` y `"marca_nombre": "Gloria"` (si ya existe con otras mayúsculas, se usa esa). Opcional `"stock_inicial": "5"`: cuántos hay en la tienda de quien lo registra, en unidades enteras; queda como un ajuste `CONTEO_FISICO` en el kardex con su nombre (así el cajero lo vende en el momento) |
 
 ### Quién hace qué
 
@@ -69,13 +69,15 @@ Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en ca
 | Vender | Sí, con su turno de caja abierto | No | No |
 | Consultar precio y stock | Sí | Sí | Sí |
 | Entrada de stock | No | Sí, en su tienda | Sí, en su tienda |
-| Registrar un producto nuevo al escanear | No: la app le pide avisar al almacenero | Sí | Sí |
+| Registrar un producto nuevo al escanear | Sí, desde la venta, con cuántos hay en el estante | Sí | Sí |
 | Cambiar el precio o los datos de un producto que ya existe | No | No | Sí, en la web (Catálogo) |
 | Ajuste por conteo | No | Sí | Sí |
 
 No hay restricción por horario: las ventas ya dependen del turno de caja abierto, y cada operación queda en la auditoría con quién la hizo y a qué hora.
 
-En la app, si el código no está registrado, el almacenero o el administrador ven el formulario ahí mismo (en Entrada de stock y en Consultar producto). La app busca el código en [Open Food Facts](https://world.openfoodfacts.org) (base pública y gratuita) para sugerir el nombre y la marca; esa consulta sale directo del celular a internet, sin el token de la tienda, y si no hay internet o no lo conoce simplemente se escribe a mano. El precio siempre lo pone el trabajador.
+En la app, si el código no está registrado, cualquier empleado ve el formulario ahí mismo: en Nueva venta (y el producto entra al carrito), en Entrada de stock y en Consultar producto.
+
+La cámara lee códigos de barras (EAN-13, EAN-8, UPC-A, UPC-E, Code 128) y también **QR y Data Matrix** con el código GS1 del producto adentro (`https://id.gs1.org/01/07751271011013`, `(01)07751271011013...`), que traen los empaques nuevos. La app saca de ahí el código del producto y revisa su dígito de control. Un QR de publicidad, de pago o un enlace cualquiera no se toma por un producto: la app avisa que se escanee el código de barras (`dominio/CodigoLeido.kt`). La app busca el código en [Open Food Facts](https://world.openfoodfacts.org) (base pública y gratuita) para sugerir el nombre y la marca; esa consulta sale directo del celular a internet, sin el token de la tienda, y si no hay internet o no lo conoce simplemente se escribe a mano. El precio siempre lo pone el trabajador.
 
 ## Caja y ventas
 

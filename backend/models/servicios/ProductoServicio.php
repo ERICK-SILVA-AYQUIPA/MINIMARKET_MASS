@@ -29,20 +29,27 @@ class ProductoServicio extends Servicio
 
     /**
      * Producto nuevo desde el escaner de la app: llego mercaderia con un codigo que aun no esta en el catalogo.
-     * Lo hacen el almacenero y el administrador. Siempre por unidad y con el codigo leido.
+     * Lo hace cualquier empleado activo (el cajero tambien, desde la venta). Siempre por unidad y con el codigo leido.
      * La marca se elige de la lista (marca) o se escribe (marca_nombre): si no existe, se crea.
-     * @param array{nombre?: string, codigo?: string, precio?: string, categoria?: string, marca?: string, marca_nombre?: string, unidad?: string} $datos
+     * stock_inicial (opcional): cuantos hay ya en la tienda de quien lo registra. Queda como un ajuste
+     * CONTEO_FISICO en el kardex con su nombre, asi el cajero puede venderlo en el momento.
+     * @param array{nombre?: string, codigo?: string, precio?: string, categoria?: string, marca?: string, marca_nombre?: string, unidad?: string, stock_inicial?: string} $datos
      */
     public function crearAlEscanear(Usuario $usuario, array $datos): int
     {
         if (!$usuario->puedeCrearProducto()) {
-            throw new ReglaNegocioException('Solo el almacenero o el administrador registran un producto nuevo.');
+            throw new ReglaNegocioException('Tu usuario no puede registrar productos nuevos.');
         }
         if (trim((string) ($datos['codigo'] ?? '')) === '') {
             throw new ReglaNegocioException('Escanea el código de barras del producto.');
         }
+        $stockTexto = trim((string) ($datos['stock_inicial'] ?? ''));
+        $stockInicial = $stockTexto === '' ? 0 : Cantidad::deTexto($stockTexto, false);
+        if ($stockInicial === null) {
+            throw new ReglaNegocioException('Cuántos hay en la tienda: solo unidades enteras.');
+        }
 
-        return $this->enTransaccion(function () use ($usuario, $datos): int {
+        return $this->enTransaccion(function () use ($usuario, $datos, $stockInicial): int {
             $marcaNombre = trim((string) ($datos['marca_nombre'] ?? ''));
             if (trim((string) ($datos['marca'] ?? '')) === '' && $marcaNombre !== '') {
                 $creadas = [];
@@ -52,7 +59,20 @@ class ProductoServicio extends Servicio
                 }
             }
             $campos = $this->leerDatos($datos, 'N');
-            return $this->insertarProducto($usuario, $campos, 'N', ' (app)');
+            $id = $this->insertarProducto($usuario, $campos, 'N', ' (app)');
+
+            if ($stockInicial > 0) {
+                $this->db->prepare(
+                    'INSERT INTO ajuste_inventario (fecha_hora, motivo, observacion, id_tienda, id_empleado)
+                     VALUES (NOW(), \'CONTEO_FISICO\', :observacion, :tienda, :empleado)'
+                )->execute(['observacion' => 'Stock inicial al registrar el producto (app)',
+                    'tienda' => $usuario->getIdTienda(), 'empleado' => $usuario->getIdEmpleado()]);
+                $this->moverStock($usuario->getIdTienda(), $id, $stockInicial, TipoMovimiento::AJUSTE_ENTRADA,
+                    $usuario->getIdEmpleado(), ['id_ajuste' => (int) $this->db->lastInsertId()], 'Stock inicial (app)');
+                $this->auditar($usuario, 'STOCK_INICIAL', sprintf('Producto %d: %s en la tienda %d',
+                    $id, Cantidad::aTexto($stockInicial), $usuario->getIdTienda()));
+            }
+            return $id;
         });
     }
 

@@ -78,13 +78,20 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import kotlinx.coroutines.delay
+import pe.mass.minimarket.dominio.CodigoLeido
+import pe.mass.minimarket.dominio.Codigos
+import pe.mass.minimarket.ui.comun.Aviso
+import pe.mass.minimarket.ui.comun.TarjetaAviso
+import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.tema.Marca
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
  * Lee codigos de barras de cada cuadro de la camara con ML Kit (sin tomar foto).
- * Formatos de productos: EAN-13, EAN-8, UPC-A, UPC-E y Code 128.
+ * Formatos de productos: EAN-13, EAN-8, UPC-A, UPC-E y Code 128, y QR o Data Matrix con el codigo GS1
+ * del producto adentro (los empaques nuevos). Que significa lo leido lo decide [Codigos.interpretar].
  *
  * La camara ve el mismo codigo muchas veces por segundo: se avisa una sola vez y no se vuelve a avisar
  * del mismo codigo mientras siga a la vista (y hasta [ESPERA_MISMO_CODIGO_MS] despues de que se fue).
@@ -100,6 +107,8 @@ class AnalizadorCodigos(private val alLeer: (String) -> Unit) : ImageAnalysis.An
                 Barcode.FORMAT_UPC_A,
                 Barcode.FORMAT_UPC_E,
                 Barcode.FORMAT_CODE_128,
+                Barcode.FORMAT_QR_CODE,
+                Barcode.FORMAT_DATA_MATRIX,
             )
             .build()
     )
@@ -117,7 +126,9 @@ class AnalizadorCodigos(private val alLeer: (String) -> Unit) : ImageAnalysis.An
         }
         lector.process(InputImage.fromMediaImage(imagen, cuadro.imageInfo.rotationDegrees))
             .addOnSuccessListener { codigos ->
-                val valor = codigos.firstNotNullOfOrNull { it.rawValue?.trim()?.takeIf { v -> v.isNotEmpty() } }
+                val leidos = codigos.mapNotNull { it.rawValue?.trim()?.takeIf { v -> v.isNotEmpty() } }
+                // Si en el cuadro hay un QR de publicidad y el codigo de barras, gana el del producto
+                val valor = leidos.firstOrNull { Codigos.interpretar(it) is CodigoLeido.Producto } ?: leidos.firstOrNull()
                     ?: return@addOnSuccessListener
                 val ahora = SystemClock.elapsedRealtime()
                 val repetido = valor == ultimoCodigo && ahora - vistoPorUltimaVez < ESPERA_MISMO_CODIGO_MS
@@ -236,7 +247,7 @@ private fun ZonaDeLectura(activo: Boolean, modifier: Modifier = Modifier) {
             drawLine(Color.Red.copy(alpha = 0.7f), Offset(esquina.x + 16f, size.height / 2f), Offset(esquina.x + ancho - 16f, size.height / 2f), 3f)
         }
         Text(
-            if (activo) "Pon el código de barras dentro del recuadro" else "Consultando…",
+            if (activo) "Pon el código de barras o el QR dentro del recuadro" else "Consultando…",
             color = Color.White,
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
@@ -318,6 +329,7 @@ fun rememberConfirmacion(): Confirmacion {
 /**
  * Panel reutilizable: camara + escribir el codigo a mano + buscar por nombre.
  * Lo usan Nueva venta, Entrada de stock y Consulta de producto.
+ * [onCodigo] recibe solo numeros de producto: un QR que no es de un producto se avisa aqui y no llega a la pantalla.
  */
 @Composable
 fun PanelEscaner(
@@ -328,12 +340,33 @@ fun PanelEscaner(
     altoCamara: Int = 220,
 ) {
     var manual by remember { mutableStateOf("") }
+    var noEsProducto by remember { mutableStateOf<String?>(null) }
     val vibrar = LocalHapticFeedback.current
+    val confirmacion = rememberConfirmacion()
+    val leer: (String) -> Unit = { valor ->
+        when (val leido = Codigos.interpretar(valor)) {
+            is CodigoLeido.Producto -> {
+                noEsProducto = null
+                onCodigo(leido.codigo)
+            }
+            is CodigoLeido.NoEsProducto -> {
+                noEsProducto = leido.motivo
+                confirmacion.error()
+            }
+        }
+    }
     val enviarManual = {
         val codigo = manual.trim()
         if (codigo.isNotEmpty()) {
-            onCodigo(codigo)
+            leer(codigo)
             manual = ""
+        }
+    }
+    // El aviso del QR se borra solo, para no tapar el siguiente producto
+    LaunchedEffect(noEsProducto) {
+        if (noEsProducto != null) {
+            delay(4_000)
+            noEsProducto = null
         }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -341,12 +374,13 @@ fun PanelEscaner(
             CamaraEscaner(
                 onCodigo = {
                     vibrar.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onCodigo(it)
+                    leer(it)
                 },
                 activo = activo,
                 modifier = Modifier.fillMaxWidth().height(altoCamara.dp),
             )
         }
+        noEsProducto?.let { TarjetaAviso(Aviso(it, TipoAviso.ALERTA), onCerrar = { noEsProducto = null }) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = manual,
