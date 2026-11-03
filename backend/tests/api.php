@@ -460,5 +460,23 @@ revisar('Los tokens se guardan como SHA-256, no en claro', (int) $db->query("SEL
 revisar('Cada operación de la app guardó su respuesta', (int) $db->query('SELECT COUNT(*) FROM api_operacion WHERE respuesta IS NULL')->fetchColumn() === 0);
 revisar('Ningún stock negativo', (int) $db->query('SELECT COUNT(*) FROM stock WHERE cantidad_actual < 0')->fetchColumn() === 0);
 
+echo "Último uso del token (una escritura cada 5 minutos, no en cada pedido)\n";
+require_once __DIR__ . '/../models/TokenApiRepository.php';
+$tokens = new TokenApiRepository($db);
+$nuevoToken = $tokens->crear(1, 'prueba ultimo_uso')['token'];
+$hashNuevo = hash('sha256', $nuevoToken);
+$ultimoUso = function (string $hace) use ($db, $hashNuevo, $tokens, $nuevoToken): string {
+    $db->prepare("UPDATE api_token SET ultimo_uso = '$hace' WHERE token_hash = :h")->execute(['h' => $hashNuevo]);
+    $tokens->empleadoDe($nuevoToken);
+    $leer = $db->prepare('SELECT ultimo_uso FROM api_token WHERE token_hash = :h');
+    $leer->execute(['h' => $hashNuevo]);
+    return (string) $leer->fetchColumn();
+};
+$haceUnMinuto = (string) $db->query('SELECT NOW() - INTERVAL 1 MINUTE')->fetchColumn();
+$haceDiez = (string) $db->query('SELECT NOW() - INTERVAL 10 MINUTE')->fetchColumn();
+revisar('Usado hace 1 minuto: no se vuelve a escribir', $ultimoUso($haceUnMinuto) === $haceUnMinuto);
+revisar('Usado hace 10 minutos: se anota la hora de ahora', $ultimoUso($haceDiez) > $haceUnMinuto);
+$tokens->revocar($nuevoToken);
+
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

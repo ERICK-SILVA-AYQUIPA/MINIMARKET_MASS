@@ -231,6 +231,9 @@ revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_i
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
     && $carmen->get('ruta=kardex_csv&tienda=2&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
+// Issue #85: la proteccion contra formulas no debe volver texto las salidas (-5.000): Excel tiene que poder sumarlas
+revisar('Las salidas del kárdex bajan al CSV como número negativo, sin apóstrofo', $carmen->get('ruta=kardex_csv') === 200
+    && preg_match('/,-[0-9]+\.[0-9]{3},/', $carmen->cuerpo) === 1 && !str_contains($carmen->cuerpo, ",'-"));
 revisar('El almacenero y el administrador ven el formulario de ingreso', $carmen->get('ruta=ingresos') === 200
     && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && $rosa->tiene('ingreso_registrar'));
 revisar('Ingresos está en el menú del almacenero y del administrador, no del cajero', $carmen->get('ruta=inicio') === 200

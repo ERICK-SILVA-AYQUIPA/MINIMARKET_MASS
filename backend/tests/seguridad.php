@@ -204,7 +204,7 @@ revisar('Controladores y vistas no tienen SQL (solo los modelos)', $sqlFuera ===
 
 echo "4. Reglas generales del código\n";
 $todos = array_merge(archivosPhp($raiz, 'backend/config'), archivosPhp($raiz, 'backend/models'), archivosPhp($raiz, 'backend/controllers'),
-    $vistas, archivosPhp($raiz, 'frontend/public'), archivosPhp($raiz, 'backend/tests'));
+    $vistas, archivosPhp($raiz, 'frontend/public'), archivosPhp($raiz, 'backend/tests'), archivosPhp($raiz, 'docs/practicas'));
 $sinStrict = [];
 $publicas = [];
 $entradaCruda = [];
@@ -218,7 +218,7 @@ foreach ($todos as $archivo) {
         $publicas[] = $archivo;
     }
     // Las dos entradas leen la peticion: la pagina web (public/index.php) y la API de la app (public/api/index.php)
-    if (!in_array($archivo, ['frontend/public/index.php', 'frontend/public/api/index.php'], true) && !str_starts_with($archivo, 'backend/tests/') && !str_starts_with($archivo, 'frontend/public/poo_')
+    if (!in_array($archivo, ['frontend/public/index.php', 'frontend/public/api/index.php'], true) && !str_starts_with($archivo, 'backend/tests/') && !str_starts_with($archivo, 'docs/practicas/')
         && preg_match('/\$_(GET|POST|REQUEST|COOKIE)\b/', $texto) === 1) {
         $entradaCruda[] = $archivo;
     }
@@ -226,6 +226,10 @@ foreach ($todos as $archivo) {
 revisar('Todos los archivos PHP tienen declare(strict_types=1)', $sinStrict === [], $sinStrict);
 revisar('Ninguna clase tiene propiedades public', $publicas === [], $publicas);
 revisar('$_GET y $_POST solo se leen en public/index.php y public/api/index.php', $entradaCruda === [], $entradaCruda);
+// Todo .php de la raiz web se puede abrir desde el navegador: solo deben estar las dos entradas, que piden login o token
+$publicosPhp = archivosPhp($raiz, 'frontend/public');
+revisar('En frontend/public solo hay index.php y api/index.php (las prácticas poo_*.php van en docs/practicas)',
+    $publicosPhp === ['frontend/public/api/index.php', 'frontend/public/index.php'], $publicosPhp);
 revisar('.env está en .gitignore', in_array('.env', array_map('trim', file($raiz . '/.gitignore')), true));
 $claves = [];
 foreach (array_merge(archivosPhp($raiz, 'backend/config'), archivosPhp($raiz, 'backend/models'), archivosPhp($raiz, 'backend/controllers')) as $archivo) {

@@ -195,6 +195,14 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 | `img/productos/` | Las fotos de producto que sube el administrador (`{id}.jpg`). No se suben a GitHub: solo va `.gitkeep`. |
 | `fuentes/outfit.woff2` | La letra Outfit de los títulos, guardada en el propio sitio (la CSP no deja cargar letras de otros sitios). Licencia libre OFL en `fuentes/LICENCIA.txt`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
+| `poo_*.php` | Ya no están aquí: se movieron a `docs/practicas/` (ver abajo), porque dos de ellas leen la base sin login. |
+
+### docs/practicas/ (páginas de práctica de POO)
+
+Se abren solo en tu PC: `php -S localhost:8001 -t docs/practicas` y luego `http://localhost:8001/poo_roles.php`. Las que leen la base usan el mismo `.env`.
+
+| Archivo | Qué hace |
+|---|---|
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
 | `poo_roles.php` | Prueba del paso 2: tres empleados de Cayma. El mismo método `puedeAnularVenta()` responde distinto según la clase (polimorfismo). |
 | `poo_ventas.php` | Prueba de ventas y pagos: la factura F001-1 cuadra con sus dos pagos y no con uno solo, y cinco datos inválidos se rechazan. |

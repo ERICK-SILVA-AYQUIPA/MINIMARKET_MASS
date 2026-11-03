@@ -16,39 +16,39 @@ php -S localhost:8000 -t frontend/public   # en otra terminal, para probar
 
 ## Integrante 1 · Paso 1 · Modelo
 
-Archivos: `backend/models/Producto.php`, `backend/models/Stock.php`, `frontend/public/poo_producto.php`
+Archivos: `backend/models/Producto.php`, `backend/models/Stock.php`, `docs/practicas/poo_producto.php`
 
 ```powershell
 git checkout -b feature/<nombre>-modelo
-# ... editar y probar en http://localhost:8000/poo_producto.php
+# ... php -S localhost:8001 -t docs/practicas, editar y probar en http://localhost:8001/poo_producto.php
 git status
-git add backend/models/Producto.php backend/models/Stock.php frontend/public/poo_producto.php docs/bitacora_ia.md
+git add backend/models/Producto.php backend/models/Stock.php docs/practicas/poo_producto.php docs/bitacora_ia.md
 git commit -m "feat: revisar clase Producto y Stock"
 git push -u origin feature/<nombre>-modelo
 ```
 
 ## Integrante 2 · Paso 2 · Roles y herencia
 
-Archivos: `backend/models/Usuario.php`, `backend/models/Administrador.php`, `backend/models/Cajero.php`, `backend/models/Almacenero.php`, `frontend/public/poo_roles.php`
+Archivos: `backend/models/Usuario.php`, `backend/models/Administrador.php`, `backend/models/Cajero.php`, `backend/models/Almacenero.php`, `docs/practicas/poo_roles.php`
 
 ```powershell
 git checkout -b feature/<nombre>-roles
-# ... editar y probar en http://localhost:8000/poo_roles.php
+# ... php -S localhost:8001 -t docs/practicas, editar y probar en http://localhost:8001/poo_roles.php
 git status
-git add backend/models/Usuario.php backend/models/Administrador.php backend/models/Cajero.php backend/models/Almacenero.php frontend/public/poo_roles.php docs/bitacora_ia.md
+git add backend/models/Usuario.php backend/models/Administrador.php backend/models/Cajero.php backend/models/Almacenero.php docs/practicas/poo_roles.php docs/bitacora_ia.md
 git commit -m "feat: revisar roles con herencia"
 git push -u origin feature/<nombre>-roles
 ```
 
 ## Integrante 3 · Pasos 3 y 4 · Repository y controlador
 
-Archivos: `backend/models/ProductoRepository.php`, `backend/controllers/ProductoController.php`, `frontend/public/poo_repository.php`
+Archivos: `backend/models/ProductoRepository.php`, `backend/controllers/ProductoController.php`, `docs/practicas/poo_repository.php`
 
 ```powershell
 git checkout -b feature/<nombre>-repository
-# ... editar y probar en http://localhost:8000/poo_repository.php
+# ... php -S localhost:8001 -t docs/practicas, editar y probar en http://localhost:8001/poo_repository.php
 git status
-git add backend/models/ProductoRepository.php backend/controllers/ProductoController.php frontend/public/poo_repository.php docs/bitacora_ia.md
+git add backend/models/ProductoRepository.php backend/controllers/ProductoController.php docs/practicas/poo_repository.php docs/bitacora_ia.md
 git commit -m "feat: revisar Repository y controlador"
 git push -u origin feature/<nombre>-repository
 ```

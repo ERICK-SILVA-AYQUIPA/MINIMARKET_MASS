@@ -32,9 +32,9 @@ En el servidor se clona el repositorio completo (así `git pull` sirve para actu
 | `backend/database/consultas.sql` | Consultas de estudio del curso; ningún paso de la instalación las ejecuta |
 | `backend/database/catalogo_inicial.csv` | Ejemplo para la pantalla **Importar CSV**; no se carga solo |
 | `backend/tests/` | Las corre la CI. `web.php`, `integracion.php` y `api.php` registran ventas e ingresos: **nunca correrlas contra la base de producción** |
-| `frontend/public/poo_*.php` | Páginas de práctica de POO. `poo_repository.php` y `poo_ventas.php` leen la base **sin pedir login**. Las configuraciones de `deploy/` las bloquean (nginx responde 404 y Apache 403) |
+| `docs/practicas/poo_*.php` | Páginas de práctica de POO. `poo_repository.php` y `poo_ventas.php` leen la base **sin pedir login**, por eso están fuera de `frontend/public/` y el servidor web no las ve. Las configuraciones de `deploy/` igual las bloquean por si alguien las vuelve a copiar ahí (nginx responde 404 y Apache 403) |
 | `android-app/` | Código de la app. Se compila aparte y se instala el `.apk` en los celulares (sección 7) |
-| `docs/`, `final.docx`, `README.md`, `CONTRIBUTING.md`, `.github/`, `.editorconfig`, `.gitattributes` | Documentación, informe, reglas del equipo y CI |
+| `docs/` (con el informe `final.docx`), `README.md`, `CONTRIBUTING.md`, `.github/`, `.editorconfig`, `.gitattributes` | Documentación, informe, reglas del equipo y CI |
 
 **Lo que se crea en el servidor y nunca se sube a GitHub** (ya está en `.gitignore`): `.env`, `respaldos/` y las fotos de `frontend/public/img/productos/`.
 
