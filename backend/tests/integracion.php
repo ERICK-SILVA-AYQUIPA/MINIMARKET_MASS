@@ -384,7 +384,15 @@ rechaza('Al escanear, el código es obligatorio', fn() => $catalogo->crearAlEsca
 rechaza('Al escanear, un código que ya existe', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000011'] + $escaneado));
 rechaza('Al escanear, no se usa la unidad kg', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000165',
     'unidad' => valor($db, "SELECT id_unidad FROM unidad_medida WHERE abreviatura = 'kg'")] + $escaneado));
-rechaza('Un cajero no registra productos al escanear', fn() => $catalogo->crearAlEscanear($luis, ['codigo' => '7750000000172'] + $escaneado));
+$idDelCajero = $catalogo->crearAlEscanear($luis, ['codigo' => '7750000000172', 'nombre' => 'Caramelos de prueba', 'stock_inicial' => '6'] + $escaneado);
+revisar('El cajero también lo registra, con lo que hay en su tienda', $stock(1, $idDelCajero) === '6.000'
+    && $stock(2, $idDelCajero) === '0.000');
+revisar('...y ese stock inicial queda en el kardex como ajuste con su nombre', valor($db,
+    'SELECT CONCAT(m.id_tipo_movimiento, \'/\', a.motivo, \'/\', m.id_empleado) FROM movimiento_stock m
+       JOIN ajuste_inventario a ON a.id_ajuste = m.id_ajuste WHERE m.id_producto = ?', [$idDelCajero]) === '6/CONTEO_FISICO/2');
+rechaza('Stock inicial con decimales', fn() => $catalogo->crearAlEscanear($luis, ['codigo' => '7750000000189', 'stock_inicial' => '1.5'] + $escaneado));
+rechaza('Un empleado inactivo no registra productos', fn() => $catalogo->crearAlEscanear(
+    new Cajero(99, 'Ex', 'Cajero', '70000097', 'INACTIVO', 1), ['codigo' => '7750000000196'] + $escaneado));
 $catalogo->editar($rosa, 1, [
     'nombre' => 'Leche evaporada Gloria entera 400 g', 'codigo' => '7750000000011', 'precio' => '4.80',
     'categoria' => '2', 'marca' => '1', 'unidad' => '1',

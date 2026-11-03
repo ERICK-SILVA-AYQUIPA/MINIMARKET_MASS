@@ -65,6 +65,7 @@ import pe.mass.minimarket.ui.comun.BarraSuperior
 import pe.mass.minimarket.ui.comun.BotonGrande
 import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
 import pe.mass.minimarket.ui.comun.DialogoProductoNuevo
+import pe.mass.minimarket.ui.comun.PreguntaStock
 import pe.mass.minimarket.ui.comun.TarjetaAviso
 import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
@@ -312,7 +313,7 @@ fun PantallaEntrada(onAtras: () -> Unit) {
         DialogoBuscarProducto(onElegir = { buscar = false; vm.agregar(it) }, onCerrar = { buscar = false })
     }
     estado.codigoNuevo?.let { codigo ->
-        DialogoProductoNuevo(codigo, onCreado = vm::productoCreado, onCerrar = vm::cancelarProductoNuevo)
+        DialogoProductoNuevo(codigo, onCreado = vm::productoCreado, onCerrar = vm::cancelarProductoNuevo, stock = PreguntaStock.NO)
     }
 }
 

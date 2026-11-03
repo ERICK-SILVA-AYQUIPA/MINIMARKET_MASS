@@ -205,10 +205,11 @@ revisar('Conteo: almacenero y administrador de SU tienda', $carmen->puedeAjustar
     && $rosa->puedeAjustarStock(1) && !$luis->puedeAjustarStock(1));
 revisar('Ingreso de mercadería: lo registran el almacenero y el administrador de SU tienda', $carmen->puedeRegistrarIngreso(1)
     && !$carmen->puedeRegistrarIngreso(2) && $rosa->puedeRegistrarIngreso(1) && !$rosa->puedeRegistrarIngreso(2) && !$luis->puedeRegistrarIngreso(1));
-revisar('Producto nuevo al escanear: almacenero y administrador, no el cajero ni un inactivo', $carmen->puedeCrearProducto()
-    && $rosa->puedeCrearProducto() && !$luis->puedeCrearProducto()
+revisar('Producto nuevo al escanear: cualquier empleado activo, el cajero también', $carmen->puedeCrearProducto()
+    && $rosa->puedeCrearProducto() && $luis->puedeCrearProducto() && !$cesado->puedeCrearProducto()
     && !(new Almacenero(11, 'Ex', 'Almacen', '70000098', 'INACTIVO', 1))->puedeCrearProducto());
-revisar('...pero el catálogo (precios de lo que ya existe) sigue siendo solo del administrador', !$carmen->puedeAdministrarCatalogo());
+revisar('...pero el catálogo (precios de lo que ya existe) sigue siendo solo del administrador',
+    !$carmen->puedeAdministrarCatalogo() && !$luis->puedeAdministrarCatalogo());
 revisar('Ingresos: los ven el almacenero y el administrador de la tienda', $carmen->puedeVerIngresos(1) && $rosa->puedeVerIngresos(1)
     && !$rosa->puedeVerIngresos(2) && !$luis->puedeVerIngresos(1));
 revisar('Administra la tienda solo su administrador', $rosa->puedeAdministrarTienda(1) && !$rosa->puedeAdministrarTienda(3)

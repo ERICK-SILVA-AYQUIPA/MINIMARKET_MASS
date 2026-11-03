@@ -8,7 +8,7 @@ La app **no tiene base de datos propia ni se conecta a MySQL**. Habla solo con e
 
 | Rol | En la app |
 |---|---|
-| Cajero | Vende con el escáner (abre su turno si no tiene), consulta precios y stock, ve sus ventas. Si escanea un código que no existe, la app le pide avisar al almacenero |
+| Cajero | Vende con el escáner (abre su turno si no tiene), consulta precios y stock, ve sus ventas. **Si escanea un código que no existe, lo registra en plena venta** (nombre, precio y cuántos hay en el estante) y entra al carrito |
 | Almacenero | Registra entradas de mercadería, ve el inventario y las fichas de producto. **Si escanea un código nuevo, registra el producto ahí mismo** (nombre, precio, categoría, marca) y luego le suma stock |
 | Administrador | Lo mismo que el almacenero (entradas y productos nuevos), más el historial de ventas de su tienda y la **anulación** (por el mismo proceso que la web, nunca se borra una venta) |
 
@@ -20,7 +20,7 @@ Sobre los pagos: la app **registra** el método (efectivo, tarjeta o Sip) igual 
 
 ## Tecnología
 
-Kotlin, Jetpack Compose (Material 3), MVVM con `ViewModel` y `StateFlow`, CameraX y ML Kit para los códigos (EAN-13, EAN-8, UPC-A, UPC-E y Code 128), Retrofit y OkHttp, y `EncryptedSharedPreferences` para guardar la sesión. Android 8.0 (API 26) o más nuevo.
+Kotlin, Jetpack Compose (Material 3), MVVM con `ViewModel` y `StateFlow`, CameraX y ML Kit para los códigos (EAN-13, EAN-8, UPC-A, UPC-E, Code 128, y QR o Data Matrix GS1 de los empaques nuevos), Retrofit y OkHttp, y `EncryptedSharedPreferences` para guardar la sesión. Android 8.0 (API 26) o más nuevo.
 
 ## Antes de empezar: el backend
 
@@ -48,7 +48,7 @@ O desde la terminal, dentro de `android-app`:
 ```powershell
 .\gradlew.bat assembleDebug          # Windows
 ./gradlew assembleDebug              # Linux o macOS
-./gradlew testDebugUnitTest          # pruebas del carrito y de la sugerencia de nombre
+./gradlew testDebugUnitTest          # pruebas del carrito, de la sugerencia de nombre y de la lectura de QR
 ```
 
 El APK queda en `android-app/app/build/outputs/apk/debug/app-debug.apk` (se crea al compilar; no está en GitHub).

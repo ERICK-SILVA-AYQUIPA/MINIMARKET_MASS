@@ -20,12 +20,6 @@ class Almacenero extends Usuario
         return $this->estaActivo() && $idTienda === $this->getIdTienda();
     }
 
-    // Es quien recibe la mercaderia: si llega un producto nuevo, lo registra al escanearlo
-    public function puedeCrearProducto(): bool
-    {
-        return $this->estaActivo();
-    }
-
     // Cuenta la mercaderia de SU tienda y corrige las diferencias
     public function puedeAjustarStock(int $idTienda): bool
     {

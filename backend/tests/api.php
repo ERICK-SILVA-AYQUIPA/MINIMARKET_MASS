@@ -228,8 +228,8 @@ revisar('Almacenero no puede registrar ventas (403)',
     $carmen->post('ventas', ['tipo_comprobante' => 'B', 'lineas' => [['id_producto' => '1', 'cantidad' => '1']], 'pago' => ['metodo' => 'EFECTIVO', 'efectivo_recibido' => '100']], nuevaClave()) === 403);
 revisar('Cajero no puede registrar ingresos (403)', $luis->post('ingresos', ['documento' => [], 'lineas' => [['id_producto' => '1', 'cantidad' => '1']]], nuevaClave()) === 403);
 revisar('Cajero no ve los ingresos con costos (403)', $luis->get('ingresos') === 403);
-revisar('Producto nuevo al escanear: el almacenero y el administrador sí, el cajero no',
-    ($permisosCarmen['crear_producto'] ?? null) === true && ($permisosLuis['crear_producto'] ?? null) === false);
+revisar('Producto nuevo al escanear: el almacenero y el cajero también',
+    ($permisosCarmen['crear_producto'] ?? null) === true && ($permisosLuis['crear_producto'] ?? null) === true);
 $rosa->get('auth/yo');
 revisar('El administrador también recibe mercadería', ($rosa->datos()['permisos']['registrar_ingreso'] ?? null) === true
     && ($rosa->datos()['permisos']['crear_producto'] ?? null) === true);
@@ -409,14 +409,13 @@ echo "Producto nuevo al escanear\n";
 $codigoNuevo = '779' . random_int(1000000000, 9999999999);
 revisar('Código desconocido: 404 NO_ENCONTRADO', $carmen->get('productos/codigo/' . $codigoNuevo) === 404
     && ($carmen->json['error']['codigo'] ?? '') === 'NO_ENCONTRADO');
-revisar('El cajero no ve el formulario de producto nuevo (403)', $luis->get('catalogo') === 403);
 revisar('Listas del formulario: categorías, marcas y unidades sin kg', $carmen->get('catalogo') === 200
     && ($carmen->datos()['categorias'] ?? []) !== [] && ($carmen->datos()['marcas'] ?? []) !== []
     && !in_array('kg', array_column($carmen->datos()['unidades'] ?? [], 'abreviatura'), true));
 $opciones = $carmen->datos();
 $nuevo = ['codigo' => $codigoNuevo, 'nombre' => 'Galleta de prueba escaneada 40 g', 'precio' => '1.20',
     'categoria' => $opciones['categorias'][0]['id'] ?? 0, 'marca' => $opciones['marcas'][0]['id'] ?? 0, 'unidad' => $opciones['unidades'][0]['id'] ?? 0];
-revisar('El cajero no registra productos (403)', $luis->post('productos', $nuevo) === 403);
+revisar('Sin token no se registran productos (401)', $anonimo->post('productos', $nuevo) === 401);
 revisar('Sin nombre: 422 con el mensaje de la web', $carmen->post('productos', ['nombre' => ''] + $nuevo) === 422);
 revisar('Precio 0: 422', $carmen->post('productos', ['precio' => '0'] + $nuevo) === 422);
 revisar('El almacenero registra el producto: 201', $carmen->post('productos', $nuevo) === 201, $carmen->mensaje());
@@ -434,6 +433,19 @@ revisar('...el stock queda en 12', (float) stockApp($carmen, (int) ($creado['id_
 revisar('La web ya lo muestra con su stock', stockWeb($web, (int) ($creado['id_producto'] ?? 0), 1) === 12);
 revisar('Con una marca nueva escrita a mano', $rosa->post('productos', ['codigo' => '779' . random_int(1000000000, 9999999999),
     'marca' => '', 'marca_nombre' => 'Marca App ' . random_int(1000, 9999)] + $nuevo) === 201, $rosa->mensaje());
+
+echo "El cajero registra un producto en plena venta\n";
+$codigoCaja = '779' . random_int(1000000000, 9999999999);
+revisar('El cajero ve el formulario', $luis->get('catalogo') === 200);
+revisar('Stock inicial con decimales: 422', $luis->post('productos', ['codigo' => $codigoCaja, 'stock_inicial' => '2.5'] + $nuevo) === 422);
+revisar('Lo registra con lo que hay en el estante: 201', $luis->post('productos', ['codigo' => $codigoCaja, 'nombre' => 'Chicle de prueba caja',
+    'stock_inicial' => '5'] + $nuevo) === 201, $luis->mensaje());
+$deCaja = $luis->datos();
+revisar('...y ya tiene 5 en su tienda', (float) ($deCaja['stock'] ?? -1) === 5.0, json_encode($deCaja));
+$ventaNueva = ['tipo_comprobante' => 'B', 'documento' => '', 'total_esperado' => '2.40',
+    'lineas' => [['id_producto' => (string) ($deCaja['id_producto'] ?? 0), 'cantidad' => '2']], 'pago' => ['metodo' => 'EFECTIVO', 'efectivo_recibido' => '5.00']];
+revisar('Y lo vende en el momento: 201', $luis->post('ventas', $ventaNueva, nuevaClave()) === 201, $luis->mensaje());
+revisar('...quedan 3', (float) stockApp($luis, (int) ($deCaja['id_producto'] ?? 0)) === 3.0);
 
 echo "Cerrar sesión\n";
 revisar('Logout', $luis->post('auth/logout', []) === 200);

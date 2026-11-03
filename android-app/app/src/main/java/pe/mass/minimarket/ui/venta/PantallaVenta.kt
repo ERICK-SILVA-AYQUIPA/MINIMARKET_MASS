@@ -61,6 +61,8 @@ import pe.mass.minimarket.ui.comun.BarraSuperior
 import pe.mass.minimarket.ui.comun.BotonGrande
 import pe.mass.minimarket.ui.comun.Cargando
 import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
+import pe.mass.minimarket.ui.comun.DialogoProductoNuevo
+import pe.mass.minimarket.ui.comun.PreguntaStock
 import pe.mass.minimarket.ui.comun.TarjetaAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
 import pe.mass.minimarket.ui.comun.vistaModelo
@@ -123,7 +125,7 @@ fun PantallaVenta(onAtras: () -> Unit, onVerVenta: (Long) -> Unit, onHistorial: 
                         PanelEscaner(
                             onCodigo = { codigo -> vm.leerCodigo(codigo, alEncontrar = confirmacion::exito, alFallar = confirmacion::error) },
                             onBuscarPorNombre = { buscar = true },
-                            activo = !estado.consultando && !estado.cobrando,
+                            activo = !estado.consultando && !estado.cobrando && estado.codigoNuevo == null,
                             altoCamara = 180,
                         )
                     }
@@ -148,6 +150,14 @@ fun PantallaVenta(onAtras: () -> Unit, onVerVenta: (Long) -> Unit, onHistorial: 
 
     if (buscar) {
         DialogoBuscarProducto(onElegir = { buscar = false; if (vm.agregar(it)) confirmacion.exito() }, onCerrar = { buscar = false })
+    }
+    estado.codigoNuevo?.let { codigo ->
+        DialogoProductoNuevo(
+            codigo,
+            stock = PreguntaStock.OBLIGATORIO,
+            onCreado = { if (vm.productoCreado(it)) confirmacion.exito() },
+            onCerrar = vm::cancelarProductoNuevo,
+        )
     }
     editar?.let { item ->
         DialogoCantidad(item, onGuardar = { texto -> vm.fijarCantidad(item.producto.idProducto, texto).also { if (it == null) editar = null } }, onCerrar = { editar = null })

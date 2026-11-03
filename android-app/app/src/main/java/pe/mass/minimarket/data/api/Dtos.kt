@@ -58,7 +58,7 @@ data class Permisos(
     @SerialName("anular_venta") val anularVenta: Boolean = false,
     @SerialName("ver_inventario") val verInventario: Boolean = false,
     @SerialName("ver_ventas") val verVentas: Boolean = false,
-    // Registrar un codigo que no esta en el catalogo (almacenero y administrador)
+    // Registrar un codigo que no esta en el catalogo (cualquier empleado activo)
     @SerialName("crear_producto") val crearProducto: Boolean = false,
 )
 
@@ -109,6 +109,8 @@ data class ProductoNuevoPedido(
     val marca: String,
     @SerialName("marca_nombre") val marcaNombre: String,
     val unidad: String,
+    // Cuantos hay ya en la tienda (vacio: 0). Queda como ajuste de conteo en el kardex.
+    @SerialName("stock_inicial") val stockInicial: String = "",
 )
 
 @Serializable
