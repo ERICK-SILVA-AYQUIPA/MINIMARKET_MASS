@@ -8,8 +8,8 @@ require_once __DIR__ . '/ReglaNegocioException.php';
  * la pantalla dibuja la ilustracion de su categoria (icono y color), asi todo producto se ve igual de ordenado.
  * La foto subida nunca se guarda tal cual: se vuelve a dibujar con GD como JPEG de hasta 600 px,
  * lo que quita cualquier contenido escondido en el archivo original.
- * Los productos del catalogo inicial traen una imagen de su envase en public/img/catalogo/{id}.svg:
- * se usa mientras nadie suba una foto propia (la foto subida siempre manda).
+ * Las fotos reales del catalogo inicial van en public/img/catalogo/{id}.jpg:
+ * se usan mientras nadie suba una foto propia (la foto subida siempre manda).
  */
 final class FotoProducto
 {
@@ -46,11 +46,11 @@ final class FotoProducto
         return is_file($ruta) ? '/img/productos/' . $idProducto . '.jpg?v=' . filemtime($ruta) : null;
     }
 
-    // "/img/catalogo/8.svg?v=..." o null si el producto no trae imagen de catalogo
+    // "/img/catalogo/8.jpg?v=..." o null si el producto no trae foto de catalogo
     public function urlCatalogo(int $idProducto): ?string
     {
-        $ruta = $this->carpetaCatalogo . '/' . $idProducto . '.svg';
-        return is_file($ruta) ? '/img/catalogo/' . $idProducto . '.svg?v=' . filemtime($ruta) : null;
+        $ruta = $this->carpetaCatalogo . '/' . $idProducto . '.jpg';
+        return is_file($ruta) ? '/img/catalogo/' . $idProducto . '.jpg?v=' . filemtime($ruta) : null;
     }
 
     /**
