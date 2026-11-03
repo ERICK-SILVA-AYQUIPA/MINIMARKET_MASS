@@ -14,6 +14,7 @@ import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.data.api.VentaDetalle
 import pe.mass.minimarket.data.api.VentaPedido
 import pe.mass.minimarket.dominio.Carrito
+import pe.mass.minimarket.dominio.ItemCarrito
 import pe.mass.minimarket.dominio.Validar
 import pe.mass.minimarket.dominio.aDecimal
 import pe.mass.minimarket.dominio.soles
@@ -89,7 +90,11 @@ data class EstadoVenta(
     val registrada: VentaDetalle? = null,
     // Codigo escaneado que no esta en el catalogo: se registra ahi mismo y entra al carrito
     val codigoNuevo: String? = null,
+    // Ultimo producto quitado del carrito, para "Deshacer"
+    val quitado: Quitado? = null,
 )
+
+data class Quitado(val item: ItemCarrito, val posicion: Int)
 
 /**
  * Nueva venta (POS movil). El carrito vive en el celular solo mientras se arma; al cobrar, el servidor
@@ -129,13 +134,13 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
     }
 
     /** Lo que lee el escaner o se escribe a mano: el producto entra al carrito o suma 1. */
-    fun leerCodigo(codigo: String, alEncontrar: () -> Unit, alFallar: () -> Unit) {
+    fun leerCodigo(codigo: String, alEncontrar: (Producto) -> Unit, alFallar: () -> Unit) {
         val e = _estado.value
         if (e.consultando || e.pendiente || e.cobrando) return
         _estado.update { it.copy(consultando = true, aviso = null) }
         viewModelScope.launch {
             when (val r = repo.productoPorCodigo(codigo)) {
-                is Resultado.Ok -> if (agregar(r.datos)) alEncontrar() else alFallar()
+                is Resultado.Ok -> if (agregar(r.datos)) alEncontrar(r.datos) else alFallar()
                 is Resultado.Error -> {
                     if (r.http == 404 && repo.perfil?.permisos?.crearProducto == true) {
                         _estado.update { it.copy(codigoNuevo = codigo) }
@@ -170,7 +175,23 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
 
     fun sumar(idProducto: Int) = cambiarCarrito { it.sumarUno(idProducto) }
     fun restar(idProducto: Int) = cambiarCarrito { it.restarUno(idProducto) }
-    fun quitar(idProducto: Int) = cambiarCarrito { it.quitar(idProducto) }
+    fun quitar(idProducto: Int) {
+        val e = _estado.value
+        if (e.pendiente || e.cobrando) return
+        val posicion = e.carrito.items.indexOfFirst { it.producto.idProducto == idProducto }
+        if (posicion < 0) return
+        val item = e.carrito.items[posicion]
+        _estado.update { it.copy(carrito = it.carrito.quitar(idProducto), claveVenta = null, quitado = Quitado(item, posicion)) }
+    }
+
+    /** Vuelve a poner el ultimo producto quitado, con su cantidad. */
+    fun deshacerQuitar() {
+        val q = _estado.value.quitado ?: return
+        cambiarCarrito { it.reponer(q.item, q.posicion) }
+        _estado.update { it.copy(quitado = null) }
+    }
+
+    fun olvidarQuitado() = _estado.update { it.copy(quitado = null) }
 
     /** Para productos al peso o para escribir la cantidad. Devuelve el error o null. */
     fun fijarCantidad(idProducto: Int, texto: String): String? {

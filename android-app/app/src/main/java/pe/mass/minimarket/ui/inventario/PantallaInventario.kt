@@ -1,6 +1,30 @@
 package pe.mass.minimarket.ui.inventario
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.NorthEast
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.SouthWest
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import pe.mass.minimarket.ui.comun.AccionActualizar
+import pe.mass.minimarket.ui.comun.EsqueletoLista
+import pe.mass.minimarket.ui.comun.EstadoError
+import pe.mass.minimarket.ui.comun.EstadoVacio
+import pe.mass.minimarket.ui.comun.Tarjeta
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -61,13 +85,16 @@ import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
 import pe.mass.minimarket.ui.comun.vistaModelo
 import pe.mass.minimarket.ui.escaner.TarjetaProducto
-import pe.mass.minimarket.ui.tema.Rojo
-import pe.mass.minimarket.ui.tema.Verde
+import pe.mass.minimarket.ui.tema.Mass
 
 enum class Filtro(val clave: String, val texto: String) {
     TODOS("todos", "Todos"),
     BAJO("bajo", "Stock bajo"),
-    AGOTADOS("agotados", "Agotados"),
+    AGOTADOS("agotados", "Agotados");
+
+    companion object {
+        fun deClave(clave: String?): Filtro = entries.firstOrNull { it.clave == clave } ?: TODOS
+    }
 }
 
 data class EstadoInventario(
@@ -79,6 +106,8 @@ data class EstadoInventario(
     val hayMas: Boolean = false,
     val cargando: Boolean = false,
     val aviso: Aviso? = null,
+    // Solo cuando el usuario desliza hacia abajo
+    val refrescando: Boolean = false,
 )
 
 /** Inventario de la tienda del usuario, leido del servidor (las mismas tablas que la pagina web). */
@@ -107,6 +136,23 @@ class InventarioViewModel(private val repo: Repositorio) : ViewModel() {
         busqueda = viewModelScope.launch { cargar(pagina = 1, silencioso = silencioso) }
     }
 
+    fun refrescar() {
+        _estado.update { it.copy(refrescando = true) }
+        busqueda?.cancel()
+        busqueda = viewModelScope.launch {
+            cargar(pagina = 1, silencioso = true)
+            _estado.update { it.copy(refrescando = false) }
+        }
+    }
+
+    /** El filtro con el que se abre la pantalla (desde los indicadores del inicio). Solo la primera vez. */
+    private var filtroPuesto = false
+    fun filtroInicial(valor: Filtro) {
+        if (filtroPuesto) return
+        filtroPuesto = true
+        _estado.update { it.copy(filtro = valor) }
+    }
+
     fun siguientePagina() {
         val e = _estado.value
         if (e.cargando || !e.hayMas) return
@@ -132,13 +178,20 @@ class InventarioViewModel(private val repo: Repositorio) : ViewModel() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PantallaInventario(onAtras: () -> Unit, onAbrir: (Int) -> Unit, onEscanear: () -> Unit) {
+fun PantallaInventario(onAtras: () -> Unit, onAbrir: (Int) -> Unit, onEscanear: () -> Unit, filtroInicial: Filtro = Filtro.TODOS) {
     val vm = vistaModelo { InventarioViewModel(it) }
     val estado by vm.estado.collectAsState()
+    val lista = rememberLazyListState()
+    // Al bajar por la lista, el boton de escanear se achica para no tapar los productos
+    val extendido by remember { derivedStateOf { lista.firstVisibleItemIndex == 0 } }
 
     // Datos frescos al entrar o volver a la pantalla, y cada minuto mientras esta abierta
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.recargar() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        vm.filtroInicial(filtroInicial)
+        vm.recargar()
+    }
     LaunchedEffect(Unit) {
         while (true) {
             delay(60_000)
@@ -148,16 +201,18 @@ fun PantallaInventario(onAtras: () -> Unit, onAbrir: (Int) -> Unit, onEscanear: 
 
     Scaffold(
         topBar = {
-            BarraSuperior("Inventario", onAtras = onAtras, acciones = {
-                IconButton(onClick = { vm.recargar() }) { Icon(Icons.Filled.Refresh, contentDescription = "Actualizar") }
+            BarraSuperior("Inventario", onAtras = onAtras, subtitulo = "${estado.total} producto(s)", acciones = {
+                AccionActualizar(onClick = { vm.recargar() })
             })
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onEscanear,
+                expanded = extendido,
                 icon = { Icon(Icons.Filled.QrCodeScanner, contentDescription = null) },
                 text = { Text("Escanear") },
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             )
         },
     ) { relleno ->
@@ -166,37 +221,62 @@ fun PantallaInventario(onAtras: () -> Unit, onAbrir: (Int) -> Unit, onEscanear: 
                 OutlinedTextField(
                     value = estado.texto,
                     onValueChange = vm::texto,
-                    label = { Text("Buscar por nombre o código") },
+                    placeholder = { Text("Buscar por nombre o código") },
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (estado.texto.isNotEmpty()) {
+                            IconButton(onClick = { vm.texto("") }) { Icon(Icons.Filled.Close, contentDescription = "Borrar búsqueda") }
+                        }
+                    },
                     singleLine = true,
+                    shape = RoundedCornerShape(50),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Filtro.entries.forEach { f ->
-                        FilterChip(selected = estado.filtro == f, onClick = { vm.filtro(f) }, label = { Text(f.texto) })
+                        FilterChip(
+                            selected = estado.filtro == f,
+                            onClick = { vm.filtro(f) },
+                            label = { Text(f.texto) },
+                            leadingIcon = if (estado.filtro == f) {
+                                { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                            } else {
+                                null
+                            },
+                        )
                     }
                 }
-                Text("${estado.total} producto(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TarjetaAviso(estado.aviso)
             }
-            if (estado.cargando && estado.productos.isEmpty()) {
-                Cargando()
-            } else {
-                LazyColumn(Modifier.fillMaxSize()) {
-                    items(estado.productos, key = { it.idProducto }) { p ->
-                        FilaProducto(p, onClick = { onAbrir(p.idProducto) })
-                        HorizontalDivider()
-                    }
-                    if (estado.hayMas) {
-                        item {
-                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                if (estado.cargando) CircularProgressIndicator() else TextButton(onClick = vm::siguientePagina) { Text("Cargar más") }
+            PullToRefreshBox(isRefreshing = estado.refrescando, onRefresh = vm::refrescar, modifier = Modifier.fillMaxSize()) {
+                when {
+                    estado.cargando && estado.productos.isEmpty() -> EsqueletoLista()
+                    estado.aviso != null && estado.productos.isEmpty() ->
+                        EstadoError(estado.aviso!!.texto, onReintentar = { vm.recargar() })
+                    estado.productos.isEmpty() -> EstadoVacio(
+                        if (estado.filtro == Filtro.TODOS) Icons.Filled.SearchOff else Icons.Filled.Inventory2,
+                        when (estado.filtro) {
+                            Filtro.AGOTADOS -> "No hay productos agotados"
+                            Filtro.BAJO -> "Nada por reponer"
+                            Filtro.TODOS -> "Sin resultados"
+                        },
+                        if (estado.filtro == Filtro.TODOS) "Prueba con otro nombre o escanea el código." else "¡Todo el stock está en orden!",
+                    )
+                    else -> LazyColumn(Modifier.fillMaxSize(), state = lista, contentPadding = PaddingValues(bottom = 96.dp)) {
+                        item { TarjetaAviso(estado.aviso, Modifier.padding(horizontal = 16.dp)) }
+                        items(estado.productos, key = { it.idProducto }) { p ->
+                            FilaProducto(p, onClick = { onAbrir(p.idProducto) }, modifier = Modifier.animateItem())
+                            HorizontalDivider(Modifier.padding(start = 72.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        }
+                        if (estado.hayMas) {
+                            item {
+                                // Cargar la siguiente pagina sola al llegar al final
+                                LaunchedEffect(estado.pagina) { vm.siguientePagina() }
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    if (estado.cargando) CircularProgressIndicator() else TextButton(onClick = vm::siguientePagina) { Text("Cargar más") }
+                                }
                             }
                         }
-                    }
-                    if (!estado.cargando && estado.productos.isEmpty()) {
-                        item { Text("No hay productos con ese filtro.", Modifier.padding(16.dp)) }
                     }
                 }
             }
@@ -230,13 +310,15 @@ fun PantallaProducto(idProducto: Int, onAtras: () -> Unit) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.cargar(idProducto) }
 
     Scaffold(topBar = {
-        BarraSuperior("Ficha del producto", onAtras = onAtras, acciones = {
-            IconButton(onClick = { vm.cargar(idProducto) }) { Icon(Icons.Filled.Refresh, contentDescription = "Actualizar") }
-        })
+        BarraSuperior("Ficha del producto", onAtras = onAtras, acciones = { AccionActualizar(onClick = { vm.cargar(idProducto) }) })
     }) { relleno ->
         val producto = estado.producto
         if (producto == null) {
-            if (estado.cargando) Cargando(Modifier.padding(relleno)) else TarjetaAviso(estado.aviso, Modifier.padding(relleno).padding(16.dp))
+            if (estado.cargando) {
+                EsqueletoLista(Modifier.padding(relleno), filas = 5)
+            } else {
+                EstadoError(estado.aviso?.texto ?: "No se encontró el producto.", onReintentar = { vm.cargar(idProducto) }, modifier = Modifier.padding(relleno))
+            }
             return@Scaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(relleno), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -245,7 +327,7 @@ fun PantallaProducto(idProducto: Int, onAtras: () -> Unit) {
             item { TarjetaAviso(estado.aviso) }
             item { Text("Últimos movimientos en tu tienda", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
             if (producto.movimientos.isEmpty()) {
-                item { Text("Sin movimientos todavía.", style = MaterialTheme.typography.bodyMedium) }
+                item { EstadoVacio(Icons.Filled.SwapVert, "Sin movimientos todavía", "Aquí verás las ventas, entradas y ajustes de este producto.") }
             }
             items(producto.movimientos, key = { it.idMovimiento }) { m -> FilaMovimiento(m, producto.alPeso) }
         }
@@ -254,8 +336,20 @@ fun PantallaProducto(idProducto: Int, onAtras: () -> Unit) {
 
 @Composable
 private fun FilaMovimiento(m: Movimiento, alPeso: Boolean) {
-    Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    val c = Mass.colores
+    Tarjeta(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = CircleShape,
+                color = if (m.entrada) c.exitoFondo else c.peligroFondo,
+                contentColor = if (m.entrada) c.exito else c.peligro,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(if (m.entrada) Icons.Filled.SouthWest else Icons.Filled.NorthEast, contentDescription = if (m.entrada) "Entrada" else "Salida")
+                }
+            }
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(m.tipo, style = MaterialTheme.typography.titleSmall)
                 Text("${fechaCorta(m.fechaHora)} · ${m.origen} · ${m.empleado}", style = MaterialTheme.typography.bodySmall,
@@ -263,9 +357,10 @@ private fun FilaMovimiento(m: Movimiento, alPeso: Boolean) {
                 m.observacion?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text((if (m.entrada) "+" else "−") + m.cantidad.textoCantidad(alPeso), color = if (m.entrada) Verde else Rojo,
+                Text((if (m.entrada) "+" else "−") + m.cantidad.textoCantidad(alPeso), color = if (m.entrada) c.exito else c.peligro,
                     style = MaterialTheme.typography.titleMedium)
-                Text("Queda ${m.stockNuevo.textoCantidad(alPeso)}", style = MaterialTheme.typography.bodySmall)
+                Text("Queda ${m.stockNuevo.textoCantidad(alPeso)}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

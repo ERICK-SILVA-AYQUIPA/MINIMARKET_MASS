@@ -1,5 +1,11 @@
 package pe.mass.minimarket.ui.login
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -118,28 +124,37 @@ fun PantallaLogin(onEntrar: () -> Unit) {
     var verClave by remember { mutableStateOf(false) }
     var editarServidor by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().imePadding()) {
+    Box(
+        Modifier.fillMaxSize()
+            // Un toque de la marca arriba, que se funde con el fondo
+            .background(Brush.verticalGradient(0f to Marca.copy(alpha = 0.28f), 0.45f to MaterialTheme.colorScheme.background))
+            .systemBarsPadding()
+            .imePadding(),
+    ) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(24.dp))
-            Surface(color = Marca, shape = RoundedCornerShape(20.dp), modifier = Modifier.size(84.dp)) {
+            Spacer(Modifier.height(32.dp))
+            Surface(color = Marca, shape = RoundedCornerShape(28.dp), shadowElevation = 6.dp, modifier = Modifier.size(96.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.QrCodeScanner, contentDescription = null, tint = Tinta, modifier = Modifier.size(48.dp))
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = null, tint = Tinta, modifier = Modifier.size(52.dp))
                 }
             }
-            Text("Minimarket Mass", style = MaterialTheme.typography.headlineSmall)
+            Text("Mass Tienda", style = MaterialTheme.typography.headlineMedium)
             Text(
                 "Entra con el mismo DNI y clave de la página web.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = estado.dni,
                 onValueChange = vm::dni,
                 label = { Text("DNI") },
+                leadingIcon = { Icon(Icons.Filled.Badge, contentDescription = null) },
+                shape = MaterialTheme.shapes.medium,
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
@@ -148,6 +163,8 @@ fun PantallaLogin(onEntrar: () -> Unit) {
                 value = estado.clave,
                 onValueChange = vm::clave,
                 label = { Text("Clave") },
+                leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                shape = MaterialTheme.shapes.medium,
                 singleLine = true,
                 visualTransformation = if (verClave) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
@@ -163,7 +180,7 @@ fun PantallaLogin(onEntrar: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
             TarjetaAviso(estado.aviso)
-            BotonGrande("Entrar", onClick = { vm.entrar(onEntrar) }, ocupado = estado.entrando)
+            BotonGrande("Entrar", onClick = { vm.entrar(onEntrar) }, ocupado = estado.entrando, icono = Icons.AutoMirrored.Filled.Login)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)

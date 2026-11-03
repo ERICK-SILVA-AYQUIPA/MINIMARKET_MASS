@@ -18,6 +18,16 @@ El menú de inicio solo muestra lo que el rol puede hacer, y el servidor vuelve 
 
 Sobre los pagos: la app **registra** el método (efectivo, tarjeta o Sip) igual que la web. No cobra con tarjeta ni con billetera: el cajero cobra con el POS o la app de Sip y anota la autorización u operación.
 
+## Diseño y experiencia de uso
+
+- **Material 3 con la marca Mass** (amarillo y tinta de la web), **modo oscuro** y pantalla de borde a borde. El tema se elige en *Mi perfil → Apariencia* (automático, claro u oscuro).
+- **Inicio según el rol**: saludo según la hora, la acción principal en grande (*Nueva venta* para el cajero con el estado de su turno, *Entrada de stock* para almacenero y administrador), indicadores de **agotados**, **por reponer** y **ventas de hoy** (cada uno abre su lista), accesos rápidos y **vistos hace poco**. Se actualiza deslizando hacia abajo.
+- **Agregar producto escaneando**: acceso directo del inicio. Si el código no existe, el formulario se abre solo; si ya existe, muestra su precio y stock.
+- **Escáner**: **linterna**, **acercar 2×** para códigos pequeños, **tocar para enfocar**, línea de lectura animada y destello al leer. Sonido y vibración distintos para "encontrado" y "no encontrado", y se pueden apagar en *Mi perfil*.
+- **Venta rápida**: lo último escaneado aparece arriba, **deslizar para quitar** con **Deshacer**, total grande abajo y cobro en una hoja inferior con **montos sugeridos** (exacto, 20, 50…) y el vuelto resaltado.
+- **Estados claros**: listas con esqueleto mientras cargan, pantallas vacías que dicen qué hacer y errores con **Reintentar**. El inventario carga la siguiente página solo al llegar al final.
+- **Buscar por nombre** en una hoja con el teclado abierto; sin texto muestra los productos vistos hace poco para elegirlos con un toque.
+
 ## Tecnología
 
 Kotlin, Jetpack Compose (Material 3), MVVM con `ViewModel` y `StateFlow`, CameraX y ML Kit para los códigos (EAN-13, EAN-8, UPC-A, UPC-E, Code 128, y QR o Data Matrix GS1 de los empaques nuevos), Retrofit y OkHttp, y `EncryptedSharedPreferences` para guardar la sesión. Android 8.0 (API 26) o más nuevo.
@@ -48,7 +58,7 @@ O desde la terminal, dentro de `android-app`:
 ```powershell
 .\gradlew.bat assembleDebug          # Windows
 ./gradlew assembleDebug              # Linux o macOS
-./gradlew testDebugUnitTest          # pruebas del carrito, de la sugerencia de nombre y de la lectura de QR
+./gradlew testDebugUnitTest          # pruebas del carrito, de la sugerencia de nombre, de la lectura de QR y de los atajos de cobro
 ```
 
 El APK queda en `android-app/app/build/outputs/apk/debug/app-debug.apk` (se crea al compilar; no está en GitHub).
