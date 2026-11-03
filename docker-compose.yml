@@ -1,7 +1,7 @@
 # Minimarket Mass en Docker: base de datos (MySQL 8.4.11) y, en las PCs del equipo, la pagina web y la API (PHP 8.3).
 # Guia para el equipo: docs/equipo/docker.md
 # Al crear el contenedor por primera vez, MySQL ejecuta en orden los scripts
-# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql -> auditoria.sql -> ingresos.sql -> operaciones.sql -> catalogo.sql -> api_movil.sql
+# de /docker-entrypoint-initdb.d: schema.sql -> datos.sql -> boleta.sql -> login.sql -> seguridad.sql -> ajustes.sql -> auditoria.sql -> ingresos.sql -> operaciones.sql -> catalogo.sql -> api_movil.sql -> caja_apertura.sql
 # y al final docker/mysql/99_version.sh, que anota con que version de esos scripts se creo la base.
 # Las claves salen del archivo .env (copia de .env.example, no se sube a GitHub).
 services:
@@ -31,6 +31,7 @@ services:
       - ./backend/database/operaciones.sql:/docker-entrypoint-initdb.d/09_operaciones.sql:ro
       - ./backend/database/catalogo.sql:/docker-entrypoint-initdb.d/10_catalogo.sql:ro
       - ./backend/database/api_movil.sql:/docker-entrypoint-initdb.d/11_api_movil.sql:ro
+      - ./backend/database/caja_apertura.sql:/docker-entrypoint-initdb.d/12_caja_apertura.sql:ro
       # Anota la version de los scripts con la que se creo la base (la usa actualizar.sh / actualizar.bat)
       - ./docker/mysql/99_version.sh:/docker-entrypoint-initdb.d/99_version.sh:ro
       - ./docker/mysql/revisar_version.sh:/usr/local/bin/revisar_version.sh:ro

@@ -222,6 +222,28 @@ $ventas->registrar($miguel, 'B', '', [['id_producto' => '3', 'cantidad' => '2']]
 $caja->cerrarTurno($miguel, '163.00');
 revisar('Cierra con 150 + 13 cobrados = 163.00', valor($db, 'SELECT monto_cierre FROM caja_turno WHERE id_caja_turno = ?', [$idTurno]) === '163.00');
 rechaza('Cerrar sin turno abierto', fn() => $caja->cerrarTurno($miguel, '0'));
+$arqueo = fn(int $turno, string $tipo): string => valor($db,
+    'SELECT CONCAT(monto_contado, \'/\', monto_esperado) FROM arqueo_caja WHERE id_caja_turno = ? AND tipo = ?', [$turno, $tipo]);
+revisar('Guarda el esperado 163.00 y la diferencia 0.00 (caja_apertura.sql)',
+    valor($db, 'SELECT CONCAT(monto_esperado, \'/\', diferencia) FROM caja_turno WHERE id_caja_turno = ?', [$idTurno]) === '163.00/0.00');
+revisar('Arqueo de apertura: contó 150.00 con fondo fijo 100.00', $arqueo($idTurno, 'APERTURA') === '150.00/100.00');
+revisar('Arqueo de cierre: contó 163.00 y se esperaba 163.00', $arqueo($idTurno, 'CIERRE') === '163.00/163.00');
+$idTurno2 = $caja->abrirTurno($miguel, 6, '100.00');
+$caja->cerrarTurno($miguel, '90.50');
+revisar('Un faltante queda negativo: 90.50 - 100.00 = -9.50',
+    valor($db, 'SELECT diferencia FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === '-9.50');
+$rechazaBase = function (string $caso, string $sql) use ($db): void {
+    try {
+        $db->exec($sql);
+        revisar($caso . ' (la base no la rechazó)', false);
+    } catch (PDOException $ex) {
+        revisar($caso . ' -> la base la rechaza', true);
+    }
+};
+$rechazaBase('Segundo turno ABIERTO en la caja 1 de Cayma', "INSERT INTO caja_turno (monto_inicial, estado, id_caja, id_empleado) VALUES (100, 'ABIERTO', 1, 8)");
+$rechazaBase('Diferencia que no es cierre - esperado', "UPDATE caja_turno SET diferencia = 5 WHERE id_caja_turno = $idTurno");
+$rechazaBase('Arqueo de un tipo que no existe', "INSERT INTO arqueo_caja (tipo, monto_contado, monto_esperado, id_caja_turno, id_empleado) VALUES ('OTRO', 1, 1, $idTurno, 8)");
+$rechazaBase('Billete de 30 soles en el desglose', "INSERT INTO arqueo_detalle (id_arqueo, denominacion, cantidad) VALUES (1, 30.00, 1)");
 
 echo "Devoluciones\n";
 // Venta B001-7 de Luis: 1 yogurt (7.90). Y una nueva con 3 leches y 2 kg de plátano para devolver parte.

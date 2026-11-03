@@ -22,7 +22,7 @@ class CajaServicio extends Servicio
 
         return $this->enTransaccion(function () use ($cajero, $idCaja, $monto): int {
             $consulta = $this->db->prepare(
-                'SELECT c.id_tienda, c.estado, t.estado AS estado_tienda
+                'SELECT c.id_tienda, c.estado, c.fondo_fijo, t.estado AS estado_tienda
                    FROM caja c JOIN tienda t ON t.id_tienda = c.id_tienda
                   WHERE c.id_caja = :caja FOR UPDATE'
             );
@@ -52,7 +52,11 @@ class CajaServicio extends Servicio
                 'INSERT INTO caja_turno (fecha_hora_apertura, monto_inicial, estado, id_caja, id_empleado)
                  VALUES (NOW(), :monto, \'ABIERTO\', :caja, :empleado)'
             )->execute(['monto' => Dinero::aTexto($monto), 'caja' => $idCaja, 'empleado' => $cajero->getIdEmpleado()]);
-            return (int) $this->db->lastInsertId();
+            $idTurno = (int) $this->db->lastInsertId();
+
+            // caja_apertura.sql: el conteo de apertura queda como arqueo, comparado con el fondo fijo de la caja
+            $this->registrarArqueo($idTurno, 'APERTURA', $monto, (string) $caja['fondo_fijo'], $cajero->getIdEmpleado());
+            return $idTurno;
         });
     }
 
@@ -77,12 +81,23 @@ class CajaServicio extends Servicio
                 throw new ReglaNegocioException('No tienes un turno abierto.');
             }
 
-            // CHECK ck_turno_estado: CERRADO lleva fecha y monto de cierre
+            $idTurno = (int) $idTurno;
+
+            // Lo que deberia haber en la gaveta y la diferencia quedan guardados (caja_apertura.sql)
+            $esperado = $this->efectivoEnGaveta($idTurno);
+            $diferencia = $monto - $esperado;
+
+            // CHECK ck_turno_estado: CERRADO lleva fecha y monto de cierre; ck_turno_diferencia: cierre - esperado
             $this->db->prepare(
                 'UPDATE caja_turno
-                    SET estado = \'CERRADO\', fecha_hora_cierre = NOW(), monto_cierre = :monto
+                    SET estado = \'CERRADO\', fecha_hora_cierre = NOW(), monto_cierre = :monto,
+                        monto_esperado = :esperado, diferencia = :diferencia
                   WHERE id_caja_turno = :turno'
-            )->execute(['monto' => Dinero::aTexto($monto), 'turno' => (int) $idTurno]);
+            )->execute([
+                'monto' => Dinero::aTexto($monto), 'esperado' => self::conSigno($esperado),
+                'diferencia' => self::conSigno($diferencia), 'turno' => $idTurno,
+            ]);
+            $this->registrarArqueo($idTurno, 'CIERRE', $monto, self::conSigno($esperado), $cajero->getIdEmpleado());
         });
     }
 
@@ -133,5 +148,23 @@ class CajaServicio extends Servicio
             ]);
             $this->auditar($cajero, $tipo === 'RETIRO' ? 'CAJA_RETIRO' : 'CAJA_INGRESO', 'S/ ' . Dinero::aTexto($monto) . ': ' . $motivo);
         });
+    }
+
+    // Un conteo de la gaveta (APERTURA, PARCIAL o CIERRE) en arqueo_caja. Aqui sin desglose: el cajero escribe el total.
+    private function registrarArqueo(int $idTurno, string $tipo, int $contado, string $esperado, int $idEmpleado): void
+    {
+        $this->db->prepare(
+            'INSERT INTO arqueo_caja (fecha_hora, tipo, monto_contado, monto_esperado, id_caja_turno, id_empleado)
+             VALUES (NOW(), :tipo, :contado, :esperado, :turno, :empleado)'
+        )->execute([
+            'tipo' => $tipo, 'contado' => Dinero::aTexto($contado), 'esperado' => $esperado,
+            'turno' => $idTurno, 'empleado' => $idEmpleado,
+        ]);
+    }
+
+    // Dinero::aTexto solo recibe montos positivos; la diferencia puede ser un faltante (negativo)
+    private static function conSigno(int $centimos): string
+    {
+        return ($centimos < 0 ? '-' : '') . Dinero::aTexto(abs($centimos));
     }
 }
