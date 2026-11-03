@@ -17,7 +17,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
-import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.VideocamOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -66,13 +69,15 @@ import pe.mass.minimarket.ui.comun.BotonGrande
 import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
 import pe.mass.minimarket.ui.comun.DialogoProductoNuevo
 import pe.mass.minimarket.ui.comun.PreguntaStock
+import pe.mass.minimarket.ui.comun.EstadoVacio
+import pe.mass.minimarket.ui.comun.Tarjeta
 import pe.mass.minimarket.ui.comun.TarjetaAviso
 import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
 import pe.mass.minimarket.ui.comun.vistaModelo
 import pe.mass.minimarket.ui.escaner.PanelEscaner
 import pe.mass.minimarket.ui.escaner.rememberConfirmacion
-import pe.mass.minimarket.ui.tema.Verde
+import pe.mass.minimarket.ui.tema.Mass
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
@@ -259,7 +264,13 @@ fun PantallaEntrada(onAtras: () -> Unit) {
 
     Scaffold(topBar = {
         BarraSuperior("Entrada de stock", onAtras = onAtras, acciones = {
-            IconButton(onClick = { verCamara = !verCamara }) { Icon(Icons.Filled.QrCodeScanner, contentDescription = "Mostrar u ocultar cámara") }
+            IconButton(onClick = { buscar = true }) { Icon(Icons.Filled.Search, contentDescription = "Buscar por nombre") }
+            IconButton(onClick = { verCamara = !verCamara }) {
+                Icon(
+                    if (verCamara) Icons.Filled.VideocamOff else Icons.Filled.Videocam,
+                    contentDescription = if (verCamara) "Ocultar cámara" else "Mostrar cámara",
+                )
+            }
         })
     }) { relleno ->
         LazyColumn(
@@ -281,7 +292,13 @@ fun PantallaEntrada(onAtras: () -> Unit) {
                 Text("Productos recibidos (${estado.lineas.size})", style = MaterialTheme.typography.titleMedium)
             }
             if (estado.lineas.isEmpty()) {
-                item { Text("Escanea el primer producto de la entrega.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item {
+                    EstadoVacio(
+                        Icons.Filled.Inventory2,
+                        "Aún no hay productos",
+                        "Escanea el primer producto de la entrega. Si es nuevo, lo registras ahí mismo.",
+                    )
+                }
             }
             items(estado.lineas, key = { it.producto.idProducto }) { linea ->
                 TarjetaLinea(linea, bloqueada = estado.pendiente, vm = vm)
@@ -320,7 +337,7 @@ fun PantallaEntrada(onAtras: () -> Unit) {
 @Composable
 private fun TarjetaLinea(linea: LineaEntrada, bloqueada: Boolean, vm: EntradaViewModel) {
     val p = linea.producto
-    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Tarjeta(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -374,7 +391,7 @@ private fun TarjetaLinea(linea: LineaEntrada, bloqueada: Boolean, vm: EntradaVie
 @Composable
 private fun FormularioDocumento(estado: EstadoEntrada, vm: EntradaViewModel) {
     val bloqueado = estado.pendiente
-    Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+    Tarjeta(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Documento del proveedor", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -454,7 +471,7 @@ private fun PantallaRecepcionConfirmada(ingreso: Ingreso, onNueva: () -> Unit, o
         ) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Verde)
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Mass.colores.exito)
                     Spacer(Modifier.width(8.dp))
                     Text("Ingreso ${ingreso.idIngreso} registrado", style = MaterialTheme.typography.headlineSmall)
                 }
@@ -467,14 +484,14 @@ private fun PantallaRecepcionConfirmada(ingreso: Ingreso, onNueva: () -> Unit, o
                 )
             }
             items(ingreso.lineas, key = { it.idProducto }) { l ->
-                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Tarjeta(Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(l.nombre, style = MaterialTheme.typography.titleSmall)
                             Text("+${l.cantidad} ${l.unidad} a ${l.costoUnitario.soles()}" + (l.fechaVencimiento?.let { " · vence $it" } ?: ""),
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("Stock: ${l.stockActual}", style = MaterialTheme.typography.titleSmall, color = Verde)
+                        Text("Stock: ${l.stockActual}", style = MaterialTheme.typography.titleSmall, color = Mass.colores.exito)
                     }
                 }
             }

@@ -48,6 +48,13 @@ data class Carrito(val items: List<ItemCarrito> = emptyList()) {
 
     fun quitar(idProducto: Int): Carrito = copy(items = items.filterNot { it.producto.idProducto == idProducto })
 
+    /** "Deshacer" despues de quitar: el producto vuelve a su lugar con la misma cantidad (si no se volvio a escanear). */
+    fun reponer(item: ItemCarrito, posicion: Int): Carrito {
+        if (items.any { it.producto.idProducto == item.producto.idProducto }) return this
+        val lugar = posicion.coerceIn(0, items.size)
+        return copy(items = items.toMutableList().also { it.add(lugar, item) })
+    }
+
     /** Cambia los datos del producto (precio y stock nuevos del servidor) sin tocar la cantidad. */
     fun actualizarProducto(producto: Producto): Carrito =
         copy(items = items.map { if (it.producto.idProducto == producto.idProducto) it.copy(producto = producto) else it })

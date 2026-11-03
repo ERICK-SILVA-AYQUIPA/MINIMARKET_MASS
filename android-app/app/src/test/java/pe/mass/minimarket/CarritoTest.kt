@@ -28,6 +28,19 @@ class CarritoTest {
     }
 
     @Test
+    fun deshacerQuitarDevuelveElProductoASuLugar() {
+        val pan = Producto(idProducto = 3, nombre = "Pan", precioVenta = "0.30", stock = "50.000")
+        val carrito = Carrito().agregar(leche).agregar(leche).agregar(platano).agregar(pan)
+        val quitado = carrito.items[0]
+        val repuesto = carrito.quitar(1).reponer(quitado, 0)
+        assertEquals(listOf(1, 2, 3), repuesto.items.map { it.producto.idProducto })
+        assertEquals(BigDecimal("2"), repuesto.items[0].cantidad)
+        // Si mientras tanto se volvio a escanear, no se duplica
+        val reescaneado = carrito.quitar(1).agregar(leche)
+        assertEquals(reescaneado, reescaneado.reponer(quitado, 0))
+    }
+
+    @Test
     fun restarHastaCeroQuitaElProducto() {
         val carrito = Carrito().agregar(leche).restarUno(1)
         assertTrue(carrito.vacio)

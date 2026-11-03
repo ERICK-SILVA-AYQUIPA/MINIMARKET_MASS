@@ -65,10 +65,21 @@ import pe.mass.minimarket.ui.comun.TarjetaAviso
 import pe.mass.minimarket.ui.comun.TipoAviso
 import pe.mass.minimarket.ui.comun.fechaCorta
 import pe.mass.minimarket.ui.comun.vistaModelo
-import pe.mass.minimarket.ui.tema.Rojo
-import pe.mass.minimarket.ui.tema.RojoFondo
-import pe.mass.minimarket.ui.tema.Verde
-import pe.mass.minimarket.ui.tema.VerdeFondo
+import pe.mass.minimarket.ui.tema.Mass
+import pe.mass.minimarket.ui.comun.AccionActualizar
+import pe.mass.minimarket.ui.comun.EsqueletoLista
+import pe.mass.minimarket.ui.comun.EstadoError
+import pe.mass.minimarket.ui.comun.EstadoVacio
+import pe.mass.minimarket.ui.comun.Inicial
+import pe.mass.minimarket.ui.comun.Pastilla
+import pe.mass.minimarket.ui.comun.Tarjeta
+import pe.mass.minimarket.ui.comun.soloHora
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import java.time.LocalDate
 
 enum class Periodo(val texto: String, val dias: Long?) {
@@ -123,6 +134,7 @@ class HistorialViewModel(private val repo: Repositorio) : ViewModel() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PantallaHistorial(onAtras: () -> Unit, onAbrir: (Long) -> Unit) {
     val vm = vistaModelo { HistorialViewModel(it) }
@@ -130,40 +142,56 @@ fun PantallaHistorial(onAtras: () -> Unit, onAbrir: (Long) -> Unit) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.cargar(1) }
 
     Scaffold(topBar = {
-        BarraSuperior("Historial de ventas", onAtras = onAtras, acciones = {
-            IconButton(onClick = { vm.cargar(1) }) { Icon(Icons.Filled.Refresh, contentDescription = "Actualizar") }
+        BarraSuperior("Ventas", onAtras = onAtras, subtitulo = "${estado.total} comprobante(s)", acciones = {
+            AccionActualizar(onClick = { vm.cargar(1) })
         })
     }) { relleno ->
-        LazyColumn(Modifier.fillMaxSize().padding(relleno), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Periodo.entries.forEach { p ->
-                        FilterChip(selected = estado.periodo == p && estado.comprobante.isBlank(), onClick = { vm.periodo(p) }, label = { Text(p.texto) })
+        PullToRefreshBox(
+            isRefreshing = estado.cargando && estado.ventas.isNotEmpty() && estado.pagina == 1,
+            onRefresh = { vm.cargar(1) },
+            modifier = Modifier.fillMaxSize().padding(relleno),
+        ) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Periodo.entries.forEach { p ->
+                            FilterChip(selected = estado.periodo == p && estado.comprobante.isBlank(), onClick = { vm.periodo(p) }, label = { Text(p.texto) })
+                        }
                     }
                 }
-            }
-            item {
-                OutlinedTextField(
-                    value = estado.comprobante,
-                    onValueChange = vm::comprobante,
-                    label = { Text("N.° de comprobante (B001-25)") },
-                    singleLine = true,
-                    trailingIcon = { IconButton(onClick = { vm.cargar(1) }) { Icon(Icons.Filled.Search, contentDescription = "Buscar") } },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { vm.cargar(1) }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            item { TarjetaAviso(estado.aviso) }
-            item { Text("${estado.total} venta(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (estado.cargando && estado.ventas.isEmpty()) {
-                item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            }
-            items(estado.ventas, key = { it.idVenta }) { v -> TarjetaVenta(v) { onAbrir(v.idVenta) } }
-            if (estado.hayMas) {
                 item {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        if (estado.cargando) CircularProgressIndicator() else TextButton(onClick = { vm.cargar(estado.pagina + 1) }) { Text("Cargar más") }
+                    OutlinedTextField(
+                        value = estado.comprobante,
+                        onValueChange = vm::comprobante,
+                        placeholder = { Text("N.° de comprobante (B001-25)") },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(50),
+                        trailingIcon = { IconButton(onClick = { vm.cargar(1) }) { Icon(Icons.Filled.Search, contentDescription = "Buscar") } },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { vm.cargar(1) }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                when {
+                    estado.cargando && estado.ventas.isEmpty() -> item { EsqueletoLista(filas = 5) }
+                    estado.aviso != null && estado.ventas.isEmpty() ->
+                        item { EstadoError(estado.aviso!!.texto, onReintentar = { vm.cargar(1) }) }
+                    estado.ventas.isEmpty() -> item {
+                        EstadoVacio(
+                            Icons.AutoMirrored.Filled.ReceiptLong,
+                            if (estado.comprobante.isNotBlank()) "No se encontró ese comprobante" else "Sin ventas en este periodo",
+                            "Las ventas de la web y de la app aparecen aquí.",
+                        )
+                    }
+                    else -> item { TarjetaAviso(estado.aviso) }
+                }
+                items(estado.ventas, key = { it.idVenta }) { v -> TarjetaVenta(v, Modifier.animateItem()) { onAbrir(v.idVenta) } }
+                if (estado.hayMas) {
+                    item {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            if (estado.cargando) CircularProgressIndicator() else TextButton(onClick = { vm.cargar(estado.pagina + 1) }) { Text("Cargar más") }
+                        }
                     }
                 }
             }
@@ -176,21 +204,29 @@ fun EtiquetaEstado(estado: String) {
     val anulada = estado == "ANULADA"
     Text(
         if (anulada) "Anulada" else "Emitida",
-        color = if (anulada) Rojo else Verde,
+        color = if (anulada) Mass.colores.peligro else Mass.colores.exito,
         style = MaterialTheme.typography.labelMedium,
         modifier = Modifier.padding(top = 2.dp)
-            .background(if (anulada) RojoFondo else VerdeFondo, RoundedCornerShape(50))
+            .background(if (anulada) Mass.colores.peligroFondo else Mass.colores.exitoFondo, RoundedCornerShape(50))
             .padding(horizontal = 8.dp, vertical = 2.dp),
     )
 }
 
 @Composable
-private fun TarjetaVenta(v: VentaResumen, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun TarjetaVenta(v: VentaResumen, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val anulada = v.estado == "ANULADA"
+    Tarjeta(modifier.fillMaxWidth(), onClick = onClick) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (anulada) {
+                Icon(Icons.Filled.Block, contentDescription = "Anulada", tint = Mass.colores.peligro, modifier = Modifier.padding(end = 4.dp))
+            } else {
+                Inicial(v.cajero, tamano = 40)
+            }
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(v.comprobante, style = MaterialTheme.typography.titleMedium)
-                Text("${fechaCorta(v.fechaHora)} · ${v.cajero}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${soloHora(v.fechaHora)} · ${fechaCorta(v.fechaHora).substringBefore(' ')} · ${v.cajero}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 Text("${v.productos} producto(s) · ${v.metodos}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -250,12 +286,16 @@ fun PantallaDetalleVenta(idVenta: Long, onAtras: () -> Unit) {
     Scaffold(topBar = { BarraSuperior(estado.venta?.comprobante ?: "Detalle de venta", onAtras = onAtras) }) { relleno ->
         val venta = estado.venta
         if (venta == null) {
-            if (estado.cargando) Cargando(Modifier.padding(relleno)) else TarjetaAviso(estado.aviso, Modifier.padding(relleno).padding(16.dp))
+            if (estado.cargando) {
+                Cargando(Modifier.padding(relleno))
+            } else {
+                EstadoError(estado.aviso?.texto ?: "No se encontró la venta.", onReintentar = { vm.cargar(idVenta) }, modifier = Modifier.padding(relleno))
+            }
             return@Scaffold
         }
         LazyColumn(Modifier.fillMaxSize().padding(relleno), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
-                Card(shape = RoundedCornerShape(14.dp), colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Tarjeta(Modifier.fillMaxWidth()) {
                     Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${venta.tipo} ${venta.comprobante}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
