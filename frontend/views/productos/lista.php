@@ -44,7 +44,7 @@ $guiaPasos = [
     'La etiqueta REPONER sale cuando el stock llegó a su mínimo. Cambia de tienda con las pestañas de arriba.',
 ];
 if ($puedeEditar) {
-    $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Sin foto, se dibuja el icono de su categoría.';
+    $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Cada producto trae su foto real; una foto subida la reemplaza.';
 }
 require __DIR__ . '/../parciales/guia.php';
 
