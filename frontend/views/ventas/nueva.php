@@ -5,7 +5,7 @@ declare(strict_types=1);
  * El total lo calcula el servidor con el precio de la base.
  * @var ?CajaTurno $turno
  * @var Tienda $tienda
- * @var array<int, array{producto: Producto, stock: ?Stock, foto: array{url: ?string, icono: string, tono: int, categoria: string}}> $productos
+ * @var array<int, array{producto: Producto, stock: ?Stock, foto: array{url: ?string, propia: bool, icono: string, tono: int, categoria: string}}> $productos
  * @var array<int, string> $categorias  las que tienen productos para vender, id => nombre
  * @var array $viejo
  * @var ?string $error

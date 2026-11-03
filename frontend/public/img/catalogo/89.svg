@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Palta fuerte">
+<defs>
+<radialGradient id="fondo" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#ecfbef"/><stop offset="1" stop-color="#cdf0d5"/></radialGradient>
+<radialGradient id="piso"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="brillo" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="papa" cx=".35" cy=".35"><stop offset="0" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a5b"/></radialGradient>
+<radialGradient id="cebolla" cx=".35" cy=".35"><stop offset="0" stop-color="#c2649a"/><stop offset="1" stop-color="#6a1b4d"/></radialGradient>
+<radialGradient id="tomate" cx=".35" cy=".35"><stop offset="0" stop-color="#ff7961"/><stop offset="1" stop-color="#c62828"/></radialGradient>
+<radialGradient id="limon" cx=".35" cy=".35"><stop offset="0" stop-color="#c5e17a"/><stop offset="1" stop-color="#558b2f"/></radialGradient>
+<radialGradient id="manzana" cx=".35" cy=".35"><stop offset="0" stop-color="#ff6f60"/><stop offset="1" stop-color="#b71c1c"/></radialGradient>
+<radialGradient id="naranja" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc046"/><stop offset="1" stop-color="#ef6c00"/></radialGradient>
+<radialGradient id="palta" cx=".35" cy=".35"><stop offset="0" stop-color="#6b8e3a"/><stop offset="1" stop-color="#2b4a1a"/></radialGradient>
+<linearGradient id="platano" x1="0" x2="1"><stop offset="0" stop-color="#fff176"/><stop offset="1" stop-color="#f9a825"/></linearGradient>
+<linearGradient id="zanahoria" x1="0" x2="1"><stop offset="0" stop-color="#ffa040"/><stop offset="1" stop-color="#e65100"/></linearGradient>
+<radialGradient id="pan" cx=".4" cy=".35"><stop offset="0" stop-color="#f0b766"/><stop offset="1" stop-color="#b86e25"/></radialGradient>
+<radialGradient id="huevo" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3e0"/><stop offset="1" stop-color="#e2b07a"/></radialGradient>
+
+</defs>
+<rect width="600" height="600" fill="url(#fondo)"/>
+<ellipse cx="300" cy="530" rx="230.0" ry="16" fill="url(#piso)"/><path d="M80,360 L520,360 L490,520 L110,520 Z" fill="#c18a52" stroke="#8d5a2b" stroke-width="3"/><path d="M95,410 L505,410 M100,465 L500,465" stroke="#8d5a2b" stroke-width="3" opacity=".6"/><path d="M215,200 C245,200 267,270 255,296 C241,322 189,322 175,296 C163,270 185,200 215,200 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M305,185 C335,185 357,255 345,281 C331,307 279,307 265,281 C253,255 275,185 305,185 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M395,202 C425,202 447,272 435,298 C421,324 369,324 355,298 C343,272 365,202 395,202 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M300,130 C330,130 352,200 340,226 C326,252 274,252 260,226 C248,200 270,130 300,130 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M170,270 C200,270 222,340 210,366 C196,392 144,392 130,366 C118,340 140,270 170,270 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M260,250 C290,250 312,320 300,346 C286,372 234,372 220,346 C208,320 230,250 260,250 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M350,255 C380,255 402,325 390,351 C376,377 324,377 310,351 C298,325 320,255 350,255 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/><path d="M440,270 C470,270 492,340 480,366 C466,392 414,392 400,366 C388,340 410,270 440,270 Z" fill="url(#palta)" stroke="#1b3a12" stroke-width="2"/>
+<text x="300" y="575" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="26" font-weight="700" fill="#16202b" text-anchor="middle">Palta fuerte</text>
+</svg>

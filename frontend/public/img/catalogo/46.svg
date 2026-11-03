@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Gaseosa INCA KOLA">
+<defs>
+<radialGradient id="fondo" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eaf4ff"/><stop offset="1" stop-color="#cfe3fb"/></radialGradient>
+<radialGradient id="piso"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="brillo" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="papa" cx=".35" cy=".35"><stop offset="0" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a5b"/></radialGradient>
+<radialGradient id="cebolla" cx=".35" cy=".35"><stop offset="0" stop-color="#c2649a"/><stop offset="1" stop-color="#6a1b4d"/></radialGradient>
+<radialGradient id="tomate" cx=".35" cy=".35"><stop offset="0" stop-color="#ff7961"/><stop offset="1" stop-color="#c62828"/></radialGradient>
+<radialGradient id="limon" cx=".35" cy=".35"><stop offset="0" stop-color="#c5e17a"/><stop offset="1" stop-color="#558b2f"/></radialGradient>
+<radialGradient id="manzana" cx=".35" cy=".35"><stop offset="0" stop-color="#ff6f60"/><stop offset="1" stop-color="#b71c1c"/></radialGradient>
+<radialGradient id="naranja" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc046"/><stop offset="1" stop-color="#ef6c00"/></radialGradient>
+<radialGradient id="palta" cx=".35" cy=".35"><stop offset="0" stop-color="#6b8e3a"/><stop offset="1" stop-color="#2b4a1a"/></radialGradient>
+<linearGradient id="platano" x1="0" x2="1"><stop offset="0" stop-color="#fff176"/><stop offset="1" stop-color="#f9a825"/></linearGradient>
+<linearGradient id="zanahoria" x1="0" x2="1"><stop offset="0" stop-color="#ffa040"/><stop offset="1" stop-color="#e65100"/></linearGradient>
+<radialGradient id="pan" cx=".4" cy=".35"><stop offset="0" stop-color="#f0b766"/><stop offset="1" stop-color="#b86e25"/></radialGradient>
+<radialGradient id="huevo" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3e0"/><stop offset="1" stop-color="#e2b07a"/></radialGradient>
+
+</defs>
+<rect width="600" height="600" fill="url(#fondo)"/>
+<ellipse cx="300" cy="530" rx="116.424" ry="16" fill="url(#piso)"/><path d="M276.24,80.71999999999994 L276.24,119.59999999999995 C276.24,157.39999999999995 194.16,173.59999999999997 194.16,232.99999999999994 L194.16,497.6 Q194.16,530 226.56,530 L373.44000000000005,530 Q405.84000000000003,530 405.84000000000003,497.6 L405.84000000000003,232.99999999999994 C405.84000000000003,173.59999999999997 323.76,157.39999999999995 323.76,119.59999999999995 L323.76,80.71999999999994 Z" fill="#f6d32b" fill-opacity=".95" stroke="rgba(0,0,0,.25)" stroke-width="2"/><rect x="271.92" y="43.99999999999994" width="56.160000000000004" height="38.88" rx="6" fill="#f2c200"/><rect x="267.6" y="76.39999999999995" width="64.80000000000001" height="8.64" rx="3" fill="#f2c200" opacity=".85"/><rect x="194.16" y="265.4" width="211.68" height="189.0" fill="#f2c200"/><rect x="194.16" y="443.59999999999997" width="211.68" height="10.8" fill="#1a3c8f"/><text x="300" y="341.09999999999997" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="38" font-weight="700" fill="#16202b" text-anchor="middle" textLength="191" lengthAdjust="spacingAndGlyphs" letter-spacing="1">INCA KOLA</text><text x="300" y="378.6264" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="24" font-weight="600" fill="#16202b" text-anchor="middle">Gaseosa</text><rect x="254" y="394.6264" width="92" height="30" rx="15" fill="#1a3c8f" stroke="rgba(0,0,0,.12)"/><text x="300" y="416.6264" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#ffffff" text-anchor="middle">3 L</text><path d="M276.24,80.71999999999994 L276.24,119.59999999999995 C276.24,157.39999999999995 194.16,173.59999999999997 194.16,232.99999999999994 L194.16,497.6 Q194.16,530 226.56,530 L373.44000000000005,530 Q405.84000000000003,530 405.84000000000003,497.6 L405.84000000000003,232.99999999999994 C405.84000000000003,173.59999999999997 323.76,157.39999999999995 323.76,119.59999999999995 L323.76,80.71999999999994 Z" fill="url(#brillo)"/>
+
+</svg>

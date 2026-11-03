@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Pan blanco BIMBO">
+<defs>
+<radialGradient id="fondo" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#fff1e8"/><stop offset="1" stop-color="#fbdcc8"/></radialGradient>
+<radialGradient id="piso"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="brillo" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="papa" cx=".35" cy=".35"><stop offset="0" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a5b"/></radialGradient>
+<radialGradient id="cebolla" cx=".35" cy=".35"><stop offset="0" stop-color="#c2649a"/><stop offset="1" stop-color="#6a1b4d"/></radialGradient>
+<radialGradient id="tomate" cx=".35" cy=".35"><stop offset="0" stop-color="#ff7961"/><stop offset="1" stop-color="#c62828"/></radialGradient>
+<radialGradient id="limon" cx=".35" cy=".35"><stop offset="0" stop-color="#c5e17a"/><stop offset="1" stop-color="#558b2f"/></radialGradient>
+<radialGradient id="manzana" cx=".35" cy=".35"><stop offset="0" stop-color="#ff6f60"/><stop offset="1" stop-color="#b71c1c"/></radialGradient>
+<radialGradient id="naranja" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc046"/><stop offset="1" stop-color="#ef6c00"/></radialGradient>
+<radialGradient id="palta" cx=".35" cy=".35"><stop offset="0" stop-color="#6b8e3a"/><stop offset="1" stop-color="#2b4a1a"/></radialGradient>
+<linearGradient id="platano" x1="0" x2="1"><stop offset="0" stop-color="#fff176"/><stop offset="1" stop-color="#f9a825"/></linearGradient>
+<linearGradient id="zanahoria" x1="0" x2="1"><stop offset="0" stop-color="#ffa040"/><stop offset="1" stop-color="#e65100"/></linearGradient>
+<radialGradient id="pan" cx=".4" cy=".35"><stop offset="0" stop-color="#f0b766"/><stop offset="1" stop-color="#b86e25"/></radialGradient>
+<radialGradient id="huevo" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3e0"/><stop offset="1" stop-color="#e2b07a"/></radialGradient>
+
+</defs>
+<rect width="600" height="600" fill="url(#fondo)"/>
+<ellipse cx="300" cy="530" rx="240.0" ry="16" fill="url(#piso)"/><path d="M70,300 Q70,220 150,220 L450,220 Q530,220 530,300 L530,500 L70,500 Z" fill="#f2d3a0" stroke="#c99a58" stroke-width="3"/><path d="M90,300 Q90,240 150,240 L450,240 Q510,240 510,300 L510,480 L90,480 Z" fill="#fff7e8"/><path d="M70,300 Q70,220 150,220 L450,220 Q530,220 530,300 L530,500 L70,500 Z" fill="#e3f2fd" fill-opacity=".25"/><rect x="70" y="330" width="460" height="120" fill="#1565c0" opacity=".95"/><text x="300" y="390" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="58" font-weight="700" fill="#fff" text-anchor="middle">BIMBO</text><text x="300" y="428" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="22" font-weight="600" fill="#fff" text-anchor="middle">Pan blanco · 600 g</text><path d="M490,500 L530,500 L560,540 L520,540 Z" fill="#e3f2fd" stroke="#90a4ae"/>
+
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Mantequilla con sal GLORIA">
+<defs>
+<radialGradient id="fondo" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eef6ff"/><stop offset="1" stop-color="#d8e8fb"/></radialGradient>
+<radialGradient id="piso"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="brillo" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="papa" cx=".35" cy=".35"><stop offset="0" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a5b"/></radialGradient>
+<radialGradient id="cebolla" cx=".35" cy=".35"><stop offset="0" stop-color="#c2649a"/><stop offset="1" stop-color="#6a1b4d"/></radialGradient>
+<radialGradient id="tomate" cx=".35" cy=".35"><stop offset="0" stop-color="#ff7961"/><stop offset="1" stop-color="#c62828"/></radialGradient>
+<radialGradient id="limon" cx=".35" cy=".35"><stop offset="0" stop-color="#c5e17a"/><stop offset="1" stop-color="#558b2f"/></radialGradient>
+<radialGradient id="manzana" cx=".35" cy=".35"><stop offset="0" stop-color="#ff6f60"/><stop offset="1" stop-color="#b71c1c"/></radialGradient>
+<radialGradient id="naranja" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc046"/><stop offset="1" stop-color="#ef6c00"/></radialGradient>
+<radialGradient id="palta" cx=".35" cy=".35"><stop offset="0" stop-color="#6b8e3a"/><stop offset="1" stop-color="#2b4a1a"/></radialGradient>
+<linearGradient id="platano" x1="0" x2="1"><stop offset="0" stop-color="#fff176"/><stop offset="1" stop-color="#f9a825"/></linearGradient>
+<linearGradient id="zanahoria" x1="0" x2="1"><stop offset="0" stop-color="#ffa040"/><stop offset="1" stop-color="#e65100"/></linearGradient>
+<radialGradient id="pan" cx=".4" cy=".35"><stop offset="0" stop-color="#f0b766"/><stop offset="1" stop-color="#b86e25"/></radialGradient>
+<radialGradient id="huevo" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3e0"/><stop offset="1" stop-color="#e2b07a"/></radialGradient>
+
+</defs>
+<rect width="600" height="600" fill="url(#fondo)"/>
+<ellipse cx="300" cy="470" rx="210.0" ry="16" fill="url(#piso)"/><polygon points="110,330 170,290 500,290 440,330" fill="#ffe082"/><polygon points="440,330 500,290 500,400 440,450" fill="#1565c0"/><polygon points="440,330 500,290 500,400 440,450" fill="#000" opacity=".25"/><rect x="110" y="330" width="330" height="120" fill="#1565c0"/><rect x="110" y="420" width="330" height="30" fill="#ffe082"/><text x="275" y="378" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="44" font-weight="700" fill="#fff" text-anchor="middle">GLORIA</text><text x="275" y="408" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="20" font-weight="600" fill="#fff" text-anchor="middle">Mantequilla con sal</text><rect x="230" y="470" width="90" height="30" rx="15" fill="#ffe082" stroke="rgba(0,0,0,.15)"/><text x="275" y="492" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#16202b" text-anchor="middle">200 g</text><rect x="110" y="330" width="330" height="120" fill="url(#brillo)" opacity=".5"/>
+
+</svg>

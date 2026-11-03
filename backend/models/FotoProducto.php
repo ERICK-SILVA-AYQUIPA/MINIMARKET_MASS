@@ -8,6 +8,8 @@ require_once __DIR__ . '/ReglaNegocioException.php';
  * la pantalla dibuja la ilustracion de su categoria (icono y color), asi todo producto se ve igual de ordenado.
  * La foto subida nunca se guarda tal cual: se vuelve a dibujar con GD como JPEG de hasta 600 px,
  * lo que quita cualquier contenido escondido en el archivo original.
+ * Los productos del catalogo inicial traen una imagen de su envase en public/img/catalogo/{id}.svg:
+ * se usa mientras nadie suba una foto propia (la foto subida siempre manda).
  */
 final class FotoProducto
 {
@@ -31,8 +33,10 @@ final class FotoProducto
         'panad'    => ['desayuno', 2],
     ];
 
-    public function __construct(private string $carpeta = __DIR__ . '/../../frontend/public/img/productos')
-    {
+    public function __construct(
+        private string $carpeta = __DIR__ . '/../../frontend/public/img/productos',
+        private string $carpetaCatalogo = __DIR__ . '/../../frontend/public/img/catalogo'
+    ) {
     }
 
     // "/img/productos/8.jpg?v=..." o null si el producto no tiene foto
@@ -42,13 +46,23 @@ final class FotoProducto
         return is_file($ruta) ? '/img/productos/' . $idProducto . '.jpg?v=' . filemtime($ruta) : null;
     }
 
+    // "/img/catalogo/8.svg?v=..." o null si el producto no trae imagen de catalogo
+    public function urlCatalogo(int $idProducto): ?string
+    {
+        $ruta = $this->carpetaCatalogo . '/' . $idProducto . '.svg';
+        return is_file($ruta) ? '/img/catalogo/' . $idProducto . '.svg?v=' . filemtime($ruta) : null;
+    }
+
     /**
-     * Lo que necesita la vista para dibujar el producto: su foto o, si no tiene, el icono y el color de su categoria.
-     * @return array{url: ?string, icono: string, tono: int, categoria: string}
+     * Lo que necesita la vista para dibujar el producto: la foto subida, si no la imagen de catalogo
+     * y si tampoco hay, el icono y el color de su categoria. propia = hay una foto subida que se puede quitar.
+     * @return array{url: ?string, propia: bool, icono: string, tono: int, categoria: string}
      */
     public function datos(int $idProducto, string $categoria): array
     {
-        return ['url' => $this->url($idProducto), 'icono' => self::icono($categoria), 'tono' => self::tono($categoria), 'categoria' => $categoria];
+        $subida = $this->url($idProducto);
+        return ['url' => $subida ?? $this->urlCatalogo($idProducto), 'propia' => $subida !== null,
+            'icono' => self::icono($categoria), 'tono' => self::tono($categoria), 'categoria' => $categoria];
     }
 
     /**

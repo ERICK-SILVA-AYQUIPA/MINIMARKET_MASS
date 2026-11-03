@@ -724,7 +724,8 @@ body.entrada-pagina::after {
     display: grid; place-items: center; aspect-ratio: 1; width: 100%; border-radius: var(--radio-chico);
     overflow: hidden; background: var(--tono-fondo, var(--superficie-2)); color: var(--tono, var(--suave));
 }
-.foto img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.foto img { width: 100%; height: 100%; object-fit: contain; background: #fff; transition: transform .25s ease; }
+.tarjeta-producto:hover .foto img { transform: scale(1.06); }
 .foto .icono { width: 42%; height: 42%; stroke-width: 1.5; transition: transform .25s ease; }
 .foto.chica { width: 44px; flex: none; }
 .foto.chica .icono { width: 56%; height: 56%; }

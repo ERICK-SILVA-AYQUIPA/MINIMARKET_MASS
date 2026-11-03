@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Lejía CLOROX">
+<defs>
+<radialGradient id="fondo" cx=".5" cy=".38" r=".75"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#e9fbf8"/><stop offset="1" stop-color="#c8efe8"/></radialGradient>
+<radialGradient id="piso"><stop offset="0" stop-color="#000" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
+<linearGradient id="brillo" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity=".18"/><stop offset=".22" stop-color="#fff" stop-opacity=".28"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset=".85" stop-color="#000" stop-opacity=".06"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+<radialGradient id="papa" cx=".35" cy=".35"><stop offset="0" stop-color="#f3dcae"/><stop offset="1" stop-color="#c79a5b"/></radialGradient>
+<radialGradient id="cebolla" cx=".35" cy=".35"><stop offset="0" stop-color="#c2649a"/><stop offset="1" stop-color="#6a1b4d"/></radialGradient>
+<radialGradient id="tomate" cx=".35" cy=".35"><stop offset="0" stop-color="#ff7961"/><stop offset="1" stop-color="#c62828"/></radialGradient>
+<radialGradient id="limon" cx=".35" cy=".35"><stop offset="0" stop-color="#c5e17a"/><stop offset="1" stop-color="#558b2f"/></radialGradient>
+<radialGradient id="manzana" cx=".35" cy=".35"><stop offset="0" stop-color="#ff6f60"/><stop offset="1" stop-color="#b71c1c"/></radialGradient>
+<radialGradient id="naranja" cx=".35" cy=".35"><stop offset="0" stop-color="#ffc046"/><stop offset="1" stop-color="#ef6c00"/></radialGradient>
+<radialGradient id="palta" cx=".35" cy=".35"><stop offset="0" stop-color="#6b8e3a"/><stop offset="1" stop-color="#2b4a1a"/></radialGradient>
+<linearGradient id="platano" x1="0" x2="1"><stop offset="0" stop-color="#fff176"/><stop offset="1" stop-color="#f9a825"/></linearGradient>
+<linearGradient id="zanahoria" x1="0" x2="1"><stop offset="0" stop-color="#ffa040"/><stop offset="1" stop-color="#e65100"/></linearGradient>
+<radialGradient id="pan" cx=".4" cy=".35"><stop offset="0" stop-color="#f0b766"/><stop offset="1" stop-color="#b86e25"/></radialGradient>
+<radialGradient id="huevo" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3e0"/><stop offset="1" stop-color="#e2b07a"/></radialGradient>
+
+</defs>
+<rect width="600" height="600" fill="url(#fondo)"/>
+<ellipse cx="300" cy="530" rx="121.00000000000001" ry="16" fill="url(#piso)"/><path d="M190.0,280 Q190.0,230 260,220 L270,200 L310,200 L320,220 L390.0,230 Q410.0,240 410.0,280 L410.0,510 Q410.0,530 390.0,530 L210.0,530 Q190.0,530 190.0,510 Z" fill="#f7f9fc" stroke="rgba(0,0,0,.2)" stroke-width="2"/><path d="M330,230 Q400,220 396,310 L370,310 Q372,250 330,256 Z" fill="#e3e8ef"/><rect x="262" y="164" width="56" height="40" rx="8" fill="#1565c0"/><rect x="204.0" y="340" width="192" height="150" rx="14" fill="#1565c0"/><text x="300" y="400" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="48" font-weight="700" fill="#ffffff" text-anchor="middle" textLength="162" lengthAdjust="spacingAndGlyphs" letter-spacing="1">CLOROX</text><text x="300" y="439.6213333333333" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="24" font-weight="600" fill="rgba(255,255,255,.92)" text-anchor="middle">Lejía</text><rect x="254" y="455.6213333333333" width="92" height="30" rx="15" fill="#ffffff" stroke="rgba(0,0,0,.12)"/><text x="300" y="477.6213333333333" font-family="Arial, Helvetica, 'Liberation Sans', sans-serif" font-size="18" font-weight="700" fill="#16202b" text-anchor="middle">1 L</text><path d="M190.0,280 Q190.0,230 260,220 L270,200 L310,200 L320,220 L390.0,230 Q410.0,240 410.0,280 L410.0,510 Q410.0,530 390.0,530 L210.0,530 Q190.0,530 190.0,510 Z" fill="url(#brillo)" opacity=".7"/>
+
+</svg>
