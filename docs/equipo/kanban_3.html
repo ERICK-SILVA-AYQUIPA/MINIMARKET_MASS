@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kanban Mass para 3</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: cabecera corta, fila de 3 personas con su carga, tablero de 4 columnas que pasa a una sola en celular */
+:root {
+  --bg: #f3f2ee; --panel: #ffffff; --fg: #1f2124; --muted: #62666d; --line: #dcdad3;
+  --accent: #b5480f; --accent-soft: #f7e6da;
+  --erick: #2f5fa8; --erick-soft: #e3ebf7;
+  --alex: #2d7a4f; --alex-soft: #e0f0e6;
+  --luana: #8a3f8f; --luana-soft: #f2e4f3;
+  --done: #4b6b55;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #151618; --panel: #1e2023; --fg: #e6e6e3; --muted: #9a9ea5; --line: #33363b;
+  --accent: #f0915a; --accent-soft: #3a2619;
+  --erick: #7ea6e6; --erick-soft: #1d2a3f; --alex: #6cc391; --alex-soft: #1a3226;
+  --luana: #d58ad9; --luana-soft: #35213a; --done: #8fb79a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #151618; --panel: #1e2023; --fg: #e6e6e3; --muted: #9a9ea5; --line: #33363b;
+  --accent: #f0915a; --accent-soft: #3a2619;
+  --erick: #7ea6e6; --erick-soft: #1d2a3f; --alex: #6cc391; --alex-soft: #1a3226;
+  --luana: #d58ad9; --luana-soft: #35213a; --done: #8fb79a; color-scheme: dark }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 56px; }
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; line-height: 1.15; text-wrap: balance; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.3rem; font-weight: 800; }
+p { margin: 0; }
+a { color: var(--accent); }
+.sub { color: var(--muted); max-width: 70ch; }
+.eyebrow { font: 500 0.75rem/1 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+header { display: flex; flex-direction: column; gap: 10px; }
+
+.people { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.person { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 8px; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.person:focus-visible, .filtro button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.person[aria-pressed="true"] { border-color: var(--c); box-shadow: inset 0 0 0 1px var(--c); }
+.person .top { display: flex; align-items: center; gap: 10px; }
+.av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font: 600 0.85rem/1 var(--f-mono);
+  background: var(--cs); color: var(--c); flex: none; }
+.person .name { font-weight: 600; }
+.person .user { color: var(--muted); font: 500 0.78rem/1.2 var(--f-mono); }
+.person .role { color: var(--muted); font-size: 0.88rem; }
+.bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--c); }
+.load { font: 500 0.8rem/1 var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.filtro { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filtro button { font: 500 0.85rem/1 var(--f-body); padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--fg); cursor: pointer; }
+.filtro button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+.board { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.col { background: color-mix(in srgb, var(--panel) 55%, var(--bg)); border: 1px solid var(--line); border-radius: 10px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.col-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.col-h h3 { font-size: 1rem; font-weight: 800; }
+.col-h .n { font: 500 0.8rem/1 var(--f-mono); color: var(--muted); }
+.col-d { font-size: 0.82rem; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 8px;
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.card.nueva .tag-new { display: inline-block; }
+.card .meta { display: flex; gap: 8px; align-items: center; justify-content: space-between; font: 500 0.75rem/1 var(--f-mono); color: var(--muted); }
+.card .meta a { color: var(--muted); text-decoration: none; }
+.card .meta a:hover { color: var(--accent); text-decoration: underline; }
+.card .t { font-weight: 600; line-height: 1.3; }
+.card .d { font-size: 0.85rem; color: var(--muted); }
+.card .foot { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 0.78rem; }
+.chip { padding: 2px 8px; border-radius: 999px; background: var(--cs); color: var(--c); font-weight: 600; }
+.stars { color: var(--accent); letter-spacing: 1px; }
+.tag-new { display: none; padding: 2px 6px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); font: 500 0.7rem/1.3 var(--f-mono); }
+.orden { font: 500 0.72rem/1 var(--f-mono); color: var(--muted); }
+.col.hecho .card { border-left-color: var(--done); }
+.col.hecho .card .t { font-weight: 500; }
+
+.e { --c: var(--erick); --cs: var(--erick-soft); }
+.a { --c: var(--alex); --cs: var(--alex-soft); }
+.l { --c: var(--luana); --cs: var(--luana-soft); }
+.x { --c: var(--done); --cs: var(--bg); }
+
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tabla { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; min-width: 620px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 0.75rem/1.2 var(--f-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+ol.pasos { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; max-width: 75ch; }
+code { font: 500 0.85em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+
+@media (max-width: 980px) { .board { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .board, .people { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: no-preference) { .card { transition: opacity .15s; } }
+.oculta { display: none; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Minimarket Mass · tablero del 3 de noviembre</span>
+    <h1>Kanban del equipo de 3</h1>
+    <p class="sub">Todo lo pendiente del sistema, repartido entre Erick, Alexander y Luana. Cada uno tiene 11 estrellas de trabajo y su primera tarjeta lista para empezar. Las tarjetas marcadas <span class="tag-new" style="display:inline">NUEVA</span> son lo que faltaba agregar y ya están creadas como issues en GitHub.</p>
+  </header>
+
+  <div class="people" id="people"></div>
+
+  <div class="filtro" id="filtro" role="group" aria-label="Filtrar por persona"></div>
+
+  <div class="board" id="board"></div>
+
+  <section>
+    <h2>Orden de trabajo de cada uno</h2>
+    <p class="sub">Se hace de arriba hacia abajo. Nadie tiene más de 2 tarjetas en curso a la vez. Erick mezcla los PR en este orden para que no haya choques.</p>
+    <div class="tabla"><table id="orden"><thead><tr><th>Orden</th><th>Erick</th><th>Alexander</th><th>Luana</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Cómo pasarlo al tablero KANVAN-MASS de GitHub</h2>
+    <ol class="pasos">
+      <li>Los issues ya están asignados y los 5 que estaban hechos (#34, #35, #36, #47 y #48) ya están cerrados en GitHub.</li>
+      <li>En el proyecto <b>KANVAN-MASS</b>, botón <b>+ Add item</b> y escribe <code>#73</code>, <code>#74</code>, <code>#75</code>, <code>#76</code> y <code>#77</code> para sumar las tarjetas nuevas.</li>
+      <li>Pon en <b>Ready</b> la primera de cada uno: <code>#56</code> (Erick), <code>#52</code> (Alexander) y <code>#55</code> (Luana). El resto va en <b>Backlog</b>.</li>
+      <li>Lleva a <b>Done</b> las cerradas. In progress e In review quedan vacías hasta que alguien abra su rama.</li>
+      <li>Puedes borrar los proyectos vacíos "untitled project" (#2 a #6) para que solo quede KANVAN-MASS.</li>
+    </ol>
+  </section>
+</div>
+
+<script>
+const GH = "https://github.com/ERICK-SILVA-AYQUIPA/MINIMARKET_MASS/issues/";
+const P = {
+  e: { nombre: "Erick", user: "ERICK-SILVA-AYQUIPA", ini: "ES", rol: "Líder técnico e integrador: rutas, menú, CSS y merges" },
+  a: { nombre: "Alexander", user: "Astei7w7", ini: "AM", rol: "Productos, categorías, inventario y pruebas de caja" },
+  l: { nombre: "Luana", user: "luanahuaypar987", ini: "LH", rol: "Reportes en PDF, fotos, manual e informe" }
+};
+// col: listo | hacer | despues | hecho
+const T = [
+  { n: 56, p: "e", col: "listo", o: 1, s: 2, t: "Base de datos · índices y script de instalación", d: "Índices para búsquedas y un solo script que instala las 39 tablas." },
+  { n: 57, p: "e", col: "hacer", o: 2, s: 2, t: "Integración · rutas de la segunda ronda", d: "Agrega las rutas que piden los PDF, mermas y categorías." },
+  { n: 51, p: "e", col: "hacer", o: 3, s: 2, t: "Login · bloqueo temporizado", d: "3 intentos fallidos y espera de 30 segundos." },
+  { n: 76, p: "e", col: "hacer", o: 4, s: 2, nueva: 1, t: "App Android · compilar el APK y probarlo con el servidor", d: "Build de Gradle sin errores y una venta completa desde el celular." },
+  { n: 77, p: "e", col: "despues", o: 5, s: 3, nueva: 1, t: "Boleta electrónica SUNAT · proveedor y ambiente de pruebas", d: "Elegir camino, pedir acceso beta y actualizar la propuesta." },
+
+  { n: 52, p: "a", col: "listo", o: 1, s: 1, t: "Productos · Crear", d: "Validar el nombre y los datos al crear." },
+  { n: 53, p: "a", col: "hacer", o: 2, s: 1, t: "Productos · Editar", d: "No grabar si no cambió nada." },
+  { n: 54, p: "a", col: "hacer", o: 3, s: 1, t: "Productos · Baja lógica", d: "Aviso de producto descontinuado." },
+  { n: 59, p: "a", col: "hacer", o: 4, s: 2, t: "Categorías y marcas · cantidad de productos", d: "Mostrar cuántos productos tiene cada una." },
+  { n: 58, p: "a", col: "hacer", o: 5, s: 2, t: "Mermas · descargar en CSV", d: "Exportar las mermas del periodo." },
+  { n: 73, p: "a", col: "hacer", o: 6, s: 2, nueva: 1, t: "Caja · pruebas de apertura, pausa y cierre", d: "Probar el flujo con los 3 roles y agregar casos a las pruebas." },
+  { n: 74, p: "a", col: "despues", o: 7, s: 2, nueva: 1, t: "Inventario · lector de código de barras en ingreso y conteo", d: "Llevar el lector que ya funciona en la venta." },
+
+  { n: 55, p: "l", col: "listo", o: 1, s: 2, t: "Reporte PDF del catálogo", d: "Catálogo de productos descargable en PDF." },
+  { n: 62, p: "l", col: "hacer", o: 2, s: 2, t: "Reportes · ventas del periodo en PDF", d: "Mismo formato que el catálogo, con totales." },
+  { n: 50, p: "l", col: "hacer", o: 3, s: 1, t: "Panel (layout) · pie de página", d: "Pie con versión y año. Erick revisa el layout." },
+  { n: 75, p: "l", col: "hacer", o: 4, s: 2, nueva: 1, t: "Productos · cargar fotos reales del catálogo", d: "Fotos cuadradas de menos de 2 MB, visibles en web y app." },
+  { n: 61, p: "l", col: "hacer", o: 5, s: 2, t: "Manual de usuario · novedades", d: "Caja por empleado, menú corto, app Android y PDF." },
+  { n: 70, p: "l", col: "despues", o: 6, s: 2, t: "Revisión del informe final (beta)", d: "Revisar el informe con lo nuevo antes de la entrega." },
+
+  { n: "1–16", p: "e", col: "hecho", t: "Base del sistema: login, ventas, caja, inventario, reportes y fotos", x: "PR" },
+  { n: 34, p: "e", col: "hecho", t: "Pantallas por rol" },
+  { n: 35, p: "e", col: "hecho", t: "Panel de inicio y ticket" },
+  { n: 36, p: "e", col: "hecho", t: "JavaScript y estilos" },
+  { n: 47, p: "e", col: "hecho", t: "Pruebas web e integración" },
+  { n: 48, p: "e", col: "hecho", t: "Cifras de pruebas del README" },
+  { n: 63, p: "e", col: "hecho", t: "Menú lateral plegable", x: "PR" },
+  { n: 64, p: "e", col: "hecho", t: "App Android conectada por API REST", x: "PR" },
+  { n: 66, p: "e", col: "hecho", t: "Separar backend/ y frontend/", x: "PR" },
+  { n: 68, p: "e", col: "hecho", t: "Crear producto al escanear y permisos de stock", x: "PR" },
+  { n: 69, p: "e", col: "hecho", t: "Docker para todo el equipo", x: "PR" },
+  { n: 71, p: "e", col: "hecho", t: "Caja por empleado en la base de datos", x: "PR" },
+  { n: 72, p: "e", col: "hecho", t: "Pantallas de apertura, pausa y cierre de caja y menú corto", x: "PR" },
+  { n: "—", p: "l", col: "hecho", t: "Procedimiento de la boleta (sp_boleta)" }
+];
+const COLS = [
+  { id: "listo", h: "Listo para empezar", d: "La primera tarjeta de cada uno" },
+  { id: "hacer", h: "Por hacer", d: "En orden, después de la primera" },
+  { id: "despues", h: "Al final", d: "Si queda tiempo antes de la defensa" },
+  { id: "hecho", h: "Hecho", d: "Ya está en main" }
+];
+let filtro = "todos";
+try { filtro = localStorage.getItem("mass3-filtro") || "todos"; } catch (e) {}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const estrellas = n => "★".repeat(n);
+const pend = k => T.filter(t => t.p === k && t.col !== "hecho");
+
+function personas() {
+  const max = 12;
+  document.getElementById("people").innerHTML = Object.entries(P).map(([k, v]) => {
+    const s = pend(k).reduce((a, t) => a + t.s, 0);
+    return `<button class="person ${k}" data-p="${k}" aria-pressed="${filtro === k}">
+      <div class="top"><span class="av">${v.ini}</span><div><div class="name">${v.nombre}</div><div class="user">@${esc(v.user)}</div></div></div>
+      <div class="role">${esc(v.rol)}</div>
+      <div class="bar"><span style="width:${(s / max) * 100}%"></span></div>
+      <div class="load">${pend(k).length} tarjetas · ${s} estrellas</div></button>`;
+  }).join("");
+}
+function botones() {
+  const ops = [["todos", "Todos"], ...Object.entries(P).map(([k, v]) => [k, v.nombre])];
+  document.getElementById("filtro").innerHTML = ops.map(([k, n]) =>
+    `<button data-p="${k}" aria-pressed="${filtro === k}">${n}</button>`).join("");
+}
+function tablero() {
+  document.getElementById("board").innerHTML = COLS.map(c => {
+    const items = T.filter(t => t.col === c.id && (filtro === "todos" || t.p === filtro))
+      .sort((a, b) => (a.o || 0) - (b.o || 0));
+    return `<div class="col ${c.id}"><div class="col-h"><h3>${c.h}</h3><span class="n">${items.length}</span></div>
+      <div class="col-d">${c.d}</div>
+      ${items.map(t => {
+        const num = typeof t.n === "number" ? `<a href="${GH.replace("issues/", t.x === "PR" ? "pull/" : "issues/")}${t.n}" target="_blank" rel="noopener">${t.x === "PR" ? "PR " : ""}#${t.n}</a>` : `${t.x === "PR" ? "PR #" : ""}${t.n}`;
+        return `<article class="card ${t.col === "hecho" ? "x" : t.p}${t.nueva ? " nueva" : ""}">
+          <div class="meta">${num}${t.o ? `<span class="orden">paso ${t.o}</span>` : ""}</div>
+          <div class="t">${esc(t.t)}</div>
+          ${t.d ? `<div class="d">${esc(t.d)}</div>` : ""}
+          ${t.col !== "hecho" ? `<div class="foot"><span class="chip">${P[t.p].nombre}</span><span class="stars" aria-label="${t.s} estrellas">${estrellas(t.s)}</span><span class="tag-new">NUEVA</span></div>` : ""}
+        </article>`;
+      }).join("")}</div>`;
+  }).join("");
+}
+function orden() {
+  const filas = Math.max(...Object.keys(P).map(k => pend(k).length));
+  let h = "";
+  for (let i = 1; i <= filas; i++) {
+    h += `<tr><td class="num">${i}</td>` + Object.keys(P).map(k => {
+      const t = pend(k).find(x => x.o === i);
+      return `<td>${t ? `<span class="num">#${t.n}</span> ${esc(t.t)} <span class="stars">${estrellas(t.s)}</span>` : ""}</td>`;
+    }).join("") + "</tr>";
+  }
+  h += `<tr><td class="num">Total</td>` + Object.keys(P).map(k => `<td class="num">${pend(k).reduce((a, t) => a + t.s, 0)} ★</td>`).join("") + "</tr>";
+  document.querySelector("#orden tbody").innerHTML = h;
+}
+function pintar() { personas(); botones(); tablero(); }
+document.addEventListener("click", ev => {
+  const b = ev.target.closest("[data-p]");
+  if (!b) return;
+  const p = b.dataset.p;
+  filtro = (filtro === p && p !== "todos") ? "todos" : p;
+  try { localStorage.setItem("mass3-filtro", filtro); } catch (e) {}
+  pintar();
+});
+pintar(); orden();
+</script>
+</body>
+</html>

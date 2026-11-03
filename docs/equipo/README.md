@@ -1,5 +1,7 @@
 # Notas del equipo
 
+> **Reparto actual entre los 3 (Erick, Alexander y Luana): abre [`kanban_3.html`](kanban_3.html) en el navegador.**
+
 > **Para levantar el proyecto en tu PC con Docker y mantenerlo igual al del equipo: [`docker.md`](docker.md).**
 
 Cada integrante escribe aquí su propia nota, en un archivo con su nombre en minúsculas y sin tildes
