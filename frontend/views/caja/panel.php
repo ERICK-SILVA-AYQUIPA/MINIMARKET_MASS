@@ -56,9 +56,6 @@ $tipoArqueo = ['APERTURA' => 'Apertura', 'PARCIAL' => 'Arqueo sorpresa', 'CIERRE
         </p>
     </div>
     <div class="acciones">
-        <?php if ($miTurno !== null && !$miTurno->estaEnPausa()): ?>
-            <a class="boton acento grande" href="/?ruta=venta_nueva"><?= icono('venta') ?>Nueva venta</a>
-        <?php endif; ?>
         <?php if ($puedeCambiarReglas): ?>
             <a class="boton secundario" href="#reglas-caja"><?= icono('editar') ?>Reglas y fondos</a>
         <?php endif; ?>
@@ -68,10 +65,10 @@ $tipoArqueo = ['APERTURA' => 'Apertura', 'PARCIAL' => 'Arqueo sorpresa', 'CIERRE
 $guiaClave = 'caja';
 $guiaTitulo = 'Cómo funciona la caja';
 $guiaPasos = $esCajero ? [
-    'Elige una caja libre y cuenta el sobre del fondo por billetes y monedas. Si no cuadra con el fondo fijo, escribe por qué.',
-    'Si te alejas, pon la caja en pausa: nadie puede vender con tu turno hasta que la reanudes.',
-    'Anota cada retiro al depósito o ingreso de sencillo, así el cierre cuadra.',
-    'Al terminar cuenta todo el efectivo. Si la diferencia pasa la tolerancia, el administrador la revisa antes de tu siguiente turno.',
+    'Para abrir: elige una caja libre y cuenta el sobre del fondo. Si no cuadra con el fondo fijo, escribe por qué.',
+    'Durante el turno solo anotas los movimientos de efectivo: retiros al depósito, gastos menores o sencillo que te traen.',
+    'Si te alejas, toca Pausar caja: nadie puede vender con tu turno hasta que la reanudes.',
+    'Al terminar toca Finalizar y arquear turno: cuentas a ciegas y el sistema calcula la diferencia al confirmar.',
 ] : [
     'Arriba ves cada caja en vivo: quién la tiene, desde cuándo y cuánto debería haber en la gaveta.',
     'Haz arqueos sorpresa contando la gaveta de un turno abierto: queda guardado con su diferencia.',
@@ -84,10 +81,15 @@ require __DIR__ . '/../parciales/guia.php';
 
 <?php if ($esCajero): ?>
     <?php if ($miPendiente !== null && $miPendiente->getEstado() === 'RECONTEO'): ?>
-        <section class="panel destacado-borde">
-            <h2>Vuelve a contar el turno <?= $miPendiente->getIdCajaTurno() ?></h2>
-            <div class="aviso info"><span>El administrador pidió un nuevo conteo<?php if ($miPendiente->getObservacion() !== null): ?>: «<?= e($miPendiente->getObservacion()) ?>»<?php endif; ?>. Cuenta otra vez todo el efectivo de la gaveta.</span></div>
-            <form class="formulario" method="post" action="/?ruta=turno_recontar">
+        <section class="estado-turno info">
+            <div class="estado-turno-icono"><?= icono('conteo') ?></div>
+            <div class="estado-turno-texto">
+                <h2>Vuelve a contar el turno <?= $miPendiente->getIdCajaTurno() ?></h2>
+                <p>El administrador pidió un nuevo conteo<?php if ($miPendiente->getObservacion() !== null): ?>: «<?= e($miPendiente->getObservacion()) ?>»<?php endif; ?>. Cuenta otra vez todo el efectivo de la gaveta.</p>
+            </div>
+        </section>
+        <section class="panel">
+            <form class="formulario" method="post" action="/?ruta=turno_recontar" data-confirmar="¿Guardar el nuevo conteo de {total}?" data-confirmar-boton="Sí, guardar conteo">
                 <?= campoCsrf($csrf) ?>
                 <?php
                 $conteoId = 'reconteo';
@@ -103,146 +105,309 @@ require __DIR__ . '/../parciales/guia.php';
             </form>
         </section>
     <?php elseif ($miPendiente !== null): ?>
-        <div class="aviso alerta" role="status"><span>Tu cierre del turno <?= $miPendiente->getIdCajaTurno() ?> tuvo una diferencia de
-            <strong><?= e($textoDiferencia($miPendiente->getDiferencia())) ?></strong> y lo está revisando el administrador.
-            Podrás abrir otro turno cuando lo apruebe o te pida volver a contar.</span></div>
+        <section class="estado-turno alerta" role="status">
+            <div class="estado-turno-icono"><?= icono('reloj') ?></div>
+            <div class="estado-turno-texto">
+                <h2>Tu cierre está en revisión</h2>
+                <p>El turno <?= $miPendiente->getIdCajaTurno() ?> cerró con
+                    <strong><?= e($textoDiferencia($miPendiente->getDiferencia())) ?></strong>, más que la tolerancia de <?= e(soles($regla['tolerancia'])) ?>.
+                    Podrás abrir otro turno cuando el administrador lo apruebe o te pida volver a contar.</p>
+            </div>
+        </section>
     <?php elseif ($miTurno === null): ?>
-        <section class="panel destacado-borde">
-            <h2>Abrir mi turno</h2>
-            <p class="sutil">Elige una caja libre y cuenta el sobre del fondo. Para vender necesitas un turno abierto.</p>
-            <form class="formulario" method="post" action="/?ruta=turno_abrir" data-apertura>
-                <?= campoCsrf($csrf) ?>
-                <fieldset>
-                    <legend>Caja</legend>
-                    <div class="cajas-elegir">
-                        <?php $primeraLibre = true; ?>
-                        <?php foreach ($cajasTienda as $c): ?>
-                            <?php
-                            $ocupada = $turnoDeCaja[$c->getIdCaja()] ?? null;
-                            $libre = $ocupada === null && $c->getEstado() === 'ACTIVA';
-                            ?>
-                            <label class="caja-opcion<?= $libre ? '' : ' no-disponible' ?>">
-                                <input type="radio" name="caja" value="<?= $c->getIdCaja() ?>" data-fondo="<?= e(number_format($fondos[$c->getIdCaja()] ?? 0, 2, '.', '')) ?>"<?= $libre && $primeraLibre ? ' checked' : '' ?><?= $libre ? '' : ' disabled' ?>>
-                                <strong>Caja <?= $c->getNumeroCaja() ?></strong>
-                                <span class="sutil">
-                                    <?php if ($ocupada !== null): ?>Ocupada por <?= e($nombresEmpleado[$ocupada['turno']->getIdEmpleado()] ?? '-') ?>
-                                    <?php elseif (!$libre): ?>Inactiva
-                                    <?php else: ?>Libre · fondo <?= e(soles($fondos[$c->getIdCaja()] ?? 0)) ?><?php endif; ?>
-                                </span>
-                            </label>
-                            <?php if ($libre) { $primeraLibre = false; } ?>
-                        <?php endforeach; ?>
+        <?php
+        $cajasLibres = array_values(array_filter($cajasTienda,
+            fn(Caja $c): bool => !isset($turnoDeCaja[$c->getIdCaja()]) && $c->getEstado() === 'ACTIVA'));
+        $primerFondo = $cajasLibres === [] ? 0.0 : ($fondos[$cajasLibres[0]->getIdCaja()] ?? 100.0);
+        ?>
+        <section class="apertura" aria-labelledby="apertura-titulo">
+            <header class="apertura-cabeza">
+                <div class="apertura-saludo">
+                    <span class="apertura-icono"><?= icono('caja') ?></span>
+                    <div>
+                        <h2 id="apertura-titulo">Abre tu turno</h2>
+                        <p>Hola, <?= e($usuario->getNombres()) ?>. Elige tu caja, cuenta el sobre del fondo y empieza a vender.</p>
                     </div>
-                </fieldset>
+                </div>
+                <ol class="pasos" aria-label="Pasos para abrir">
+                    <li class="activo"><span>1</span>Elige tu caja</li>
+                    <li><span>2</span>Cuenta el fondo</li>
+                    <li><span>3</span>Abre el turno</li>
+                </ol>
+            </header>
+            <?php if ($cajasLibres === []): ?>
                 <?php
-                $primerFondo = 100.0;
-                foreach ($cajasTienda as $c) {
-                    if (!isset($turnoDeCaja[$c->getIdCaja()]) && $c->getEstado() === 'ACTIVA') {
-                        $primerFondo = $fondos[$c->getIdCaja()] ?? 100.0;
-                        break;
-                    }
-                }
-                $conteoId = 'apertura';
-                $conteoCampoTotal = 'monto_inicial';
-                $conteoValor = number_format($primerFondo, 2, '.', '');
-                $conteoEsperado = $primerFondo;
-                $conteoRotulo = 'el fondo fijo';
-                require __DIR__ . '/../parciales/conteo_efectivo.php';
+                $vacioTitulo = 'No hay cajas libres ahora';
+                $vacioTexto = 'Todas las cajas de la tienda están ocupadas o inactivas. Pide al administrador que libere o active una.';
+                require __DIR__ . '/../parciales/vacio.php';
                 ?>
-                <label for="apertura-observacion">Si no cuadra con el fondo fijo, ¿por qué?</label>
-                <input id="apertura-observacion" name="observacion" maxlength="150" placeholder="Ej.: el sobre vino con S/ 2 menos en monedas">
-                <div class="botones-formulario"><button class="acento grande" type="submit"><?= icono('caja') ?>Abrir mi turno</button></div>
+            <?php else: ?>
+            <form class="formulario apertura-cuerpo" method="post" action="/?ruta=turno_abrir" data-apertura>
+                <?= campoCsrf($csrf) ?>
+                <div class="apertura-pasos">
+                    <fieldset class="paso">
+                        <legend><span class="paso-n">1</span>Elige tu caja</legend>
+                        <div class="cajas-elegir">
+                            <?php foreach ($cajasTienda as $i => $c): ?>
+                                <?php
+                                $ocupada = $turnoDeCaja[$c->getIdCaja()] ?? null;
+                                $libre = $ocupada === null && $c->getEstado() === 'ACTIVA';
+                                $fondoCaja = $fondos[$c->getIdCaja()] ?? 0;
+                                ?>
+                                <label class="caja-opcion<?= $libre ? '' : ' no-disponible' ?>">
+                                    <input type="radio" name="caja" value="<?= $c->getIdCaja() ?>" data-numero="<?= $c->getNumeroCaja() ?>" data-fondo="<?= e(number_format($fondoCaja, 2, '.', '')) ?>"<?= $libre && $c === $cajasLibres[0] ? ' checked' : '' ?><?= $libre ? '' : ' disabled' ?>>
+                                    <span class="caja-opcion-cabeza"><?= icono('caja') ?><strong>Caja <?= $c->getNumeroCaja() ?></strong></span>
+                                    <span class="caja-opcion-estado <?= $libre ? 'libre' : 'ocupada' ?>">
+                                        <?php if ($ocupada !== null): ?>Ocupada · <?= e($nombresEmpleado[$ocupada['turno']->getIdEmpleado()] ?? '-') ?>
+                                        <?php elseif (!$libre): ?>Inactiva
+                                        <?php else: ?>Libre<?php endif; ?>
+                                    </span>
+                                    <span class="caja-opcion-fondo">Fondo fijo <strong><?= e(soles($fondoCaja)) ?></strong></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </fieldset>
+                    <fieldset class="paso">
+                        <legend><span class="paso-n">2</span>Cuenta el sobre del fondo</legend>
+                        <p class="ayuda">Anota cuántos billetes y monedas hay: el total se suma solo y te dice si cuadra con el fondo fijo.</p>
+                        <?php
+                        $conteoId = 'apertura';
+                        $conteoCampoTotal = 'monto_inicial';
+                        $conteoValor = '';
+                        $conteoEsperado = $primerFondo;
+                        $conteoRotulo = 'el fondo fijo';
+                        $conteoExacto = true;
+                        $conteoSinMarco = true;
+                        require __DIR__ . '/../parciales/conteo_efectivo.php';
+                        ?>
+                        <div class="observacion-apertura" data-si-descuadra>
+                            <label for="apertura-observacion">Si no cuadra con el fondo fijo, ¿por qué?</label>
+                            <input id="apertura-observacion" name="observacion" maxlength="150" placeholder="Ej.: el sobre vino con S/ 2 menos en monedas">
+                        </div>
+                    </fieldset>
+                </div>
+                <aside class="apertura-resumen" aria-label="Resumen de la apertura">
+                    <h3><span class="paso-n">3</span>Abre el turno</h3>
+                    <dl>
+                        <dt>Caja</dt><dd data-resumen-caja>Caja <?= (int) $cajasLibres[0]->getNumeroCaja() ?></dd>
+                        <dt>Fondo fijo</dt><dd data-resumen-fondo><?= e(soles($primerFondo)) ?></dd>
+                        <dt>Contaste</dt><dd data-resumen-contado>—</dd>
+                    </dl>
+                    <p class="apertura-estado" data-resumen-estado aria-live="polite">Cuenta el fondo para continuar.</p>
+                    <button class="acento grande" type="submit"><?= icono('caja') ?>Abrir mi turno</button>
+                    <p class="ayuda">Para vender necesitas un turno abierto. Queda registrado con tu nombre y la hora.</p>
+                </aside>
             </form>
+            <?php endif; ?>
         </section>
     <?php else: ?>
         <?php
         $enGaveta = $miArqueo['esperado'] ?? $miTurno->getMontoInicial();
         $horas = $horasAbierto($miTurno);
+        $enPausa = $miTurno->estaEnPausa();
+        $numeroMiCaja = $numeroCaja[$miTurno->getIdCaja()] ?? '-';
+        $misMovimientos = $movimientos[$miTurno->getIdCajaTurno()] ?? [];
+        $ventasTurno = $misVentas ?? ['ventas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'digital' => 0.0];
         ?>
-        <?php if ($miTurno->estaEnPausa()): ?>
-            <section class="panel pausa-caja">
-                <?= icono('caja') ?>
-                <h2>Caja en pausa</h2>
-                <p class="sutil">Desde las <?= e(substr((string) $miTurno->getEnPausaDesde(), 11, 5)) ?>. Nadie puede vender con tu turno hasta que la reanudes.</p>
-                <form method="post" action="/?ruta=turno_pausa">
-                    <?= campoCsrf($csrf) ?>
-                    <input type="hidden" name="accion" value="reanudar">
-                    <button class="acento grande" type="submit">Reanudar y seguir vendiendo</button>
-                </form>
-            </section>
+        <header class="turno-barra<?= $enPausa ? ' en-pausa' : '' ?>" aria-label="Estado de tu turno">
+            <div class="turno-barra-estado">
+                <span class="estado-pastilla"><span class="punto" aria-hidden="true"></span><?= $enPausa ? 'Caja en pausa' : 'Turno activo' ?></span>
+                <strong>Caja N.° <?= e((string) $numeroMiCaja) ?></strong>
+                <span class="separador" aria-hidden="true">|</span>
+                <strong>Turno N.° <?= $miTurno->getIdCajaTurno() ?></strong>
+            </div>
+            <div class="turno-barra-meta">
+                <span><?= icono('usuario') ?><?= e($usuario->nombreCompleto()) ?></span>
+                <span title="Desde las <?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?>"><?= icono('reloj') ?>Abierto hace <?= e($tiempoAbierto($horas)) ?></span>
+            </div>
+            <div class="turno-barra-acciones">
+                <?php if ($enPausa): ?>
+                    <form method="post" action="/?ruta=turno_pausa">
+                        <?= campoCsrf($csrf) ?>
+                        <input type="hidden" name="accion" value="reanudar">
+                        <button class="acento" type="submit"><?= icono('reanudar') ?>Reanudar caja</button>
+                    </form>
+                <?php else: ?>
+                    <a class="boton acento" href="/?ruta=venta_nueva"><?= icono('venta') ?>Ir a vender</a>
+                    <form method="post" action="/?ruta=turno_pausa">
+                        <?= campoCsrf($csrf) ?>
+                        <input type="hidden" name="accion" value="pausar">
+                        <button class="secundario" type="submit" title="Si te alejas: nadie podrá vender con tu turno"><?= icono('pausa') ?>Pausar caja</button>
+                    </form>
+                <?php endif; ?>
+                <a class="boton oscuro" href="#arqueo-cierre"><?= icono('candado') ?>Finalizar y arquear turno</a>
+            </div>
+        </header>
+
+        <?php if ($enPausa): ?>
+            <div class="aviso alerta" role="status"><span>Caja en pausa desde las <?= e(substr((string) $miTurno->getEnPausaDesde(), 11, 5)) ?>: nadie puede vender con tu turno hasta que la reanudes.</span></div>
         <?php endif; ?>
-        <section class="tarjetas" aria-label="Tu turno">
-            <div><span>Turno abierto</span><strong>N.° <?= $miTurno->getIdCajaTurno() ?></strong><small>Caja <?= $numeroCaja[$miTurno->getIdCaja()] ?? '-' ?></small></div>
-            <div><span>Desde</span><strong class="fecha"><?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></strong><small><?= e(sprintf('hace %d h %02d min', (int) $horas, (int) round(($horas - (int) $horas) * 60))) ?></small></div>
-            <div><span>Fondo contado</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong><small>al abrir</small></div>
-            <?php if ($regla['ciego']): ?>
-                <div><span>Efectivo esperado</span><strong>Oculto</strong><small>cierre ciego: cuenta sin mirar</small></div>
-            <?php else: ?>
-                <div><span>En gaveta ahora</span><strong><?= e(soles($enGaveta)) ?></strong><small>lo que deberías contar</small></div>
-            <?php endif; ?>
-        </section>
         <?php if (Dinero::centimos($enGaveta) > Dinero::centimos($regla['tope'])): ?>
             <div class="aviso alerta" role="status"><span>La gaveta pasó el tope de <?= e(soles($regla['tope'])) ?>: haz un retiro al depósito.</span></div>
         <?php endif; ?>
         <?php if ($horas > $regla['horas']): ?>
-            <div class="aviso alerta" role="status"><span>Tu turno lleva más de <?= (int) $regla['horas'] ?> horas abierto. Ciérralo al terminar.</span></div>
+            <div class="aviso alerta" role="status"><span>Tu turno lleva más de <?= (int) $regla['horas'] ?> horas abierto. Arquéalo y ciérralo al terminar.</span></div>
         <?php endif; ?>
-        <?php if (!$miTurno->estaEnPausa()): ?>
-            <form class="acciones-turno" method="post" action="/?ruta=turno_pausa">
+
+        <section class="metricas-turno" aria-label="Tu turno en cifras">
+            <article class="metrica">
+                <span class="metrica-rotulo">Fondo inicial de caja</span>
+                <strong class="metrica-valor"><?= e(soles($miTurno->getMontoInicial())) ?></strong>
+                <small>Contado al abrir, a las <?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></small>
+            </article>
+            <article class="metrica">
+                <span class="metrica-rotulo">Ventas del turno <span class="etiqueta neutra"><?= (int) $ventasTurno['ventas'] ?> <?= $ventasTurno['ventas'] === 1 ? 'venta' : 'ventas' ?></span></span>
+                <dl class="metrica-filas">
+                    <dt>Efectivo</dt>
+                    <dd><?php if ($regla['ciego']): ?><span class="sutil"><?= icono('candado') ?>se ve al cerrar</span><?php else: ?><?= e(soles($ventasTurno['efectivo'])) ?><?php endif; ?></dd>
+                    <dt>Tarjeta</dt><dd><?= e(soles($ventasTurno['tarjeta'])) ?></dd>
+                    <dt>Billetera Sip</dt><dd><?= e(soles($ventasTurno['digital'])) ?></dd>
+                </dl>
+            </article>
+            <article class="metrica metrica-oscura">
+                <span class="metrica-rotulo">Efectivo esperado en gaveta</span>
+                <?php if ($regla['ciego']): ?>
+                    <strong class="metrica-valor velado" aria-label="Oculto">S/ ●●●.●●</strong>
+                    <small><?= icono('candado') ?>Oculto por cierre ciego: cuenta sin mirar</small>
+                <?php else: ?>
+                    <details class="revelar" data-revelar>
+                        <summary><span class="metrica-valor velado" aria-hidden="true">S/ ●●●.●●</span><span class="revelar-boton"><?= icono('ver') ?>Ver estimado</span></summary>
+                        <strong class="metrica-valor"><?= e(soles($enGaveta)) ?></strong>
+                    </details>
+                    <small>Se oculta solo a los 10 segundos</small>
+                <?php endif; ?>
+            </article>
+        </section>
+
+        <section class="panel movimientos-turno" aria-labelledby="movimientos-titulo">
+            <div class="titulo-seccion">
+                <div>
+                    <h2 id="movimientos-titulo">Movimientos de efectivo</h2>
+                    <p class="sutil">Anota cada vez que sacas billetes para el depósito o un gasto menor, o cuando te traen sencillo.</p>
+                </div>
+            </div>
+            <form class="formulario movimiento-form" method="post" action="/?ruta=caja_movimiento">
                 <?= campoCsrf($csrf) ?>
-                <input type="hidden" name="accion" value="pausar">
-                <button class="secundario" type="submit">Pausar mi caja</button>
-                <span class="sutil">Si te alejas: nadie podrá vender con tu turno.</span>
-            </form>
-        <?php endif; ?>
-        <div class="rejilla-caja">
-            <section class="panel">
-                <h2>Retiro o ingreso de efectivo</h2>
-                <p class="sutil">Anota cuando sacas billetes para el depósito o un pago menor, o cuando te traen sencillo.</p>
-                <form class="formulario" method="post" action="/?ruta=caja_movimiento">
-                    <?= campoCsrf($csrf) ?>
-                    <div class="campos">
-                        <div>
-                            <label for="tipo_movimiento">Tipo</label>
-                            <select id="tipo_movimiento" name="tipo">
-                                <option value="RETIRO">Retiro (sale de la gaveta)</option>
-                                <option value="INGRESO">Ingreso de sencillo</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="monto_movimiento">Monto (S/)</label>
-                            <input id="monto_movimiento" name="monto" inputmode="decimal" required>
-                        </div>
+                <fieldset class="segmentado">
+                    <legend class="visualmente-oculto">Tipo de movimiento</legend>
+                    <label><input type="radio" name="tipo" value="RETIRO" checked><span><?= icono('retiro') ?>Retiro <small>sale de la gaveta</small></span></label>
+                    <label><input type="radio" name="tipo" value="INGRESO"><span><?= icono('ingreso') ?>Ingreso <small>sencillo o cambio</small></span></label>
+                </fieldset>
+                <div class="movimiento-campos">
+                    <div>
+                        <label for="monto_movimiento">Monto (S/)</label>
+                        <input id="monto_movimiento" name="monto" inputmode="decimal" required placeholder="0.00" autocomplete="off">
                     </div>
-                    <label for="motivo_movimiento">Motivo</label>
-                    <input id="motivo_movimiento" name="motivo" maxlength="150" required placeholder="Ej.: depósito al banco, pago de bolsas">
-                    <div class="botones-formulario"><button class="secundario" type="submit"><?= icono('caja') ?>Registrar</button></div>
-                </form>
-            </section>
-            <section class="panel">
-                <h2>Cerrar mi turno</h2>
-                <p class="sutil"><?= $regla['ciego'] ? 'Cuenta todo el efectivo sin mirar lo esperado: el sistema calcula la diferencia al guardar.' : 'Cuenta todo el efectivo de la gaveta: el sistema compara con lo esperado.' ?></p>
-                <form class="formulario" method="post" action="/?ruta=turno_cerrar" data-confirmar="¿Cerrar tu turno? Después ya no podrás vender con él." data-confirmar-boton="Sí, cerrar turno">
-                    <?= campoCsrf($csrf) ?>
-                    <?php
-                    $conteoId = 'cierre';
-                    $conteoCampoTotal = 'monto_cierre';
-                    $conteoValor = '';
-                    $conteoEsperado = $regla['ciego'] ? null : $enGaveta;
-                    $conteoRotulo = 'lo esperado';
-                    require __DIR__ . '/../parciales/conteo_efectivo.php';
-                    ?>
-                    <label for="cierre-observacion">Observación <span class="sutil">(opcional)</span></label>
-                    <input id="cierre-observacion" name="observacion" maxlength="150" placeholder="Ej.: un cliente pagó con billete roto">
-                    <p class="ayuda">Tarjeta y billetera digital no entran a la gaveta: confírmalas con los vouchers.</p>
-                    <div class="botones-formulario"><button class="peligro" type="submit">Cerrar turno</button></div>
-                </form>
-            </section>
+                    <div>
+                        <label for="motivo_movimiento">Motivo</label>
+                        <input id="motivo_movimiento" name="motivo" maxlength="150" required list="motivos-caja" placeholder="Ej.: depósito al banco, pago de bolsas" autocomplete="off">
+                        <datalist id="motivos-caja">
+                            <option value="Depósito parcial al banco">
+                            <option value="Compra menor: bolsas">
+                            <option value="Pago a proveedor">
+                            <option value="Sencillo del banco">
+                            <option value="Cambio traído por el administrador">
+                        </datalist>
+                    </div>
+                    <div class="movimiento-boton"><button class="secundario" type="submit"><?= icono('ok') ?>Registrar</button></div>
+                </div>
+            </form>
+
+            <h3>Historial del turno</h3>
+            <div class="tabla">
+            <table class="tabla-auditoria">
+                <thead><tr><th scope="col">Hora</th><th scope="col">Tipo</th><th scope="col">Detalle</th><th scope="col" class="num">Monto</th></tr></thead>
+                <tbody>
+                <?php foreach (array_reverse($misMovimientos) as $m): ?>
+                    <?php $esRetiro = $m['tipo'] === 'RETIRO'; ?>
+                    <tr>
+                        <td class="fecha"><?= e(substr($m['fecha_hora'], 11, 5)) ?></td>
+                        <td><span class="etiqueta <?= $esRetiro ? 'reponer' : 'ok' ?>"><?= $esRetiro ? 'Retiro' : 'Ingreso' ?></span></td>
+                        <td><?= e($m['motivo']) ?></td>
+                        <td class="num <?= $esRetiro ? 'texto-error' : 'texto-ok' ?>"><?= e(($esRetiro ? '− ' : '+ ') . soles($m['monto'])) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                    <tr class="fila-apertura">
+                        <td class="fecha"><?= e(substr($miTurno->getFechaHoraApertura(), 11, 5)) ?></td>
+                        <td><span class="etiqueta neutra">Apertura</span></td>
+                        <td>Fondo contado al abrir el turno</td>
+                        <td class="num"><?= e(soles($miTurno->getMontoInicial())) ?></td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+            <?php if ($misMovimientos === []): ?><p class="sutil">Aún no hay retiros ni ingresos en este turno.</p><?php endif; ?>
+        </section>
+
+        <?php
+        $drawerId = 'arqueo-cierre';
+        $drawerTitulo = 'Arqueo ciego · cerrar el turno ' . $miTurno->getIdCajaTurno();
+        $drawerSubtitulo = 'Caja ' . $numeroMiCaja . ' · ' . $usuario->nombreCompleto();
+        $drawerCerrar = '#contenido';
+        $drawerAbierto = $abrir === 'arqueo-cierre';
+        $drawerAncho = true;
+        $drawerPantalla = true;
+        require __DIR__ . '/../parciales/drawer_abrir.php';
+        ?>
+        <div class="arqueo-intro">
+            <span class="arqueo-intro-icono"><?= icono('candado') ?></span>
+            <div>
+                <strong>Cuenta todo el efectivo de la gaveta, sin mirar el sistema.</strong>
+                <p>Incluye el fondo inicial. Lo esperado no se muestra: la diferencia (sobrante o faltante) se calcula recién cuando confirmes.</p>
+            </div>
         </div>
+        <?php if ($error !== null && $abrir === 'arqueo-cierre'): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
+        <form class="formulario arqueo-form" method="post" action="/?ruta=turno_cerrar"
+              data-confirmar="Vas a cerrar el turno <?= $miTurno->getIdCajaTurno() ?> declarando {total} en efectivo. Después ya no podrás vender ni corregir este conteo. ¿Cerrar el turno?"
+              data-confirmar-boton="Sí, cerrar mi turno">
+            <?= campoCsrf($csrf) ?>
+            <?php
+            $conteoId = 'cierre';
+            $conteoCampoTotal = 'monto_cierre';
+            $conteoValor = '';
+            $conteoEsperado = null;
+            $conteoGrande = true;
+            require __DIR__ . '/../parciales/conteo_efectivo.php';
+            ?>
+            <div class="arqueo-vouchers">
+                <strong>No entran a la gaveta: confírmalos con los vouchers</strong>
+                <span>Tarjeta <?= e(soles($ventasTurno['tarjeta'])) ?></span>
+                <span>Billetera Sip <?= e(soles($ventasTurno['digital'])) ?></span>
+            </div>
+            <label for="cierre-observacion">Observación <span class="sutil">(opcional)</span></label>
+            <input id="cierre-observacion" name="observacion" maxlength="150" placeholder="Ej.: un cliente pagó con billete roto">
+            <label class="casilla confirmar-conteo"><input id="cierre-confirmo" type="checkbox" name="conteo_completo" value="S" required> Conté todo el efectivo de la gaveta, incluido el fondo inicial</label>
+            <div class="botones-formulario arqueo-botones">
+                <a class="boton secundario" href="#contenido">Volver al turno</a>
+                <button class="oscuro grande" type="submit"><?= icono('candado') ?>Confirmar y cerrar turno</button>
+            </div>
+        </form>
+        <?php require __DIR__ . '/../parciales/drawer_cerrar.php'; ?>
     <?php endif; ?>
 <?php endif; ?>
 
 <?php if ($esAdministrador): ?>
+    <?php
+    $enGavetas = array_sum(array_map(fn(array $f): float => $f['esperado'], $turnoDeCaja));
+    $enPausaAhora = count(array_filter($turnoDeCaja, fn(array $f): bool => $f['turno']->estaEnPausa()));
+    ?>
+    <section class="metricas-turno" aria-label="La caja de la tienda en cifras">
+        <article class="metrica">
+            <span class="metrica-rotulo">Cajas abiertas</span>
+            <strong class="metrica-valor"><?= count($turnoDeCaja) ?> <small>de <?= count($cajasTienda) ?></small></strong>
+            <small><?= e($enPausaAhora > 0 ? $enPausaAhora . ' en pausa' : 'ninguna en pausa') ?></small>
+        </article>
+        <article class="metrica">
+            <span class="metrica-rotulo">Efectivo esperado en gavetas</span>
+            <strong class="metrica-valor"><?= e(soles($enGavetas)) ?></strong>
+            <small>suma de los turnos abiertos</small>
+        </article>
+        <article class="metrica<?= $porRevisar !== [] ? ' metrica-alerta' : '' ?>">
+            <span class="metrica-rotulo">Cierres por revisar</span>
+            <strong class="metrica-valor"><?= count($porRevisar) ?></strong>
+            <small><?= e($porRevisar === [] ? 'todo al día' : 'pasaron la tolerancia de ' . soles($regla['tolerancia'])) ?></small>
+        </article>
+    </section>
     <h2>Cajas ahora</h2>
     <div class="cajas-vivo">
         <?php foreach ($cajasTienda as $c): ?>
@@ -298,13 +463,20 @@ require __DIR__ . '/../parciales/guia.php';
     <?php endif; ?>
 <?php endif; ?>
 
-<h2><?= $esAdministrador ? 'Turnos de la tienda' : 'Tus turnos' ?></h2>
+<?php $historialPlegado = $esCajero && !$esAdministrador; ?>
+<?php if ($historialPlegado): ?>
+<details class="historial-turnos">
+    <summary>Mis turnos anteriores <span class="etiqueta neutra"><?= count($arqueo) ?></span></summary>
+<?php else: ?>
+<h2>Turnos de la tienda</h2>
+<?php endif; ?>
 <?php if ($arqueo === []): ?>
     <?php
     $vacioTitulo = 'Todavía no hay turnos';
     $vacioTexto = 'Cada vez que un cajero abre y cierra su caja, el turno aparece aquí con su arqueo.';
     require __DIR__ . '/../parciales/vacio.php';
     ?>
+    <?php if ($historialPlegado): ?></details><?php endif; ?>
 <?php else: ?>
 <div class="tabla">
 <table>
@@ -328,6 +500,7 @@ require __DIR__ . '/../parciales/guia.php';
     </tbody>
 </table>
 </div>
+<?php if ($historialPlegado): ?></details><?php endif; ?>
 
 <?php foreach ($arqueo as $fila): ?>
     <?php

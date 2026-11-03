@@ -179,6 +179,27 @@ class CajaRepository
         ], $consulta->fetchAll());
     }
 
+    /**
+     * Lo vendido en un turno: ventas emitidas y lo cobrado VALIDO por medio de pago (efectivo, tarjeta y billetera Sip).
+     * @return array{ventas: int, efectivo: float, tarjeta: float, digital: float}
+     */
+    public function ventasDeTurno(int $idTurno): array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT (SELECT COUNT(*) FROM venta WHERE id_caja_turno = :t1 AND estado = \'EMITIDA\') AS ventas,
+                    COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 1 THEN pv.monto_pagado END), 0) AS efectivo,
+                    COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 2 THEN pv.monto_pagado END), 0) AS tarjeta,
+                    COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 3 THEN pv.monto_pagado END), 0) AS digital
+               FROM venta v
+               JOIN pago_venta pv ON pv.id_venta = v.id_venta AND pv.estado = \'VALIDO\'
+              WHERE v.id_caja_turno = :t2'
+        );
+        $consulta->execute(['t1' => $idTurno, 't2' => $idTurno]);
+        $f = $consulta->fetch() ?: [];
+        return ['ventas' => (int) ($f['ventas'] ?? 0), 'efectivo' => (float) ($f['efectivo'] ?? 0),
+            'tarjeta' => (float) ($f['tarjeta'] ?? 0), 'digital' => (float) ($f['digital'] ?? 0)];
+    }
+
     private function crear(array $f): CajaTurno
     {
         return new CajaTurno(

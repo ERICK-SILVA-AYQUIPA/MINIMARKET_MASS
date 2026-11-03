@@ -22,8 +22,8 @@ class CajaController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=caja
-    public function panel(?string $error = null): void
+    // GET /?ruta=caja. $abrir: panel que vuelve abierto tras un error (el arqueo de cierre, para corregir el conteo)
+    public function panel(?string $error = null, ?string $abrir = null): void
     {
         $usuario = $this->usuario;
         $esCajero = $usuario?->puedeManejarCaja() === true;
@@ -79,6 +79,19 @@ class CajaController extends Controller
         }
         $ahora = new DateTimeImmutable();
         $horasAbierto = fn(CajaTurno $t): float => ($ahora->getTimestamp() - (new DateTimeImmutable($t->getFechaHoraApertura()))->getTimestamp()) / 3600;
+        // "2 h 15 min", "3 d 4 h": cuanto lleva abierto un turno, facil de leer de un vistazo
+        $tiempoAbierto = static function (float $horas): string {
+            $minutos = max(0, (int) round($horas * 60));
+            if ($minutos < 60) {
+                return $minutos . ' min';
+            }
+            if ($minutos < 1440) {
+                return intdiv($minutos, 60) . ' h ' . sprintf('%02d', $minutos % 60) . ' min';
+            }
+            return intdiv($minutos, 1440) . ' d ' . intdiv($minutos % 1440, 60) . ' h';
+        };
+        // Lo vendido en el turno abierto del cajero: ventas, efectivo, tarjeta y billetera Sip
+        $misVentas = $miTurno !== null ? $this->cajas->ventasDeTurno($miTurno->getIdCajaTurno()) : null;
         $this->vista('caja/panel', get_defined_vars());
     }
 
@@ -112,7 +125,7 @@ class CajaController extends Controller
             $cierre = $this->servicio->cerrarTurno($this->usuario, $this->campo($post, 'monto_cierre'), $this->conteo($post), $this->campo($post, 'observacion'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
-            $this->panel($ex->getMessage());
+            $this->panel($ex->getMessage(), 'arqueo-cierre');
             return;
         }
         $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre));

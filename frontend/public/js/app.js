@@ -353,6 +353,8 @@
         const cuerpoLineas = $('[data-lineas] tbody', formVenta);
         const lineas = () => $$(':scope > tr', cuerpoLineas);
         const campo = (nombre) => formVenta.elements.namedItem(nombre);
+        const carrito = $('[data-carrito]', formVenta);
+        const nombreDe = (opcion) => opcion.textContent.split('·')[0].trim();
         caja.hidden = false;
 
         function calcular() {
@@ -372,17 +374,18 @@
                 }
                 const mil = milesimas(cantidad.value);
                 const cent = centimos(opcion.dataset.precio);
+                const nombreFila = carrito !== null ? nombreDe(opcion) : 'Fila ' + (i + 1);
                 if (mil === null || mil === 0 || cent === null) {
                     celda.textContent = '—';
                     if (cantidad.value.trim() !== '') {
                         cantidad.classList.add('campo-error');
-                        avisos.push('Fila ' + (i + 1) + ': la cantidad no es válida.');
+                        avisos.push(nombreFila + ': la cantidad no es válida.');
                     }
                     return;
                 }
                 if (opcion.dataset.peso !== '1' && mil % 1000 !== 0) {
                     cantidad.classList.add('campo-error');
-                    avisos.push('Fila ' + (i + 1) + ': este producto se vende por unidad, sin decimales.');
+                    avisos.push(nombreFila + ': se vende por unidad, sin decimales.');
                 }
                 const sub = importe(mil, cent);
                 celda.textContent = soles(sub);
@@ -433,10 +436,182 @@
                 return li;
             }));
             caja.classList.toggle('con-avisos', avisos.length > 0);
+            actualizarCarrito();
+        }
+
+        // ---------- Carrito: las filas del formulario vistas como productos con foto, cantidad e importe ----------
+        // Las filas (select + cantidad) siguen siendo lo que se envia; el carrito solo las muestra y las cambia.
+        function filaDe(id) {
+            return lineas().find((f) => $('select', f).value === id) || null;
+        }
+
+        function quitarFila(fila) {
+            $('select', fila).value = '';
+            $('input[name="cantidad[]"]', fila).value = '';
+            calcular();
+            pintarCarrito();
+        }
+
+        // Suma o resta: 1 por unidad, 0.100 kg al peso. En cero, el producto sale del carrito.
+        function cambiarCantidad(fila, signo) {
+            const cantidad = $('input[name="cantidad[]"]', fila);
+            const alPeso = $('select', fila).selectedOptions[0].dataset.peso === '1';
+            const paso = alPeso ? 100 : 1000;
+            const actual = milesimas(cantidad.value || '0') || 0;
+            const nueva = Math.max(0, actual + signo * paso);
+            if (nueva === 0) {
+                quitarFila(fila);
+                return;
+            }
+            cantidad.value = alPeso ? (nueva / 1000).toFixed(3) : String(nueva / 1000);
+            calcular();
+            pintarCarrito();
+        }
+
+        // Los botones con su icono vienen de un <template> de la vista (iconos.svg), sin armar SVG aqui
+        const plantilla = $('template[data-plantilla-carrito]', formVenta);
+        function botonCarrito(tipo, etiqueta, alTocar) {
+            const boton = $('[data-boton="' + tipo + '"]', plantilla.content).cloneNode(true);
+            boton.setAttribute('aria-label', etiqueta);
+            boton.addEventListener('click', alTocar);
+            return boton;
+        }
+
+        function itemCarrito(fila, opcion) {
+            const id = opcion.value;
+            const alPeso = opcion.dataset.peso === '1';
+            const cantidadFila = $('input[name="cantidad[]"]', fila);
+            const li = document.createElement('li');
+            li.className = 'carrito-item';
+            li.dataset.producto = id;
+            li.filaVenta = fila;
+
+            const tarjeta = $('[data-agregar="' + CSS.escape(id) + '"] .foto', formVenta);
+            const foto = tarjeta !== null ? tarjeta.cloneNode(true) : document.createElement('span');
+            foto.classList.add('chica');
+            li.appendChild(foto);
+
+            const info = document.createElement('div');
+            info.className = 'carrito-info';
+            const nombre = document.createElement('strong');
+            nombre.textContent = nombreDe(opcion);
+            const precio = document.createElement('small');
+            precio.textContent = soles(centimos(opcion.dataset.precio)) + (alPeso ? ' / kg' : ' c/u');
+            info.append(nombre, precio);
+            li.appendChild(info);
+
+            const control = document.createElement('div');
+            control.className = 'carrito-cantidad';
+            const entrada = document.createElement('input');
+            entrada.inputMode = 'decimal';
+            entrada.autocomplete = 'off';
+            entrada.value = cantidadFila.value;
+            entrada.placeholder = alPeso ? 'kg' : '0';
+            entrada.setAttribute('aria-label', 'Cantidad de ' + nombre.textContent + (alPeso ? ' en kg' : ''));
+            entrada.dataset.cantidadCarrito = id;
+            entrada.addEventListener('input', () => {
+                cantidadFila.value = entrada.value;
+                calcular();
+            });
+            // Enter en la cantidad no envia la venta: vuelve al lector
+            entrada.addEventListener('keydown', (evento) => {
+                if (evento.key === 'Enter') {
+                    evento.preventDefault();
+                    const escanear = $('[data-escanear]', formVenta);
+                    if (escanear) {
+                        escanear.focus();
+                    }
+                }
+            });
+            control.append(
+                botonCarrito('menos', 'Uno menos de ' + nombre.textContent, () => cambiarCantidad(fila, -1)),
+                entrada,
+                botonCarrito('mas', 'Uno más de ' + nombre.textContent, () => cambiarCantidad(fila, 1))
+            );
+            li.appendChild(control);
+
+            const importeItem = document.createElement('strong');
+            importeItem.className = 'carrito-importe';
+            importeItem.dataset.importeCarrito = '';
+            li.appendChild(importeItem);
+            li.appendChild(botonCarrito('quitar', 'Quitar ' + nombre.textContent, () => quitarFila(fila)));
+            return li;
+        }
+
+        // Importes y cantidades del carrito y numero sobre cada foto de la cuadricula
+        function actualizarCarrito() {
+            if (carrito === null) {
+                return;
+            }
+            const enCarrito = new Map();
+            $$(':scope > li.carrito-item', carrito).forEach((li) => {
+                const fila = li.filaVenta;
+                $('[data-importe-carrito]', li).textContent = $('[data-importe]', fila).textContent;
+                const entrada = $('input', li);
+                entrada.classList.toggle('campo-error', $('input[name="cantidad[]"]', fila).classList.contains('campo-error'));
+                const mil = milesimas(entrada.value || '0') || 0;
+                const alPeso = $('select', fila).selectedOptions[0].dataset.peso === '1';
+                enCarrito.set(li.dataset.producto, alPeso ? (mil > 0 ? '✓' : '') : (mil > 0 ? String(mil / 1000) : ''));
+            });
+            $$('[data-agregar]', formVenta).forEach((boton) => {
+                const marca = $('[data-en-carrito]', boton);
+                const texto = enCarrito.get(boton.dataset.agregar) || '';
+                marca.textContent = texto;
+                boton.classList.toggle('en-carrito', enCarrito.has(boton.dataset.agregar));
+            });
+            const productos = enCarrito.size;
+            $('[data-carrito-cuenta]', formVenta).textContent = String(productos);
+            $('[data-carrito-vaciar]', formVenta).hidden = productos === 0;
+        }
+
+        function pintarCarrito() {
+            if (carrito === null) {
+                return;
+            }
+            const items = [];
+            lineas().forEach((fila) => {
+                const opcion = $('select', fila).selectedOptions[0];
+                if (opcion && opcion.value !== '') {
+                    items.push(itemCarrito(fila, opcion));
+                }
+            });
+            if (items.length === 0) {
+                const vacio = document.createElement('li');
+                vacio.className = 'carrito-vacio';
+                const titulo = document.createElement('strong');
+                titulo.textContent = 'El carrito está vacío';
+                const texto = document.createElement('span');
+                texto.textContent = 'Escanea un código o toca la foto de un producto para empezar.';
+                vacio.append(titulo, texto);
+                items.push(vacio);
+            }
+            carrito.replaceChildren(...items);
+            actualizarCarrito();
+        }
+
+        if (carrito !== null) {
+            carrito.hidden = false;
+            $('[data-carrito-cabeza]', formVenta).hidden = false;
+            formVenta.classList.add('con-carrito');
+            $('[data-carrito-vaciar]', formVenta).addEventListener('click', async () => {
+                if (await confirmar('¿Quitar todos los productos de esta venta?', 'Sí, vaciar')) {
+                    lineas().forEach((fila) => {
+                        $('select', fila).value = '';
+                        $('input[name="cantidad[]"]', fila).value = '';
+                    });
+                    calcular();
+                    pintarCarrito();
+                    const escanear = $('[data-escanear]', formVenta);
+                    if (escanear) {
+                        escanear.focus();
+                    }
+                }
+            });
         }
 
         formVenta.addEventListener('input', calcular);
         formVenta.addEventListener('change', calcular);
+        pintarCarrito();
         calcular();
 
         // ---------- Cuadricula de productos y lector de codigo de barras ----------
@@ -469,10 +644,10 @@
                 avisar('Ese producto no se puede vender ahora.', true);
                 return;
             }
-            const nombre = opcion.textContent.split('·')[0].trim();
+            const nombre = nombreDe(opcion);
             const alPeso = opcion.dataset.peso === '1';
-            let fila = lineas().find((f) => $('select', f).value === id);
-            if (fila === undefined) {
+            let fila = filaDe(id);
+            if (fila === null) {
                 fila = lineas().find((f) => $('select', f).value === '') || filaNueva();
                 if (fila === null) {
                     avisar('La venta ya tiene ' + MAXIMO_FILAS + ' productos distintos.', true);
@@ -482,12 +657,7 @@
                 $('input[name="cantidad[]"]', fila).value = alPeso ? '' : '0';
             }
             const cantidad = $('input[name="cantidad[]"]', fila);
-            if (alPeso) {
-                // Al peso: el cajero escribe los kg que marca la balanza
-                cantidad.focus();
-                cantidad.select();
-                avisar(nombre + ': escribe los kg de la balanza.');
-            } else {
+            if (!alPeso) {
                 const actual = milesimas(cantidad.value || '0') || 0;
                 cantidad.value = String(Math.floor(actual / 1000) + 1);
                 avisar('+1 ' + nombre + ' (van ' + cantidad.value + ')');
@@ -496,6 +666,22 @@
             void fila.offsetWidth;   // reinicia la animacion
             fila.classList.add('recien');
             calcular();
+            pintarCarrito();
+            // Al peso: el cajero escribe los kg que marca la balanza (en el carrito o, sin carrito, en la fila)
+            const destino = carrito !== null ? $('[data-cantidad-carrito="' + CSS.escape(id) + '"]', carrito) : cantidad;
+            if (carrito !== null) {
+                const item = destino.closest('li');
+                item.classList.remove('recien');
+                void item.offsetWidth;
+                item.classList.add('recien');
+                // Solo se mueve la lista del carrito, no la pagina
+                carrito.scrollTop = item.offsetTop - carrito.offsetTop - carrito.clientHeight / 2;
+            }
+            if (alPeso) {
+                destino.focus();
+                destino.select();
+                avisar(nombre + ': escribe los kg de la balanza.');
+            }
         }
 
         if (selector !== null) {
@@ -681,7 +867,13 @@
             return;
         }
         const boton = evento.submitter;
-        const mensaje = (boton && boton.dataset.confirmar) || form.dataset.confirmar;
+        let mensaje = (boton && boton.dataset.confirmar) || form.dataset.confirmar;
+        // {total}: el total contado del formulario (arqueo de cierre y reconteo), para confirmar lo que se declara
+        if (mensaje && mensaje.includes('{total}')) {
+            const campoTotal = $('[data-total]', form);
+            const cent = campoTotal ? centimos(campoTotal.value) : null;
+            mensaje = mensaje.replace('{total}', cent === null ? '—' : soles(cent));
+        }
         if (mensaje && form.dataset.confirmado !== '1') {
             evento.preventDefault();
             const textoBoton = (boton && boton.dataset.confirmarBoton) || form.dataset.confirmarBoton;
@@ -691,7 +883,15 @@
             }
             return;
         }
-        // Va al servidor: se bloquea el boton para no registrar dos veces lo mismo
+        // Va al servidor: se bloquea el boton para no registrar dos veces lo mismo.
+        // Un boton deshabilitado no viaja en el envio: su name=value (Aprobar o Pedir reconteo) va en un campo oculto
+        if (boton && boton.name) {
+            const valor = document.createElement('input');
+            valor.type = 'hidden';
+            valor.name = boton.name;
+            valor.value = boton.value;
+            form.appendChild(valor);
+        }
         form.dataset.enviando = '1';
         form.setAttribute('aria-busy', 'true');
         $$('button[type=submit], button:not([type])', form).forEach((b) => {
@@ -860,16 +1060,84 @@
         campos.forEach((campo) => campo.addEventListener('input', sumar));
         total.addEventListener('input', comparar);
         conteo.conteoComparar = comparar;
+
+        // "Viene exacto" (apertura): escribe el fondo fijo como total y borra el desglose
+        const exacto = $('[data-conteo-exacto]', conteo);
+        if (exacto !== null) {
+            exacto.hidden = false;
+            exacto.addEventListener('click', () => {
+                campos.forEach((campo) => {
+                    campo.value = '';
+                });
+                sumar();
+                total.value = conteo.dataset.esperado || '';
+                total.dispatchEvent(new Event('input', { bubbles: true }));
+                total.focus();
+            });
+        }
         sumar();
     });
 
-    // Al abrir caja se compara con el fondo fijo de la caja elegida
-    $$('.cajas-elegir input[type="radio"]').forEach((radio) => {
-        radio.addEventListener('change', () => {
-            const conteo = $('[data-conteo]', radio.form);
-            if (conteo !== null && radio.checked) {
-                conteo.dataset.esperado = radio.dataset.fondo;
-                conteo.conteoComparar();
+    // ---------- Apertura de caja: el resumen de la derecha sigue a la caja elegida y al conteo ----------
+    const formApertura = $('form[data-apertura]');
+    if (formApertura !== null) {
+        const conteo = $('[data-conteo]', formApertura);
+        const total = $('[data-total]', conteo);
+        const observacion = $('[data-si-descuadra]', formApertura);
+        const pasos = $$('.pasos li');
+
+        function resumir() {
+            const radio = $('input[name="caja"]:checked', formApertura);
+            const fondo = radio ? centimos(radio.dataset.fondo) : null;
+            const contado = centimos(total.value);
+            $('[data-resumen-caja]', formApertura).textContent = radio ? 'Caja ' + radio.dataset.numero : '—';
+            $('[data-resumen-fondo]', formApertura).textContent = fondo === null ? '—' : soles(fondo);
+            $('[data-resumen-contado]', formApertura).textContent = contado === null ? '—' : soles(contado);
+            const estado = $('[data-resumen-estado]', formApertura);
+            estado.className = 'apertura-estado';
+            let descuadra = false;
+            if (contado === null || fondo === null) {
+                estado.textContent = 'Cuenta el fondo para continuar.';
+            } else if (contado === fondo) {
+                estado.textContent = 'Cuadra con el fondo fijo. Ya puedes abrir.';
+                estado.classList.add('cuadra');
+            } else {
+                descuadra = true;
+                const dif = contado - fondo;
+                estado.textContent = (dif < 0 ? 'Faltan ' : 'Sobran ') + soles(Math.abs(dif)) + ': escribe por qué.';
+                estado.classList.add(dif < 0 ? 'falta' : 'sobra');
+            }
+            // El motivo solo se pide cuando no cuadra (el servidor tambien lo exige)
+            observacion.hidden = !descuadra;
+            const hechos = [radio !== null, contado !== null, false];
+            pasos.forEach((paso, i) => {
+                paso.classList.toggle('hecho', hechos[i]);
+                paso.classList.toggle('activo', !hechos[i] && hechos.slice(0, i).every(Boolean));
+            });
+        }
+
+        $$('input[name="caja"]', formApertura).forEach((radio) => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) {
+                    conteo.dataset.esperado = radio.dataset.fondo;
+                    conteo.conteoComparar();
+                }
+                resumir();
+            });
+        });
+        formApertura.addEventListener('input', resumir);
+        resumir();
+    }
+
+    // ---------- Caja: "Ver estimado" se vuelve a ocultar solo a los 10 segundos ----------
+    $$('details[data-revelar]').forEach((revelar) => {
+        let reloj = null;
+        revelar.addEventListener('toggle', () => {
+            clearTimeout(reloj);
+            if (revelar.open) {
+                reloj = setTimeout(() => {
+                    revelar.open = false;
+                }, 10000);
             }
         });
     });

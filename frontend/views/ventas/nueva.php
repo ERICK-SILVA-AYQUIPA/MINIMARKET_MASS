@@ -1,9 +1,12 @@
 <?php
 declare(strict_types=1);
 /**
- * V: pantalla de venta del cajero. Izquierda: productos; derecha: comprobante, cliente y cobro.
+ * V: pantalla de venta del cajero. Izquierda: productos con su foto; derecha: carrito, comprobante y cobro.
+ * Sin JavaScript se vende con las filas de producto y cantidad; con JavaScript esas filas se llenan desde la
+ * cuadricula y se ven como un carrito (public/js/app.js), pero siguen siendo lo que se envia.
  * El total lo calcula el servidor con el precio de la base.
  * @var ?CajaTurno $turno
+ * @var ?int $numeroCaja
  * @var Tienda $tienda
  * @var array<int, array{producto: Producto, stock: ?Stock, foto: array{url: ?string, propia: bool, icono: string, tono: int, categoria: string}}> $productos
  * @var array<int, string> $categorias  las que tienen productos para vender, id => nombre
@@ -27,10 +30,14 @@ foreach ($productos as $fila) {
 $conTarjeta = $v('tarjeta_monto') !== '';
 $conSip = $v('sip_monto') !== '';
 ?>
-<div class="cabecera">
+<div class="cabecera venta-cabecera">
     <div>
         <h1>Nueva venta</h1>
-        <p class="sutil"><?= e($tienda->getNombreTienda()) ?><?= e($turno !== null ? ' · turno ' . $turno->getIdCajaTurno() . ' abierto desde ' . fecha($turno->getFechaHoraApertura()) : '') ?></p>
+        <p class="sutil"><?= e($tienda->getNombreTienda()) ?>
+            <?php if ($turno !== null): ?>
+                <span class="turno-chip<?= $turno->estaEnPausa() ? ' en-pausa' : '' ?>"><span class="punto" aria-hidden="true"></span>Caja <?= e((string) ($numeroCaja ?? '-')) ?> · Turno <?= $turno->getIdCajaTurno() ?></span>
+            <?php endif; ?>
+        </p>
     </div>
     <?php if ($turno !== null): ?><div class="acciones"><a class="boton secundario" href="/?ruta=caja"><?= icono('caja') ?>Mi caja</a></div><?php endif; ?>
 </div>
@@ -44,18 +51,21 @@ $conSip = $v('sip_monto') !== '';
     ?>
 <?php else: ?>
     <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
+    <?php if ($turno->estaEnPausa()): ?>
+        <div class="aviso alerta" role="status"><span>Tu caja está en pausa: reanúdala en <a href="/?ruta=caja">Mi caja</a> para registrar ventas.</span></div>
+    <?php endif; ?>
 
     <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta>
         <?= campoCsrf($csrf) ?>
-        <section class="panel">
-            <h2>Productos</h2>
+        <section class="panel venta-catalogo">
+            <h2 class="visualmente-oculto">Productos</h2>
             <?php
             $guiaClave = 'venta';
             $guiaTitulo = 'Cómo vender rápido';
             $guiaPasos = [
-                'Escanea el código de barras (el cursor ya está en el campo) o toca el producto en la cuadrícula: se agrega a la lista. Tocarlo otra vez suma 1.',
-                'Para lo que va al peso (papa, plátano…), toca el producto y escribe los kg que marca la balanza, por ejemplo 1.250.',
-                'A la derecha ves el total y el vuelto al momento. Elige boleta o factura, escribe lo que te entrega el cliente y registra.',
+                'Escanea el código de barras (el cursor ya está en el campo) o toca su foto: entra al carrito de la derecha. Tocarlo otra vez suma 1; en el carrito cambias la cantidad o lo quitas.',
+                'Para lo que va al peso (papa, plátano…), tócalo y escribe en el carrito los kg que marca la balanza, por ejemplo 1.250.',
+                'Debajo del carrito ves el total y el vuelto al momento. Elige boleta o factura, escribe lo que te entrega el cliente y registra.',
             ];
             require __DIR__ . '/../parciales/guia.php';
             ?>
@@ -84,18 +94,22 @@ $conSip = $v('sip_monto') !== '';
                         $p = $fila['producto'];
                         $s = $fila['stock'];
                         $foto = $fila['foto'];
-                        $fotoClase = 'chica';
+                        $fotoClase = '';
                         $hay = $s === null ? 0.0 : $s->getCantidadActual();
                         $hayTexto = number_format($hay, $p->esAlPeso() ? 3 : 0) . ($p->esAlPeso() ? ' kg' : ' und');
                         $claseHay = $hay <= 0 ? 'error' : ($s !== null && $s->necesitaReponer() ? 'alerta' : 'ok');
                         ?>
                         <li data-categoria="<?= (int) $p->getIdCategoria() ?>">
                             <button type="button" class="producto-venta" data-agregar="<?= $p->getIdProducto() ?>"<?= $hay <= 0 ? ' disabled' : '' ?>>
-                                <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                                <span class="producto-venta-foto">
+                                    <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                                    <span class="producto-venta-cantidad" data-en-carrito aria-hidden="true"></span>
+                                    <?php if ($hay <= 0): ?><span class="producto-venta-agotado">Agotado</span><?php endif; ?>
+                                </span>
                                 <span class="producto-venta-nombre"><?= e($p->getNombreProducto()) ?></span>
                                 <span class="producto-venta-pie">
                                     <strong><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small>/kg</small>' : '' ?></strong>
-                                    <span class="etiqueta <?= e($claseHay) ?>"><?= e($hay <= 0 ? 'Sin stock' : $hayTexto) ?></span>
+                                    <?php if ($hay > 0): ?><span class="stock-punto <?= e($claseHay) ?>"><?= e($hayTexto) ?></span><?php endif; ?>
                                 </span>
                                 <span class="visualmente-oculto"><?= e($p->getCodigoBarras() ?? '') ?></span>
                             </button>
@@ -124,8 +138,18 @@ $conSip = $v('sip_monto') !== '';
             </details>
         </section>
 
-        <aside class="panel resumen" aria-label="Cobro">
-            <h2>Cobro</h2>
+        <aside class="panel resumen venta-carrito" aria-label="Carrito y cobro">
+            <div class="carrito-cabeza" data-carrito-cabeza hidden>
+                <h2>Carrito <span class="etiqueta neutra" data-carrito-cuenta>0</span></h2>
+                <button type="button" class="enlace" data-carrito-vaciar>Vaciar</button>
+            </div>
+            <ul class="carrito" data-carrito aria-live="polite" aria-label="Productos en la venta" hidden></ul>
+            <template data-plantilla-carrito>
+                <button type="button" class="carrito-paso" data-boton="menos"><?= icono('menos') ?></button>
+                <button type="button" class="carrito-paso" data-boton="mas"><?= icono('mas') ?></button>
+                <button type="button" class="carrito-quitar" data-boton="quitar"><?= icono('cerrar') ?></button>
+            </template>
+            <h2 data-sin-js>Cobro</h2>
             <div class="total-vivo" data-total-vivo hidden aria-live="polite">
                 <div class="total-grande"><span>Total</span><strong data-total>S/ 0.00</strong></div>
                 <dl>

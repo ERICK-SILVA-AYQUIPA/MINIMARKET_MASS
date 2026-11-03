@@ -167,6 +167,7 @@ class VentaController extends Controller
         }
         $turno = $this->cajas->turnoAbiertoDe($this->usuario->getIdEmpleado());
         $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
+        $numeroCaja = $turno !== null ? $this->tiendas->buscarCaja($turno->getIdCaja())?->getNumeroCaja() : null;
 
         // Categorias que tienen algo para vender: son los filtros de la cuadricula de productos
         $nombresCategoria = [];
