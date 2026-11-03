@@ -97,6 +97,6 @@ Orden de merge: 1 → 2 → 3 → 4 (el 3 necesita la clase del 1 y el 4 necesit
 - Listas largas con `LIMIT` y `OFFSET` calculados en PHP como enteros (`Paginacion`); la página fuera de rango se corrige.
 - Cada formulario que cambia datos revisa el permiso en el controlador (403) y otra vez en el servicio. Un dato mal escrito vuelve al formulario con 422 y el mensaje; un POST a una ruta de lectura da 405.
 - Un monto o una cantidad que no cabe en su columna (DECIMAL(10,2) o DECIMAL(10,3)) se rechaza con un mensaje, en vez de un error de MySQL.
-- El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula.
+- El CSV antepone un apóstrofo a lo que empieza con `= + - @`, tabulador o retorno, para que Excel no lo lea como fórmula. Un número, aunque sea negativo (`-5.000` en las salidas del kárdex), se deja como número para que Excel lo pueda sumar (`backend/models/CeldaCsv.php`).
 - Las acciones sensibles (anular, cambiar precios, personal, claves, tiendas, cajas e ingresos de mercadería) quedan en la tabla `auditoria`, dentro de la misma transacción; el administrador la ve en `?ruta=auditoria`.
 - `backend/tests/seguridad.php` revisa todo el código en cada push: que los 28 formularios POST lleven token, que las salidas de las vistas pasen por `e()` y que ningún `prepare()` pegue datos de afuera. El detalle está en `docs/seguridad.md`.
