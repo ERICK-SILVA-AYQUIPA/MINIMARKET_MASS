@@ -244,7 +244,8 @@ revisar('Por vencer muestra la leche vencida; solo el almacenero ve el botón de
     && $rosa->get('ruta=vencimientos') === 200 && $rosa->tiene('Vencido hace 1 día') && !$rosa->tiene('Dar de baja lo vencido'));
 revisar('El inicio avisa lo que vence esta semana, no al cajero', $carmen->get('ruta=inicio') === 200 && $carmen->tiene('Vencen esta semana')
     && $carmen->tiene('ruta=vencimientos"') && $luis->get('ruta=inicio') === 200 && !$luis->tiene('Vencen esta semana'));
-revisar('La caja del cajero muestra lo que hay en gaveta y el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('En gaveta ahora')
+revisar('La caja del cajero oculta lo esperado (cierre ciego) y ofrece el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('cierre ciego')
+    && !$luis->tiene('En gaveta ahora') && $luis->tiene('data-conteo')
     && $luis->tiene('action="/?ruta=caja_movimiento"') && $rosa->get('ruta=caja') === 200 && !$rosa->tiene('caja_movimiento'));
 revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
@@ -298,6 +299,19 @@ revisar('Rosa quita la foto y vuelve el icono de la categoría', $rosa->post('pr
 @unlink($fotoPrueba);
 revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
 revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
+revisar('Inventario va en dos opciones: Productos y Movimientos', $carmen->get('ruta=inicio') === 200
+    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
+    && str_contains($m[1], '>Productos<') && str_contains($m[1], '>Movimientos<'));
+revisar('Mermas sale como pestaña de Movimientos y queda marcada', $carmen->get('ruta=mermas') === 200
+    && $carmen->tiene('<a href="/?ruta=mermas" aria-current="page">') && $carmen->tiene('<a href="/?ruta=ajustes">')
+    && $carmen->tiene('<a href="/?ruta=ingresos" class="activo" aria-current="page" data-pestanas="Movimientos">'));
+revisar('El cajero ve Movimientos sin Ingresos ni Conteo', $luis->get('ruta=kardex') === 200
+    && $luis->tiene('<a href="/?ruta=traslados" class="activo" aria-current="page" data-pestanas="Movimientos">') && !$luis->tiene('ruta=ingresos"') && !$luis->tiene('ruta=ajustes"'));
+revisar('La ficha de un producto marca Productos y la pestaña Catálogo', $rosa->get('ruta=producto&id=1') === 200
+    && $rosa->tiene('<a href="/?ruta=productos" class="activo" aria-current="page" data-pestanas="Productos">') && $rosa->tiene('<a href="/?ruta=productos" aria-current="page">'));
+revisar('Productos avisa con números lo que vence y lo que hay que reponer; el cajero no los ve', $carmen->get('ruta=stock') === 200
+    && $carmen->tiene('class="menu-cuenta"') && $carmen->tiene('class="pestana-cuenta reponer"') && $carmen->tiene('class="pestanas-rotulo"')
+    && $luis->get('ruta=stock') === 200 && !$luis->tiene('menu-cuenta') && !$luis->tiene('pestana-cuenta'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /js/app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));
@@ -336,6 +350,12 @@ $prohibidos = [
     [$carmen, 'Carmen', 'venta_registrar', ['tipo' => 'B']],
     [$carmen, 'Carmen', 'turno_abrir', ['caja' => '1', 'monto_inicial' => '100']],
     [$carmen, 'Carmen', 'turno_cerrar', ['monto_cierre' => '100']],
+    [$carmen, 'Carmen', 'turno_pausa', ['accion' => 'pausar']],
+    [$carmen, 'Carmen', 'turno_recontar', ['monto_cierre' => '100']],
+    [$luis, 'Luis', 'turno_revisar', ['turno' => '1', 'decision' => 'APROBAR', 'comentario' => 'x']],
+    [$luis, 'Luis', 'arqueo_sorpresa', ['turno' => '5', 'monto' => '100']],
+    [$luis, 'Luis', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
+    [$carmen, 'Carmen', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
     [$carmen, 'Carmen', 'cliente_documento', ['id' => '1', 'dni' => '12345678']],
     [$carmen, 'Carmen', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
     [$carmen, 'Carmen', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
@@ -383,6 +403,14 @@ revisar('Devolución de una venta vieja: vuelve al comprobante con el error', $l
     ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']) === 303
     && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('ya no se aceptan devoluciones'));
 revisar('Turno con monto inválido: 422', $luis->post('turno_abrir', ['caja' => '1', 'monto_inicial' => '-1']) === 422);
+revisar('Conteo con un billete de S/ 3: 422', $luis->post('turno_cerrar', ['monto_cierre' => '', 'conteo' => ['3.00' => '1']]) === 422
+    && $luis->tiene('data-conteo'));
+revisar('Reconteo sin turno en reconteo: 422', $luis->post('turno_recontar', ['monto_cierre' => '100']) === 422);
+revisar('Revisar un turno que no está observado: 422', $rosa->post('turno_revisar', ['turno' => '1', 'decision' => 'APROBAR', 'comentario' => 'Visto']) === 422);
+revisar('Arqueo sorpresa con monto inválido: 422', $rosa->post('arqueo_sorpresa', ['turno' => '5', 'monto' => 'abc']) === 422);
+revisar('Reglas con turnos de 30 horas: 422', $rosa->post('regla_caja_guardar', ['tolerancia' => '1.00', 'tope' => '500.00', 'horas' => '30']) === 422);
+revisar('El administrador ve las cajas en vivo, el arqueo sorpresa y las reglas', $rosa->get('ruta=caja') === 200
+    && $rosa->tiene('Cajas ahora') && $rosa->tiene('#sorpresa-5') && $rosa->tiene('id="reglas-caja"'));
 
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);

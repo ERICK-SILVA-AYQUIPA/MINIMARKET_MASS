@@ -773,5 +773,106 @@
         }
     });
 
+    // ---------- Pestañas de Productos y Movimientos ----------
+    // Productos y Movimientos del menu llevan a la ultima pestaña que se uso (se recuerda en este navegador),
+    // y en el celular la pestaña elegida queda a la vista aunque la fila sea mas ancha que la pantalla.
+    // La clave lleva el usuario: en una PC compartida cada empleado tiene sus pestañas (y sus permisos)
+    const clavePestana = (grupo) => 'pestana:' + (document.documentElement.dataset.usuario || '') + ':' + grupo;
+    const pestanas = $('nav.pestanas-seccion');
+    if (pestanas !== null) {
+        const actual = $('a[aria-current]', pestanas);
+        if (actual !== null) {
+            try {
+                localStorage.setItem(clavePestana(pestanas.dataset.pestanas), actual.getAttribute('href'));
+            } catch (e) {
+                // Sin almacenamiento el menu lleva a la primera pestaña, como sin JavaScript
+            }
+            const lista = $('.pestanas-lista', pestanas);
+            if (lista.scrollWidth > lista.clientWidth) {
+                lista.scrollLeft = actual.offsetLeft - (lista.clientWidth - actual.offsetWidth) / 2;
+            }
+        }
+    }
+    $$('.lateral nav a[data-pestanas]').forEach((opcion) => {
+        try {
+            const ultima = localStorage.getItem(clavePestana(opcion.dataset.pestanas));
+            // Solo una ruta interna simple (/?ruta=...), por si alguien escribio otra cosa en el almacenamiento
+            if (ultima !== null && /^\/\?ruta=[a-z_]+$/.test(ultima)) {
+                opcion.setAttribute('href', ultima);
+            }
+        } catch (e) {
+            // Sin almacenamiento queda el enlace del servidor
+        }
+    });
+
+    // ---------- Caja: contar billetes y monedas ----------
+    // Suma la gaveta en centimos mientras se escribe y compara con el fondo fijo o con lo esperado.
+    // El servidor vuelve a sumar el desglose: esto solo ayuda a contar.
+    $$('[data-conteo]').forEach((conteo) => {
+        const total = $('[data-total]', conteo);
+        const resultado = $('[data-resultado]', conteo);
+        const campos = $$('[data-denominacion]', conteo);
+
+        function comparar() {
+            resultado.className = 'conteo-resultado';
+            resultado.textContent = '';
+            const contado = centimos(total.value);
+            if (conteo.dataset.esperado === undefined || contado === null) {
+                return;
+            }
+            const esperado = centimos(conteo.dataset.esperado);
+            const diferencia = contado - esperado;
+            if (diferencia === 0) {
+                resultado.textContent = 'Cuadra con ' + conteo.dataset.rotulo;
+                resultado.classList.add('cuadra');
+            } else if (diferencia < 0) {
+                resultado.textContent = 'Faltan ' + soles(-diferencia) + ' para ' + conteo.dataset.rotulo;
+                resultado.classList.add('falta');
+            } else {
+                resultado.textContent = 'Sobran ' + soles(diferencia) + ' sobre ' + conteo.dataset.rotulo;
+                resultado.classList.add('sobra');
+            }
+        }
+
+        function sumar() {
+            let suma = 0;
+            let alguno = false;
+            campos.forEach((campo) => {
+                const subtotal = $('[data-subtotal]', campo.parentElement);
+                const texto = campo.value.trim();
+                const cantidad = /^\d{1,4}$/.test(texto) ? Number(texto) : 0;
+                if (texto !== '') {
+                    alguno = true;
+                }
+                const valor = cantidad * centimos(campo.dataset.denominacion);
+                subtotal.textContent = cantidad > 0 ? soles(valor) : '';
+                suma += valor;
+            });
+            if (alguno) {
+                total.value = (suma / 100).toFixed(2);
+                total.readOnly = true;
+            } else {
+                total.readOnly = false;
+            }
+            comparar();
+        }
+
+        campos.forEach((campo) => campo.addEventListener('input', sumar));
+        total.addEventListener('input', comparar);
+        conteo.conteoComparar = comparar;
+        sumar();
+    });
+
+    // Al abrir caja se compara con el fondo fijo de la caja elegida
+    $$('.cajas-elegir input[type="radio"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+            const conteo = $('[data-conteo]', radio.form);
+            if (conteo !== null && radio.checked) {
+                conteo.dataset.esperado = radio.dataset.fondo;
+                conteo.conteoComparar();
+            }
+        });
+    });
+
     enfocarDrawer();
 }());

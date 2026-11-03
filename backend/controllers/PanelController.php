@@ -35,6 +35,20 @@ class PanelController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
+    /**
+     * Numeros del menu de Inventario: lotes que vencen en 7 dias (o ya vencieron) y productos en su minimo.
+     * @return array{vencimientos: int, reponer: int}
+     */
+    public function alertasInventario(int $idTienda): array
+    {
+        $hoy = (new DateTimeImmutable('today'))->format('Y-m-d');
+        $porVencer = 0;
+        foreach ($this->ingresos->lotesConVencimiento($idTienda) as $datos) {
+            $porVencer += count(Vencimiento::porVencer(Vencimiento::repartirStock($datos['lotes'], $datos['stock']), $hoy, self::DIAS_POR_VENCER));
+        }
+        return ['vencimientos' => $porVencer, 'reponer' => $this->panel->contarPorReponer($idTienda)];
+    }
+
     // GET /?ruta=inicio
     public function inicio(): void
     {
