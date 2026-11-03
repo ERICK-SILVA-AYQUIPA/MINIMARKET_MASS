@@ -22,16 +22,15 @@ minimarket_mass/
 │   └── tests/           pruebas que corre la CI
 ├── frontend/
 │   ├── views/           pantallas por módulo, parciales/ y errores/
-│   └── public/          raíz web: index.php, api/index.php, css/, js/, fuentes/, img/ y poo_*.php
+│   └── public/          raíz web: index.php, api/index.php, css/, js/, fuentes/ e img/
 ├── android-app/         app Android (Kotlin)
 ├── deploy/              Apache y Nginx
-├── docs/                documentación, bitácora de IA, Kanban y docs/equipo/
+├── docs/                documentación, informe final.docx, bitácora de IA, Kanban, docs/equipo/ y docs/practicas/ (poo_*.php)
 ├── docker/              PHP 8.3 del equipo (web/Dockerfile) y la version de la base (mysql/)
 ├── docker-compose.yml   MySQL 8.4.11 y la página web en PHP 8.3
 ├── actualizar.bat       pone la PC igual que GitHub con Docker (Linux o Mac: actualizar.sh)
 ├── iniciar_servidor_laragon.bat
-├── CONTRIBUTING.md
-└── final.docx           informe con los diagramas UML
+└── CONTRIBUTING.md
 ```
 
 El servidor web solo ve `frontend/public/`: el backend, la base y el `.env` quedan fuera de su alcance.
@@ -49,7 +48,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`backend/database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
 - **`backend/database/caja_apertura.sql`**: Apertura y cierre de caja por empleado: fondo fijo de cada caja, reglas de caja por tienda (`regla_caja`), arqueo por billetes y monedas (`arqueo_caja`, `arqueo_detalle`), esperado y diferencia guardados en cada turno, estados OBSERVADO y RECONTEO para la revisión del administrador, y una sola caja abierta por turno también en la base.
 - **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
-- **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
+- **`docs/final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
 - **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 39 tablas (26 del diseño y 13 de apoyo de la aplicación).
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
@@ -199,7 +198,8 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 - **`backend/models/`**: una clase por tabla (`Producto`, `Stock`, `Tienda`, `Caja`, `CajaTurno`, `Cliente`, `SerieComprobante`, `Venta`, `DetalleVenta`, `AnulacionVenta`), los pagos con herencia (`pagos/PagoVenta` → `PagoEfectivo`, `PagoTarjeta`, `PagoSip`), los roles (`Usuario` → `Administrador`, `Cajero`, `Almacenero`) y un Repository por grupo de datos.
 - **`backend/controllers/`**: `Controller` (base), `ProductoController`, `VentaController`, `TiendaController`, `AuthController`, `InventarioController`, `CajaController`, `EmpleadoController`, `ClienteController` y `ReporteController`. Validan la entrada, piden datos y eligen la vista.
 - **`frontend/views/`**: catálogo, ficha, stock de las 3 tiendas, ventas, comprobante, tiendas y 404.
-- **`frontend/public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
+- **`frontend/public/index.php`**: único punto de entrada.
+- **`docs/practicas/poo_*.php`**: páginas de práctica de POO. Están fuera de la raíz web porque `poo_repository.php` y `poo_ventas.php` leen la base sin login; se abren solo en tu PC con `php -S localhost:8001 -t docs/practicas`.
 - **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
 - **`docs/explicacion_archivos.md`**: qué hace cada archivo, para estudiar antes de la entrega.
 - **`docs/reparto.md`**: comandos git por integrante si se pide un Pull Request por persona.
