@@ -15,7 +15,7 @@ En el servidor se clona el repositorio completo (así `git pull` sirve para actu
 | `frontend/public/` | Raíz del sitio. `index.php` (página web), `api/index.php` (API de la app Android), `css/`, `js/`, `fuentes/`, `iconos.svg` e `img/productos/` (fotos que sube el administrador) |
 | `frontend/views/` | Pantallas que arma `index.php`. No se abren directo desde el navegador |
 | `backend/config/`, `backend/controllers/`, `backend/models/` | Conexión, sesión y toda la lógica. Los carga `index.php` desde fuera de la raíz web |
-| `backend/database/` (11 scripts) | Crean la base la primera vez (sección 4) y traen los cambios de cada versión nueva (sección 8) |
+| `backend/database/` (12 scripts) | Crean la base la primera vez (sección 4) y traen los cambios de cada versión nueva (sección 8) |
 | `backend/scripts/` | Respaldo, restauración, respaldo diario y `verificar_instalacion.php`. Se corren desde la consola del servidor |
 | `docker-compose.yml` | MySQL 8.4.11 con la hora de Lima, escuchando solo en `127.0.0.1`. Su servicio `web` (PHP de pruebas) **no** se usa en producción: `.env` lleva `COMPOSE_PROFILES=` vacío |
 | `deploy/nginx-mass.conf` o `deploy/apache-mass.conf` | Se copia a la configuración del servidor web (solo uno de los dos) |
@@ -90,10 +90,11 @@ Los scripts de `backend/database/` se ejecutan **una sola vez y en este orden** 
 | 9 | `operaciones.sql` | Devoluciones, movimientos de caja y vencimientos |
 | 10 | `catalogo.sql` | 82 productos más con su primer ingreso en las 3 tiendas |
 | 11 | `api_movil.sql` | Tablas `api_token` y `api_operacion` de la app Android |
+| 12 | `caja_apertura.sql` | Fondo fijo de cada caja, reglas de caja, arqueos (`arqueo_caja`, `arqueo_detalle`) y esperado y diferencia de cada turno |
 
-Al terminar hay **36 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
+Al terminar hay **39 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
 
-- **Con Docker**: `docker compose up -d` corre los 11 solo cuando el volumen `mysql_datos` está vacío (la primera vez). Para volver a empezar en una PC de pruebas (**borra los datos**): `docker compose down -v` y `docker compose up -d`.
+- **Con Docker**: `docker compose up -d` corre los 12 solo cuando el volumen `mysql_datos` está vacío (la primera vez). Para volver a empezar en una PC de pruebas (**borra los datos**): `docker compose down -v` y `docker compose up -d`.
 - **Sin Docker**: se corren a mano, en el mismo orden (sección 5.2 en Laragon y sección 6.3 en un servidor).
 
 ## 5. PCs del equipo (pruebas, no producción)
@@ -108,7 +109,7 @@ MySQL y PHP corren en Docker; la PC solo necesita Docker Desktop y Git. Paso a p
 ./actualizar.bat      # Windows (o doble clic). Linux o Mac: bash actualizar.sh
 ```
 
-La primera vez crea `.env` desde `.env.example` y la base con los 11 scripts. Las siguientes veces hace `git pull` (si se está en `main`), reconstruye PHP si cambió `docker/web/Dockerfile` y, si cambió algún script de `backend/database/`, ofrece recrear la base (borra los datos de prueba). La huella de los scripts con que se creó cada base la anota `docker/mysql/99_version.sh` y la compara `docker/mysql/revisar_version.sh`.
+La primera vez crea `.env` desde `.env.example` y la base con los 12 scripts. Las siguientes veces hace `git pull` (si se está en `main`), reconstruye PHP si cambió `docker/web/Dockerfile` y, si cambió algún script de `backend/database/`, ofrece recrear la base (borra los datos de prueba). La huella de los scripts con que se creó cada base la anota `docker/mysql/99_version.sh` y la compara `docker/mysql/revisar_version.sh`.
 
 Abrir `http://localhost:8000` y entrar con un DNI de prueba de `docs/manual_usuario.md` (por ejemplo `70000001`, clave `Mass2026!`). La API de la app queda en `http://localhost:8000/api/v1/` (prueba: `http://localhost:8000/api/v1/salud`); desde un celular en el mismo Wi-Fi, `http://IP-de-la-PC:8000/`. Las pruebas corren dentro del contenedor: `docker compose exec web php backend/tests/unitarios.php`.
 
@@ -116,7 +117,7 @@ Sin el script es lo mismo que `docker compose up -d --build --wait`. Con PHP ins
 
 ### 5.2 Con Laragon (Windows)
 
-Paso a paso en `docs/guia_laragon.md`. En resumen: iniciar MySQL en Laragon y hacer doble clic en `iniciar_servidor_laragon.bat`. Ese archivo copia `.env.laragon` a `.env` si no existe, instala `backend/database/instalar_laragon.sql` si la base no tiene la tabla `producto` (es la unión de los 11 scripts) y abre `http://localhost:8000`.
+Paso a paso en `docs/guia_laragon.md`. En resumen: iniciar MySQL en Laragon y hacer doble clic en `iniciar_servidor_laragon.bat`. Ese archivo copia `.env.laragon` a `.env` si no existe, instala `backend/database/instalar_laragon.sql` si la base no tiene la tabla `producto` (es la unión de los 12 scripts) y abre `http://localhost:8000`.
 
 ## 6. Producción: servidor en internet con HTTPS
 
@@ -146,7 +147,7 @@ sudo git clone https://github.com/rick-back/minimarket_mass.git /var/www/minimar
 cd /var/www/minimarket_mass
 sudo cp .env.example .env && sudo nano .env          # claves largas y distintas, y COMPOSE_PROFILES= vacío
 sudo chown root:www-data .env && sudo chmod 640 .env  # PHP lo lee; los demás usuarios no
-sudo docker compose up -d --wait                      # crea la base con los 11 scripts
+sudo docker compose up -d --wait                      # crea la base con los 12 scripts
 sudo chown www-data frontend/public/img/productos     # PHP guarda aquí las fotos de producto
 
 # 3. Certificado de Let's Encrypt (se renueva solo). Va ANTES de activar el sitio
@@ -187,9 +188,9 @@ Si no se quiere Docker, se usa el MySQL de Ubuntu (`sudo apt install mysql-serve
 printf '[mysqld]\ndefault-time-zone = "-05:00"\n' | sudo tee /etc/mysql/mysql.conf.d/zz-mass.cnf
 sudo systemctl restart mysql
 
-# Los 11 scripts, en orden y una sola vez
+# Los 12 scripts, en orden y una sola vez
 cd /var/www/minimarket_mass
-for f in schema datos boleta login seguridad ajustes auditoria ingresos operaciones catalogo api_movil; do
+for f in schema datos boleta login seguridad ajustes auditoria ingresos operaciones catalogo api_movil caja_apertura; do
   sudo mysql < backend/database/$f.sql || break
 done
 ```
@@ -239,11 +240,11 @@ sudo git pull origin main
 sudo systemctl reload php8.3-fpm
 ```
 
-Si la versión nueva trae un script nuevo en `backend/database/` (por ejemplo, cuando llegó `api_movil.sql`):
+Si la versión nueva trae un script nuevo en `backend/database/` (por ejemplo, cuando llegó `caja_apertura.sql`):
 
 - **Con datos reales**: ejecutar **solo el script nuevo** sobre la base que ya existe. Nunca `schema.sql` ni `instalar_laragon.sql`, que borran la base.
-  - Con Docker: `sudo docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < backend/database/api_movil.sql`
-  - Sin Docker: `sudo mysql minimarket_mass < backend/database/api_movil.sql`
+  - Con Docker: `sudo docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < backend/database/caja_apertura.sql`
+  - Sin Docker: `sudo mysql minimarket_mass < backend/database/caja_apertura.sql`
 - **PC de pruebas, sin datos que cuidar**: `actualizar.bat` (o `bash actualizar.sh`) lo detecta y ofrece recrear la base. A mano: `docker compose down -v` y `docker compose up -d --wait`.
 
 Después correr otra vez `verificar_instalacion.php`: si dice que faltan tablas, falta algún script.
@@ -262,7 +263,7 @@ La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados 
 sudo -u www-data php backend/scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 36 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 39 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
 
 ## 10. Respaldo y restauración
 
@@ -274,7 +275,7 @@ Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `displ
 | Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `sudo bash backend/scripts/restaurar.sh respaldos/ARCHIVO.sql` |
 
 - En Linux van con `sudo` porque usan `docker exec`; el respaldo diario queda en el `crontab` de root y escribe en `respaldos/respaldo.log`. En Windows queda en el Programador de tareas como "Minimarket Mass - respaldo diario" y, si la PC estaba apagada a las 23:00, corre apenas se prenda.
-- El respaldo guarda todo: las 36 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`, con la hora del servidor.
+- El respaldo guarda todo: las 39 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`, con la hora del servidor.
 - Las **fotos de producto** no van en la base: están en `frontend/public/img/productos/`. Copiar esa carpeta junto con el respaldo y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.

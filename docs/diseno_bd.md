@@ -4,7 +4,7 @@ Documento técnico de especificación y diccionario de datos del sistema relacio
 
 - **Motor de Base de Datos:** MySQL 8.4.11 en Docker (compatible con MySQL 8.0.16+ y Laragon, InnoDB)
 - **Codificación / Collation:** `utf8mb4` / `utf8mb4_unicode_ci`
-- **Total de tablas:** 36: las 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 10 tablas de apoyo de la aplicación (sección 5)
+- **Total de tablas:** 39: las 26 tablas del diseño, normalizadas en Tercera Forma Normal (3FN), más 13 tablas de apoyo de la aplicación (sección 5)
 - **Objetos de programación:** 1 vista (`vw_comprobante`) y 1 procedimiento almacenado (`sp_boleta`)
 
 ---
@@ -302,6 +302,28 @@ erDiagram
         DATETIME fecha_hora
         JSON respuesta
     }
+    regla_caja {
+        SMALLINT id_tienda PK,FK
+        DECIMAL tolerancia
+        DECIMAL tope_gaveta
+        CHAR cierre_ciego
+        TINYINT horas_maximas
+    }
+    arqueo_caja {
+        INT id_arqueo PK
+        DATETIME fecha_hora
+        VARCHAR tipo
+        DECIMAL monto_contado
+        DECIMAL monto_esperado
+        VARCHAR observacion
+        INT id_caja_turno FK
+        MEDIUMINT id_empleado FK
+    }
+    arqueo_detalle {
+        INT id_arqueo PK,FK
+        DECIMAL denominacion PK
+        SMALLINT cantidad
+    }
     movimiento_stock {
         BIGINT id_movimiento PK
         SMALLINT id_tienda FK
@@ -376,6 +398,10 @@ erDiagram
     empleado ||--o{ movimiento_caja : "mueve_efectivo"
     empleado ||--o{ api_token : "entra_desde_la_app"
     empleado ||--o{ api_operacion : "opera_desde_la_app"
+    tienda ||--|| regla_caja : "reglas_de_caja"
+    caja_turno ||--o{ arqueo_caja : "se_cuenta"
+    empleado ||--o{ arqueo_caja : "cuenta_la_gaveta"
+    arqueo_caja ||--o{ arqueo_detalle : "billetes_y_monedas"
 ```
 
 ---
@@ -648,6 +674,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `ingresos.sql` | Tablas `ingreso_mercaderia` y `detalle_ingreso`, tipo de movimiento 8, columna `movimiento_stock.id_ingreso` | Mercadería recibida con su documento, cantidades y costo |
 | `operaciones.sql` | Tablas `devolucion_venta`, `detalle_devolucion` y `movimiento_caja`, tipo de movimiento 9, columnas `movimiento_stock.id_devolucion` y `detalle_ingreso.fecha_vencimiento`, 3 ingresos de ejemplo | Devoluciones parciales, retiros e ingresos de efectivo en la caja y productos por vencer |
 | `api_movil.sql` | Tablas `api_token` y `api_operacion` | Sesiones de la app Android y respuestas guardadas para que un reintento no repita una venta o un ingreso |
+| `caja_apertura.sql` | Tablas `regla_caja`, `arqueo_caja` y `arqueo_detalle`; columnas `caja.fondo_fijo` y, en `caja_turno`, `monto_esperado`, `diferencia`, `en_pausa_desde`, `observacion`, `id_empleado_revisa`, `fecha_hora_revision` y dos columnas generadas únicas | Apertura y cierre de caja por empleado: fondo fijo, arqueo por billetes y monedas, diferencia guardada y revisión del administrador |
 | `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
 
 #### `ajuste_inventario`
@@ -738,7 +765,32 @@ La respuesta de cada venta o ingreso hecho desde la app, guardada con la cabecer
 - `respuesta` (JSON, NULL): lo que se respondió la primera vez
 - UNIQUE `(id_empleado, clave)`
 
+#### `regla_caja`
+Reglas de caja de cada tienda; las cambia su administrador. `caja_apertura.sql` crea una fila por tienda con los valores por defecto.
+- `id_tienda` (SMALLINT UNSIGNED, PK, FK → `tienda.id_tienda`)
+- `tolerancia` (DECIMAL(10,2), NOT NULL, DEFAULT 1.00, CHECK ≥ 0): diferencia que se acepta sin revisión
+- `tope_gaveta` (DECIMAL(10,2), NOT NULL, DEFAULT 500.00, CHECK > 0): pasado el tope, el cajero debe hacer un retiro al depósito
+- `cierre_ciego` (CHAR(1), NOT NULL, DEFAULT 'S', CHECK IN ('S', 'N')): con 'S' el cajero no ve el esperado antes de contar
+- `horas_maximas` (TINYINT UNSIGNED, NOT NULL, DEFAULT 10, CHECK 1 a 24): después aparece la alerta de turno olvidado
+
+#### `arqueo_caja`
+Cada conteo de la gaveta de un turno: al abrir (`APERTURA`, comparado con el fondo fijo), el arqueo sorpresa del administrador (`PARCIAL`) y al cerrar (`CIERRE`, comparado con el efectivo esperado).
+- `id_arqueo` (INT UNSIGNED, AUTO_INCREMENT, PK)
+- `fecha_hora` (DATETIME, NOT NULL, DEFAULT CURRENT_TIMESTAMP)
+- `tipo` (VARCHAR(9), NOT NULL, CHECK IN ('APERTURA', 'PARCIAL', 'CIERRE'))
+- `monto_contado`, `monto_esperado` (DECIMAL(10,2), NOT NULL, CHECK ≥ 0)
+- `observacion` (VARCHAR(150), NULL): por qué no cuadra
+- `id_caja_turno` (INT UNSIGNED, NOT NULL, FK → `caja_turno.id_caja_turno`), `id_empleado` (MEDIUMINT UNSIGNED, NOT NULL, FK → `empleado.id_empleado`): quien contó
+
+#### `arqueo_detalle`
+Billetes y monedas contados en un arqueo. Si el cajero escribió solo el total, el arqueo no tiene filas aquí.
+- PK `(id_arqueo, denominacion)`, `id_arqueo` FK → `arqueo_caja.id_arqueo`
+- `denominacion` (DECIMAL(5,2), NOT NULL, CHECK IN (200, 100, 50, 20, 10, 5, 2, 1, 0.50, 0.20, 0.10))
+- `cantidad` (SMALLINT UNSIGNED, NOT NULL, CHECK > 0)
+
 #### Cambios a tablas existentes
 - `tipo_movimiento`: filas 6 `AJUSTE DE ENTRADA` (E), 7 `AJUSTE DE SALIDA` (S), 8 `INGRESO DE MERCADERIA` (E) y 9 `DEVOLUCION DE VENTA` (E).
 - `movimiento_stock`: `id_ajuste` (INT UNSIGNED, NULL, FK → `ajuste_inventario.id_ajuste`) `id_ingreso` (INT UNSIGNED, NULL, FK → `ingreso_mercaderia.id_ingreso`) e `id_devolucion` (INT UNSIGNED, NULL, FK → `devolucion_venta.id_devolucion`); el CHECK de origen único pasa a `(id_venta IS NOT NULL) + (id_traslado IS NOT NULL) + (id_merma IS NOT NULL) + (id_ajuste IS NOT NULL) + (id_ingreso IS NOT NULL) + (id_devolucion IS NOT NULL) = 1`.
+- `caja`: `fondo_fijo` (DECIMAL(10,2), NOT NULL, DEFAULT 100.00, CHECK ≥ 0), el sencillo que se entrega en sobre (`caja_apertura.sql`).
+- `caja_turno` (`caja_apertura.sql`): `monto_esperado` y `diferencia` (DECIMAL(10,2), NULL; CHECK `diferencia = monto_cierre - monto_esperado`), `en_pausa_desde` (DATETIME, NULL), `observacion` (VARCHAR(200), NULL), `id_empleado_revisa` (FK → `empleado`) y `fecha_hora_revision` (los dos NULL o los dos con valor). Estados: `ABIERTO`, `CERRADO`, `OBSERVADO` (la diferencia pasó la tolerancia) y `RECONTEO`. Las columnas generadas `caja_abierta` y `cajero_pendiente`, con UNIQUE, impiden dos turnos abiertos en una caja y dos turnos sin terminar de un cajero.
 - `producto.estado`: VARCHAR(13) en `schema.sql` (antes 10, donde `'DESCONTINUADO'` no cabía).

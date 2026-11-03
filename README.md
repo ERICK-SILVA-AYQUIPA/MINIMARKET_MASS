@@ -47,9 +47,10 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`backend/database/operaciones.sql`**: Devoluciones parciales (`devolucion_venta`, `detalle_devolucion`), retiros e ingresos de efectivo en la caja (`movimiento_caja`), la fecha de vencimiento de cada lote recibido y 3 ingresos de ejemplo para la pantalla **Por vencer**.
 - **`backend/database/catalogo.sql`**: Catálogo de ejemplo de un minimarket de Arequipa: 82 productos más de marcas reales (Laive, Coca-Cola, San Fernando, Bimbo, Field, Sapolio...) con precios de referencia, 4 categorías nuevas y su primer ingreso en las 3 tiendas. **`backend/database/catalogo_inicial.csv`** es el mismo catálogo en CSV, para importarlo desde la pantalla **Importar CSV**.
 - **`backend/database/auditoria.sql`**: Tabla `auditoria`, la bitácora de acciones sensibles (anulaciones, cambios de precio, personal, claves y tiendas).
+- **`backend/database/caja_apertura.sql`**: Apertura y cierre de caja por empleado: fondo fijo de cada caja, reglas de caja por tienda (`regla_caja`), arqueo por billetes y monedas (`arqueo_caja`, `arqueo_detalle`), esperado y diferencia guardados en cada turno, estados OBSERVADO y RECONTEO para la revisión del administrador, y una sola caja abierta por turno también en la base.
 - **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
-- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 36 tablas (26 del diseño y 10 de apoyo de la aplicación).
+- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 39 tablas (26 del diseño y 13 de apoyo de la aplicación).
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero).
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
@@ -127,7 +128,7 @@ El diseño está optimizado y estructurado por niveles de integridad referencial
 
 ## Cómo Ejecutar la Base de Datos (MySQL)
 
-Con Docker, `docker compose up -d` crea la base sola. En Laragon basta con `iniciar_servidor_laragon.bat` o con cargar `backend/database/instalar_laragon.sql` en HeidiSQL (`docs/guia_laragon.md`). Con otro MySQL (puerto `3306`), se ejecutan los 11 scripts en este orden y una sola vez; luego se pone en `.env` el usuario y la clave de ese MySQL:
+Con Docker, `docker compose up -d` crea la base sola. En Laragon basta con `iniciar_servidor_laragon.bat` o con cargar `backend/database/instalar_laragon.sql` en HeidiSQL (`docs/guia_laragon.md`). Con otro MySQL (puerto `3306`), se ejecutan los 12 scripts en este orden y una sola vez; luego se pone en `.env` el usuario y la clave de ese MySQL:
 
 ```powershell
 # schema.sql crea la base desde cero (borra una que ya exista) con las 26 tablas del diseño
@@ -142,12 +143,13 @@ mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/ingresos.sql
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/operaciones.sql"
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/catalogo.sql"
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/api_movil.sql"
+mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/caja_apertura.sql"
 
 # Opcional, al final: las consultas del negocio (solo leen; usan tablas de operaciones.sql)
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/consultas.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 10 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), y `api_token` y `api_operacion` (`api_movil.sql`). En total son 36. Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 13 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`). En total son 39. Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 
