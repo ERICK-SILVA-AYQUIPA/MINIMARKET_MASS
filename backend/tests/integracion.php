@@ -26,6 +26,8 @@ require __DIR__ . '/../models/servicios/ClienteServicio.php';
 require __DIR__ . '/../models/servicios/TiendaServicio.php';
 require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
+require __DIR__ . '/../models/TokenApiRepository.php';
+require __DIR__ . '/../config/Migraciones.php';
 require __DIR__ . '/../models/Paginacion.php';
 require __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
@@ -469,6 +471,7 @@ echo "Personal y claves\n";
 $idNuevo = $personal->crear($rosa, 'Diana', 'Torres Lazo', '70000010', 2, 'Caja2026x');
 revisar("Rosa registra a la cajera $idNuevo en Cayma", valor($db, 'SELECT id_tienda FROM empleado WHERE id_empleado = ?', [$idNuevo]) === '1');
 revisar('...con la clave en hash, no en texto', password_verify('Caja2026x', valor($db, 'SELECT clave_hash FROM empleado WHERE id_empleado = ?', [$idNuevo])));
+revisar('...y la cambia en su primer ingreso (la clave la eligió Rosa)', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = ?', [$idNuevo]) === 'S');
 rechaza('DNI repetido', fn() => $personal->crear($rosa, 'Otra', 'Persona', '70000002', 2, 'Caja2026x'));
 rechaza('Clave sin números', fn() => $personal->crear($rosa, 'Otra', 'Persona', '70000011', 2, 'solamenteletras'));
 rechaza('Jorge no edita personal de Cayma', fn() => $personal->editar($jorge, 2, 'Luis', 'Caceres Pinto', 2, 'INACTIVO'));
@@ -479,8 +482,59 @@ revisar('Diana pasa a almacenera INACTIVA', valor($db, 'SELECT CONCAT(id_rol, es
 $personal->cambiarMiClave($luis, 'Mass2026!', 'NuevaClave1', 'NuevaClave1');
 revisar('Luis cambia su clave', password_verify('NuevaClave1', valor($db, 'SELECT clave_hash FROM empleado WHERE id_empleado = 2')));
 rechaza('Cambiar clave con la actual errada', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'OtraClave2', 'OtraClave2'));
-$personal->reiniciarClave($rosa, 2, 'Mass2026!');
+revisar('...y ya no tiene que cambiarla', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = 2') === 'N');
+$tokens = new TokenApiRepository($db);
+$tokenDeLuis = $tokens->crear(2, 'prueba')['token'];
+$versionAntes = (int) valor($db, 'SELECT version_clave FROM empleado WHERE id_empleado = 2');
+$versionNueva = $personal->reiniciarClave($rosa, 2, 'Mass2026!');
 revisar('Rosa le devuelve una clave a Luis', password_verify('Mass2026!', valor($db, 'SELECT clave_hash FROM empleado WHERE id_empleado = 2')));
+revisar('...sube la versión de la clave (cierra sus sesiones web)', $versionNueva === $versionAntes + 1
+    && valor($db, 'SELECT version_clave FROM empleado WHERE id_empleado = 2') === (string) $versionNueva);
+revisar('...revoca sus tokens de la app', $tokens->empleadoDe($tokenDeLuis) === null
+    && valor($db, "SELECT COUNT(*) FROM api_token WHERE id_empleado = 2 AND revocado = 'N'") === '0');
+revisar('...y Luis tendrá que cambiarla al entrar', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = 2') === 'S');
+$tokenDeJorge = $tokens->crear(4, 'prueba')['token'];
+revisar('Los tokens de otros empleados siguen valiendo', $tokens->empleadoDe($tokenDeJorge) === 4);
+$personal->reiniciarClave($rosa, 1, 'Mass2026!');
+revisar('Si Rosa se reinicia su propia clave, no se le obliga a cambiarla', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = 1') === 'N');
+rechaza('Jorge no reinicia la clave de alguien de Cayma', fn() => $personal->reiniciarClave($jorge, 2, 'Mass2026!'));
+
+echo "Limpieza de intentos y tokens\n";
+$db->exec("INSERT INTO intento_login (dni, ip, fecha_hora, exito) VALUES ('70000006', '10.9.9.9', NOW() - INTERVAL 31 DAY, 'N'), ('70000006', '10.9.9.9', NOW() - INTERVAL 29 DAY, 'N')");
+$db->exec("INSERT INTO api_token (token_hash, id_empleado, fecha_creacion, ultimo_uso, fecha_expira)
+           VALUES (REPEAT('e', 64), 4, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 2 DAY, NOW() - INTERVAL 1 DAY)");
+$intentosLimpieza = new IntentoLoginRepository($db);
+revisar('Se borran los intentos de login de más de 30 días', $intentosLimpieza->borrarViejos() >= 1
+    && valor($db, "SELECT COUNT(*) FROM intento_login WHERE ip = '10.9.9.9'") === '1');
+revisar('Se borran los tokens vencidos', $tokens->borrarVencidos() >= 1
+    && valor($db, "SELECT COUNT(*) FROM api_token WHERE token_hash = REPEAT('e', 64)") === '0');
+revisar('...y no los vigentes', $tokens->empleadoDe($tokenDeJorge) === 4);
+$tokens->revocar($tokenDeJorge);
+
+echo "Migraciones\n";
+$migraciones = new Migraciones($db);
+$estado = $migraciones->estado();
+revisar('La base tiene todas las migraciones del repositorio, sin cambios', $estado === ['pendientes' => [], 'cambiadas' => [], 'desconocidas' => []]);
+revisar('Correr migrar otra vez no hace nada', $migraciones->aplicarPendientes(static function (string $linea): void {}) === []);
+// Una copia de las migraciones con la 013 editada: migrar se niega a seguir
+$copia = sys_get_temp_dir() . '/mass_migraciones_' . getmypid();
+@mkdir($copia . '/migraciones', 0700, true);
+copy(__DIR__ . '/../database/migracion_aplicada.sql', $copia . '/migracion_aplicada.sql');
+foreach (Migraciones::archivos() as $nombre => $ruta) {
+    file_put_contents($copia . '/migraciones/' . $nombre, file_get_contents($ruta) . "\n-- editada despues de aplicarse\n");
+}
+$editada = new Migraciones($db, $copia);
+revisar('Una migración aplicada y luego editada se detecta', $editada->estado()['cambiadas'] === array_keys(Migraciones::archivos()));
+try {
+    $editada->aplicarPendientes(static function (string $linea): void {});
+    revisar('...y migrar no sigue (no la rechazó)', false);
+} catch (RuntimeException $ex) {
+    revisar('...y migrar no sigue: ' . $ex->getMessage(), str_contains($ex->getMessage(), 'migracion nueva'));
+}
+array_map('unlink', glob($copia . '/migraciones/*') ?: []);
+@rmdir($copia . '/migraciones');
+@unlink($copia . '/migracion_aplicada.sql');
+@rmdir($copia);
 
 echo "Clientes\n";
 $idCliente = (int) valor($db, 'SELECT id_cliente FROM cliente WHERE dni = ?', ['12345678']);
@@ -573,6 +627,7 @@ revisar('...con su caja 1 y todos los productos en stock 0', valor($db, 'SELECT 
 $elena = $empleados->credencialesPorDni('70000040');
 $elena = $empleados->buscarPorId($elena['idEmpleado']);
 revisar('...y su administradora Elena', $elena instanceof Administrador && $elena->getIdTienda() === $idTienda);
+revisar('...que cambia en su primer ingreso la clave que le pusieron', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE dni = ?', ['70000040']) === 'S');
 rechaza('Nombre de tienda repetido', fn() => $tiendas->abrir($rosa,
     ['nombre' => 'Mass Cayma', 'direccion' => 'X', 'telefono' => '', 'distrito' => '1'],
     ['nombres' => 'A', 'apellidos' => 'B', 'dni' => '70000041', 'clave' => 'Clave2026']));

@@ -73,6 +73,13 @@ if errorlevel 1 (
     goto :fin
 )
 
+echo [..] Aplicando las migraciones nuevas de la base ^(no borra datos^)...
+docker compose exec -T web php backend/scripts/migrar.php
+if errorlevel 1 (
+    echo [ERROR] No se pudo poner la base al dia. Lee el mensaje de arriba.
+    goto :fin
+)
+
 set "PUERTO=8000"
 for /f "tokens=2 delims==" %%P in ('findstr /b "WEB_PORT=" .env 2^>nul') do set "PUERTO=%%P"
 

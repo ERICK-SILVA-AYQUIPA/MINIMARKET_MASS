@@ -95,12 +95,16 @@ $token = preg_match('/^Bearer\s+(\S+)$/i', $cabecera('HTTP_AUTHORIZATION'), $m) 
 $tokens = new TokenApiRepository($db);
 $empleados = new EmpleadoRepository($db);
 $usuario = null;
+$debeCambiarClave = false;
 if ($token !== '') {
     $idEmpleado = $tokens->empleadoDe($token);
     $usuario = $idEmpleado !== null ? $empleados->buscarPorId($idEmpleado) : null;
     if ($usuario !== null && !$usuario->estaActivo()) {
         $usuario = null;
     }
+    // Clave puesta por el administrador (o la de prueba) despues de entrar: la app solo puede ver quien es y cerrar sesion.
+    // (El login ya no da token en ese caso; esto cubre los tokens de antes de la migracion 013.)
+    $debeCambiarClave = $usuario !== null && ($empleados->estadoClave($usuario->getIdEmpleado())['debeCambiarClave'] ?? false);
 }
 
 $tiendas = new TiendaRepository($db);
@@ -165,6 +169,10 @@ try {
     if ($conToken && $usuario === null) {
         header('WWW-Authenticate: Bearer');
         $fallar(401, 'NO_AUTENTICADO', 'Tu sesión venció o no es válida. Inicia sesión otra vez.');
+        exit;
+    }
+    if ($conToken && $debeCambiarClave && !in_array($ruta, ['v1/auth/yo', 'v1/auth/logout'], true)) {
+        $fallar(403, 'DEBE_CAMBIAR_CLAVE', AuthApiController::MENSAJE_CAMBIO_OBLIGATORIO);
         exit;
     }
 

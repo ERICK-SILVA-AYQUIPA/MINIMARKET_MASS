@@ -92,10 +92,12 @@ Los scripts de `backend/database/` se ejecutan **una sola vez y en este orden** 
 | 11 | `api_movil.sql` | Tablas `api_token` y `api_operacion` de la app Android |
 | 12 | `caja_apertura.sql` | Fondo fijo de cada caja, reglas de caja, arqueos (`arqueo_caja`, `arqueo_detalle`) y esperado y diferencia de cada turno |
 
-Al terminar hay **39 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
+Después de esos 12, se aplican las **migraciones** de `backend/database/migraciones/` (`013_clave_y_sesiones.sql`, ...) con `php backend/scripts/migrar.php`. Cada una se anota en la tabla `migracion_aplicada` con su huella SHA-256, así se sabe qué tiene cada base. Los 12 scripts ya no se cambian: **todo cambio nuevo de la base es una migración nueva** (sección 8).
 
-- **Con Docker**: `docker compose up -d` corre los 12 solo cuando el volumen `mysql_datos` está vacío (la primera vez). Para volver a empezar en una PC de pruebas (**borra los datos**): `docker compose down -v` y `docker compose up -d`.
-- **Sin Docker**: se corren a mano, en el mismo orden (sección 5.2 en Laragon y sección 6.3 en un servidor).
+Al terminar hay **40 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
+
+- **Con Docker**: `docker compose up -d` corre los 12 y las migraciones (`docker/mysql/98_migraciones.sh`) solo cuando el volumen `mysql_datos` está vacío (la primera vez). Para volver a empezar en una PC de pruebas (**borra los datos**): `docker compose down -v` y `docker compose up -d`.
+- **Sin Docker**: se corren a mano, en el mismo orden, y después `migrar.php` (sección 5.2 en Laragon y sección 6.3 en un servidor). `instalar_laragon.sql` ya trae los 12 y las migraciones juntos: **no se edita a mano**, lo arma `php backend/scripts/generar_instalador.php` (las pruebas fallan si se olvida).
 
 ## 5. PCs del equipo (pruebas, no producción)
 
@@ -195,11 +197,19 @@ for f in schema datos boleta login seguridad ajustes auditoria ingresos operacio
 done
 ```
 
-`boleta.sql` imprime tres comprobantes de ejemplo al terminar; es normal. Luego se crea el usuario de la aplicación con solo los permisos que usa:
+`boleta.sql` imprime tres comprobantes de ejemplo al terminar; es normal. Luego se crea el usuario de la aplicación con solo los permisos que usa, y otro solo para las migraciones (cambian tablas, y `mass_app` no puede):
 
 ```sql
 CREATE USER 'mass_app'@'localhost' IDENTIFIED BY 'una_clave_larga';
 GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE ON minimarket_mass.* TO 'mass_app'@'localhost';
+CREATE USER 'mass_migrar'@'localhost' IDENTIFIED BY 'otra_clave_larga';
+GRANT ALL ON minimarket_mass.* TO 'mass_migrar'@'localhost';
+```
+
+y se aplican las migraciones con ese usuario (también en cada actualización, sección 8):
+
+```bash
+sudo -u www-data env DB_USER=mass_migrar DB_PASSWORD='otra_clave_larga' php backend/scripts/migrar.php
 ```
 
 y en `.env` se pone `DB_HOST=localhost` (PHP entra por el socket de MySQL), `DB_PORT=3306`, `DB_USER=mass_app` y esa clave. Con este MySQL, los scripts de respaldo de `backend/scripts/` no sirven (buscan el contenedor `minimarket_mass_db`): ver la última fila de la sección 10.
@@ -240,22 +250,34 @@ sudo git pull origin main
 sudo systemctl reload php8.3-fpm
 ```
 
-Si la versión nueva trae un script nuevo en `backend/database/` (por ejemplo, cuando llegó `caja_apertura.sql`):
+Y después, **siempre**, poner la base al día. No borra datos: aplica en orden las migraciones de `backend/database/migraciones/` que esta base todavía no tiene, y si no falta ninguna no hace nada:
 
-- **Con datos reales**: ejecutar **solo el script nuevo** sobre la base que ya existe. Nunca `schema.sql` ni `instalar_laragon.sql`, que borran la base.
-  - Con Docker: `sudo docker exec -i minimarket_mass_db sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot minimarket_mass' < backend/database/caja_apertura.sql`
-  - Sin Docker: `sudo mysql minimarket_mass < backend/database/caja_apertura.sql`
-- **PC de pruebas, sin datos que cuidar**: `actualizar.bat` (o `bash actualizar.sh`) lo detecta y ofrece recrear la base. A mano: `docker compose down -v` y `docker compose up -d --wait`.
+```bash
+sudo -u www-data php backend/scripts/migrar.php            # con Docker (mass_app puede cambiar tablas)
+sudo -u www-data env DB_USER=mass_migrar DB_PASSWORD='...' php backend/scripts/migrar.php   # MySQL sin Docker (6.3)
+```
 
-Después correr otra vez `verificar_instalacion.php`: si dice que faltan tablas, falta algún script.
+`php backend/scripts/migrar.php --revisar` solo dice qué falta, sin cambiar nada. Si una migración ya aplicada fue editada después, `migrar.php` se detiene y lo dice: una migración aplicada no se cambia, se agrega otra. Nunca correr `schema.sql` ni `instalar_laragon.sql` sobre una base con datos reales: la borran.
+
+En las PCs del equipo, `actualizar.bat` (o `bash actualizar.sh`) ya corre `migrar.php` al final. Solo si cambia uno de los 12 scripts base ofrece recrear la base (borra los datos de prueba).
+
+Para agregar un cambio de la base: un archivo nuevo `backend/database/migraciones/NNN_que_hace.sql` (el número siguiente, sin `USE`), luego `php backend/scripts/generar_instalador.php` para actualizar `instalar_laragon.sql`, y subir los dos en el mismo Pull Request.
+
+Después correr otra vez `verificar_instalacion.php`: revisa también que no falte ninguna migración.
 
 ## 9. Antes de usarlo con datos reales
 
 La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados con la clave `Mass2026!` y ventas de ejemplo). Antes de abrir:
 
 1. Claves de `.env` largas (12 caracteres o más) y distintas.
-2. Cada empleado cambia `Mass2026!` en **Mi clave**, o el administrador le pone una nueva en **Personal**. Desactivar en **Personal** a los empleados de ejemplo que no existen.
-3. Reemplazar los datos de ejemplo: direcciones de las tiendas y precios y códigos de barras del catálogo. Lo más rápido es **Catálogo → Importar CSV** con el archivo de la tienda.
+2. Quitar los datos de ejemplo y dejar solo lo mínimo (roles, unidades, categorías, marcas, distritos, tipos de comprobante, métodos de pago, la tienda 1 con sus cajas y un administrador). Se hace **una sola vez, con la base recién instalada**; si alguien ya cambió su clave, el script no borra nada:
+
+   ```bash
+   sudo -u www-data php backend/scripts/quitar_datos_demo.php --confirmar --dni=40123456 --nombres="Ana" --apellidos="Díaz Flores"
+   ```
+
+   Muestra una clave temporal para ese administrador. Al entrar se le pide cambiarla.
+3. El administrador corrige la tienda (**Tienda → editar**: nombre y dirección reales), carga el catálogo (**Catálogo → Importar CSV**) y registra a su personal en **Personal**. La clave que pone el administrador (al registrar o al reiniciar) es temporal: cada empleado la cambia al entrar, así solo él la sabe y la auditoría prueba quién hizo cada venta.
 4. Programar el respaldo diario (sección 10).
 5. Correr la revisión. No cambia nada; dice qué falta corregir:
 
@@ -263,7 +285,7 @@ La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados 
 sudo -u www-data php backend/scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 39 tablas, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba, que haya un respaldo de las últimas 48 horas y que los respaldos se cifren y se copien fuera del servidor (`RESPALDO_CLAVE` y `RESPALDO_REMOTO`, sección 10). Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 40 tablas, que no falte ninguna migración, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba, que haya un respaldo de las últimas 48 horas y que los respaldos se cifren y se copien fuera del servidor (`RESPALDO_CLAVE` y `RESPALDO_REMOTO`, sección 10). Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
 
 ## 10. Respaldo y restauración
 
@@ -275,7 +297,7 @@ Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `displ
 | Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO` | `sudo bash backend/scripts/restaurar.sh respaldos/ARCHIVO` |
 
 - En Linux van con `sudo` porque usan `docker exec`; el respaldo diario queda en el `crontab` de root y escribe en `respaldos/respaldo.log`. En Windows queda en el Programador de tareas como "Minimarket Mass - respaldo diario" y, si la PC estaba apagada a las 23:00, corre apenas se prenda.
-- El respaldo guarda todo en **un solo archivo**: la base (las 39 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`) y las **fotos de producto** de `frontend/public/img/productos/`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.tar.gz` (o `.tar.gz.gpg` si está cifrado), con la hora del servidor. Restaurar devuelve las dos cosas.
+- El respaldo guarda todo en **un solo archivo**: la base (las 40 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`) y las **fotos de producto** de `frontend/public/img/productos/`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.tar.gz` (o `.tar.gz.gpg` si está cifrado), con la hora del servidor. Restaurar devuelve las dos cosas.
 - Los respaldos antiguos `.sql` (de antes de este cambio, solo la base) se siguen pudiendo restaurar con los mismos scripts; en ese caso las fotos quedan como están.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.

@@ -4,8 +4,9 @@
 # Sirve la primera vez y despues de cada cambio del equipo. Hace, en orden:
 #   1) crea .env desde .env.example si no existe
 #   2) baja lo ultimo de main (git pull), solo si estas en la rama main
-#   3) si cambiaron los scripts de backend/database/, recrea la base (pregunta antes: borra los datos de prueba)
+#   3) si cambiaron los 12 scripts base de backend/database/, recrea la base (pregunta antes: borra los datos de prueba)
 #   4) levanta MySQL y la pagina web + API (docker compose) y espera a que esten listas
+#   5) aplica las migraciones nuevas de backend/database/migraciones/ (no borra datos)
 # En Windows es actualizar.bat (doble clic). Guia: docs/equipo/docker.md
 set -uo pipefail
 cd "$(dirname "$0")"
@@ -56,6 +57,12 @@ fi
 echo "[..] Levantando MySQL y la pagina web (la primera vez tarda unos minutos)..."
 if ! docker compose up -d --build --wait; then
     echo "[ERROR] Algo no levanto. Mira el detalle con: docker compose logs" >&2
+    exit 1
+fi
+
+echo "[..] Aplicando las migraciones nuevas de la base (no borra datos)..."
+if ! docker compose exec -T web php backend/scripts/migrar.php; then
+    echo "[ERROR] No se pudo poner la base al dia. Lee el mensaje de arriba." >&2
     exit 1
 fi
 

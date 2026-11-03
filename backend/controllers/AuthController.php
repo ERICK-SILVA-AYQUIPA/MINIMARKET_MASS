@@ -65,7 +65,13 @@ class AuthController extends Controller
             return;
         }
 
-        $this->sesion->entrar($empleado->getIdEmpleado());
+        $this->intentos->borrarViejos();
+        $this->sesion->entrar($empleado->getIdEmpleado(), $credenciales['versionClave']);
+        if ($credenciales['debeCambiarClave']) {
+            // Clave puesta por el administrador o la de prueba: primero la cambia (public/index.php no deja ir a otra pagina)
+            $this->redirigir('/?ruta=mi_clave', 'Hola, ' . $empleado->getNombres() . '. Antes de seguir, cambia tu clave por una que solo tú sepas.');
+            return;
+        }
         $this->sesion->marcarBienvenida();
         $this->redirigir('/?ruta=inicio', 'Hola, ' . $empleado->getNombres() . '.');
     }
@@ -77,17 +83,17 @@ class AuthController extends Controller
         header('Location: /?ruta=login', true, 303);
     }
 
-    // GET /?ruta=mi_clave
-    public function formularioClave(?string $error = null): void
+    // GET /?ruta=mi_clave. $obligatorio: la clave la puso el administrador (o es la de prueba) y hay que cambiarla
+    public function formularioClave(?string $error = null, bool $obligatorio = false): void
     {
         $this->vista('auth/mi_clave', get_defined_vars());
     }
 
     // POST /?ruta=mi_clave_guardar
-    public function cambiarClave(array $post): void
+    public function cambiarClave(array $post, bool $obligatorio = false): void
     {
         try {
-            $this->servicio->cambiarMiClave(
+            $version = $this->servicio->cambiarMiClave(
                 $this->usuario,
                 $this->campo($post, 'actual'),
                 $this->campo($post, 'nueva'),
@@ -95,9 +101,11 @@ class AuthController extends Controller
             );
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
-            $this->formularioClave($ex->getMessage());
+            $this->formularioClave($ex->getMessage(), $obligatorio);
             return;
         }
-        $this->redirigir('/?ruta=inicio', 'Tu clave fue cambiada.');
+        // Esta sesion sigue abierta; las de otras PCs y la app se cerraron
+        $this->sesion->actualizarVersionClave($version);
+        $this->redirigir('/?ruta=inicio', 'Tu clave fue cambiada. Se cerraron tus sesiones en otras PCs y en la app.');
     }
 }

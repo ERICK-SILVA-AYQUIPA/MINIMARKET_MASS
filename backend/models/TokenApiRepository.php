@@ -57,4 +57,10 @@ class TokenApiRepository
         $this->db->prepare("UPDATE api_token SET revocado = 'S' WHERE token_hash = :hash")
             ->execute(['hash' => hash('sha256', $token)]);
     }
+
+    // Un token vencido ya no sirve para nada (revocado o no): se borra en cada login de la app. Devuelve cuantos borro.
+    public function borrarVencidos(): int
+    {
+        return $this->db->exec('DELETE FROM api_token WHERE fecha_expira < NOW()');
+    }
 }

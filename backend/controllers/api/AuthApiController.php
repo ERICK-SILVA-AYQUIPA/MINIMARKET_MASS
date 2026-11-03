@@ -16,6 +16,8 @@ class AuthApiController extends ApiController
     // El mismo hash de relleno que AuthController: un DNI inexistente tarda lo mismo que una clave errada
     private const HASH_RELLENO = '$2y$10$6Smnl4tMrPrGB3pGyXDm1OWkegngDRho.SdSydahKxDzWJpjAQDf.';
 
+    public const MENSAJE_CAMBIO_OBLIGATORIO = 'Antes de usar la app, cambia tu clave en la página web (menú Mi clave) y vuelve a entrar.';
+
     public function __construct(
         ?Usuario $usuario,
         private EmpleadoRepository $empleados,
@@ -52,6 +54,14 @@ class AuthApiController extends ApiController
             throw new ErrorApi(401, 'CREDENCIALES', 'DNI o clave incorrectos.');
         }
 
+        // Limpieza: tokens vencidos e intentos de mas de 30 dias (las tablas no crecen sin limite)
+        $this->tokens->borrarVencidos();
+        $this->intentos->borrarViejos();
+        // Clave puesta por el administrador (o la de prueba): no se da token hasta que la cambie en la pagina web.
+        // La app muestra este mensaje en la pantalla de login.
+        if ($credenciales['debeCambiarClave']) {
+            throw new ErrorApi(403, 'DEBE_CAMBIAR_CLAVE', self::MENSAJE_CAMBIO_OBLIGATORIO);
+        }
         $sesion = $this->tokens->crear($empleado->getIdEmpleado(), $dispositivo === '' ? null : $dispositivo);
         return ['token' => $sesion['token'], 'expira' => $sesion['expira'], 'usuario' => $this->perfil($empleado)];
     }

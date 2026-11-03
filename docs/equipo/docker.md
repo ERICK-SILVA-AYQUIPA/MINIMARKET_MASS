@@ -36,8 +36,9 @@ La primera vez tarda unos minutos (descarga MySQL y PHP y crea la base con los 1
 Otra vez **doble clic en `actualizar.bat`** (o `bash actualizar.sh`). Hace todo solo:
 
 1. Si estás en la rama `main`, baja lo último de GitHub (`git pull`).
-2. Revisa si cambió algún script de la base (`backend/database/*.sql`). Si cambió, **pregunta si recrea la base**: responde **S** (Enter). Se borran los datos de prueba de tu PC y se cargan otra vez los de GitHub, así todos quedamos con la misma base.
+2. Revisa si cambió alguno de los 12 scripts base (`backend/database/*.sql`). Si cambió, **pregunta si recrea la base**: responde **S** (Enter). Se borran los datos de prueba de tu PC y se cargan otra vez los de GitHub, así todos quedamos con la misma base.
 3. Reconstruye PHP si cambió su configuración (`docker/web/Dockerfile`) y levanta todo.
+4. Aplica las **migraciones** nuevas (`backend/database/migraciones/`) con `backend/scripts/migrar.php`. Estas no borran nada: tus datos de prueba se quedan.
 
 Si estás trabajando en tu propia rama, el script no baja nada (te avisa). Para traer lo del equipo a tu rama: `git checkout main`, doble clic en `actualizar.bat`, y luego `git checkout tu-rama` y `git merge main`.
 
@@ -72,7 +73,7 @@ Desde la carpeta del proyecto:
 
 ## 6. Reglas para que todos sigamos iguales
 
-- **Un cambio en la base se hace en `backend/database/`** (en el script que corresponde) y se sube con Pull Request. Si lo haces a mano en HeidiSQL, solo lo tendrás tú. Al subirlo, a los demás `actualizar.bat` les recrea la base sola.
+- **Un cambio en la base es una migración nueva**: `backend/database/migraciones/NNN_que_hace.sql` (el número siguiente), luego `php backend/scripts/generar_instalador.php` y se suben los dos con Pull Request. No se editan los 12 scripts base ni una migración que ya se subió. Si lo haces a mano en HeidiSQL, solo lo tendrás tú. Al subirlo, a los demás `actualizar.bat` se la aplica sin borrar sus datos.
 - **No cambies versiones** de `docker-compose.yml` ni de `docker/web/Dockerfile` sin avisar al equipo y sin Pull Request: son lo que hace que todos tengamos lo mismo.
 - **El `.env` nunca se sube** a GitHub (ya está en `.gitignore`). Cada uno tiene el suyo, creado desde `.env.example`. Si `.env.example` trae una línea nueva, `actualizar.bat` no toca tu `.env`: copia esa línea a tu `.env` a mano.
 - Antes de hacer Pull Request, corre las pruebas (sección 5) con la base recién creada.

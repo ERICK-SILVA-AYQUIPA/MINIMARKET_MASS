@@ -10,6 +10,8 @@ class IntentoLoginRepository
     public const MINUTOS = 15;
     public const MAXIMO_POR_DNI = 5;
     public const MAXIMO_POR_IP = 20;
+    // Los intentos de mas de 30 dias ya no sirven para el bloqueo: se borran para que la tabla no crezca sin limite
+    public const DIAS_GUARDADOS = 30;
 
     public function __construct(private PDO $db) {}
 
@@ -38,5 +40,11 @@ class IntentoLoginRepository
     {
         $this->db->prepare('INSERT INTO intento_login (dni, ip, fecha_hora, exito) VALUES (:dni, :ip, NOW(), :exito)')
             ->execute(['dni' => $dni, 'ip' => substr($ip, 0, 45), 'exito' => $exito ? 'S' : 'N']);
+    }
+
+    // Se llama en cada ingreso correcto (web y app). Devuelve cuantas filas borro.
+    public function borrarViejos(): int
+    {
+        return $this->db->exec('DELETE FROM intento_login WHERE fecha_hora < NOW() - INTERVAL ' . self::DIAS_GUARDADOS . ' DAY');
     }
 }

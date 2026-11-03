@@ -41,7 +41,9 @@ POST /api/v1/auth/login   {"dni": "70000002", "clave": "...", "dispositivo": "Pi
 → {"token": "...", "expira": "2026-10-30 22:10:00", "usuario": {...perfil, permisos}}
 ```
 
-El token se manda en cada pedido como `Authorization: Bearer <token>`. Vence a las 12 horas y en la base solo se guarda su SHA-256. Si el empleado pasa a inactivo, el token deja de servir al instante.
+El token se manda en cada pedido como `Authorization: Bearer <token>`. Vence a las 12 horas y en la base solo se guarda su SHA-256. Si el empleado pasa a inactivo, o cambia su clave, o el administrador se la reinicia, el token deja de servir al instante (401). En cada login se borran los tokens vencidos.
+
+Si la clave la puso el administrador (al registrar o reiniciar en **Personal**) o es la de prueba, el login responde **403 `DEBE_CAMBIAR_CLAVE`** sin token: el empleado la cambia primero en la página web (**Mi clave**) y vuelve a entrar en la app.
 
 | Ruta | Qué hace |
 |---|---|

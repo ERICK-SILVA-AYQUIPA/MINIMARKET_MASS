@@ -46,13 +46,39 @@ final class Sesion
         return $id;
     }
 
-    // Despues del login se cambia el id de sesion (evita robar una sesion fijada antes)
-    public function entrar(int $idEmpleado): void
+    /**
+     * Despues del login se cambia el id de sesion (evita robar una sesion fijada antes).
+     * Se guarda la version de la clave con la que entro: si la clave cambia, esta sesion deja de valer.
+     */
+    public function entrar(int $idEmpleado, int $versionClave): void
     {
         session_regenerate_id(true);
         $_SESSION['id_empleado'] = $idEmpleado;
+        $_SESSION['version_clave'] = $versionClave;
         $_SESSION['ultima_actividad'] = time();
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
+    }
+
+    // Version de la clave con la que se entro (null en una sesion de antes de esta revision)
+    public function versionClave(): ?int
+    {
+        $version = $_SESSION['version_clave'] ?? null;
+        return is_int($version) ? $version : null;
+    }
+
+    // Quien cambia su propia clave sigue en esta sesion; las de otras PCs se cierran
+    public function actualizarVersionClave(int $versionClave): void
+    {
+        session_regenerate_id(true);
+        $_SESSION['version_clave'] = $versionClave;
+    }
+
+    // La clave cambio en otra PC (o la reinicio el administrador): se sale y se pide el login con la clave nueva
+    public function cerrarPorClaveCambiada(): void
+    {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        $this->avisar('error', 'Tu clave cambió, así que se cerró esta sesión. Ingresa con la clave nueva.');
     }
 
     public function salir(): void

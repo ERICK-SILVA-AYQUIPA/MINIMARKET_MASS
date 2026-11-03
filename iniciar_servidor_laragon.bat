@@ -51,6 +51,11 @@ if errorlevel 1 (
     echo.
 )
 
+:: 4b. Migraciones nuevas de la base (backend\database\migraciones\): se agregan sin borrar datos
+echo [INFO] Aplicando las migraciones nuevas de la base...
+"%PHP_CMD%" backend\scripts\migrar.php
+echo.
+
 :: 5. Abrir navegador
 echo [INFO] Abriendo http://localhost:8000 en tu navegador...
 start http://localhost:8000

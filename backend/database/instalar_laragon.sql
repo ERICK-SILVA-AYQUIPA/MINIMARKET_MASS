@@ -1,11 +1,12 @@
 /* ========================================================
    BASE DE DATOS COMPLETA PARA LARAGON - MINIMARKET MASS
-   Ejecuta este unico archivo en HeidiSQL / phpMyAdmin.
-   Incluye, en este orden: schema, datos, boleta, login, seguridad,
-   ajustes, auditoria, ingresos, operaciones (devoluciones, retiros de
-   caja y por vencer), catalogo (94 productos con su stock), api_movil
-   (sesiones y reintentos de la app Android) y caja_apertura (fondo fijo,
-   arqueo por billetes y monedas, reglas y revision de cierres de caja).
+   Ejecuta este unico archivo en HeidiSQL / phpMyAdmin. BORRA la base
+   minimarket_mass y la crea otra vez con los datos de ejemplo.
+   Para una base que ya tiene datos: php backend/scripts/migrar.php
+
+   NO SE EDITA A MANO: lo arma backend/scripts/generar_instalador.php
+   con los 12 scripts de backend/database/ (schema, datos, boleta, login, seguridad, ajustes, auditoria, ingresos, operaciones, catalogo, api_movil, caja_apertura)
+   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql).
    ======================================================== */
 
 -- >>> INICIO DE database/schema.sql <<<
@@ -751,7 +752,7 @@ INSERT INTO movimiento_stock (id_movimiento, fecha_hora, cantidad, stock_nuevo, 
     (40, '2026-10-19 11:30:00', 3.000, 57.000, NULL, 2, 8, 1, 5, 14, NULL, NULL);
 
 
--- >>> INICIO DE database/boleta (1).sql <<<
+-- >>> INICIO DE database/boleta.sql <<<
 /* =====================================================================
    MINIMARKET MASS - boleta.sql
    Obtiene la informacion de un comprobante de venta (boleta o factura) a partir de
@@ -2145,6 +2146,7 @@ INSERT INTO movimiento_stock (fecha_hora, cantidad, stock_nuevo, observacion, id
 UPDATE stock SET stock_minimo = 36.000 WHERE id_tienda = 1 AND id_producto IN (43, 60);
 UPDATE stock SET stock_minimo = 30.000 WHERE id_tienda = 1 AND id_producto = 19;
 
+
 -- >>> INICIO DE database/api_movil.sql <<<
 /* =====================================================================
    MINIMARKET MASS - api_movil.sql
@@ -2195,6 +2197,7 @@ CREATE TABLE api_operacion (
     CONSTRAINT ck_api_operacion_tipo CHECK (tipo IN ('VENTA','INGRESO')),
     CONSTRAINT fk_api_operacion_empleado FOREIGN KEY (id_empleado) REFERENCES empleado (id_empleado)
 ) ENGINE=InnoDB;
+
 
 -- >>> INICIO DE database/caja_apertura.sql <<<
 /* =====================================================================
@@ -2343,3 +2346,59 @@ INSERT INTO arqueo_detalle (id_arqueo, denominacion, cantidad)
       FROM arqueo_caja a
       JOIN (SELECT 50.00 AS denominacion, 1 AS cantidad UNION ALL SELECT 20.00, 2 UNION ALL SELECT 5.00, 2) d
      WHERE a.tipo = 'APERTURA' AND a.monto_contado = 100.00;
+
+
+-- >>> INICIO DE database/migracion_aplicada.sql <<<
+/* =====================================================================
+   MINIMARKET MASS - migracion_aplicada.sql
+   Registro de las migraciones de backend/database/migraciones/ que ya se aplicaron a esta base.
+   No es parte del negocio de la tienda: es una tabla de apoyo para actualizar sin borrar datos.
+
+   - La crean solos backend/scripts/migrar.php, docker/mysql/98_migraciones.sh e instalar_laragon.sql.
+   - checksum: SHA-256 del archivo (sin los \r de Windows). Si el archivo cambia despues
+     de aplicarse, migrar.php avisa: una migracion aplicada no se edita, se agrega otra.
+   ===================================================================== */
+
+CREATE TABLE IF NOT EXISTS migracion_aplicada (
+    nombre   VARCHAR(100) NOT NULL,                  -- 013_clave_y_sesiones.sql
+    fecha    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    checksum CHAR(64)     NOT NULL,                  -- SHA-256 en hexadecimal
+    CONSTRAINT pk_migracion_aplicada PRIMARY KEY (nombre)
+) ENGINE=InnoDB;
+
+
+-- >>> INICIO DE database/migraciones/013_clave_y_sesiones.sql <<<
+/* =====================================================================
+   MINIMARKET MASS - migracion 013: la clave cierra las sesiones viejas (issue #81)
+
+   - version_clave: sube en 1 cada vez que cambia la clave. La sesion web guarda la version
+     con la que entro; si ya no coincide, esa sesion (en otra PC) se cierra sola.
+     Al cambiar la clave tambien se revocan los tokens de la app Android (api_token).
+   - debe_cambiar_clave: S = la clave la puso el administrador (alta o reinicio en Personal)
+     o es la clave de prueba. La web y la app no dejan hacer nada hasta cambiarla en "Mi clave".
+     Los empleados que aun tienen la clave de prueba de login.sql (Mass2026!) quedan en S.
+   - Indices por fecha para borrar rapido los intentos de login viejos y los tokens vencidos.
+   ===================================================================== */
+
+ALTER TABLE empleado
+    ADD COLUMN version_clave      INT UNSIGNED NOT NULL DEFAULT 1   AFTER clave_hash,
+    ADD COLUMN debe_cambiar_clave CHAR(1)      NOT NULL DEFAULT 'N' AFTER version_clave,
+    ADD CONSTRAINT ck_empleado_debe_cambiar CHECK (debe_cambiar_clave IN ('S','N'));
+
+-- Los hashes exactos de login.sql: si siguen iguales, el empleado nunca cambio Mass2026!
+UPDATE empleado SET debe_cambiar_clave = 'S'
+ WHERE clave_hash IN (
+    '$2y$10$IE8mL3pk9V7jxYkBP9EN3.C9ofys8baJqrxt289P9dIaQEFK6TevO',
+    '$2y$10$WRwCYpn7GBvmL/m8Mhe3v.aa56ljLxPB7w6qQlo3fqK65ZXONx7kS',
+    '$2y$10$4U.5y5.qaLxkiqW3WqNMae5b4W9NwYy.LZD0YglX9U7xriTWNvaua',
+    '$2y$10$/tqDVxhMXlqVf5hCoJebTOytNAtXXYuRB925Q1CMWg01Bfq7bdM3e',
+    '$2y$10$W/1jF8Bi2RO/GHmJk9OGheyjy1uvQh/CK9viXBgTAuyaQw16BQkEW',
+    '$2y$10$0lieQr.d.JWbTd7SmbMaDuTmdygxJJ5qWe0PkKq8i7KIIwHsor7J2',
+    '$2y$10$mUf.9ZPJaPNno2k2KGf3w.59rbdrqiWR9iZNcJ1WGqgAl1wIANgRW',
+    '$2y$10$iEb4kWZyjDQOpz5FqMY/P.MSQX9u9Es6zDwk5XF7HREqT35IJ6MMy',
+    '$2y$10$TIgha9AvDR/eT/JzAHbyI.PufIpKh5AZv6.C6GPbfUtDbAjELpDke'
+ );
+
+ALTER TABLE intento_login ADD INDEX ix_intento_fecha (fecha_hora);
+ALTER TABLE api_token ADD INDEX ix_api_token_expira (fecha_expira);
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('013_clave_y_sesiones.sql', NOW(), 'b6bd1d584f0dadc0c5adaa3c2900c7c69d9292036110501eedd0db5ab0b8fa1d');
