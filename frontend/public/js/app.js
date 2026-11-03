@@ -107,20 +107,32 @@
 
     const casillaMenu = $('#menu-casilla');
     if (casillaMenu !== null) {
-        const etiqueta = $('label[for=menu-casilla]');
-        const actualizar = () => {
-            if (etiqueta) {
-                etiqueta.setAttribute('aria-expanded', casillaMenu.checked ? 'true' : 'false');
-            }
-        };
-        casillaMenu.addEventListener('change', actualizar);
-        actualizar();
+        // El lector de pantalla ya sabe si el menu esta abierto: la casilla "Abrir el menú" dice si esta marcada.
+        // (aria-expanded en el <label> no vale: axe lo marca como atributo no permitido)
         // Elegir una opcion cierra el menu
         $$('#menu-lateral nav a').forEach((a) => a.addEventListener('click', () => {
             casillaMenu.checked = false;
-            actualizar();
         }));
     }
+
+    // ---------- Tablas anchas: que se puedan desplazar con el teclado ----------
+
+    // Si la tabla no entra (celular), el recuadro se desplaza: con tabindex se enfoca y se mueve con las flechas
+    const revisarTablas = () => {
+        $$('.tabla').forEach((caja) => {
+            const desborda = caja.scrollWidth > caja.clientWidth;
+            if (desborda && !caja.hasAttribute('tabindex')) {
+                const titulo = caja.querySelector('caption')?.textContent.trim() || 'Tabla';
+                caja.setAttribute('tabindex', '0');
+                caja.setAttribute('role', 'region');
+                caja.setAttribute('aria-label', titulo + ' (se desplaza a los lados)');
+            } else if (!desborda && caja.getAttribute('role') === 'region') {
+                ['tabindex', 'role', 'aria-label'].forEach((nombre) => caja.removeAttribute(nombre));
+            }
+        });
+    };
+    revisarTablas();
+    window.addEventListener('resize', revisarTablas);
 
     // ---------- Buscador en vivo y filtro por categoria (tabla o tarjetas) ----------
 
