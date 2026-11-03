@@ -773,5 +773,37 @@
         }
     });
 
+    // ---------- Pestañas de Productos y Movimientos ----------
+    // Productos y Movimientos del menu llevan a la ultima pestaña que se uso (se recuerda en este navegador),
+    // y en el celular la pestaña elegida queda a la vista aunque la fila sea mas ancha que la pantalla.
+    // La clave lleva el usuario: en una PC compartida cada empleado tiene sus pestañas (y sus permisos)
+    const clavePestana = (grupo) => 'pestana:' + (document.documentElement.dataset.usuario || '') + ':' + grupo;
+    const pestanas = $('nav.pestanas-seccion');
+    if (pestanas !== null) {
+        const actual = $('a[aria-current]', pestanas);
+        if (actual !== null) {
+            try {
+                localStorage.setItem(clavePestana(pestanas.dataset.pestanas), actual.getAttribute('href'));
+            } catch (e) {
+                // Sin almacenamiento el menu lleva a la primera pestaña, como sin JavaScript
+            }
+            const lista = $('.pestanas-lista', pestanas);
+            if (lista.scrollWidth > lista.clientWidth) {
+                lista.scrollLeft = actual.offsetLeft - (lista.clientWidth - actual.offsetWidth) / 2;
+            }
+        }
+    }
+    $$('.lateral nav a[data-pestanas]').forEach((opcion) => {
+        try {
+            const ultima = localStorage.getItem(clavePestana(opcion.dataset.pestanas));
+            // Solo una ruta interna simple (/?ruta=...), por si alguien escribio otra cosa en el almacenamiento
+            if (ultima !== null && /^\/\?ruta=[a-z_]+$/.test(ultima)) {
+                opcion.setAttribute('href', ultima);
+            }
+        } catch (e) {
+            // Sin almacenamiento queda el enlace del servidor
+        }
+    });
+
     enfocarDrawer();
 }());

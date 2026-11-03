@@ -862,14 +862,51 @@ form.formulario .selector-barra input:focus-visible { outline: 0; }
 .producto-venta-nombre { grid-column: 2; overflow-wrap: anywhere; }
 .rejilla-venta { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
-/* ---------- Pestañas de Productos y Movimientos (el menú de Inventario va en dos opciones) ---------- */
+/* ---------- Inventario en dos opciones: pestañas de Productos y Movimientos ---------- */
 .pestanas-seccion {
-    display: flex; gap: 4px; padding: 4px; margin: 0 0 var(--e4); border-radius: 999px; background: var(--gris-fondo);
-    width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none;
+    display: flex; align-items: center; gap: var(--e3); flex-wrap: wrap;
+    margin: calc(-1 * var(--e2)) 0 var(--e5); padding-bottom: var(--e3); border-bottom: 1px solid var(--borde);
 }
-.pestanas-seccion::-webkit-scrollbar { display: none; }
-.pestanas-seccion a { padding: 8px 16px; border-radius: 999px; font-weight: 600; color: var(--gris); text-decoration: none; white-space: nowrap; }
-.pestanas-seccion a:hover { color: var(--tinta); }
-.pestanas-seccion a[aria-current] { background: var(--superficie); color: var(--tinta); box-shadow: var(--sombra); }
-@media (max-width: 960px) { .pestanas-seccion { margin-bottom: var(--e3); } }
+.pestanas-rotulo {
+    font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); white-space: nowrap;
+}
+.pestanas-rotulo span { margin: 0 6px; color: var(--borde-fuerte); }
+.pestanas-lista {
+    display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--gris-fondo);
+    max-width: 100%; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth;
+}
+.pestanas-lista::-webkit-scrollbar { display: none; }
+.pestanas-lista a {
+    position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px;
+    font-weight: 600; color: var(--gris); text-decoration: none; white-space: nowrap; transition: background-color .15s, color .15s, box-shadow .15s;
+}
+.pestanas-lista a .icono { width: 17px; height: 17px; opacity: .75; }
+.pestanas-lista a:hover { color: var(--tinta); background: rgba(255, 255, 255, .55); }
+.pestanas-lista a[aria-current] { background: var(--superficie); color: var(--tinta); box-shadow: var(--sombra); }
+.pestanas-lista a[aria-current] .icono { opacity: 1; color: var(--tinta); }
+.pestanas-lista a[aria-current]::after {
+    content: ""; position: absolute; left: 14px; right: 14px; bottom: 2px; height: 2px; border-radius: 2px; background: var(--marca-fuerte);
+}
+.pestana-cuenta, .menu-cuenta {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+    font-size: .72rem; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.pestana-cuenta { background: var(--rojo-fondo); color: var(--rojo); }
+.pestana-cuenta.reponer { background: var(--ambar-fondo); color: var(--ambar); }
+.lateral nav a .menu-cuenta { margin-left: auto; background: #e5484d; color: #fff; box-shadow: 0 0 0 2px rgba(229, 72, 77, .25); }
+.lateral nav a.activo .menu-cuenta { background: var(--tinta); color: var(--marca); box-shadow: none; }
+@media (min-width: 961px) {
+    /* Menu plegado a iconos: el numero queda como un punto sobre el icono */
+    [data-menu="iconos"] .lateral nav a, [data-menu="auto"] .lateral:not(:hover):not(:focus-within) nav a { position: relative; }
+    [data-menu="iconos"] .lateral nav a .menu-cuenta,
+    [data-menu="auto"] .lateral:not(:hover):not(:focus-within) nav a .menu-cuenta {
+        position: absolute; top: 4px; right: 12px; min-width: 0; width: 9px; height: 9px; padding: 0; font-size: 0; margin: 0;
+    }
+}
+@media (max-width: 960px) {
+    .pestanas-seccion { margin-top: 0; gap: var(--e2); }
+    .pestanas-rotulo { display: none; }
+    .pestanas-lista { width: 100%; }
+    .pestanas-lista a { padding: 7px 12px; }
+}
 @media print { .pestanas-seccion { display: none !important; } }
