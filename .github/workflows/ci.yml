@@ -1,6 +1,10 @@
-# Revision automatica en cada push y pull request:
-# 1) sintaxis de todos los .php, 2) pruebas unitarias, 3) revision de seguridad del codigo,
-# 4) pruebas web por rol, 5) pruebas de integracion y 6) API de la app Android, contra MySQL en Docker.
+# Revision automatica en cada push y pull request. Tres trabajos que corren a la vez:
+# - pruebas: sintaxis de todos los .php, pruebas unitarias, revision de seguridad del codigo, pruebas web por rol,
+#   pruebas de integracion, API de la app Android (contra MySQL en Docker) y, al final, la prueba de restauracion
+#   (respaldo -> se borra todo -> restaurar -> verificar_instalacion.php).
+# - analisis: PHPStan nivel 5 (solo falla con errores nuevos: los que ya habia estan en phpstan-baseline.neon)
+#   y que los scripts .ps1 y .sh se puedan leer.
+# - android: pruebas de la app (CarritoTest, CodigoLeidoTest...) y el APK de prueba, que queda para descargar.
 name: CI
 
 on:
@@ -51,6 +55,83 @@ jobs:
       - name: Pruebas de la API de la app Android
         run: php backend/tests/api.php
 
+      # Al final: borra la base del contenedor (docker compose down -v) y la devuelve desde el respaldo
+      - name: Prueba de restauracion (respaldo, se borra todo, restaurar, verificar)
+        run: bash backend/tests/restauracion.sh
+
       - name: Log de MySQL si algo fallo
         if: failure()
         run: docker compose logs mysql | tail -n 80
+
+  analisis:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PHPSTAN_VERSION: 2.1.31
+      PHPSTAN_SHA256: f9b7ebabd110dcf628c8f62f7a974b07b54cb0bb62cf9142d8db17dbc6cd39fc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, gd
+          coverage: none
+
+      # Sin Composer: se baja el .phar de la version fija y se comprueba que sea ese archivo
+      - name: PHPStan nivel 5
+        run: |
+          curl -sSfL -o phpstan.phar "https://github.com/phpstan/phpstan/releases/download/${PHPSTAN_VERSION}/phpstan.phar"
+          echo "${PHPSTAN_SHA256}  phpstan.phar" | sha256sum -c -
+          php phpstan.phar analyse --memory-limit=1G --no-progress --error-format=github
+
+      - name: Sintaxis de los scripts .sh
+        run: find . -name '*.sh' -not -path './android-app/*' -print0 | xargs -0 -n1 bash -n
+
+      - name: Sintaxis de los scripts .ps1
+        shell: pwsh
+        run: |
+          $malos = 0
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $errores = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errores) | Out-Null
+            foreach ($e in $errores) { Write-Host "::error file=$($_.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"; $malos++ }
+          }
+          if ($malos -gt 0) { exit 1 }
+
+  android:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # Guarda las librerias de Gradle entre corridas (la segunda vez tarda mucho menos)
+      - uses: gradle/actions/setup-gradle@v4
+
+      # El SDK de Android ya viene instalado en ubuntu-24.04 (ANDROID_HOME)
+      - name: Pruebas de la app y APK de prueba
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+
+      - name: Subir el APK de prueba
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimarket-mass-debug-apk
+          path: android-app/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Subir el informe de pruebas si algo fallo
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-pruebas-android
+          path: android-app/app/build/reports/tests/
+          retention-days: 7

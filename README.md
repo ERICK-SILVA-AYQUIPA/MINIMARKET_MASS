@@ -253,29 +253,35 @@ Cada operación escribe en MySQL dentro de una **transacción** (`backend/models
 
 Seguridad del ingreso: con 5 claves erradas seguidas, ese DNI espera 15 minutos (`backend/database/seguridad.sql`); la sesión se cierra sola tras 30 minutos sin uso; y las páginas no ejecutan ningún script (cabecera `Content-Security-Policy`). Detalle en `docs/seguridad.md`.
 
-**Respaldo**: `powershell -ExecutionPolicy Bypass -File backend\scripts\respaldo.ps1` guarda una copia completa en `respaldos/` (no se sube a GitHub). `backend\scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
+**Respaldo**: `powershell -ExecutionPolicy Bypass -File backend\scripts\respaldo.ps1` guarda la base y las fotos de producto en un solo archivo en `respaldos/` (no se sube a GitHub); con `RESPALDO_CLAVE` y `RESPALDO_REMOTO` en `.env` lo cifra y lo copia fuera de la PC. `backend\scripts\programar_respaldo.ps1` lo deja diario a las 23:00 y se guardan los últimos 30. Para restaurar o publicarlo en un servidor con HTTPS, ver `docs/despliegue.md`. El uso de cada pantalla está en `docs/manual_usuario.md`.
 
-**Fotos de producto**: el administrador las sube desde la ficha del producto. Se guardan como archivo en `frontend/public/img/productos/` (no van en la base ni en GitHub), así que esa carpeta se copia junto con el respaldo. PHP necesita la extensión **gd** (en Laragon y XAMPP ya viene activa).
+**Fotos de producto**: el administrador las sube desde la ficha del producto. Se guardan como archivo en `frontend/public/img/productos/` (no van en la base ni en GitHub); el respaldo las incluye. PHP necesita la extensión **gd** (en Laragon y XAMPP ya viene activa).
 
 **Importante:** `login.sql` agrega la columna `clave_hash`, `seguridad.sql` la tabla `intento_login`, `ajustes.sql` el ajuste por conteo, `auditoria.sql` la bitácora, `ingresos.sql` el ingreso de mercadería, `operaciones.sql` las devoluciones, los retiros de caja y los vencimientos, `catalogo.sql` los 94 productos de ejemplo, y `schema.sql` corrigió el largo de `producto.estado`. Si su contenedor se creó antes, hay que recrearlo para que corra (se pierden los datos de prueba que hayan cambiado):
 
 ```powershell
 docker compose down -v
 docker compose up -d
-php backend/tests/integracion.php   # 171 comprobaciones; solo con la base recién creada
+php backend/tests/integracion.php   # solo con la base recién creada
 ```
 
 ### Pruebas y revisión automática
 
 ```powershell
-php backend/tests/unitarios.php     # 87 comprobaciones de las clases del modelo, sin base de datos (1 segundo)
-php backend/tests/seguridad.php     # 19 comprobaciones leyendo el código: CSRF en los 30 formularios, escapado, SQL preparado y JavaScript seguro
-php backend/tests/web.php           # 160 comprobaciones por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
-php backend/tests/integracion.php   # 171 comprobaciones contra MySQL, con la base recién creada
-php backend/tests/api.php           # 81 comprobaciones de la API de la app Android, con la base recién creada
+php backend/tests/unitarios.php     # las clases del modelo, sin base de datos (1 segundo)
+php backend/tests/seguridad.php     # leyendo el código: CSRF en todos los formularios, escapado, SQL preparado y JavaScript seguro
+php backend/tests/web.php           # por HTTP: cada rol, CSRF, 403, 404, 405, 422, escapado, paneles laterales y fotos de producto
+php backend/tests/integracion.php   # contra MySQL, con la base recién creada
+php backend/tests/api.php           # la API de la app Android, con la base recién creada
 ```
 
-En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`): la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web, las de integración y las de la API de la app contra un MySQL 8.4.11 nuevo.
+Cada archivo dice al final cuántas comprobaciones pasaron (no se anotan aquí porque cambian con cada función nueva).
+
+En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflows/ci.yml`):
+
+- **pruebas**: la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web, las de integración y las de la API de la app contra un MySQL 8.4.11 nuevo y, al final, la **prueba de restauración** (`backend/tests/restauracion.sh`: respaldo cifrado, se borra todo, se restaura y se comprueba que la base y las fotos queden iguales).
+- **analisis**: [PHPStan](https://phpstan.org) nivel 5 sobre `backend/` y `frontend/public/`, sin Composer. Los avisos que ya había están en `phpstan-baseline.neon`, así que solo falla con errores nuevos. En tu PC: bajar `phpstan.phar` de sus [releases](https://github.com/phpstan/phpstan/releases) y correr `php phpstan.phar analyse --memory-limit=1G`.
+- **android**: `./gradlew testDebugUnitTest assembleDebug`, es decir, las pruebas de la app (`CarritoTest`, `CodigoLeidoTest`…) y el APK de prueba. El APK queda para descargar 14 días en la corrida de **Actions** (sección *Artifacts*, `minimarket-mass-debug-apk`).
 
 `backend/tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
 

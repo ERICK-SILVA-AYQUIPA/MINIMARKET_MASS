@@ -3,7 +3,7 @@
 Este documento dice qué protege la aplicación, dónde está en el código y qué prueba lo comprueba. Lo más importante es que **no depende de revisar a mano**: `backend/tests/seguridad.php` lee todo el código y falla si alguien agrega un formulario sin token, una salida sin escapar o un SQL armado con datos de afuera. Corre en cada push de GitHub (`.github/workflows/ci.yml`).
 
 ```powershell
-php backend/tests/seguridad.php    # 19 comprobaciones, sin base de datos, en menos de 1 segundo
+php backend/tests/seguridad.php    # sin base de datos, en menos de 1 segundo
 ```
 
 ## 1. Resumen de lo comprobado
