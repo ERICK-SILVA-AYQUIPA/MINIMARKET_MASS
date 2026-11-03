@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../models/TiendaRepository.php';
 require_once __DIR__ . '/../models/Usuario.php';
 require_once __DIR__ . '/../models/ReglaNegocioException.php';
+require_once __DIR__ . '/../models/CeldaCsv.php';
 require_once __DIR__ . '/../config/Sesion.php';
 
 /**
@@ -140,7 +141,8 @@ abstract class Controller
 
     /**
      * Descarga un CSV que Excel abre bien (BOM UTF-8 para las tildes).
-     * Un texto que empieza con = + - @ (o tabulador / retorno) se abre en Excel como formula: se le antepone un apostrofo.
+     * Cada celda pasa por CeldaCsv::segura(): un texto que Excel tomaria como formula lleva un apostrofo delante,
+     * y un numero (tambien negativo) se deja como numero para que se pueda sumar.
      * @param string[] $encabezado
      * @param iterable<array<int|string, mixed>> $filas
      */
@@ -152,10 +154,7 @@ abstract class Controller
         fwrite($salida, "\xEF\xBB\xBF");
         fputcsv($salida, $encabezado, ',', '"', '');
         foreach ($filas as $fila) {
-            fputcsv($salida, array_map(
-                fn($v): string => preg_match('/^[=+\-@\t\r]/', (string) $v) === 1 ? "'" . $v : (string) $v,
-                array_values($fila)
-            ), ',', '"', '');
+            fputcsv($salida, array_map(CeldaCsv::segura(...), array_values($fila)), ',', '"', '');
         }
         fclose($salida);
     }

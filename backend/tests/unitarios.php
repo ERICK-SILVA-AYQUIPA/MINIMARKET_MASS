@@ -26,6 +26,7 @@ require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
+require __DIR__ . '/../models/CeldaCsv.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 
@@ -219,6 +220,17 @@ revisar('Catálogo y nuevas tiendas: solo administradores', $rosa->puedeAdminist
 revisar('El DNI se muestra oculto', $rosa->dniOculto() === '*****001');
 rechazaDato('DNI de 7 dígitos no', fn() => new Cajero(10, 'A', 'B', '1234567', 'ACTIVO', 1));
 rechazaDato('Estado desconocido no', fn() => new Cajero(10, 'A', 'B', '12345678', 'SUSPENDIDO', 1));
+
+echo "Celdas de los CSV que se descargan (issue #85)\n";
+revisar('Salida del kárdex "-5.000" queda como número', CeldaCsv::segura('-5.000') === '-5.000');
+revisar('Entero negativo -3 queda como número', CeldaCsv::segura(-3) === '-3');
+revisar('Decimal 12.50 y 0 quedan igual', CeldaCsv::segura('12.50') === '12.50' && CeldaCsv::segura(0) === '0');
+revisar('Fórmula "=1+1" lleva apóstrofo', CeldaCsv::segura('=1+1') === "'=1+1");
+revisar('"-2+3" no es un número: lleva apóstrofo', CeldaCsv::segura('-2+3') === "'-2+3");
+revisar('"-1e3" no es un número: lleva apóstrofo', CeldaCsv::segura('-1e3') === "'-1e3");
+revisar('"-5\n=HYPERLINK(...)" no pasa como número', CeldaCsv::segura("-5\n=HYPERLINK(\"x\")") === "'-5\n=HYPERLINK(\"x\")");
+revisar('"+51 999" y "@SUMA" llevan apóstrofo', CeldaCsv::segura('+51 999') === "'+51 999" && CeldaCsv::segura('@SUMA') === "'@SUMA");
+revisar('Texto normal y null quedan igual', CeldaCsv::segura('Arroz Costeño') === 'Arroz Costeño' && CeldaCsv::segura(null) === '');
 
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);
