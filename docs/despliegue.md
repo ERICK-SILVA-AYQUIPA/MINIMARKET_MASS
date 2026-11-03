@@ -285,7 +285,7 @@ La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados 
 sudo -u www-data php backend/scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 40 tablas, que no falte ninguna migración, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba y que haya un respaldo de las últimas 48 horas. Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 40 tablas, que no falte ninguna migración, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba, que haya un respaldo de las últimas 48 horas y que los respaldos se cifren y se copien fuera del servidor (`RESPALDO_CLAVE` y `RESPALDO_REMOTO`, sección 10). Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
 
 ## 10. Respaldo y restauración
 
@@ -294,31 +294,62 @@ Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `displ
 | Sacar respaldo | `powershell -ExecutionPolicy Bypass -File backend\scripts\respaldo.ps1` | `sudo bash backend/scripts/respaldo.sh` |
 | Programar el diario (23:00) | `powershell -ExecutionPolicy Bypass -File backend\scripts\programar_respaldo.ps1` | `sudo bash backend/scripts/programar_respaldo.sh` |
 | Quitar el diario | `... programar_respaldo.ps1 -Quitar` | `sudo bash backend/scripts/programar_respaldo.sh quitar` |
-| Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO.sql` | `sudo bash backend/scripts/restaurar.sh respaldos/ARCHIVO.sql` |
+| Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO` | `sudo bash backend/scripts/restaurar.sh respaldos/ARCHIVO` |
 
 - En Linux van con `sudo` porque usan `docker exec`; el respaldo diario queda en el `crontab` de root y escribe en `respaldos/respaldo.log`. En Windows queda en el Programador de tareas como "Minimarket Mass - respaldo diario" y, si la PC estaba apagada a las 23:00, corre apenas se prenda.
-- El respaldo guarda todo: las 40 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.sql`, con la hora del servidor.
-- Las **fotos de producto** no van en la base: están en `frontend/public/img/productos/`. Copiar esa carpeta junto con el respaldo y devolverla al restaurar. Si se pierde, los productos se ven con el ícono de su categoría.
+- El respaldo guarda todo en **un solo archivo**: la base (las 40 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`) y las **fotos de producto** de `frontend/public/img/productos/`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.tar.gz` (o `.tar.gz.gpg` si está cifrado), con la hora del servidor. Restaurar devuelve las dos cosas.
+- Los respaldos antiguos `.sql` (de antes de este cambio, solo la base) se siguen pudiendo restaurar con los mismos scripts; en ese caso las fotos quedan como están.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
 - **Se guardan los últimos 30 respaldos**; cada respaldo nuevo borra los más antiguos.
 - **Restaurar reemplaza todos los datos actuales**. Pide escribir `SI` para seguir.
-- Los respaldos tienen DNIs y hashes de claves: `respaldos/` está en `.gitignore` y fuera de la raíz web. Guardar una copia fuera del servidor (USB o nube privada) al menos una vez por semana.
-- **Sin Docker** (sección 6.3) los scripts no sirven. Respaldo: `sudo mysqldump --single-transaction --routines --triggers --databases minimarket_mass > respaldos/minimarket_mass_$(date +%F_%H%M).sql`. Restaurar: `sudo mysql < respaldos/ARCHIVO.sql`.
+- Los respaldos tienen DNIs y hashes de claves: `respaldos/` está en `.gitignore`, fuera de la raíz web y solo lo puede leer el usuario que lo crea.
+
+### 10.1 Copia fuera del servidor y cifrado
+
+Un respaldo que está en el mismo disco que la base se pierde junto con ella (disco dañado, robo de la PC, ransomware). Por eso conviene que cada respaldo salga del servidor, **cifrado**. Se configura una sola vez en `.env`; después lo hace solo el respaldo diario:
+
+```bash
+RESPALDO_CLAVE=una-frase-larga-que-solo-sepa-el-administrador
+RESPALDO_REMOTO=drive:minimarket_mass
+RESPALDO_DIAS_REMOTO=90
+```
+
+- **`RESPALDO_CLAVE`** cifra el archivo con `gpg` (AES256). Hace falta `gpg`: en Ubuntu ya viene (`sudo apt install gnupg` si falta); en Windows, instalar [Gpg4win](https://gpg4win.org). **Sin esa clave el respaldo no se puede abrir**: anotarla también fuera del servidor (gestor de claves del administrador, o en papel en un sobre cerrado). Si se pierde el servidor, el `.env` se pierde con él.
+- **`RESPALDO_REMOTO`** copia cada respaldo con [rclone](https://rclone.org) a Google Drive, OneDrive, otro equipo por SFTP o un disco USB. Instalar con `sudo apt install rclone` (Windows: `winget install Rclone.Rclone`) y crear el remoto con `rclone config` (por ejemplo, un remoto `drive` de tipo Google Drive). Con `sudo`, el remoto se crea como root: `sudo rclone config`. Para un USB basta poner la ruta: `RESPALDO_REMOTO=/media/usb/respaldos_mass`.
+- En el remoto se guardan los respaldos de los últimos `RESPALDO_DIAS_REMOTO` días (90 si no se pone).
+- Si la copia falla (sin internet, por ejemplo), el respaldo local igual queda hecho, pero el script termina con error y queda anotado en `respaldos/respaldo.log`.
+- Para restaurar uno de la copia de afuera: `rclone copy drive:minimarket_mass/ARCHIVO respaldos/` y luego `restaurar` como siempre. Con un `.gpg`, el `.env` debe tener la misma `RESPALDO_CLAVE` con la que se hizo.
+
+### 10.2 Prueba de restauración
+
+Un respaldo que nunca se probó no se sabe si sirve. La CI lo prueba **en cada push y cada pull request** (`backend/tests/restauracion.sh`): anota una huella de cada tabla, saca un respaldo cifrado con una foto de prueba, borra la base y las fotos (`docker compose down -v`), restaura, comprueba que todas las tablas, la vista, el procedimiento y la foto queden iguales y corre `verificar_instalacion.php`.
+
+Además, en el servidor de la tienda, **una vez al mes** (y siempre después de cambiar `RESPALDO_CLAVE` o el remoto) el administrador comprueba que el respaldo de afuera se puede abrir, sin tocar la base de la tienda:
+
+```bash
+rclone copy drive:minimarket_mass/ARCHIVO.tar.gz.gpg /tmp/prueba_mass/
+gpg -d /tmp/prueba_mass/ARCHIVO.tar.gz.gpg | tar -tzv | head     # debe listar base.sql y productos/
+rm -rf /tmp/prueba_mass
+```
+
+Para probar la restauración completa, hacerlo en una PC de pruebas (nunca en la de la tienda): `bash backend/tests/restauracion.sh --borrar-todo` borra la base del contenedor de esa PC y la devuelve desde un respaldo nuevo.
+- **Sin Docker** (sección 6.3) los scripts no sirven. Respaldo: `sudo mysqldump --single-transaction --routines --triggers --databases minimarket_mass > respaldos/minimarket_mass_$(date +%F_%H%M).sql` y copiar aparte `frontend/public/img/productos/`. Restaurar: `sudo mysql < respaldos/ARCHIVO.sql`.
 
 ## 11. Comprobar que el código funciona
 
 En una PC de pruebas o en la CI, **nunca contra la base de producción** (las tres últimas registran ventas e ingresos):
 
 ```bash
-php backend/tests/unitarios.php     # 87, sin base de datos
-php backend/tests/seguridad.php     # 19, revisa CSRF, escapado, SQL y JavaScript en todo el código
-php backend/tests/web.php           # 160, por HTTP con los 3 roles
-php backend/tests/integracion.php   # 171, contra MySQL; solo con la base recién creada
-php backend/tests/api.php           # 81, la API de la app Android; va después de integracion.php
+php backend/tests/unitarios.php     # sin base de datos
+php backend/tests/seguridad.php     # revisa CSRF, escapado, SQL y JavaScript en todo el código
+php backend/tests/web.php           # por HTTP con los 3 roles
+php backend/tests/integracion.php   # contra MySQL; solo con la base recién creada
+php backend/tests/api.php           # la API de la app Android; va después de integracion.php
+bash backend/tests/restauracion.sh --borrar-todo   # respaldo -> se borra todo -> restaurar; borra la base de esa PC
 ```
 
-En GitHub corren solas en cada push a `main` y en cada Pull Request (`.github/workflows/ci.yml`).
+Cada una dice al final cuántas comprobaciones pasaron. En GitHub corren solas en cada push a `main` y en cada Pull Request (`.github/workflows/ci.yml`), junto con PHPStan y la compilación de la app Android (README, *Pruebas y revisión automática*).
 
 ## 12. Problemas comunes
 

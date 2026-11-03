@@ -1,0 +1,19 @@
+# Analisis estatico de PHP (PHPStan nivel 5). Lo corre la CI; en tu PC:
+#   php phpstan.phar analyse --memory-limit=1G
+# (el .phar se descarga de https://github.com/phpstan/phpstan/releases; no hace falta Composer)
+# phpstan-baseline.neon guarda los avisos que ya existian: la CI solo falla con avisos nuevos.
+# Al corregir uno, se vuelve a generar con:  php phpstan.phar analyse --generate-baseline
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    phpVersion: 80300
+    paths:
+        - backend/config
+        - backend/controllers
+        - backend/models
+        - frontend/public
+    # backend/tests y backend/scripts no entran: cada archivo se corre solo y varios definen
+    # su propia funcion revisar(), que PHPStan confunde entre si. Las vistas de frontend/views
+    # usan variables que pone el controlador antes del include.
