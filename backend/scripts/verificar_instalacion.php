@@ -103,10 +103,16 @@ revisar($conClaveDePrueba === [], 'Nadie usa la clave de prueba',
     . (count($conClaveDePrueba) > 5 ? '…' : '') . '): que la cambien en "Mi clave"');
 
 echo "Respaldos\n";
-$respaldos = glob($raiz . '/respaldos/minimarket_mass_*.sql') ?: [];
+// .tar.gz(.gpg) = base + fotos (respaldo.sh / respaldo.ps1); .sql = respaldos antiguos, solo la base
+$respaldos = array_merge(...array_map(fn(string $patron): array => glob($raiz . '/respaldos/' . $patron) ?: [],
+    ['minimarket_mass_*.tar.gz', 'minimarket_mass_*.tar.gz.gpg', 'minimarket_mass_*.sql']));
 $ultimo = $respaldos === [] ? 0 : max(array_map('filemtime', $respaldos));
 revisar($ultimo > time() - 2 * 86400, 'Hay un respaldo de las últimas 48 horas',
     'No hay un respaldo reciente: programa el diario con backend/scripts/programar_respaldo', 'AVISO');
+revisar(trim((string) getenv('RESPALDO_REMOTO')) !== '', 'Los respaldos se copian fuera del servidor (RESPALDO_REMOTO)',
+    'Los respaldos solo quedan en este disco: configura RESPALDO_REMOTO en .env (docs/despliegue.md, sección 10)', 'AVISO');
+revisar(strlen((string) getenv('RESPALDO_CLAVE')) >= 12, 'Los respaldos se cifran (RESPALDO_CLAVE)',
+    'Los respaldos no se cifran: pon una RESPALDO_CLAVE de 12 caracteres o más en .env', 'AVISO');
 
 echo PHP_EOL . "$fallas fallas, $avisos avisos" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

@@ -15,8 +15,10 @@ scratch/
 # Configuracion local con claves (usar .env.example como plantilla)
 .env
 respaldos/
+# PHPStan se baja como .phar (README, Pruebas y revision automatica)
+phpstan.phar
 
-# Fotos de productos que sube el administrador (se respaldan copiando la carpeta)
+# Fotos de productos que sube el administrador (backend/scripts/respaldo las incluye en cada respaldo)
 frontend/public/img/productos/*
 !frontend/public/img/productos/.gitkeep
 
