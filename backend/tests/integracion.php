@@ -28,7 +28,7 @@ require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/Paginacion.php';
 require __DIR__ . '/../models/IngresoRepository.php';
-require __DIR__ . '/../models/CajaRepository.php';
+require_once __DIR__ . '/../models/CajaRepository.php';
 require __DIR__ . '/../models/VentaRepository.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/InventarioRepository.php';
@@ -232,6 +232,56 @@ $idTurno2 = $caja->abrirTurno($miguel, 6, '100.00');
 $caja->cerrarTurno($miguel, '90.50');
 revisar('Un faltante queda negativo: 90.50 - 100.00 = -9.50',
     valor($db, 'SELECT diferencia FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === '-9.50');
+$lucia = $empleados->buscarPorId(7);  // ADMINISTRADOR Yanahuara
+$estadoTurno = fn(int $turno): string => valor($db, 'SELECT estado FROM caja_turno WHERE id_caja_turno = ?', [$turno]);
+revisar('Faltan 9.50 y la tolerancia es 1.00: el cierre queda OBSERVADO', $estadoTurno($idTurno2) === 'OBSERVADO');
+revisar('El cierre observado quedó en la auditoría', (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'CAJA_CIERRE'") >= 1);
+rechaza('Con un cierre observado no abre otro turno', fn() => $caja->abrirTurno($miguel, 6, '100.00'));
+rechaza('El cajero no revisa su propio cierre', fn() => $caja->revisarCierre($miguel, $idTurno2, 'APROBAR', 'Visto'));
+rechaza('Un administrador de otra tienda no lo revisa', fn() => $caja->revisarCierre($rosa, $idTurno2, 'APROBAR', 'Visto'));
+rechaza('Revisar sin comentario', fn() => $caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', ''));
+rechaza('Una decisión que no existe', fn() => $caja->revisarCierre($lucia, $idTurno2, 'BORRAR', 'Prueba'));
+$caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', 'Cuenta de nuevo las monedas');
+revisar('Lucía pide reconteo: queda RECONTEO con quién y cuándo lo revisó', $estadoTurno($idTurno2) === 'RECONTEO'
+    && valor($db, 'SELECT id_empleado_revisa FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === '7');
+rechaza('En reconteo tampoco abre otro turno', fn() => $caja->abrirTurno($miguel, 6, '100.00'));
+rechaza('Un conteo con una denominación que no existe', fn() => $caja->recontarTurno($miguel, '', ['3.00' => '1']));
+rechaza('Un conteo con cantidad negativa', fn() => $caja->recontarTurno($miguel, '', ['100.00' => '-1']));
+// El total escrito no manda: el servidor suma el desglose (1 x 50 + 2 x 20 + 1 x 10 = 100.00)
+$resultado = $caja->recontarTurno($miguel, '1.00', ['50.00' => '1', '20.00' => '2', '10.00' => '1', '0.50' => '']);
+revisar('El reconteo suma los billetes (100.00) y el turno cuadra: CERRADO con diferencia 0.00', $resultado['estado'] === 'CERRADO'
+    && valor($db, 'SELECT CONCAT(estado, \'/\', monto_cierre, \'/\', diferencia) FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === 'CERRADO/100.00/0.00');
+revisar('El desglose del reconteo quedó en arqueo_detalle (3 filas)', (int) valor($db,
+    'SELECT COUNT(*) FROM arqueo_detalle d JOIN arqueo_caja a ON a.id_arqueo = d.id_arqueo WHERE a.id_caja_turno = ?', [$idTurno2]) === 3);
+revisar('El reconteo quedó en la auditoría', (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion IN ('CAJA_RECONTEO_PEDIDO', 'CAJA_RECONTEO')") === 2);
+
+// Apertura con conteo por billetes contra el fondo fijo de la caja
+rechaza('Abrir con un monto que no cuadra con el fondo y sin motivo (web)', fn() => $caja->abrirTurno($miguel, 6, '80.00', [], null, true));
+$idTurno3 = $caja->abrirTurno($miguel, 6, '', ['100.00' => '1'], null, true);
+revisar('Abre contando un billete de 100 (cuadra con el fondo fijo)', $arqueo($idTurno3, 'APERTURA') === '100.00/100.00'
+    && valor($db, 'SELECT monto_inicial FROM caja_turno WHERE id_caja_turno = ?', [$idTurno3]) === '100.00');
+// Pausa: nadie vende con el turno hasta reanudar
+$caja->pausarTurno($miguel, true);
+rechaza('Con la caja en pausa no se vende', fn() => $ventas->registrar($miguel, 'B', '', [['id_producto' => '3', 'cantidad' => '1']], ['efectivo_recibido' => '10']));
+$caja->pausarTurno($miguel, false);
+revisar('Al reanudar en_pausa_desde vuelve a NULL', valor($db, 'SELECT COALESCE(en_pausa_desde, \'-\') FROM caja_turno WHERE id_caja_turno = ?', [$idTurno3]) === '-');
+// Arqueo sorpresa del administrador
+rechaza('El cajero no se hace arqueo sorpresa', fn() => $caja->arqueoSorpresa($miguel, $idTurno3, '100.00'));
+rechaza('Rosa no hace arqueo en otra tienda', fn() => $caja->arqueoSorpresa($rosa, $idTurno3, '100.00'));
+$sorpresa = $caja->arqueoSorpresa($lucia, $idTurno3, '99.00', [], 'Revisión de la tarde');
+revisar('Arqueo sorpresa: contó 99.00 frente a 100.00 esperado', $sorpresa['diferencia'] === -100 && $arqueo($idTurno3, 'PARCIAL') === '99.00/100.00');
+$cierre3 = $caja->cerrarTurno($miguel, '100.50');
+revisar('Sobran 0.50, dentro de la tolerancia: CERRADO', $cierre3['estado'] === 'CERRADO' && $estadoTurno($idTurno3) === 'CERRADO');
+// Reglas de la tienda y fondo fijo
+rechaza('El cajero no cambia las reglas', fn() => $caja->guardarReglas($miguel, '1.00', '500.00', true, '10', []));
+rechaza('Tolerancia mayor a 100', fn() => $caja->guardarReglas($lucia, '150.00', '500.00', true, '10', []));
+rechaza('Turnos de 30 horas', fn() => $caja->guardarReglas($lucia, '1.00', '500.00', true, '30', []));
+rechaza('Fondo de una caja de otra tienda', fn() => $caja->guardarReglas($lucia, '1.00', '500.00', true, '10', [1 => '200.00']));
+$caja->guardarReglas($lucia, '2.50', '800.00', false, '12', [6 => '120.00']);
+revisar('Lucía guarda tolerancia 2.50, tope 800, cierre a la vista, 12 h y fondo 120 en la caja 6',
+    valor($db, 'SELECT CONCAT(tolerancia, \'/\', tope_gaveta, \'/\', cierre_ciego, \'/\', horas_maximas) FROM regla_caja WHERE id_tienda = 3') === '2.50/800.00/N/12'
+    && valor($db, 'SELECT fondo_fijo FROM caja WHERE id_caja = 6') === '120.00');
+$caja->guardarReglas($lucia, '1.00', '500.00', true, '10', [6 => '100.00']);
 $rechazaBase = function (string $caso, string $sql) use ($db): void {
     try {
         $db->exec($sql);

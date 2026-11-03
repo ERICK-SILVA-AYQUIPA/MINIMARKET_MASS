@@ -36,7 +36,7 @@ class VentaServicio extends Servicio
         return $this->enTransaccion(function () use ($cajero, $tipo, $documento, $lineas, $pago): array {
             // 1. Turno abierto del cajero, en una caja de su propia tienda
             $consulta = $this->db->prepare(
-                'SELECT ct.id_caja_turno, c.id_tienda, t.estado AS estado_tienda
+                'SELECT ct.id_caja_turno, ct.en_pausa_desde, c.id_tienda, t.estado AS estado_tienda
                    FROM caja_turno ct
                    JOIN caja c   ON c.id_caja = ct.id_caja
                    JOIN tienda t ON t.id_tienda = c.id_tienda
@@ -48,6 +48,9 @@ class VentaServicio extends Servicio
             $turno = $consulta->fetch();
             if ($turno === false) {
                 throw new ReglaNegocioException('Primero abre tu turno de caja.');
+            }
+            if ($turno['en_pausa_desde'] !== null) {
+                throw new ReglaNegocioException('Tu caja está en pausa: reanúdala en Caja para seguir vendiendo.');
             }
             $idTienda = (int) $turno['id_tienda'];
             if ($idTienda !== $cajero->getIdTienda()) {

@@ -40,6 +40,12 @@ class CajaController extends Controller
             $numeroCaja[$c->getIdCaja()] = $c->getNumeroCaja();
         }
         $miTurno = $esCajero ? $this->cajas->turnoAbiertoDe($usuario->getIdEmpleado()) : null;
+        // Un cierre con diferencia que espera al administrador, o que el administrador mando a contar de nuevo
+        $miPendiente = $esCajero && $miTurno === null ? $this->cajas->turnoPendienteDe($usuario->getIdEmpleado()) : null;
+        $regla = $this->cajas->reglaDeTienda($tienda->getIdTienda());
+        $fondos = $this->cajas->fondosDeTienda($tienda->getIdTienda());
+        $arqueosPorTurno = $this->cajas->arqueosDeTienda($tienda->getIdTienda());
+        $puedeCambiarReglas = $usuario->puedeAdministrarTienda($tienda->getIdTienda());
 
         // El cajero ve solo sus turnos; el administrador, todos los de su tienda
         $arqueo = array_values(array_filter(
@@ -61,6 +67,18 @@ class CajaController extends Controller
         foreach ($this->empleados->deTienda($tienda->getIdTienda()) as $empleado) {
             $nombresEmpleado[$empleado->getIdEmpleado()] = $empleado->nombreCompleto();
         }
+        // Cada caja de la tienda ahora: libre u ocupada, por quien, desde cuando y cuanto deberia tener
+        $turnoDeCaja = [];
+        $porRevisar = [];
+        foreach ($arqueo as $fila) {
+            if ($fila['turno']->estaAbierto()) {
+                $turnoDeCaja[$fila['turno']->getIdCaja()] = $fila;
+            } elseif ($fila['turno']->getEstado() === 'OBSERVADO') {
+                $porRevisar[] = $fila;
+            }
+        }
+        $ahora = new DateTimeImmutable();
+        $horasAbierto = fn(CajaTurno $t): float => ($ahora->getTimestamp() - (new DateTimeImmutable($t->getFechaHoraApertura()))->getTimestamp()) / 3600;
         $this->vista('caja/panel', get_defined_vars());
     }
 
@@ -73,7 +91,8 @@ class CajaController extends Controller
         }
         $idCaja = $this->campo($post, 'caja');
         try {
-            $id = $this->servicio->abrirTurno($this->usuario, ctype_digit($idCaja) ? (int) $idCaja : 0, $this->campo($post, 'monto_inicial'));
+            $id = $this->servicio->abrirTurno($this->usuario, ctype_digit($idCaja) ? (int) $idCaja : 0, $this->campo($post, 'monto_inicial'),
+                $this->conteo($post), $this->campo($post, 'observacion'), true);
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
             $this->panel($ex->getMessage());
@@ -90,13 +109,137 @@ class CajaController extends Controller
             return;
         }
         try {
-            $this->servicio->cerrarTurno($this->usuario, $this->campo($post, 'monto_cierre'));
+            $cierre = $this->servicio->cerrarTurno($this->usuario, $this->campo($post, 'monto_cierre'), $this->conteo($post), $this->campo($post, 'observacion'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
             $this->panel($ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Turno cerrado. Revisa la diferencia del arqueo.');
+        $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre));
+    }
+
+    // POST /?ruta=turno_recontar: el cajero vuelve a contar el turno que el administrador mando a recontar
+    public function recontar(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeManejarCaja()) {
+            $this->prohibido('Solo el cajero cuenta su caja.');
+            return;
+        }
+        try {
+            $cierre = $this->servicio->recontarTurno($this->usuario, $this->campo($post, 'monto_cierre'), $this->conteo($post), $this->campo($post, 'observacion'));
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->panel($ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=caja', 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre));
+    }
+
+    // POST /?ruta=turno_pausa: accion=pausar o reanudar
+    public function pausa(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeManejarCaja()) {
+            $this->prohibido('Solo el cajero pausa su caja.');
+            return;
+        }
+        $pausar = $this->campo($post, 'accion') === 'pausar';
+        try {
+            $this->servicio->pausarTurno($this->usuario, $pausar);
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->panel($ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=caja', $pausar ? 'Caja en pausa: nadie puede vender con tu turno hasta que la reanudes.' : 'Caja reanudada: ya puedes vender.');
+    }
+
+    // POST /?ruta=turno_revisar: el administrador aprueba la diferencia o pide un nuevo conteo
+    public function revisar(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerArqueo($this->usuario->getIdTienda())) {
+            $this->prohibido('Solo el administrador de la tienda revisa los cierres.');
+            return;
+        }
+        $idTurno = $this->campo($post, 'turno');
+        $decision = $this->campo($post, 'decision');
+        try {
+            $this->servicio->revisarCierre($this->usuario, ctype_digit($idTurno) ? (int) $idTurno : 0, $decision, $this->campo($post, 'comentario'));
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->panel($ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=caja', $decision === 'APROBAR'
+            ? "Diferencia del turno $idTurno aprobada: el turno queda cerrado."
+            : "Se pidió al cajero que vuelva a contar el turno $idTurno.");
+    }
+
+    // POST /?ruta=arqueo_sorpresa: el administrador cuenta la gaveta de un turno abierto
+    public function arqueoSorpresa(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerArqueo($this->usuario->getIdTienda())) {
+            $this->prohibido('Solo el administrador de la tienda hace arqueos sorpresa.');
+            return;
+        }
+        $idTurno = $this->campo($post, 'turno');
+        try {
+            $r = $this->servicio->arqueoSorpresa($this->usuario, ctype_digit($idTurno) ? (int) $idTurno : 0,
+                $this->campo($post, 'monto'), $this->conteo($post), $this->campo($post, 'observacion'));
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->panel($ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=caja', "Arqueo sorpresa del turno $idTurno guardado. " . self::textoDiferencia($r['diferencia']));
+    }
+
+    // POST /?ruta=regla_caja_guardar: tolerancia, tope de gaveta, cierre ciego, horas maximas y fondo de cada caja
+    public function guardarReglas(array $post): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeAdministrarTienda($this->usuario->getIdTienda())) {
+            $this->prohibido('Solo el administrador de la tienda cambia las reglas de caja.');
+            return;
+        }
+        $fondos = is_array($post['fondo'] ?? null) ? array_map(fn($v): string => is_string($v) ? $v : '', $post['fondo']) : [];
+        try {
+            $this->servicio->guardarReglas($this->usuario, $this->campo($post, 'tolerancia'), $this->campo($post, 'tope'),
+                $this->campo($post, 'cierre_ciego') === 'S', $this->campo($post, 'horas'), $fondos);
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->panel($ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=caja', 'Reglas de caja guardadas.');
+    }
+
+    /**
+     * Billetes y monedas contados: conteo[50.00]=1, conteo[20.00]=2...
+     * @return array<string, string>
+     */
+    private function conteo(array $post): array
+    {
+        $conteo = [];
+        foreach (is_array($post['conteo'] ?? null) ? $post['conteo'] : [] as $denominacion => $cantidad) {
+            if (is_string($cantidad)) {
+                $conteo[(string) $denominacion] = $cantidad;
+            }
+        }
+        return $conteo;
+    }
+
+    /** @param array{esperado: int, diferencia: int, estado: string} $cierre */
+    private static function resultado(array $cierre): string
+    {
+        return self::textoDiferencia($cierre['diferencia'])
+            . ($cierre['estado'] === 'OBSERVADO' ? ' Pasa la tolerancia de la tienda: el administrador lo revisará.' : '');
+    }
+
+    private static function textoDiferencia(int $centimos): string
+    {
+        if ($centimos === 0) {
+            return 'Cuadra exacto.';
+        }
+        return ($centimos < 0 ? 'Faltan' : 'Sobran') . ' S/ ' . Dinero::aTexto(abs($centimos)) . '.';
     }
 
     // POST /?ruta=caja_movimiento: retiro o ingreso de efectivo en el turno abierto

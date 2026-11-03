@@ -805,5 +805,74 @@
         }
     });
 
+    // ---------- Caja: contar billetes y monedas ----------
+    // Suma la gaveta en centimos mientras se escribe y compara con el fondo fijo o con lo esperado.
+    // El servidor vuelve a sumar el desglose: esto solo ayuda a contar.
+    $$('[data-conteo]').forEach((conteo) => {
+        const total = $('[data-total]', conteo);
+        const resultado = $('[data-resultado]', conteo);
+        const campos = $$('[data-denominacion]', conteo);
+
+        function comparar() {
+            resultado.className = 'conteo-resultado';
+            resultado.textContent = '';
+            const contado = centimos(total.value);
+            if (conteo.dataset.esperado === undefined || contado === null) {
+                return;
+            }
+            const esperado = centimos(conteo.dataset.esperado);
+            const diferencia = contado - esperado;
+            if (diferencia === 0) {
+                resultado.textContent = 'Cuadra con ' + conteo.dataset.rotulo;
+                resultado.classList.add('cuadra');
+            } else if (diferencia < 0) {
+                resultado.textContent = 'Faltan ' + soles(-diferencia) + ' para ' + conteo.dataset.rotulo;
+                resultado.classList.add('falta');
+            } else {
+                resultado.textContent = 'Sobran ' + soles(diferencia) + ' sobre ' + conteo.dataset.rotulo;
+                resultado.classList.add('sobra');
+            }
+        }
+
+        function sumar() {
+            let suma = 0;
+            let alguno = false;
+            campos.forEach((campo) => {
+                const subtotal = $('[data-subtotal]', campo.parentElement);
+                const texto = campo.value.trim();
+                const cantidad = /^\d{1,4}$/.test(texto) ? Number(texto) : 0;
+                if (texto !== '') {
+                    alguno = true;
+                }
+                const valor = cantidad * centimos(campo.dataset.denominacion);
+                subtotal.textContent = cantidad > 0 ? soles(valor) : '';
+                suma += valor;
+            });
+            if (alguno) {
+                total.value = (suma / 100).toFixed(2);
+                total.readOnly = true;
+            } else {
+                total.readOnly = false;
+            }
+            comparar();
+        }
+
+        campos.forEach((campo) => campo.addEventListener('input', sumar));
+        total.addEventListener('input', comparar);
+        conteo.conteoComparar = comparar;
+        sumar();
+    });
+
+    // Al abrir caja se compara con el fondo fijo de la caja elegida
+    $$('.cajas-elegir input[type="radio"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+            const conteo = $('[data-conteo]', radio.form);
+            if (conteo !== null && radio.checked) {
+                conteo.dataset.esperado = radio.dataset.fondo;
+                conteo.conteoComparar();
+            }
+        });
+    });
+
     enfocarDrawer();
 }());

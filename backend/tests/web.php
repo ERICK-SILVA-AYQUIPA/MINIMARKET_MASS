@@ -244,7 +244,8 @@ revisar('Por vencer muestra la leche vencida; solo el almacenero ve el botón de
     && $rosa->get('ruta=vencimientos') === 200 && $rosa->tiene('Vencido hace 1 día') && !$rosa->tiene('Dar de baja lo vencido'));
 revisar('El inicio avisa lo que vence esta semana, no al cajero', $carmen->get('ruta=inicio') === 200 && $carmen->tiene('Vencen esta semana')
     && $carmen->tiene('ruta=vencimientos"') && $luis->get('ruta=inicio') === 200 && !$luis->tiene('Vencen esta semana'));
-revisar('La caja del cajero muestra lo que hay en gaveta y el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('En gaveta ahora')
+revisar('La caja del cajero oculta lo esperado (cierre ciego) y ofrece el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('cierre ciego')
+    && !$luis->tiene('En gaveta ahora') && $luis->tiene('data-conteo')
     && $luis->tiene('action="/?ruta=caja_movimiento"') && $rosa->get('ruta=caja') === 200 && !$rosa->tiene('caja_movimiento'));
 revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
@@ -349,6 +350,12 @@ $prohibidos = [
     [$carmen, 'Carmen', 'venta_registrar', ['tipo' => 'B']],
     [$carmen, 'Carmen', 'turno_abrir', ['caja' => '1', 'monto_inicial' => '100']],
     [$carmen, 'Carmen', 'turno_cerrar', ['monto_cierre' => '100']],
+    [$carmen, 'Carmen', 'turno_pausa', ['accion' => 'pausar']],
+    [$carmen, 'Carmen', 'turno_recontar', ['monto_cierre' => '100']],
+    [$luis, 'Luis', 'turno_revisar', ['turno' => '1', 'decision' => 'APROBAR', 'comentario' => 'x']],
+    [$luis, 'Luis', 'arqueo_sorpresa', ['turno' => '5', 'monto' => '100']],
+    [$luis, 'Luis', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
+    [$carmen, 'Carmen', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
     [$carmen, 'Carmen', 'cliente_documento', ['id' => '1', 'dni' => '12345678']],
     [$carmen, 'Carmen', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
     [$carmen, 'Carmen', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
@@ -396,6 +403,14 @@ revisar('Devolución de una venta vieja: vuelve al comprobante con el error', $l
     ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']) === 303
     && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('ya no se aceptan devoluciones'));
 revisar('Turno con monto inválido: 422', $luis->post('turno_abrir', ['caja' => '1', 'monto_inicial' => '-1']) === 422);
+revisar('Conteo con un billete de S/ 3: 422', $luis->post('turno_cerrar', ['monto_cierre' => '', 'conteo' => ['3.00' => '1']]) === 422
+    && $luis->tiene('data-conteo'));
+revisar('Reconteo sin turno en reconteo: 422', $luis->post('turno_recontar', ['monto_cierre' => '100']) === 422);
+revisar('Revisar un turno que no está observado: 422', $rosa->post('turno_revisar', ['turno' => '1', 'decision' => 'APROBAR', 'comentario' => 'Visto']) === 422);
+revisar('Arqueo sorpresa con monto inválido: 422', $rosa->post('arqueo_sorpresa', ['turno' => '5', 'monto' => 'abc']) === 422);
+revisar('Reglas con turnos de 30 horas: 422', $rosa->post('regla_caja_guardar', ['tolerancia' => '1.00', 'tope' => '500.00', 'horas' => '30']) === 422);
+revisar('El administrador ve las cajas en vivo, el arqueo sorpresa y las reglas', $rosa->get('ruta=caja') === 200
+    && $rosa->tiene('Cajas ahora') && $rosa->tiene('#sorpresa-5') && $rosa->tiene('id="reglas-caja"'));
 
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);
