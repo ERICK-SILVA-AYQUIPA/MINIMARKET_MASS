@@ -773,5 +773,85 @@
         }
     });
 
+    // ---------- Buscador de todo el sistema (Ctrl K) ----------
+    // El servidor ya puso en el <dialog> solo las pantallas y acciones que este rol puede usar;
+    // aqui se filtran mientras se escribe (sin tildes ni mayusculas) y se eligen con el teclado.
+    const botonBuscador = $('[data-buscador-global]');
+    const buscadorGlobal = $('#buscador-global');
+    if (botonBuscador !== null && buscadorGlobal !== null && typeof buscadorGlobal.showModal === 'function') {
+        const campo = $('input', buscadorGlobal);
+        const opciones = $$('ul a', buscadorGlobal);
+        const grupos = $$('.buscador-grupo', buscadorGlobal);
+        const vacio = $('.buscador-vacio', buscadorGlobal);
+        const normal = (texto) => texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+        opciones.forEach((a) => { a.dataset.busca = normal(a.textContent + ' ' + (a.dataset.palabras || '')); });
+        let elegida = 0;
+        const visibles = () => opciones.filter((a) => !a.parentElement.hidden);
+        const marcar = (indice) => {
+            const lista = visibles();
+            elegida = Math.max(0, Math.min(indice, lista.length - 1));
+            opciones.forEach((a) => a.classList.remove('elegida'));
+            if (lista[elegida]) {
+                lista[elegida].classList.add('elegida');
+                lista[elegida].scrollIntoView({ block: 'nearest' });
+            }
+        };
+        const filtrar = () => {
+            const palabras = normal(campo.value.trim()).split(/\s+/).filter(Boolean);
+            opciones.forEach((a) => { a.parentElement.hidden = !palabras.every((p) => a.dataset.busca.includes(p)); });
+            // Un titulo de grupo se oculta si no le queda ninguna opcion debajo
+            grupos.forEach((grupo) => {
+                let siguiente = grupo.nextElementSibling;
+                let alguna = false;
+                while (siguiente !== null && !siguiente.classList.contains('buscador-grupo')) {
+                    alguna = alguna || !siguiente.hidden;
+                    siguiente = siguiente.nextElementSibling;
+                }
+                grupo.hidden = !alguna;
+            });
+            vacio.hidden = visibles().length > 0;
+            marcar(0);
+        };
+        const abrirBuscador = () => {
+            if (buscadorGlobal.open) {
+                return;
+            }
+            campo.value = '';
+            filtrar();
+            buscadorGlobal.showModal();
+            campo.focus();
+        };
+        botonBuscador.hidden = false;
+        botonBuscador.addEventListener('click', abrirBuscador);
+        campo.addEventListener('input', filtrar);
+        campo.addEventListener('keydown', (evento) => {
+            if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+                evento.preventDefault();
+                marcar(elegida + (evento.key === 'ArrowDown' ? 1 : -1));
+            } else if (evento.key === 'Enter') {
+                const opcion = visibles()[elegida];
+                if (opcion) {
+                    evento.preventDefault();
+                    buscadorGlobal.close();
+                    window.location.href = opcion.href;
+                }
+            }
+        });
+        // Un clic en el fondo oscuro cierra
+        buscadorGlobal.addEventListener('click', (evento) => {
+            if (evento.target === buscadorGlobal) {
+                buscadorGlobal.close();
+            }
+        });
+        // Ir a una accion de la misma pagina (#nueva-merma) solo cambia el hash: hay que cerrar
+        opciones.forEach((a) => a.addEventListener('click', () => buscadorGlobal.close()));
+        document.addEventListener('keydown', (evento) => {
+            if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === 'k' && drawerAbierto() === null) {
+                evento.preventDefault();
+                abrirBuscador();
+            }
+        });
+    }
+
     enfocarDrawer();
 }());
