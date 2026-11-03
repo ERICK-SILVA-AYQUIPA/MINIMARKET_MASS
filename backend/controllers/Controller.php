@@ -83,9 +83,10 @@ abstract class Controller
     }
 
     // Despues de un POST que guardo algo: aviso + redireccion (asi F5 no repite la operacion)
-    protected function redirigir(string $url, string $mensaje): void
+    // $tipo: 'ok' (verde) o 'alerta' (ambar: se guardo, pero hay algo que mirar)
+    protected function redirigir(string $url, string $mensaje, string $tipo = 'ok'): void
     {
-        $this->sesion->avisar('ok', $mensaje);
+        $this->sesion->avisar($tipo === 'alerta' ? 'alerta' : 'ok', $mensaje);
         header('Location: ' . $url, true, 303);
     }
 

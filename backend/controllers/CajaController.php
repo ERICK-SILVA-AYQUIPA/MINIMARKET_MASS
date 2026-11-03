@@ -128,7 +128,7 @@ class CajaController extends Controller
             $this->panel($ex->getMessage(), 'arqueo-cierre');
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre));
+        $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
     }
 
     // POST /?ruta=turno_recontar: el cajero vuelve a contar el turno que el administrador mando a recontar
@@ -145,7 +145,7 @@ class CajaController extends Controller
             $this->panel($ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre));
+        $this->redirigir('/?ruta=caja', 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
     }
 
     // POST /?ruta=turno_pausa: accion=pausar o reanudar

@@ -175,5 +175,5 @@ if ($usuarioActual !== null) {
     </nav>
 <?php endif; ?>
 <?php if ($aviso !== null): ?>
-    <div class="aviso <?= $aviso['tipo'] === 'ok' ? 'ok' : 'error' ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
+    <div class="aviso <?= e(in_array($aviso['tipo'], ['ok', 'alerta'], true) ? $aviso['tipo'] : 'error') ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
 <?php endif; ?>
