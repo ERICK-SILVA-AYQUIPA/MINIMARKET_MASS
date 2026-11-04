@@ -2,3 +2,14 @@ Outfit (outfit.woff2), letra de los titulos.
 Copyright 2021 The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)
 Licencia: SIL Open Font License 1.1 (https://openfontlicense.org). Se puede usar y
 distribuir libremente junto con el sistema; no se vende por separado.
+
+Inter (inter.woff2), letra de toda la interfaz. Variable, pesos 100 a 900, juego latino.
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+Licencia: SIL Open Font License 1.1 (https://openfontlicense.org).
+
+JetBrains Mono (jetbrains-mono.woff2), letra de los numeros (montos, codigos, conteos).
+Variable, pesos 100 a 800, juego latino.
+Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+Licencia: SIL Open Font License 1.1 (https://openfontlicense.org).
+
+Las dos se bajaron de los paquetes @fontsource-variable/inter@5.3.0 y @fontsource-variable/jetbrains-mono@5.3.0.

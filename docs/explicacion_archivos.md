@@ -189,7 +189,8 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `estilos.css` | El sistema de diseño: colores, letras, espacios, botones, tablas, formularios, avisos, paneles laterales, versión de celular e impresión. Un solo archivo para todas las pantallas. |
+| `tokens.css` | Los tokens del sistema de diseño, en un solo lugar: colores (base neutra y el amarillo como único acento), espacios de 4/8, radios, sombras, vidrio, letras (Inter, JetBrains Mono para números, Outfit para la marca) y curvas de animación. Ver `docs/sistema_diseno.md`. |
+| `estilos.css` | Los componentes: botones, tablas, formularios, avisos, paneles laterales, caja, venta, versión de celular e impresión. Solo usa las variables de `tokens.css`. |
 | `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, filtros por categoría, la cuadrícula y el lector de códigos de la venta, avisos flotantes, guías que recuerdan si se cerraron, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
 | `iconos.svg` | Los íconos del menú y los botones, y las ilustraciones de cada categoría (lácteos, bebidas, frutas…), dibujados con líneas. Se usan con `icono('nombre')`. |
 | `img/productos/` | Las fotos de producto que sube el administrador (`{id}.jpg`). No se suben a GitHub: solo va `.gitkeep`. |
