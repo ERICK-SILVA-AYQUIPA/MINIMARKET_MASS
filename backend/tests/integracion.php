@@ -118,6 +118,9 @@ rechaza('Cantidad decimal en producto por unidad', fn() => $ventas->registrar($l
 rechaza('Efectivo que no alcanza', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '1', 'cantidad' => '1']], ['efectivo_recibido' => '1']));
 rechaza('Tarjeta que pasa el total', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '1', 'cantidad' => '1']], [
     'tarjeta_monto' => '50', 'tarjeta_tipo' => 'CREDITO', 'tarjeta_marca' => 'VISA', 'tarjeta_ultimos4' => '1111', 'tarjeta_autorizacion' => 'A1']));
+rechaza('Voucher de tarjeta repetido (misma tarjeta y autorización de otra venta)', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '1', 'cantidad' => '1']], [
+    'tarjeta_monto' => '1', 'tarjeta_tipo' => 'DEBITO', 'tarjeta_marca' => 'VISA', 'tarjeta_ultimos4' => '9876', 'tarjeta_autorizacion' => 'z9',
+    'efectivo_recibido' => '10']));
 rechaza('Código Sip repetido', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '1', 'cantidad' => '1']], [
     'sip_monto' => '4.50', 'sip_modalidad' => 'QR', 'sip_operacion' => 'SIP-EJEMPLO-0001']));
 rechaza('Cajero sin turno abierto', fn() => $ventas->registrar($miguel, 'B', '', [['id_producto' => '1', 'cantidad' => '1']], ['efectivo_recibido' => '10']));
@@ -346,10 +349,24 @@ rechaza('Tipo que no existe', fn() => $caja->registrarMovimiento($luis, 'PRESTAM
 rechaza('Monto 0', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '0', 'Prueba'));
 rechaza('Sin motivo', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '10', ''));
 rechaza('Retirar más de lo que hay en la gaveta', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '99999', 'Prueba'));
-$caja->registrarMovimiento($luis, 'RETIRO', '50.00', 'Depósito al banco');
-$caja->registrarMovimiento($luis, 'INGRESO', '20.00', 'Sencillo del almacén');
+rechaza('Categoría de ingreso en un retiro', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '10', 'Prueba', 'SENCILLO'));
+rechaza('Categoría que no existe', fn() => $caja->registrarMovimiento($luis, 'INGRESO', '10', 'Prueba', 'PRESTAMO'));
+rechaza('Comprobante con caracteres raros', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '10', 'Prueba', 'GASTO', "B001'--"));
+rechaza('Comprobante de más de 20 caracteres', fn() => $caja->registrarMovimiento($luis, 'RETIRO', '10', 'Prueba', 'GASTO', str_repeat('9', 21)));
+$caja->registrarMovimiento($luis, 'RETIRO', '50.00', 'Depósito al banco', 'DEPOSITO', 'dep-00123');
+$caja->registrarMovimiento($luis, 'INGRESO', '20.00', 'Sencillo del almacén', 'SENCILLO');
+$movsLuis = $cajasRepo->movimientosDeTurno($turnoLuis);
 revisar('El arqueo resta el retiro y suma el ingreso: esperado baja 30.00', round($esperadoAntes - $fila()['esperado'], 2) === 30.0
-    && $fila()['retiros'] === 50.0 && $fila()['ingresos'] === 20.0 && count($cajasRepo->movimientosDeTurno($turnoLuis)) === 2);
+    && $fila()['retiros'] === 50.0 && $fila()['ingresos'] === 20.0 && count($movsLuis) === 2);
+revisar('Cada movimiento guarda su categoría y su comprobante (en mayúsculas)', $movsLuis[0]['categoria'] === 'DEPOSITO'
+    && $movsLuis[0]['comprobante'] === 'DEP-00123' && $movsLuis[1]['categoria'] === 'SENCILLO' && $movsLuis[1]['comprobante'] === null);
+$errorCheck = '';
+try {
+    $db->exec("INSERT INTO movimiento_caja (tipo, categoria, monto, motivo, id_caja_turno, id_empleado) VALUES ('INGRESO', 'PROVEEDOR', 1, 'x', $turnoLuis, 2)");
+} catch (PDOException $ex) {
+    $errorCheck = $ex->getMessage();
+}
+revisar('La base rechaza un ingreso con categoría de retiro (ck_movimiento_caja_categoria)', str_contains($errorCheck, 'ck_movimiento_caja_categoria'));
 revisar('...y el arqueo ya restaba las devoluciones', $fila()['devoluciones'] === round(($devuelto + 900) / 100, 2));
 revisar('Retiro e ingreso quedaron en la auditoría', (int) valor($db,
     "SELECT COUNT(*) FROM auditoria WHERE accion IN ('CAJA_RETIRO', 'CAJA_INGRESO')") === 2);

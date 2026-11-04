@@ -279,8 +279,10 @@ erDiagram
         INT id_movimiento_caja PK
         DATETIME fecha_hora
         VARCHAR tipo
+        VARCHAR categoria
         DECIMAL monto
         VARCHAR motivo
+        VARCHAR comprobante
         INT id_caja_turno FK
         MEDIUMINT id_empleado FK
     }

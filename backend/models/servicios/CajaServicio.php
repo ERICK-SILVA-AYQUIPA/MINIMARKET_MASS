@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Servicio.php';
 require_once __DIR__ . '/../Usuario.php';
 require_once __DIR__ . '/../CajaRepository.php';
+require_once __DIR__ . '/../MovimientoCaja.php';
 
 /**
  * La caja de cada cajero: abrir el turno contando el fondo, pausar, retiros e ingresos, cerrar contando
@@ -245,10 +246,12 @@ class CajaServicio extends Servicio
     }
 
     /**
-     * Retiro (al deposito, un pago menor) o ingreso de sencillo en la gaveta del turno abierto del cajero.
+     * Retiro (de seguridad, a un proveedor, un gasto menor) o ingreso (sencillo, aporte) en la gaveta del turno
+     * abierto del cajero, con su categoria (MovimientoCaja::CATEGORIAS) y el N.° del comprobante que lo respalda.
      * Un retiro no puede dejar la gaveta en negativo.
      */
-    public function registrarMovimiento(Usuario $cajero, string $tipo, string $montoTexto, string $motivo): void
+    public function registrarMovimiento(Usuario $cajero, string $tipo, string $montoTexto, string $motivo,
+                                        string $categoria = 'OTRO', ?string $comprobante = null): void
     {
         if (!$cajero->puedeManejarCaja()) {
             throw new ReglaNegocioException('Solo un cajero activo mueve efectivo de su caja.');
@@ -260,9 +263,13 @@ class CajaServicio extends Servicio
         if ($monto === null || $monto <= 0) {
             throw new ReglaNegocioException('Monto no válido.');
         }
+        if (!MovimientoCaja::categoriaValida($tipo, $categoria)) {
+            throw new ReglaNegocioException('Elige una categoría de ' . ($tipo === 'RETIRO' ? 'retiro' : 'ingreso') . ' de la lista.');
+        }
         $motivo = $this->textoObligatorio($motivo, 150, 'El motivo');
+        $comprobante = MovimientoCaja::comprobante($comprobante);
 
-        $this->enTransaccion(function () use ($cajero, $tipo, $monto, $motivo): void {
+        $this->enTransaccion(function () use ($cajero, $tipo, $monto, $motivo, $categoria, $comprobante): void {
             $idTurno = $this->turnoDelCajero($cajero, 'ABIERTO', 'No tienes un turno abierto.');
 
             if ($tipo === 'RETIRO') {
@@ -275,13 +282,14 @@ class CajaServicio extends Servicio
             }
 
             $this->db->prepare(
-                'INSERT INTO movimiento_caja (fecha_hora, tipo, monto, motivo, id_caja_turno, id_empleado)
-                 VALUES (NOW(), :tipo, :monto, :motivo, :turno, :empleado)'
+                'INSERT INTO movimiento_caja (fecha_hora, tipo, categoria, monto, motivo, comprobante, id_caja_turno, id_empleado)
+                 VALUES (NOW(), :tipo, :categoria, :monto, :motivo, :comprobante, :turno, :empleado)'
             )->execute([
-                'tipo' => $tipo, 'monto' => Dinero::aTexto($monto), 'motivo' => $motivo,
-                'turno' => $idTurno, 'empleado' => $cajero->getIdEmpleado(),
+                'tipo' => $tipo, 'categoria' => $categoria, 'monto' => Dinero::aTexto($monto), 'motivo' => $motivo,
+                'comprobante' => $comprobante, 'turno' => $idTurno, 'empleado' => $cajero->getIdEmpleado(),
             ]);
-            $this->auditar($cajero, $tipo === 'RETIRO' ? 'CAJA_RETIRO' : 'CAJA_INGRESO', 'S/ ' . Dinero::aTexto($monto) . ': ' . $motivo);
+            $this->auditar($cajero, $tipo === 'RETIRO' ? 'CAJA_RETIRO' : 'CAJA_INGRESO', 'S/ ' . Dinero::aTexto($monto) . ' ('
+                . MovimientoCaja::nombreCategoria($tipo, $categoria) . '): ' . $motivo . ($comprobante === null ? '' : ' · ' . $comprobante));
         });
     }
 
