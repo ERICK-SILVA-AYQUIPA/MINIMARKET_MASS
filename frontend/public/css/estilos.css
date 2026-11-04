@@ -1436,11 +1436,12 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
 .conteo-modo { display: block; margin-top: 4px; font-size: .82rem; color: var(--suave); }
 .conteo-modo.auto { color: var(--verde); font-weight: 700; }
 .conteo-modo.auto::before { content: "✓ "; }
-.conteo-grilla { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+.conteo-grilla, .conteo-grupo .conteo-grilla { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
 @media (max-width: 640px) {
-    /* En el celular: el nombre del billete a la izquierda y − cantidad + a la derecha, con botones de 44 px */
-    .conteo-grilla { grid-template-columns: minmax(0, 1fr); }
-    .conteo-den, form.formulario label.conteo-den { grid-template-columns: minmax(0, 1fr) 9.5rem; }
-    .conteo-control { grid-template-columns: 44px minmax(0, 1fr) 44px; }
-    .conteo-paso, button.conteo-paso { min-height: 44px; width: 44px; }
+    /* Dos por fila: el nombre arriba y − cantidad + abajo, con botones de 40 px */
+    .conteo-grilla, .conteo-grupo .conteo-grilla { grid-template-columns: 1fr 1fr; }
+    .conteo-den, form.formulario label.conteo-den { grid-template-columns: minmax(0, 1fr); row-gap: var(--s-1); }
+    .conteo-control { grid-template-columns: 40px minmax(0, 1fr) 40px; }
+    .conteo-paso, button.conteo-paso { min-height: 40px; width: 40px; }
+    form.formulario .conteo-control input, .conteo-control input { min-height: 40px; }
 }

@@ -1238,6 +1238,8 @@
                 return boton;
             };
             const rotulo = campo.closest('.conteo-den').firstElementChild.textContent;
+            // El nombre del campo sigue siendo solo "S/ 100" (los botones quedan dentro de la misma etiqueta)
+            campo.setAttribute('aria-label', rotulo);
             const fila = document.createElement('span');
             fila.className = 'conteo-control';
             campo.replaceWith(fila);
