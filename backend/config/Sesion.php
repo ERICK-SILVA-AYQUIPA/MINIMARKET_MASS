@@ -57,6 +57,23 @@ final class Sesion
         $_SESSION['version_clave'] = $versionClave;
         $_SESSION['ultima_actividad'] = time();
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        unset($_SESSION['tienda_elegida']);
+    }
+
+    // Sucursal que eligio el administrador en el menu lateral (null: la de su ficha)
+    public function tiendaElegida(): ?int
+    {
+        $id = $_SESSION['tienda_elegida'] ?? null;
+        return is_int($id) ? $id : null;
+    }
+
+    public function elegirTienda(?int $idTienda): void
+    {
+        if ($idTienda === null) {
+            unset($_SESSION['tienda_elegida']);
+        } else {
+            $_SESSION['tienda_elegida'] = $idTienda;
+        }
     }
 
     // Version de la clave con la que se entro (null en una sesion de antes de esta revision)

@@ -79,6 +79,8 @@ abstract class Controller
         // La tienda del usuario, para el menu lateral
         $nombreTiendaActual = $this->usuario !== null
             ? ($this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda() ?? '') : '';
+        // El administrador elige la sucursal en el menu lateral: todas las tiendas, con la actual marcada
+        $tiendasParaElegir = $this->usuario?->puedeElegirTienda() === true ? $this->tiendas->todas() : [];
         require __DIR__ . '/../../frontend/views/' . $__vista . '.php';
     }
 

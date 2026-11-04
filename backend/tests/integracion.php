@@ -88,6 +88,17 @@ $stock = fn(int $tienda, int $producto): string => valor($db,
     'SELECT cantidad_actual FROM stock WHERE id_tienda = ? AND id_producto = ?', [$tienda, $producto]);
 $ventasTotales = fn(): string => valor($db, 'SELECT COUNT(*) FROM venta');
 
+echo "Sucursal elegida por el administrador\n";
+$rosaEnCerro = $rosa->enTienda(2);
+revisar('Solo el administrador activo puede elegir sucursal',
+    $rosa->puedeElegirTienda() && !$luis->puedeElegirTienda() && !$carmen->puedeElegirTienda());
+revisar('En la sucursal elegida maneja esa tienda y deja la suya',
+    $rosaEnCerro->getIdTienda() === 2 && $rosaEnCerro->puedeAdministrarTienda(2) && !$rosaEnCerro->puedeAdministrarTienda(1)
+    && $rosaEnCerro->puedeVerArqueo(2) && $rosaEnCerro->puedeAnularVenta(2) && $rosaEnCerro->puedeAjustarStock(2));
+revisar('Su ficha no cambia: la tienda propia sigue siendo Cayma (y elegir dos veces no la pierde)',
+    $rosaEnCerro->getIdTiendaPropia() === 1 && $rosaEnCerro->enTienda(3)->getIdTiendaPropia() === 1
+    && $rosa->getIdTienda() === 1 && $rosa->getIdTiendaPropia() === 1 && $rosaEnCerro instanceof Administrador);
+
 echo "Ventas\n";
 $antes = $stock(1, 8);
 $r = $ventas->registrar($luis, 'B', '', [

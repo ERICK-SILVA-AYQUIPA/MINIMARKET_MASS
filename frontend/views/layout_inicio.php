@@ -8,6 +8,7 @@ declare(strict_types=1);
  * @var ?string $rutaActual  la ruta pedida, para resaltar el menu
  * @var ?string $anchoMain   'angosto' para formularios cortos
  * @var ?string $nombreTiendaActual  la tienda del usuario (la pone Controller::vista)
+ * @var ?array<int, Tienda> $tiendasParaElegir  las sucursales del selector (solo el administrador; la pone Controller::vista)
  * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro
  * @var ?string $modoMenu  '' (fijo), 'iconos' o 'auto': como ve el menu lateral este usuario
  * @var ?bool $bienvenida  true en la primera pagina despues de entrar: logo con barra de carga
@@ -18,6 +19,7 @@ $aviso ??= null;
 $rutaActual ??= 'inicio'; // la opcion del menu que se resalta (solo se compara, no se imprime)
 $anchoMain ??= '';
 $nombreTiendaActual ??= '';
+$tiendasParaElegir ??= [];
 $paginaEntrada ??= false;
 $bienvenida ??= false;
 // Modo del menu lateral ('' fijo, 'iconos' o 'auto'): va en <html data-menu> desde el servidor
@@ -90,6 +92,13 @@ if ($usuarioActual !== null) {
             + (isset($ventasMenu['venta_nueva']) ? ['venta_nueva' => ['Vender', 'venta']] : [])
             + ['ventas' => ['Ventas', 'ventas']];
     }
+    // Al cambiar de sucursal se vuelve a la misma opcion del menu (una ficha con id puede no ser de la otra tienda)
+    $volverTienda = 'inicio';
+    foreach ($gruposMenu as $opcionesGrupo) {
+        if (isset($opcionesGrupo[$opcionActual])) {
+            $volverTienda = $opcionActual;
+        }
+    }
     if ($barraInferior !== []) {
         $claseCuerpo = trim($claseCuerpo . ' con-barra-inferior');
     }
@@ -106,8 +115,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=1">
-    <link rel="stylesheet" href="/css/estilos.css?v=19">
-    <script src="/js/app.js?v=9" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=20">
+    <script src="/js/app.js?v=10" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -134,10 +143,25 @@ if ($usuarioActual !== null) {
                 <?= icono('plegar') ?><span class="texto-menu">Ocultar menú</span>
             </button>
         </div>
+        <?php if ($tiendasParaElegir !== []): ?>
+        <!-- El administrador elige la sucursal; app.js envia el formulario al cambiar (sin JavaScript, con el boton) -->
+        <form class="tienda-actual tienda-elegir" method="post" action="/?ruta=tienda_elegir" data-elegir-tienda>
+            <?= campoCsrf($csrf) ?>
+            <input type="hidden" name="volver" value="<?= e($volverTienda) ?>">
+            <label class="sutil" for="tienda-elegida">Sucursal</label>
+            <select id="tienda-elegida" name="tienda">
+                <?php foreach ($tiendasParaElegir as $idOpcion => $tiendaOpcion): ?>
+                    <option value="<?= (int) $idOpcion ?>"<?= $idOpcion === $usuarioActual->getIdTienda() ? ' selected' : '' ?>><?= e($tiendaOpcion->getNombreTienda()) ?><?= $tiendaOpcion->estaActiva() ? '' : ' (inactiva)' ?><?= $idOpcion === $usuarioActual->getIdTiendaPropia() ? ' · la tuya' : '' ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="boton-chico" data-elegir-tienda-boton>Cambiar</button>
+        </form>
+        <?php else: ?>
         <div class="tienda-actual">
             <span class="sutil">Tienda</span>
             <strong><?= e($nombreTiendaActual) ?></strong>
         </div>
+        <?php endif; ?>
         <nav aria-label="Menú principal">
             <?php foreach ($gruposMenu as $grupo => $opciones): ?>
                 <?php if ($opciones === []) { continue; } ?>

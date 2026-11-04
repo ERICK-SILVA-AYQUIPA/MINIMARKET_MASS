@@ -73,6 +73,30 @@ class TiendaController extends Controller
         $this->redirigir('/?ruta=tienda_editar', 'Datos de la tienda guardados.');
     }
 
+    /**
+     * POST /?ruta=tienda_elegir: el administrador cambia la sucursal con la que trabaja (selector del menu lateral).
+     * Se guarda en la sesion; su ficha (empleado.id_tienda) no cambia. Vuelve a la misma opcion del menu.
+     */
+    public function elegir(array $post): void
+    {
+        if ($this->usuario?->puedeElegirTienda() !== true) {
+            $this->prohibido('Solo un administrador cambia de sucursal.');
+            return;
+        }
+        $tienda = $this->tiendas->buscarPorId($this->leerId($this->campo($post, 'tienda')));
+        if ($tienda === null) {
+            $this->noEncontrado('Esa sucursal no existe.');
+            return;
+        }
+        // Volver a una opcion del menu (solo letras y _: nunca una URL de otro sitio)
+        $volver = $this->campo($post, 'volver');
+        $volver = preg_match('/^[a-z_]{1,30}$/', $volver) === 1 ? $volver : 'inicio';
+        $this->sesion->elegirTienda(
+            $tienda->getIdTienda() === $this->usuario->getIdTiendaPropia() ? null : $tienda->getIdTienda()
+        );
+        $this->redirigir('/?ruta=' . $volver, 'Ahora trabajas en ' . $tienda->getNombreTienda() . '.');
+    }
+
     // GET /?ruta=tienda_nueva
     public function nueva(array $viejo = [], ?string $error = null): void
     {
