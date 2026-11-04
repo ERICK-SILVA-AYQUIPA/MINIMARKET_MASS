@@ -933,7 +933,9 @@ form.formulario .selector-barra input:focus-visible { outline: 0; }
 
 .cajas-vivo { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: var(--s-3); margin: 0 0 var(--s-4); }
 .caja-vivo { margin: 0; padding: var(--s-4); display: grid; gap: var(--s-2); align-content: start; border-top: 4px solid var(--verde); }
-.caja-vivo.libre { border-top-color: var(--borde-fuerte); background: var(--superficie-2); box-shadow: none; }
+.caja-vivo.libre { border-top-color: var(--azul); }
+.caja-vivo.inactiva { border-top-color: var(--borde-fuerte); background: var(--superficie-2); box-shadow: none; }
+.caja-vivo.inactiva strong { color: var(--suave); }
 .caja-vivo header { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); }
 .caja-vivo p { margin: 0; }
 .caja-vivo-monto { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }

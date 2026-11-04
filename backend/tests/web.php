@@ -458,6 +458,13 @@ revisar('Arqueo sorpresa con monto inválido: 422', $rosa->post('arqueo_sorpresa
 revisar('Reglas con turnos de 30 horas: 422', $rosa->post('regla_caja_guardar', ['tolerancia' => '1.00', 'tope' => '500.00', 'horas' => '30']) === 422);
 revisar('El administrador ve las cajas en vivo, el arqueo sorpresa y las reglas', $rosa->get('ruta=caja') === 200
     && $rosa->tiene('Cajas ahora') && $rosa->tiene('#sorpresa-5') && $rosa->tiene('id="reglas-caja"'));
+// La caja 2 de Cayma esta activa y sin turno: se ve libre (no apagada como una inactiva) y la caja 1, de Luis, ocupada
+revisar('La caja libre se ve libre, no inactiva, y se puede desactivar desde la caja', $rosa->get('ruta=caja') === 200
+    && $rosa->tiene('<article class="panel caja-vivo libre" data-caja-estado="libre">')
+    && $rosa->tiene('<span class="etiqueta info">Libre</span>') && !$rosa->tiene('data-caja-estado="inactiva"')
+    && $rosa->tiene('<article class="panel caja-vivo" data-caja-estado="ocupada">')
+    && $rosa->tiene('name="volver" value="caja"') && $rosa->tiene('Lista para que un cajero abra su turno.'));
+revisar('Las cajas abiertas se cuentan sobre las activas', $rosa->tiene('1 <small>de 2</small>'));
 
 echo "Sucursal del administrador\n";
 // El administrador elige en el menu lateral la sucursal con la que trabaja; su ficha no cambia (solo la sesion)

@@ -19,6 +19,8 @@ declare(strict_types=1);
  * @var ?array $miArqueo
  * @var array<int, array> $turnoDeCaja  id_caja => fila del arqueo del turno abierto
  * @var array<int, array> $porRevisar   filas de turnos OBSERVADOS
+ * @var Caja[] $cajasActivas            las cajas de la tienda que se pueden usar (estado ACTIVA)
+ * @var bool $puedeCambiarReglas
  * @var array<int, array<int, array{fecha_hora: string, tipo: string, contado: float, esperado: float, observacion: ?string, id_empleado: int, detalle: array<string, int>}>> $arqueosPorTurno
  * @var array<int, array<int, array{fecha_hora: string, tipo: string, categoria: string, monto: float, motivo: string, comprobante: ?string}>> $movimientos
  * @var array<int, string> $nombresEmpleado
@@ -117,7 +119,7 @@ require __DIR__ . '/../parciales/guia.php';
     <?php elseif ($miTurno === null): ?>
         <?php
         $cajasLibres = array_values(array_filter($cajasTienda,
-            fn(Caja $c): bool => !isset($turnoDeCaja[$c->getIdCaja()]) && $c->getEstado() === 'ACTIVA'));
+            fn(Caja $c): bool => $c->estadoAhora(isset($turnoDeCaja[$c->getIdCaja()])) === 'libre'));
         $primerFondo = $cajasLibres === [] ? 0.0 : ($fondos[$cajasLibres[0]->getIdCaja()] ?? 100.0);
         ?>
         <section class="apertura" aria-labelledby="apertura-titulo">
@@ -151,7 +153,7 @@ require __DIR__ . '/../parciales/guia.php';
                             <?php foreach ($cajasTienda as $i => $c): ?>
                                 <?php
                                 $ocupada = $turnoDeCaja[$c->getIdCaja()] ?? null;
-                                $libre = $ocupada === null && $c->getEstado() === 'ACTIVA';
+                                $libre = $c->estadoAhora($ocupada !== null) === 'libre';
                                 $fondoCaja = $fondos[$c->getIdCaja()] ?? 0;
                                 ?>
                                 <label class="caja-opcion<?= $libre ? '' : ' no-disponible' ?>">
@@ -466,7 +468,7 @@ require __DIR__ . '/../parciales/guia.php';
     <section class="metricas-turno" aria-label="La caja de la tienda en cifras">
         <article class="metrica">
             <span class="metrica-rotulo">Cajas abiertas</span>
-            <strong class="metrica-valor"><?= count($turnoDeCaja) ?> <small>de <?= count($cajasTienda) ?></small></strong>
+            <strong class="metrica-valor"><?= count($turnoDeCaja) ?> <small>de <?= count($cajasActivas) ?></small></strong>
             <small><?= e($enPausaAhora > 0 ? $enPausaAhora . ' en pausa' : 'ninguna en pausa') ?></small>
         </article>
         <article class="metrica">
@@ -483,12 +485,19 @@ require __DIR__ . '/../parciales/guia.php';
     <h2>Cajas ahora</h2>
     <div class="cajas-vivo">
         <?php foreach ($cajasTienda as $c): ?>
-            <?php $fila = $turnoDeCaja[$c->getIdCaja()] ?? null; ?>
-            <article class="panel caja-vivo<?= $fila === null ? ' libre' : '' ?>">
+            <?php
+            $fila = $turnoDeCaja[$c->getIdCaja()] ?? null;
+            $activa = $c->estaActiva();
+            // Libre (activa y sin turno) se ve lista para usar; solo la caja INACTIVA se ve apagada
+            $estadoCaja = $c->estadoAhora($fila !== null);
+            ?>
+            <article class="panel caja-vivo<?= e($estadoCaja === 'ocupada' ? '' : ' ' . $estadoCaja) ?>" data-caja-estado="<?= e($estadoCaja) ?>">
                 <header>
                     <strong>Caja <?= $c->getNumeroCaja() ?></strong>
-                    <?php if ($fila === null): ?>
-                        <span class="etiqueta neutra"><?= $c->getEstado() === 'ACTIVA' ? 'Libre' : 'Inactiva' ?></span>
+                    <?php if ($fila === null && $activa): ?>
+                        <span class="etiqueta info">Libre</span>
+                    <?php elseif ($fila === null): ?>
+                        <span class="etiqueta neutra">Inactiva</span>
                     <?php elseif ($fila['turno']->estaEnPausa()): ?>
                         <span class="etiqueta alerta">En pausa</span>
                     <?php else: ?>
@@ -497,6 +506,21 @@ require __DIR__ . '/../parciales/guia.php';
                 </header>
                 <?php if ($fila === null): ?>
                     <p class="sutil">Fondo fijo <?= e(soles($fondos[$c->getIdCaja()] ?? 0)) ?></p>
+                    <p class="sutil"><?= $activa ? 'Lista para que un cajero abra su turno.' : 'Apagada: no se pueden abrir turnos en ella.' ?></p>
+                    <?php if ($puedeCambiarReglas): ?>
+                        <form method="post" action="/?ruta=caja_estado">
+                            <?= campoCsrf($csrf) ?>
+                            <input type="hidden" name="id" value="<?= $c->getIdCaja() ?>">
+                            <input type="hidden" name="volver" value="caja">
+                            <?php if ($activa): ?>
+                                <input type="hidden" name="estado" value="INACTIVA">
+                                <button class="secundario chico" type="submit" data-confirmar="¿Desactivar la caja <?= $c->getNumeroCaja() ?>? No se podrán abrir turnos en ella." data-confirmar-boton="Sí, desactivar">Desactivar</button>
+                            <?php else: ?>
+                                <input type="hidden" name="estado" value="ACTIVA">
+                                <button class="acento chico" type="submit"><?= icono('caja') ?>Activar caja</button>
+                            <?php endif; ?>
+                        </form>
+                    <?php endif; ?>
                 <?php else: ?>
                     <?php $t = $fila['turno']; $h = $horasAbierto($t); ?>
                     <p><?= e($nombresEmpleado[$t->getIdEmpleado()] ?? '-') ?> <span class="sutil">· turno <?= $t->getIdCajaTurno() ?> desde las <?= e(substr($t->getFechaHoraApertura(), 11, 5)) ?></span></p>

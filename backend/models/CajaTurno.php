@@ -57,6 +57,24 @@ class CajaTurno
     public function getFechaHoraRevision(): ?string { return $this->fechaHoraRevision; }
 
     // El cajero solo vende con su turno abierto
+    /**
+     * id_caja => fila del arqueo de su turno ABIERTO. Recibe las filas de TODOS los turnos de la tienda:
+     * si solo recibiera las del cajero que mira, la caja que otro cajero tiene abierta le saldria libre.
+     *
+     * @param array<int, array{turno: CajaTurno}> $filas
+     * @return array<int, array{turno: CajaTurno}>
+     */
+    public static function abiertosPorCaja(array $filas): array
+    {
+        $porCaja = [];
+        foreach ($filas as $fila) {
+            if ($fila['turno']->estaAbierto()) {
+                $porCaja[$fila['turno']->getIdCaja()] = $fila;
+            }
+        }
+        return $porCaja;
+    }
+
     public function estaAbierto(): bool
     {
         return $this->estado === 'ABIERTO';

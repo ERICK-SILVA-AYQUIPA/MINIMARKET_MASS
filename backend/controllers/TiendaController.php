@@ -162,7 +162,8 @@ class TiendaController extends Controller
             $this->editar([], $ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=tienda_editar', 'Estado de la caja actualizado.');
+        // Desde el panel de Caja (Cajas ahora) vuelve a la caja; desde Tiendas, a la tienda
+        $this->redirigir($this->campo($post, 'volver') === 'caja' ? '/?ruta=caja' : '/?ruta=tienda_editar', 'Estado de la caja actualizado.');
     }
 
     // POST /?ruta=distrito_crear (desde el formulario de tienda nueva)

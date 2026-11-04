@@ -15,6 +15,8 @@ require __DIR__ . '/../models/Dinero.php';
 require __DIR__ . '/../models/Cantidad.php';
 require_once __DIR__ . '/../models/ReglaNegocioException.php';
 require __DIR__ . '/../models/MovimientoCaja.php';
+require __DIR__ . '/../models/Caja.php';
+require __DIR__ . '/../models/CajaTurno.php';
 require __DIR__ . '/../models/Paginacion.php';
 require __DIR__ . '/../models/Clave.php';
 require __DIR__ . '/../models/Producto.php';
@@ -260,6 +262,21 @@ revisar('En migraciones/ solo hay archivos NNN_nombre.sql', $sueltos === []);
 $compose = (string) file_get_contents(__DIR__ . '/../../docker-compose.yml');
 preg_match_all('#backend/database/([a-z_]+)\.sql:/docker-entrypoint-initdb\.d/[0-9]{2}_#', $compose, $montados);
 revisar('docker-compose.yml monta los 12 scripts base en el mismo orden', $montados[1] === Migraciones::BASE);
+echo "Cajas libres, ocupadas e inactivas\n";
+$turnoDe = fn(int $id, string $estado, int $caja, int $empleado): array =>
+    ['turno' => $estado === 'ABIERTO'
+        ? new CajaTurno($id, '2026-11-04 08:00:00', 100.0, null, null, $estado, $caja, $empleado)
+        : new CajaTurno($id, '2026-11-04 08:00:00', 100.0, '2026-11-04 16:00:00', 150.0, $estado, $caja, $empleado, 150.0, 0.0)];
+// Luis (2) tiene la caja 1 abierta; la caja 2 tuvo un turno ya cerrado; la caja 3 esta apagada
+$abiertos = CajaTurno::abiertosPorCaja([$turnoDe(5, 'ABIERTO', 1, 2), $turnoDe(3, 'CERRADO', 2, 2), $turnoDe(4, 'OBSERVADO', 2, 10)]);
+revisar('Solo los turnos ABIERTOS ocupan su caja', array_keys($abiertos) === [1] && $abiertos[1]['turno']->getIdEmpleado() === 2);
+$caja1 = new Caja(1, 1, 'ACTIVA', 1);
+$caja2 = new Caja(2, 2, 'ACTIVA', 1);
+$caja3 = new Caja(3, 3, 'INACTIVA', 1);
+revisar('La caja activa con turno de otro cajero está ocupada, no libre', $caja1->estadoAhora(isset($abiertos[1])) === 'ocupada');
+revisar('La caja activa sin turno abierto está libre (no inactiva)', $caja2->estadoAhora(isset($abiertos[2])) === 'libre' && $caja2->estaActiva());
+revisar('Solo la caja apagada por el administrador sale inactiva', $caja3->estadoAhora(false) === 'inactiva' && !$caja3->estaActiva());
+
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());
 
