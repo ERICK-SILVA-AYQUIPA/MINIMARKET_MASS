@@ -48,8 +48,9 @@ class CajaController extends Controller
         $puedeCambiarReglas = $usuario->puedeAdministrarTienda($tienda->getIdTienda());
 
         // El cajero ve solo sus turnos; el administrador, todos los de su tienda
+        $arqueoTienda = $this->cajas->arqueoDeTienda($tienda->getIdTienda());
         $arqueo = array_values(array_filter(
-            $this->cajas->arqueoDeTienda($tienda->getIdTienda()),
+            $arqueoTienda,
             fn(array $fila): bool => $esAdministrador || $fila['turno']->getIdEmpleado() === $usuario->getIdEmpleado()
         ));
         // Lo que deberia haber ahora en la gaveta del turno abierto, y sus retiros e ingresos
@@ -67,16 +68,12 @@ class CajaController extends Controller
         foreach ($this->empleados->deTienda($tienda->getIdTienda()) as $empleado) {
             $nombresEmpleado[$empleado->getIdEmpleado()] = $empleado->nombreCompleto();
         }
-        // Cada caja de la tienda ahora: libre u ocupada, por quien, desde cuando y cuanto deberia tener
-        $turnoDeCaja = [];
-        $porRevisar = [];
-        foreach ($arqueo as $fila) {
-            if ($fila['turno']->estaAbierto()) {
-                $turnoDeCaja[$fila['turno']->getIdCaja()] = $fila;
-            } elseif ($fila['turno']->getEstado() === 'OBSERVADO') {
-                $porRevisar[] = $fila;
-            }
-        }
+        // Cada caja de la tienda ahora: libre u ocupada, por quien, desde cuando y cuanto deberia tener.
+        // Sale de TODOS los turnos de la tienda (no solo los del cajero): si no, la caja que otro cajero
+        // tiene abierta le aparecia "Libre" y al elegirla el sistema la rechazaba.
+        $turnoDeCaja = CajaTurno::abiertosPorCaja($arqueoTienda);
+        $porRevisar = array_values(array_filter($arqueo, fn(array $fila): bool => $fila['turno']->getEstado() === 'OBSERVADO'));
+        $cajasActivas = array_values(array_filter($cajasTienda, fn(Caja $c): bool => $c->estaActiva()));
         $ahora = new DateTimeImmutable();
         $horasAbierto = fn(CajaTurno $t): float => ($ahora->getTimestamp() - (new DateTimeImmutable($t->getFechaHoraApertura()))->getTimestamp()) / 3600;
         // "2 h 15 min", "3 d 4 h": cuanto lleva abierto un turno, facil de leer de un vistazo
