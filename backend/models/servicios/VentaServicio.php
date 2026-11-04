@@ -393,6 +393,16 @@ class VentaServicio extends Servicio
                 || preg_match('/^[A-Za-z0-9]{1,10}$/', $autorizacion) !== 1) {
                 throw new ReglaNegocioException('Tarjeta: elige crédito o débito, la marca, los últimos 4 dígitos y el código de autorización.');
             }
+            // Un voucher se cobra una sola vez: la misma tarjeta con el mismo codigo de autorizacion ya pago otra venta
+            $voucher = $this->db->prepare(
+                'SELECT 1 FROM tarjeta t JOIN pago_venta pv ON pv.id_pago = t.id_pago AND pv.estado = \'VALIDO\'
+                  WHERE t.ultimos_4_digitos = :ultimos4 AND t.codigo_autorizacion = :autorizacion LIMIT 1'
+            );
+            $voucher->execute(['ultimos4' => $ultimos4, 'autorizacion' => strtoupper($autorizacion)]);
+            if ($voucher->fetchColumn() !== false) {
+                throw new ReglaNegocioException('Ese voucher (tarjeta ····' . $ultimos4 . ', autorización ' . strtoupper($autorizacion)
+                    . ') ya se usó en otra venta: pide el voucher de esta compra.');
+            }
             $pagos[] = ['metodo' => 2, 'monto' => $monto, 'datos' => [
                 'tipo' => $tipo, 'marca' => mb_strtoupper($marca), 'ultimos4' => $ultimos4, 'autorizacion' => strtoupper($autorizacion),
             ]];

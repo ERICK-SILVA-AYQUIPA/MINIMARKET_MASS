@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * V: la foto del producto o, si no tiene, la ilustracion de su categoria (icono sobre su color).
  * Es decorativa (alt=""): el nombre del producto siempre va escrito al lado.
- * @var array{url: ?string, icono: string, tono: int, categoria: string} $foto  ver FotoProducto::datos()
+ * @var array{url: ?string, propia: bool, icono: string, tono: int, categoria: string} $foto  ver FotoProducto::datos()
  * @var string $fotoClase  tamano: '' (tarjeta), 'chica' (lista de venta) o 'grande' (ficha)
  */
 $fotoClase ??= '';

@@ -22,8 +22,8 @@ class CajaController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=caja
-    public function panel(?string $error = null): void
+    // GET /?ruta=caja. $abrir: panel que vuelve abierto tras un error (el arqueo de cierre, para corregir el conteo)
+    public function panel(?string $error = null, ?string $abrir = null): void
     {
         $usuario = $this->usuario;
         $esCajero = $usuario?->puedeManejarCaja() === true;
@@ -79,6 +79,19 @@ class CajaController extends Controller
         }
         $ahora = new DateTimeImmutable();
         $horasAbierto = fn(CajaTurno $t): float => ($ahora->getTimestamp() - (new DateTimeImmutable($t->getFechaHoraApertura()))->getTimestamp()) / 3600;
+        // "2 h 15 min", "3 d 4 h": cuanto lleva abierto un turno, facil de leer de un vistazo
+        $tiempoAbierto = static function (float $horas): string {
+            $minutos = max(0, (int) round($horas * 60));
+            if ($minutos < 60) {
+                return $minutos . ' min';
+            }
+            if ($minutos < 1440) {
+                return intdiv($minutos, 60) . ' h ' . sprintf('%02d', $minutos % 60) . ' min';
+            }
+            return intdiv($minutos, 1440) . ' d ' . intdiv($minutos % 1440, 60) . ' h';
+        };
+        // Lo vendido en el turno abierto del cajero: ventas, efectivo, tarjeta y billetera Sip
+        $misVentas = $miTurno !== null ? $this->cajas->ventasDeTurno($miTurno->getIdCajaTurno()) : null;
         $this->vista('caja/panel', get_defined_vars());
     }
 
@@ -112,10 +125,60 @@ class CajaController extends Controller
             $cierre = $this->servicio->cerrarTurno($this->usuario, $this->campo($post, 'monto_cierre'), $this->conteo($post), $this->campo($post, 'observacion'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
-            $this->panel($ex->getMessage());
+            $this->panel($ex->getMessage(), 'arqueo-cierre');
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre));
+        $this->redirigir('/?ruta=turno_cierre&turno=' . $cierre['turno'], 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
+    }
+
+    /**
+     * GET /?ruta=turno_cierre&turno=N: el comprobante de cierre que arma el sistema solo
+     * (ventas por medio de pago, lo esperado, lo contado y la diferencia). Lo ve su cajero o el administrador.
+     */
+    public function comprobanteCierre(?string $turnoTexto): void
+    {
+        $usuario = $this->usuario;
+        $esAdministrador = $usuario !== null && $usuario->puedeVerArqueo($usuario->getIdTienda());
+        if ($usuario === null || (!$usuario->puedeManejarCaja() && !$esAdministrador)) {
+            $this->prohibido('El cierre de caja es para su cajero y para el administrador de la tienda.');
+            return;
+        }
+        $idTurno = $turnoTexto !== null && ctype_digit($turnoTexto) ? (int) $turnoTexto : 0;
+        $tienda = $this->tiendas->buscarPorId($usuario->getIdTienda());
+        $fila = null;
+        foreach ($this->cajas->arqueoDeTienda($tienda->getIdTienda()) as $f) {
+            if ($f['turno']->getIdCajaTurno() === $idTurno) {
+                $fila = $f;
+            }
+        }
+        // Un turno abierto todavia no tiene cierre; un cajero solo ve los suyos
+        if ($fila === null || $fila['turno']->estaAbierto()
+            || (!$esAdministrador && $fila['turno']->getIdEmpleado() !== $usuario->getIdEmpleado())) {
+            $this->noEncontrado('No hay un cierre de caja de ese turno.');
+            return;
+        }
+        $turno = $fila['turno'];
+        $ventas = $this->cajas->ventasDeTurno($idTurno);
+        $conteo = null;
+        foreach ($this->cajas->arqueosDeTienda($tienda->getIdTienda())[$idTurno] ?? [] as $a) {
+            if ($a['tipo'] === 'CIERRE') {
+                $conteo = $a;   // el ultimo conteo de cierre (el reconteo reemplaza al primero)
+            }
+        }
+        $numeroCaja = '-';
+        foreach ($this->tiendas->cajasDeTienda($tienda->getIdTienda()) as $c) {
+            if ($c->getIdCaja() === $turno->getIdCaja()) {
+                $numeroCaja = (string) $c->getNumeroCaja();
+            }
+        }
+        $cajero = '-';
+        foreach ($this->empleados->deTienda($tienda->getIdTienda()) as $empleado) {
+            if ($empleado->getIdEmpleado() === $turno->getIdEmpleado()) {
+                $cajero = $empleado->nombreCompleto();
+            }
+        }
+        $esSuyo = $turno->getIdEmpleado() === $usuario->getIdEmpleado();
+        $this->vista('caja/cierre', compact('tienda', 'fila', 'turno', 'ventas', 'conteo', 'numeroCaja', 'cajero', 'esSuyo'));
     }
 
     // POST /?ruta=turno_recontar: el cajero vuelve a contar el turno que el administrador mando a recontar
@@ -132,7 +195,7 @@ class CajaController extends Controller
             $this->panel($ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre));
+        $this->redirigir('/?ruta=turno_cierre&turno=' . $cierre['turno'], 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
     }
 
     // POST /?ruta=turno_pausa: accion=pausar o reanudar
@@ -251,7 +314,9 @@ class CajaController extends Controller
         }
         $tipo = $this->campo($post, 'tipo');
         try {
-            $this->servicio->registrarMovimiento($this->usuario, $tipo, $this->campo($post, 'monto'), $this->campo($post, 'motivo'));
+            $categoria = $this->campo($post, 'categoria');
+            $this->servicio->registrarMovimiento($this->usuario, $tipo, $this->campo($post, 'monto'), $this->campo($post, 'motivo'),
+                $categoria === '' ? 'OTRO' : $categoria, $this->campo($post, 'comprobante'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
             $this->panel($ex->getMessage());

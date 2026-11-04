@@ -13,6 +13,8 @@ if (PHP_SAPI !== 'cli') {
 
 require __DIR__ . '/../models/Dinero.php';
 require __DIR__ . '/../models/Cantidad.php';
+require_once __DIR__ . '/../models/ReglaNegocioException.php';
+require __DIR__ . '/../models/MovimientoCaja.php';
 require __DIR__ . '/../models/Paginacion.php';
 require __DIR__ . '/../models/Clave.php';
 require __DIR__ . '/../models/Producto.php';
@@ -57,6 +59,25 @@ revisar('"12.345" no es un monto', Dinero::deTexto('12.345') === null);
 revisar('"-5" no es un monto', Dinero::deTexto('-5') === null);
 revisar('"1e3" no es un monto', Dinero::deTexto('1e3') === null);
 revisar('1205 -> "12.05"', Dinero::aTexto(1205) === '12.05');
+
+echo "Movimientos de caja: categorías y retiro de seguridad\n";
+revisar('Un retiro acepta DEPOSITO, PROVEEDOR, GASTO y OTRO', MovimientoCaja::categoriaValida('RETIRO', 'DEPOSITO')
+    && MovimientoCaja::categoriaValida('RETIRO', 'PROVEEDOR') && MovimientoCaja::categoriaValida('RETIRO', 'GASTO') && MovimientoCaja::categoriaValida('RETIRO', 'OTRO'));
+revisar('Un retiro no acepta SENCILLO ni un ingreso PROVEEDOR', !MovimientoCaja::categoriaValida('RETIRO', 'SENCILLO') && !MovimientoCaja::categoriaValida('INGRESO', 'PROVEEDOR'));
+revisar('Tipo que no existe no tiene categorías', !MovimientoCaja::categoriaValida('PRESTAMO', 'OTRO'));
+revisar('Bajo el tope no se sugiere retiro', MovimientoCaja::retiroSugerido(50000, 50000, 10000) === 0);
+revisar('Sobre el tope se retira lo que pasa del fondo, en múltiplos de S/ 10: 612.40 - 100 -> 510', MovimientoCaja::retiroSugerido(61240, 50000, 10000) === 51000);
+revisar('El retiro sugerido deja al menos el fondo en la gaveta', 61240 - MovimientoCaja::retiroSugerido(61240, 50000, 10000) >= 10000);
+revisar('Con un fondo mayor que lo esperado no se sugiere retiro', MovimientoCaja::retiroSugerido(60000, 50000, 70000) === 0);
+revisar('Comprobante vacío = null', MovimientoCaja::comprobante('  ') === null);
+revisar('Comprobante en mayúsculas', MovimientoCaja::comprobante(' b001-245 ') === 'B001-245');
+$rechazado = false;
+try {
+    MovimientoCaja::comprobante('<b>1</b>');
+} catch (ReglaNegocioException) {
+    $rechazado = true;
+}
+revisar('Comprobante con < > se rechaza', $rechazado);
 
 echo "Cantidad (milésimas enteras)\n";
 revisar('Al peso "1.25" -> 1250', Cantidad::deTexto('1.25', true) === 1250);

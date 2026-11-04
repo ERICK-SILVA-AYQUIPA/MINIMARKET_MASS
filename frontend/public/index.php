@@ -256,6 +256,10 @@ try {
                 $cajaController->panel();
                 break;
 
+            case 'turno_cierre':
+                $cajaController->comprobanteCierre($leer('turno'));
+                break;
+
             case 'producto_form':
                 $productoController->formulario($leer('id'));
                 break;

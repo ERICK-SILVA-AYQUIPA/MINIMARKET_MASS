@@ -26,12 +26,12 @@ $decimales = $producto->esAlPeso() ? 3 : 0;
             <form class="form-foto" method="post" action="/?ruta=producto_foto" enctype="multipart/form-data">
                 <?= campoCsrf($csrf) ?>
                 <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
-                <label for="foto-<?= $producto->getIdProducto() ?>"><?= icono('foto') ?><?= $foto['url'] === null ? 'Subir una foto' : 'Cambiar la foto' ?></label>
+                <label for="foto-<?= $producto->getIdProducto() ?>"><?= icono('foto') ?><?= $foto['propia'] ? 'Cambiar la foto' : 'Subir una foto' ?></label>
                 <input id="foto-<?= $producto->getIdProducto() ?>" name="foto" type="file" accept="image/jpeg,image/png,image/webp" data-enviar-al-elegir required>
                 <button class="chico" type="submit" data-sin-js>Guardar foto</button>
             </form>
-            <?php if ($foto['url'] !== null): ?>
-                <form method="post" action="/?ruta=producto_foto" data-confirmar="¿Quitar la foto? Se verá el icono de su categoría." data-confirmar-boton="Sí, quitar">
+            <?php if ($foto['propia']): ?>
+                <form method="post" action="/?ruta=producto_foto" data-confirmar="¿Quitar la foto? Se verá la imagen del catálogo o el icono de su categoría." data-confirmar-boton="Sí, quitar">
                     <?= campoCsrf($csrf) ?>
                     <input type="hidden" name="id" value="<?= $producto->getIdProducto() ?>">
                     <input type="hidden" name="quitar" value="1">

@@ -82,6 +82,17 @@ if ($usuarioActual !== null) {
         'Inventario'     => $inventarioMenu,
         'Administración' => $adminMenu,
     ];
+
+    // Barra de abajo del celular (solo quien maneja la caja): Inicio, Caja, Vender al centro, Ventas y Menú
+    $barraInferior = [];
+    if (isset($ventasMenu['caja'])) {
+        $barraInferior = ['inicio' => ['Inicio', 'inicio'], 'caja' => ['Caja', 'caja']]
+            + (isset($ventasMenu['venta_nueva']) ? ['venta_nueva' => ['Vender', 'venta']] : [])
+            + ['ventas' => ['Ventas', 'ventas']];
+    }
+    if ($barraInferior !== []) {
+        $claseCuerpo = trim($claseCuerpo . ' con-barra-inferior');
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -89,11 +100,14 @@ if ($usuarioActual !== null) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#16202b">
+    <meta name="theme-color" content="#0f172a">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
-    <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/css/estilos.css?v=13">
-    <script src="/js/app.js?v=5" defer></script>
+    <link rel="preload" href="/fuentes/inter.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
+    <link rel="stylesheet" href="/css/tokens.css?v=1">
+    <link rel="stylesheet" href="/css/estilos.css?v=19">
+    <script src="/js/app.js?v=9" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -175,5 +189,5 @@ if ($usuarioActual !== null) {
     </nav>
 <?php endif; ?>
 <?php if ($aviso !== null): ?>
-    <div class="aviso <?= $aviso['tipo'] === 'ok' ? 'ok' : 'error' ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
+    <div class="aviso <?= e(in_array($aviso['tipo'], ['ok', 'alerta'], true) ? $aviso['tipo'] : 'error') ?>" role="status" data-aviso><?= e($aviso['mensaje']) ?></div>
 <?php endif; ?>

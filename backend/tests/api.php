@@ -383,7 +383,7 @@ echo "Otros métodos de pago\n";
 $luis->get('productos/2');
 $precio2 = (string) ($luis->datos()['precio_venta'] ?? '0');
 $tarjeta = ['tipo_comprobante' => 'B', 'total_esperado' => $precio2, 'lineas' => [['id_producto' => '2', 'cantidad' => '1']],
-    'pago' => ['metodo' => 'TARJETA', 'tarjeta_tipo' => 'DEBITO', 'tarjeta_marca' => 'VISA', 'tarjeta_ultimos4' => '4242', 'tarjeta_autorizacion' => 'A1B2C3']];
+    'pago' => ['metodo' => 'TARJETA', 'tarjeta_tipo' => 'DEBITO', 'tarjeta_marca' => 'VISA', 'tarjeta_ultimos4' => '4242', 'tarjeta_autorizacion' => strtoupper(bin2hex(random_bytes(3)))]];
 revisar('Tarjeta: se registra el método y el voucher', $luis->post('ventas', $tarjeta, nuevaClave()) === 201
     && ($luis->datos()['pagos'][0]['metodo'] ?? '') === 'TARJETA', $luis->mensaje());
 revisar('Tarjeta sin últimos 4 dígitos: 422', $luis->post('ventas', ['pago' => ['tarjeta_ultimos4' => ''] + $tarjeta['pago']] + $tarjeta, nuevaClave()) === 422);

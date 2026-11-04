@@ -9,13 +9,15 @@ declare(strict_types=1);
  * @var string $drawerCerrar     a donde lleva "Cerrar" (por defecto #contenido, sin recargar)
  * @var bool $drawerAbierto      true: abierto desde el servidor (ficha pedida con &ver=)
  * @var bool $drawerAncho        true: panel mas ancho, para formularios con tablas
+ * @var bool $drawerPantalla     true: ocupa toda la pantalla (el arqueo de cierre, sin distracciones)
  */
 $drawerSubtitulo ??= null;
 $drawerCerrar ??= '#contenido';
 $drawerAbierto ??= false;
 $drawerAncho ??= false;
+$drawerPantalla ??= false;
 ?>
-<div class="drawer<?= $drawerAbierto ? ' abierto' : '' ?><?= $drawerAncho ? ' ancho' : '' ?>" id="<?= e($drawerId) ?>" role="dialog" aria-modal="true" aria-labelledby="<?= e($drawerId) ?>-titulo">
+<div class="drawer<?= $drawerAbierto ? ' abierto' : '' ?><?= $drawerAncho ? ' ancho' : '' ?><?= $drawerPantalla ? ' pantalla' : '' ?>" id="<?= e($drawerId) ?>" role="dialog" aria-modal="true" aria-labelledby="<?= e($drawerId) ?>-titulo">
     <a class="drawer-fondo" href="<?= e($drawerCerrar) ?>" tabindex="-1" aria-hidden="true"></a>
     <section class="drawer-panel">
         <header class="drawer-cabecera">

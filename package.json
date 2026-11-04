@@ -1,0 +1,15 @@
+{
+  "name": "minimarket-mass-e2e",
+  "private": true,
+  "description": "Pruebas E2E y de regresion visual de la pagina web (Playwright). La pagina es PHP: Node solo se usa para estas pruebas.",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:capturas": "playwright test --update-snapshots",
+    "e2e:docker": "bash tests/e2e/correr_en_docker.sh",
+    "e2e:docker:capturas": "bash tests/e2e/correr_en_docker.sh --update-snapshots"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "22.15.30"
+  }
+}

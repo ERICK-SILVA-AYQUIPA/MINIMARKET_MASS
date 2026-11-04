@@ -273,6 +273,24 @@ revisar('El inicio avisa lo que vence esta semana, no al cajero', $carmen->get('
 revisar('La caja del cajero oculta lo esperado (cierre ciego) y ofrece el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('cierre ciego')
     && !$luis->tiene('En gaveta ahora') && $luis->tiene('data-conteo')
     && $luis->tiene('action="/?ruta=caja_movimiento"') && $rosa->get('ruta=caja') === 200 && !$rosa->tiene('caja_movimiento'));
+revisar('El turno del cajero: barra de estado, movimientos y el cierre solo dentro del arqueo ciego', $luis->get('ruta=caja') === 200
+    && $luis->tiene('class="turno-barra') && $luis->tiene('Movimientos de efectivo') && $luis->tiene('href="#arqueo-cierre"')
+    && substr_count($luis->cuerpo, 'action="/?ruta=turno_cerrar"') === 1
+    && strpos($luis->cuerpo, 'id="arqueo-cierre"') < strpos($luis->cuerpo, 'action="/?ruta=turno_cerrar"')
+    && $luis->tiene('data-confirmar="Vas a cerrar el turno') && !$luis->tiene('Ver estimado'));
+revisar('El cierre automático: resumen del sistema, conteo y confirmación en 3 pasos', $luis->get('ruta=caja') === 200
+    && $luis->tiene('data-cierre') && $luis->tiene('Lo que calculó el sistema') && $luis->tiene('data-pasos-cierre')
+    && $luis->tiene('Confirma y cierra') && !$luis->tiene('Efectivo que debe haber en la gaveta</span>' . "\n" . '                        <strong>S/'));
+revisar('El total contado no se exige si hay billetes: el servidor los suma (sin JavaScript también se cierra)', $luis->get('ruta=caja') === 200
+    && preg_match('/<input id="cierre-total"[^>]*>/', $luis->cuerpo, $totalCierre) === 1 && !str_contains($totalCierre[0], 'required')
+    && $luis->tiene('data-conteo-modo'));
+revisar('El comprobante de cierre lo arma el sistema: ventas por pago, esperado, contado y diferencia', $rosa->get('ruta=turno_cierre&turno=1') === 200
+    && $rosa->tiene('CIERRE DE CAJA') && $rosa->tiene('= Efectivo esperado') && $rosa->tiene('Efectivo contado')
+    && $rosa->tiene('class="cierre-resultado') && $rosa->tiene('data-imprimir') && !$rosa->tiene('?>'));
+revisar('Un turno abierto o inventado no tiene comprobante de cierre: 404', $rosa->get('ruta=turno_cierre&turno=5') === 404
+    && $rosa->get('ruta=turno_cierre&turno=abc') === 404 && $rosa->get('ruta=turno_cierre') === 404);
+revisar('El almacenero no ve cierres de caja: 403', $carmen->get('ruta=turno_cierre&turno=1') === 403);
+revisar('El historial de turnos enlaza el comprobante de cierre', $rosa->get('ruta=caja') === 200 && $rosa->tiene('ruta=turno_cierre&amp;turno=1"'));
 revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
 revisar('La utilidad muestra la comparación por tienda y el margen', $rosa->get('ruta=utilidad&desde=2026-01-01') === 200
@@ -295,13 +313,16 @@ revisar('Un CSV con otras columnas: 422 y dice cuáles van', $rosa->subir('catal
 revisar('Un archivo que no es .csv: 422', $rosa->subir('catalogo_subir', [], 'archivo', $plantilla, 'foto.png') === 422);
 @unlink($plantilla);
 revisar('El catálogo sale en tarjetas con chips de categoría y guía', $rosa->get('ruta=productos') === 200 && $rosa->tiene('id="tarjetas-productos"')
-    && $rosa->tiene('data-chips="tarjetas-productos"') && $rosa->tiene('data-guia="catalogo"') && $rosa->tiene('iconos.svg#lacteo'));
+    && $rosa->tiene('data-chips="tarjetas-productos"') && $rosa->tiene('data-guia="catalogo"') && $rosa->tiene('src="/img/catalogo/1.jpg?v='));
 revisar('Filtrar por categoría deja solo esa (Lacteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
     && substr_count($rosa->cuerpo, '<li id="fila-') === 12 && substr_count($rosa->cuerpo, '" data-categoria="2">') === 12);
 revisar('La vista en tabla también tiene foto chica', $rosa->get('ruta=productos&vista=tabla') === 200 && $rosa->tiene('id="filas-productos"')
     && $rosa->tiene('class="foto chica'));
 revisar('La venta tiene la cuadrícula, el campo del lector y el código en cada opción', $luis->get('ruta=venta_nueva') === 200
     && $luis->tiene('data-escanear') && $luis->tiene('data-agregar="1"') && $luis->tiene('data-codigo="7750000000011"'));
+revisar('La venta muestra la foto real de cada producto y el carrito lateral', $luis->get('ruta=venta_nueva') === 200
+    && $luis->tiene('src="/img/catalogo/1.jpg?v=') && $luis->tiene('data-carrito') && $luis->tiene('data-plantilla-carrito')
+    && $luis->tiene('iconos.svg#'));
 $fotoPrueba = tempnam(sys_get_temp_dir(), 'foto');
 $lienzo = imagecreatetruecolor(300, 200);
 imagepng($lienzo, $fotoPrueba);
@@ -429,8 +450,8 @@ revisar('Devolución de una venta vieja: vuelve al comprobante con el error', $l
     ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']) === 303
     && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('ya no se aceptan devoluciones'));
 revisar('Turno con monto inválido: 422', $luis->post('turno_abrir', ['caja' => '1', 'monto_inicial' => '-1']) === 422);
-revisar('Conteo con un billete de S/ 3: 422', $luis->post('turno_cerrar', ['monto_cierre' => '', 'conteo' => ['3.00' => '1']]) === 422
-    && $luis->tiene('data-conteo'));
+revisar('Conteo con un billete de S/ 3: 422 y el arqueo vuelve abierto con el error', $luis->post('turno_cerrar', ['monto_cierre' => '', 'conteo' => ['3.00' => '1']]) === 422
+    && $luis->tiene('data-conteo') && $luis->tiene('class="drawer abierto ancho pantalla" id="arqueo-cierre"'));
 revisar('Reconteo sin turno en reconteo: 422', $luis->post('turno_recontar', ['monto_cierre' => '100']) === 422);
 revisar('Revisar un turno que no está observado: 422', $rosa->post('turno_revisar', ['turno' => '1', 'decision' => 'APROBAR', 'comentario' => 'Visto']) === 422);
 revisar('Arqueo sorpresa con monto inválido: 422', $rosa->post('arqueo_sorpresa', ['turno' => '5', 'monto' => 'abc']) === 422);
