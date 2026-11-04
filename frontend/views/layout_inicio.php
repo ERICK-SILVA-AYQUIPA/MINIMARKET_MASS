@@ -82,6 +82,17 @@ if ($usuarioActual !== null) {
         'Inventario'     => $inventarioMenu,
         'Administración' => $adminMenu,
     ];
+
+    // Barra de abajo del celular (solo quien maneja la caja): Inicio, Caja, Vender al centro, Ventas y Menú
+    $barraInferior = [];
+    if (isset($ventasMenu['caja'])) {
+        $barraInferior = ['inicio' => ['Inicio', 'inicio'], 'caja' => ['Caja', 'caja']]
+            + (isset($ventasMenu['venta_nueva']) ? ['venta_nueva' => ['Vender', 'venta']] : [])
+            + ['ventas' => ['Ventas', 'ventas']];
+    }
+    if ($barraInferior !== []) {
+        $claseCuerpo = trim($claseCuerpo . ' con-barra-inferior');
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -95,8 +106,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=1">
-    <link rel="stylesheet" href="/css/estilos.css?v=17">
-    <script src="/js/app.js?v=7" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=18">
+    <script src="/js/app.js?v=8" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

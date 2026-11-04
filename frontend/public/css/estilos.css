@@ -1301,3 +1301,128 @@ form.formulario label.caja-opcion.no-disponible { background: var(--superficie-2
     .cierre-rejilla { display: block; }
     .ticket-cierre { max-width: 80mm; margin: 0 auto; padding: 0; border: 0; box-shadow: none; font-size: 11px; }
 }
+
+/* ---------- 22. Caja: categorías de movimientos, retiro de seguridad y cobro rápido ---------- */
+.producto-venta { position: relative; } /* el código oculto de cada producto no se sale de la cuadrícula (alargaba la página) */
+.movimiento-campos { grid-template-columns: minmax(170px, 220px) minmax(96px, 130px) minmax(130px, 170px) minmax(0, 1fr) auto; }
+.movimiento-categoria { color: var(--tinta); font-weight: 600; }
+@media (max-width: 1200px) {
+    .movimiento-campos { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .movimiento-campos .movimiento-categoria-campo, .movimiento-campos .movimiento-motivo { grid-column: 1 / -1; }
+    .movimiento-campos .movimiento-motivo { grid-column: 1; }
+    .movimiento-campos .movimiento-boton { align-self: end; }
+}
+.aviso-retiro { align-items: center; flex-wrap: wrap; }
+.aviso-retiro > span { flex: 1 1 260px; }
+.aviso-retiro .boton { flex: none; }
+.rotulo-con-estado { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.rotulo-con-estado .etiqueta { flex: none; font-size: .75rem; }
+form.formulario .rotulo-con-estado label { margin-bottom: 0; }
+.efectivo-rapido { display: flex; flex-wrap: wrap; gap: var(--s-2); margin: var(--s-2) 0 var(--s-1); }
+.efectivo-rapido button { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.efectivo-rapido button:first-child { font-family: var(--letra); font-weight: 700; border-color: var(--marca-fuerte); background: var(--marca-suave); }
+kbd { display: inline-block; padding: 0 var(--s-1); border: 1px solid var(--borde-fuerte); border-bottom-width: 2px; border-radius: 4px; background: var(--superficie-2); font-family: var(--mono); font-size: .78em; color: var(--tinta); }
+.cobro-fijo, .barra-inferior { display: none; }
+
+/* ---------- 23. Celular: barra de abajo, venta con el total a la vista y caja compacta ---------- */
+@media (max-width: 960px) {
+    .solo-teclado { display: none; }
+
+    /* Barra de abajo: Inicio, Caja, Vender (al centro, en amarillo), Ventas y Menú */
+    .con-barra-inferior { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+    .barra-inferior {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); align-items: end;
+        position: fixed; z-index: 40; left: var(--s-3); right: var(--s-3); bottom: calc(var(--s-2) + env(safe-area-inset-bottom, 0px));
+        padding: var(--s-1) var(--s-1); border-radius: var(--radio-xl); background: var(--superficie);
+        border: 1px solid var(--borde); box-shadow: var(--sombra-xl);
+    }
+    .barra-inferior a, .barra-inferior label {
+        display: flex; flex-direction: column; align-items: center; gap: var(--s-0_5); min-height: 56px; justify-content: center;
+        margin: 0; padding: var(--s-1) 0; border-radius: var(--radio-chico); color: var(--suave); font-size: .72rem; font-weight: 700;
+        text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .barra-inferior-icono { display: grid; place-items: center; width: 44px; height: 28px; border-radius: var(--radio-full); transition: background var(--dur-1) var(--curva); }
+    .barra-inferior .icono { width: 22px; height: 22px; }
+    .barra-inferior a[aria-current="page"] { color: var(--tinta); }
+    .barra-inferior a[aria-current="page"] .barra-inferior-icono { background: var(--marca-suave); }
+    .barra-inferior a:active .barra-inferior-icono, .barra-inferior label:active .barra-inferior-icono { background: var(--gris-fondo); }
+    .barra-inferior a.barra-inferior-vender { color: var(--tinta); }
+    .barra-inferior-vender .barra-inferior-icono {
+        width: 56px; height: 56px; margin-top: -26px; border-radius: 50%; background: var(--marca); color: var(--tinta);
+        border: 4px solid var(--fondo); box-shadow: 0 6px 16px rgba(242, 194, 0, .45);
+    }
+    .barra-inferior-vender .icono { width: 24px; height: 24px; }
+    .barra-inferior a.barra-inferior-vender[aria-current="page"] .barra-inferior-icono,
+    .barra-inferior a.barra-inferior-vender:active .barra-inferior-icono { background: var(--marca-fuerte); }
+    .barra-inferior a:focus-visible, .barra-inferior label:focus-visible { outline: 3px solid var(--foco); outline-offset: 2px; }
+    .menu-casilla:checked ~ .barra-inferior,
+    body:has(.drawer:target, .drawer.abierto) :is(.barra-inferior, .cobro-fijo) { visibility: hidden; }
+    .con-barra-inferior .toast { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+    /* Venta: el total y "Cobrar" quedan fijos arriba de la barra mientras se eligen productos */
+    .cobro-fijo:not([hidden]):not(.cobro-a-la-vista) {
+        display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+        position: fixed; z-index: 41; left: var(--s-3); right: var(--s-3); bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+        padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); border-radius: var(--radio-lg);
+        background: var(--tinta); color: #fff; box-shadow: var(--sombra-xl); animation: aparecer var(--dur-2) var(--curva);
+    }
+    .cobro-fijo.cobro-a-la-vista { display: none; }
+    body:not(.con-barra-inferior) .cobro-fijo:not([hidden]) { bottom: calc(var(--s-3) + env(safe-area-inset-bottom, 0px)); }
+    .cobro-fijo-total { display: grid; line-height: 1.15; }
+    .cobro-fijo-total span { font-size: .78rem; color: var(--sobre-oscuro-suave); font-weight: 600; }
+    .cobro-fijo-total strong { font-family: var(--mono); font-size: 1.35rem; color: var(--marca); font-variant-numeric: tabular-nums; }
+    .cobro-fijo .boton { min-height: 48px; padding: 0 var(--s-5); }
+    .venta:has(.cobro-fijo:not([hidden])) { padding-bottom: 76px; }
+    body:has(.cobro-fijo:not([hidden]):not(.cobro-a-la-vista)) .toast { bottom: calc(164px + env(safe-area-inset-bottom, 0px)); }
+    .venta-carrito { scroll-margin-top: 72px; }
+}
+
+@media (max-width: 640px) {
+    /* Productos en filas: foto chica, nombre y precio a la vista; la lista se desplaza sola */
+    .venta-catalogo { padding: var(--s-3); }
+    .venta .rejilla-venta { grid-template-columns: minmax(0, 1fr); gap: var(--s-2); max-height: 58vh; }
+    .venta .producto-venta { flex-direction: row; align-items: center; gap: var(--s-3); min-height: 72px; }
+    .venta .producto-venta:hover { transform: none; }
+    .venta .producto-venta-foto { flex: none; width: 56px; }
+    .venta .producto-venta-nombre { flex: 1; min-height: 0; font-size: .9rem; }
+    .venta .producto-venta-pie { flex: none; margin: 0; flex-direction: column; align-items: flex-end; gap: var(--s-0_5); }
+    .venta .producto-venta-cantidad { top: -6px; right: -6px; }
+    .venta .producto-venta-agotado { inset: auto -4px -4px; font-size: .62rem; padding: 0 var(--s-1); }
+    .efectivo-rapido button { flex: 1 1 calc(33% - var(--s-2)); min-height: 44px; }
+    .movimiento-campos .movimiento-motivo, .movimiento-campos .movimiento-boton { grid-column: 1 / -1; }
+    .movimiento-boton button { width: 100%; min-height: 48px; }
+
+    /* Caja: botones del turno en dos columnas ("Ir a vender" ocupa toda la fila) */
+    .turno-barra-acciones { display: grid; grid-template-columns: 1fr 1fr; }
+    .turno-barra-acciones > :first-child:not(:only-child):not(form) { grid-column: 1 / -1; }
+    .turno-barra-acciones button, .turno-barra-acciones .boton { min-height: 48px; }
+    .metricas-turno { grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+    .metricas-turno .metrica { padding: var(--s-3); }
+    .metricas-turno .metrica:nth-child(2) { grid-column: 1 / -1; order: 3; } /* fondo y esperado lado a lado; ventas debajo */
+    .metrica-valor { font-size: 1.35rem; }
+    .metricas-turno .metrica-filas { font-size: .85rem; }
+
+    /* Historial de movimientos: cada fila como tarjeta */
+    .movimientos-turno .tabla { border: 0; background: none; overflow: visible; }
+    .movimientos-turno table, .movimientos-turno tbody { display: block; }
+    .movimientos-turno thead { display: none; }
+    .movimientos-turno tr {
+        display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "hora tipo monto" "detalle detalle detalle";
+        gap: var(--s-1) var(--s-2); align-items: center; padding: var(--s-3); margin-bottom: var(--s-2);
+        border: 1px solid var(--borde); border-radius: var(--radio-chico); background: var(--superficie);
+    }
+    .movimientos-turno td { display: block; padding: 0; border: 0; }
+    .movimientos-turno td:nth-child(1) { grid-area: hora; }
+    .movimientos-turno td:nth-child(2) { grid-area: tipo; }
+    .movimientos-turno td:nth-child(3) { grid-area: detalle; font-size: .9rem; }
+    .movimientos-turno td:nth-child(4) { grid-area: monto; font-weight: 700; }
+    .movimientos-turno .fila-apertura td { background: none; }
+    .movimientos-turno .fila-apertura { background: var(--superficie-2); }
+
+    /* Conteo de billetes y monedas: cada uno en una fila corta (nombre a la izquierda, cantidad a la derecha) */
+    .conteo-grilla { grid-template-columns: 1fr 1fr; }
+    .conteo-den, form.formulario label.conteo-den { grid-template-columns: minmax(0, 1fr) 4.25rem; align-items: center; column-gap: var(--s-2); }
+    .conteo-den input, form.formulario .conteo-den input { min-height: 44px; }
+    .conteo-den small { grid-column: 1 / -1; }
+    .conteo-den small:empty { display: none; }
+}
