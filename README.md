@@ -284,7 +284,29 @@ En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflo
 
 - **pruebas**: la sintaxis de todos los `.php`, las pruebas unitarias, la revisión de seguridad, las web, las de integración y las de la API de la app contra un MySQL 8.4.11 nuevo y, al final, la **prueba de restauración** (`backend/tests/restauracion.sh`: respaldo cifrado, se borra todo, se restaura y se comprueba que la base y las fotos queden iguales).
 - **analisis**: [PHPStan](https://phpstan.org) nivel 5 sobre `backend/` y `frontend/public/`, sin Composer. Los avisos que ya había están en `phpstan-baseline.neon`, así que solo falla con errores nuevos. En tu PC: bajar `phpstan.phar` de sus [releases](https://github.com/phpstan/phpstan/releases) y correr `php phpstan.phar analyse --memory-limit=1G`.
+- **e2e**: [Playwright](https://playwright.dev) sobre la página, como lo haría el cajero: login, apertura de caja, venta, movimientos de efectivo, arqueo y cierre. Cada paso compara una captura con `toHaveScreenshot()` píxel a píxel (ver abajo).
 - **android**: `./gradlew testDebugUnitTest assembleDebug`, es decir, las pruebas de la app (`CarritoTest`, `CodigoLeidoTest`…) y el APK de prueba. El APK queda para descargar 14 días en la corrida de **Actions** (sección *Artifacts*, `minimarket-mass-debug-apk`).
+
+#### Pruebas E2E y capturas (regresión visual)
+
+Están en `tests/e2e/*.spec.ts` (`01-login`, `02-apertura-caja`, `03-venta`, `04-movimientos`, `05-arqueo-cierre`) y corren en ese orden con el cajero Miguel (DNI 70000008): cada flujo sigue donde dejó el anterior. Las capturas base están en `tests/e2e/<archivo>.spec.ts-snapshots/` y se suben a GitHub; las fechas y horas se tapan (rosado) para que solo se compare el diseño.
+
+Se corren **siempre en la imagen de Docker de Playwright** (`mcr.microsoft.com/playwright:v1.63.0-noble`), en tu PC y en la CI: otro sistema u otro Chromium dibuja las letras con otros píxeles y la comparación fallaría sin que nada haya cambiado. Necesitas Docker (en Windows, desde Git Bash o WSL):
+
+```bash
+docker compose down -v && docker compose up -d --wait mysql   # base recién creada (las pruebas abren y cierran un turno de verdad)
+bash tests/e2e/correr_en_docker.sh                             # compara con las capturas base
+```
+
+**Cuando cambias el diseño a propósito**, vuelve a generar las capturas y súbelas en el mismo pull request (revisa en el diff de GitHub que el cambio sea el que querías):
+
+```bash
+docker compose down -v && docker compose up -d --wait mysql
+bash tests/e2e/correr_en_docker.sh --update-snapshots
+git add tests/e2e/*-snapshots
+```
+
+Si una captura no coincide en la CI, el informe con la imagen esperada, la nueva y la diferencia queda para descargar en la corrida de **Actions** (*Artifacts*, `informe-e2e`). El sistema de diseño (tokens, grilla de 4/8, letras, animaciones) está explicado en `docs/sistema_diseno.md`.
 
 `backend/tests/web.php` prueba 5 claves erradas para ver el bloqueo; si se corre muchas veces seguidas, la IP local puede quedar bloqueada 15 minutos (`docker compose down -v` lo limpia). El resultado sale en la pestaña **Actions** y en el pull request.
 

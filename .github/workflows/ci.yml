@@ -5,6 +5,8 @@
 # - analisis: PHPStan nivel 5 (solo falla con errores nuevos: los que ya habia estan en phpstan-baseline.neon)
 #   y que los scripts .ps1 y .sh se puedan leer.
 # - android: pruebas de la app (CarritoTest, CodigoLeidoTest...) y el APK de prueba, que queda para descargar.
+# - e2e: Playwright sobre la pagina (login, apertura, venta, movimientos, arqueo y cierre) con regresion visual
+#   pixel a pixel. Corre dentro de la imagen de Docker de Playwright, la misma con la que se generan las capturas base.
 name: CI
 
 on:
@@ -98,6 +100,34 @@ jobs:
             foreach ($e in $errores) { Write-Host "::error file=$($_.FullName),line=$($e.Extent.StartLineNumber)::$($e.Message)"; $malos++ }
           }
           if ($malos -gt 0) { exit 1 }
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # Base recien creada: las pruebas abren un turno, venden y cierran la caja de verdad
+      - name: Levantar MySQL 8.4.11
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait mysql
+          sleep 5
+
+      # Mismo script que en las PCs del equipo: misma imagen, mismas letras, mismos pixeles
+      - name: Pruebas E2E y capturas (Playwright en Docker)
+        run: bash tests/e2e/correr_en_docker.sh
+
+      # Si una captura no coincide, el informe muestra la esperada, la nueva y la diferencia
+      - name: Subir el informe de Playwright si algo fallo
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-e2e
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
 
   android:
     runs-on: ubuntu-24.04
