@@ -148,6 +148,11 @@ revisar('Venta ANULADA y pagos ANULADOS', valor($db, 'SELECT estado FROM venta W
     && valor($db, "SELECT COUNT(*) FROM pago_venta WHERE id_venta = ? AND estado = 'VALIDO'", [$idVenta]) === '0');
 revisar('Devuelve 1.250 kg de papa', $stock(1, 8) === number_format((float) $papa + 1.25, 3, '.', ''));
 rechaza('No se anula dos veces', fn() => $ventas->anular($rosa, $idVenta, 'Otra vez'));
+// Cuadre de caja: el efectivo de un turno ya cerrado no puede salir de su arqueo
+$cerradaEfectivo = (int) valor($db, "SELECT id_venta FROM venta WHERE id_serie = 1 AND numero_correlativo = 1");
+rechaza('No se anula una venta en efectivo de un turno ya cerrado (descuadraría el arqueo)', fn() => $ventas->anular($rosa, $cerradaEfectivo, 'Prueba'));
+revisar('...y la venta sigue EMITIDA con su pago', valor($db, 'SELECT estado FROM venta WHERE id_venta = ?', [$cerradaEfectivo]) === 'EMITIDA'
+    && valor($db, "SELECT COUNT(*) FROM pago_venta WHERE id_venta = ? AND estado = 'VALIDO'", [$cerradaEfectivo]) === '1');
 
 echo "Traslado y merma\n";
 $origen = $stock(1, 2);

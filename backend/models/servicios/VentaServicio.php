@@ -181,6 +181,19 @@ class VentaServicio extends Servicio
             if ($devoluciones->fetchColumn() !== false) {
                 throw new ReglaNegocioException('La venta tiene devoluciones: ya no se puede anular.');
             }
+            // Cuadre de caja: anular saca el efectivo de lo esperado del turno de la venta. Si ese turno ya se contó
+            // y cerró, el dinero que se le devuelve al cliente sale de otra gaveta y ninguna caja lo registraría.
+            // En ese caso se usa la devolución, que descuenta el efectivo del turno abierto de quien lo entrega.
+            $efectivoCerrado = $this->db->prepare(
+                'SELECT 1 FROM pago_venta pv JOIN venta v ON v.id_venta = pv.id_venta
+                   JOIN caja_turno ct ON ct.id_caja_turno = v.id_caja_turno
+                  WHERE pv.id_venta = :venta AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1 AND ct.estado <> \'ABIERTO\'
+                  LIMIT 1'
+            );
+            $efectivoCerrado->execute(['venta' => $idVenta]);
+            if ($efectivoCerrado->fetchColumn() !== false) {
+                throw new ReglaNegocioException('Se cobró en efectivo en un turno que ya cerró su caja: anularla descuadraría el arqueo. Registra una devolución desde una caja abierta.');
+            }
 
             $this->db->prepare(
                 'INSERT INTO anulacion_venta (fecha_hora, motivo, id_venta, id_empleado) VALUES (NOW(), :motivo, :venta, :empleado)'

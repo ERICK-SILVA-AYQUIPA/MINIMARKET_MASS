@@ -1456,3 +1456,31 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
     .conteo-paso, button.conteo-paso { min-height: 40px; width: 40px; }
     form.formulario .conteo-control input, .conteo-control input { min-height: 40px; }
 }
+
+/* Cuadre de caja como una cuenta: fondo + ventas − devoluciones + ingresos − retiros = esperado; contado y diferencia */
+.cuadre { width: 100%; border-collapse: collapse; margin: 0 0 var(--s-3); font-variant-numeric: tabular-nums; }
+.cuadre th, .cuadre td { padding: var(--s-2) var(--s-2); border-bottom: 1px solid var(--borde); text-align: left; vertical-align: baseline; }
+.cuadre th, .cuadre tfoot th, .cuadre thead th { font-weight: 600; color: var(--tinta); text-transform: none; letter-spacing: normal; font-size: .95rem; background: none; }
+.cuadre th small { display: block; font-weight: 400; color: var(--suave); font-size: .8rem; }
+.cuadre td.num { text-align: right; white-space: nowrap; font-family: var(--mono); font-weight: 600; }
+.cuadre-signo { width: 1.5rem; text-align: center !important; font-weight: 800; color: var(--suave); font-family: var(--mono); }
+.cuadre tr.en-cero th, .cuadre tr.en-cero td { color: var(--tenue); }
+.cuadre tfoot th, .cuadre tfoot td { border-bottom: 0; }
+.cuadre-esperado th, .cuadre-esperado td { border-top: 2px solid var(--tinta); font-size: 1.05rem; font-weight: 800 !important; }
+.cuadre-diferencia th, .cuadre-diferencia td { font-weight: 800 !important; }
+.cuadre-diferencia.cuadra th, .cuadre-diferencia.cuadra td { background: var(--verde-fondo); color: var(--verde); }
+.cuadre-diferencia.sobra th, .cuadre-diferencia.sobra td { background: var(--ambar-fondo); color: var(--ambar); }
+.cuadre-diferencia.falta th, .cuadre-diferencia.falta td { background: var(--rojo-fondo); color: var(--rojo); }
+.cierre-como h3 { margin: var(--s-4) 0 var(--s-2); font-size: 1rem; }
+.cuadre { table-layout: fixed; min-width: 0; }
+.cuadre col.cuadre-col-signo { width: 2rem; }
+.cuadre col.cuadre-col-monto { width: 8rem; }
+.cuadre th { white-space: normal; }
+@media (max-width: 640px) {
+    .cuadre th, .cuadre td { padding: var(--s-2) var(--s-1); }
+    .cuadre col.cuadre-col-signo { width: 1.25rem; }
+    .cuadre col.cuadre-col-monto { width: 6.5rem; }
+    .cuadre td.num { font-size: .88rem; }
+}
+.cuadre tfoot td { background: none; }
+.cuadre-diferencia.cuadra td { background: var(--verde-fondo); } .cuadre-diferencia.sobra td { background: var(--ambar-fondo); } .cuadre-diferencia.falta td { background: var(--rojo-fondo); }
