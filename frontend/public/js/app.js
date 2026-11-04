@@ -15,6 +15,16 @@
     const $ = (selector, raiz = document) => raiz.querySelector(selector);
     const $$ = (selector, raiz = document) => Array.from(raiz.querySelectorAll(selector));
 
+    // ---------- Sucursal del administrador (menu lateral): se cambia al elegirla, sin el boton ----------
+    const formTienda = $('[data-elegir-tienda]');
+    if (formTienda) {
+        const botonTienda = $('[data-elegir-tienda-boton]', formTienda);
+        if (botonTienda) {
+            botonTienda.hidden = true;
+        }
+        $('select', formTienda).addEventListener('change', () => formTienda.submit());
+    }
+
     // ---------- Dinero y cantidades en enteros (centimos y milesimas), como el servidor ----------
 
     // "12.5" -> 1250 centimos; null si no es un monto valido

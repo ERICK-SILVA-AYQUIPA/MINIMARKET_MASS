@@ -459,6 +459,53 @@ revisar('Reglas con turnos de 30 horas: 422', $rosa->post('regla_caja_guardar', 
 revisar('El administrador ve las cajas en vivo, el arqueo sorpresa y las reglas', $rosa->get('ruta=caja') === 200
     && $rosa->tiene('Cajas ahora') && $rosa->tiene('#sorpresa-5') && $rosa->tiene('id="reglas-caja"'));
 
+echo "Sucursal del administrador\n";
+// El administrador elige en el menu lateral la sucursal con la que trabaja; su ficha no cambia (solo la sesion)
+$jefa = new Navegador();
+$jefa->entrar('70000001');
+revisar('El administrador ve el selector de sucursal con todas las tiendas, Cayma marcada como la suya',
+    $jefa->get('ruta=inicio') === 200 && $jefa->tiene('action="/?ruta=tienda_elegir"')
+    && $jefa->tiene('<option value="1" selected>Mass Cayma · la tuya</option>')
+    && $jefa->tiene('>Mass Cerro Colorado</option>') && $jefa->tiene('>Mass Yanahuara</option>'));
+revisar('El selector vuelve a la misma opción del menu (Kardex -> Movimientos)',
+    $jefa->get('ruta=kardex') === 200 && $jefa->tiene('name="volver" value="ingresos"'));
+revisar('Desde la ficha de un producto vuelve a la lista de productos, no a la ficha',
+    $jefa->get('ruta=producto&id=1') === 200 && $jefa->tiene('name="volver" value="productos"'));
+revisar('El cajero y el almacenero no tienen selector: ven solo su tienda',
+    $luis->get('ruta=inicio') === 200 && !$luis->tiene('tienda_elegir') && $luis->tiene('<strong>Mass Cayma</strong>')
+    && $carmen->get('ruta=inicio') === 200 && !$carmen->tiene('tienda_elegir'));
+revisar('El cajero no puede cambiar de sucursal por POST: 403',
+    $luis->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']) === 403);
+revisar('Cambiar de sucursal sin token: 403', $jefa->post('tienda_elegir', ['tienda' => '2'], false) === 403
+    && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="1" selected>'));
+revisar('Sucursal que no existe: 404', $jefa->post('tienda_elegir', ['tienda' => '999', 'volver' => 'inicio']) === 404);
+revisar('Sucursal con texto: 404', $jefa->post('tienda_elegir', ['tienda' => 'abc', 'volver' => 'inicio']) === 404);
+revisar('Elegir Cerro Colorado vuelve a la opción pedida con un aviso',
+    $jefa->post('tienda_elegir', ['tienda' => '2', 'volver' => 'empleados']) === 303
+    && str_ends_with($jefa->cabeceras['location'] ?? '', '/?ruta=empleados')
+    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Ahora trabajas en Mass Cerro Colorado.'));
+revisar('El personal que ve ahora es el de Cerro Colorado (Jorge, Ana, Pedro), no el de Cayma',
+    $jefa->tiene('Jorge') && $jefa->tiene('Pedro') && !$jefa->tiene('Caceres'));
+revisar('El menu marca Cerro Colorado y sigue diciendo cuál es la suya',
+    $jefa->tiene('<option value="2" selected>Mass Cerro Colorado</option>') && $jefa->tiene('<option value="1">Mass Cayma · la tuya</option>'));
+revisar('Las ventas, el stock y los reportes se abren en Cerro Colorado',
+    $jefa->get('ruta=ventas') === 200 && $jefa->tiene('B002-') && !$jefa->tiene('B001-')
+    && $jefa->get('ruta=reportes') === 200 && $jefa->get('ruta=caja') === 200 && $jefa->get('ruta=tienda_editar') === 200
+    && $jefa->tiene('value="Mass Cerro Colorado"'));
+revisar('Con otra sucursal elegida igual se puede pedir otra tienda en la URL',
+    $jefa->get('ruta=ventas&tienda=1') === 200 && $jefa->tiene('B001-'));
+revisar('Un volver con una URL de otro sitio se ignora: va al inicio',
+    $jefa->post('tienda_elegir', ['tienda' => '3', 'volver' => '//otro.sitio']) === 303
+    && str_ends_with($jefa->cabeceras['location'] ?? '', '/?ruta=inicio')
+    && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="3" selected>Mass Yanahuara</option>'));
+revisar('Volver a su tienda la deja como al entrar',
+    $jefa->post('tienda_elegir', ['tienda' => '1', 'volver' => 'inicio']) === 303
+    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Caceres') && !$jefa->tiene('Pedro'));
+$jefa->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']);
+revisar('Salir y volver a entrar empieza otra vez en su propia tienda',
+    $jefa->post('salir', []) === 303 && $jefa->entrar('70000001') === 303
+    && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="1" selected>'));
+
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);
 

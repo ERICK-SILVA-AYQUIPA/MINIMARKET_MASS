@@ -34,6 +34,24 @@ abstract class Usuario
     public function getEstado(): string { return $this->estado; }
     public function getIdTienda(): int { return $this->idTienda; }
 
+    // La tienda donde trabaja segun su ficha (empleado.id_tienda). Solo difiere de getIdTienda()
+    // cuando un administrador eligio otra sucursal en el menu lateral.
+    private ?int $idTiendaPropia = null;
+
+    public function getIdTiendaPropia(): int { return $this->idTiendaPropia ?? $this->idTienda; }
+
+    /**
+     * El mismo usuario, trabajando en otra sucursal: todos los permisos y pantallas pasan a esa tienda.
+     * Solo lo usa quien puedeElegirTienda() (el administrador); su ficha en la base no cambia.
+     */
+    public function enTienda(int $idTienda): static
+    {
+        $copia = clone $this;
+        $copia->idTiendaPropia = $this->getIdTiendaPropia();
+        $copia->idTienda = $idTienda;
+        return $copia;
+    }
+
     public function nombreCompleto(): string
     {
         return $this->nombres . ' ' . $this->apellidos;
@@ -115,6 +133,12 @@ abstract class Usuario
     public function puedeVerIngresos(int $idTienda): bool
     {
         return $this->puedeRegistrarIngreso($idTienda) || $this->puedeAdministrarTienda($idTienda);
+    }
+
+    // Elegir en el menu lateral la sucursal con la que trabaja (sin cambiar su ficha)
+    public function puedeElegirTienda(): bool
+    {
+        return false;
     }
 
     // Abrir una tienda nueva de la cadena

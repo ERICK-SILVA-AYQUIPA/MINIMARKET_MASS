@@ -49,4 +49,11 @@ class Administrador extends Usuario
     {
         return $this->estaActivo();
     }
+
+    // El administrador de la cadena cambia de sucursal en el menu lateral; despues de elegirla
+    // maneja esa tienda igual que la suya (personal, caja, stock, reportes)
+    public function puedeElegirTienda(): bool
+    {
+        return $this->estaActivo();
+    }
 }

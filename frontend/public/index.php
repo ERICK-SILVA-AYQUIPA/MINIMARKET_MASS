@@ -75,6 +75,15 @@ if ($usuario !== null && ($estadoClave === null || $sesion->versionClave() !== $
 }
 // Clave puesta por el administrador (o la de prueba): solo puede cambiarla o salir
 $debeCambiarClave = $usuario !== null && $estadoClave['debeCambiarClave'];
+// El administrador trabaja con la sucursal que eligio en el menu lateral (si aun existe)
+$idTiendaElegida = $sesion->tiendaElegida();
+if ($usuario !== null && $idTiendaElegida !== null) {
+    if ($usuario->puedeElegirTienda() && $tiendas->buscarPorId($idTiendaElegida) !== null) {
+        $usuario = $usuario->enTienda($idTiendaElegida);
+    } else {
+        $sesion->elegirTienda(null);
+    }
+}
 
 $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
@@ -116,7 +125,7 @@ $rutasPost = [
     'turno_recontar', 'turno_pausa', 'turno_revisar', 'arqueo_sorpresa', 'regla_caja_guardar',
     'producto_guardar', 'producto_estado', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
-    'ajuste_registrar', 'tienda_guardar', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
+    'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -167,6 +176,7 @@ try {
                 'cliente_documento'  => $clienteController->completarDocumento($_POST),
                 'ajuste_registrar'   => $inventarioController->registrarAjuste($_POST),
                 'tienda_guardar'     => $tiendaController->guardar($_POST),
+                'tienda_elegir'      => $tiendaController->elegir($_POST),
                 'tienda_abrir'       => $tiendaController->abrir($_POST),
                 'caja_crear'         => $tiendaController->agregarCaja(),
                 'caja_estado'        => $tiendaController->estadoCaja($_POST),
