@@ -150,7 +150,12 @@ class VentaController extends Controller
             && $this->usuario?->puedeDevolverVenta($tienda->getIdTienda()) === true
             && $this->cajas->turnoAbiertoDe($this->usuario->getIdEmpleado()) !== null;
 
-        $puedeAnular = !$venta->estaAnulada() && $devoluciones === [] && $this->usuario?->puedeAnularVenta($tienda->getIdTienda()) === true;
+        // Efectivo cobrado en un turno que ya cerro su arqueo: anular lo descuadraria (VentaServicio::anular lo rechaza)
+        $efectivoDeTurnoCerrado = $turno !== null && !$turno->estaAbierto() && array_filter(
+            $pagos, fn(PagoVenta $p): bool => $p->esValido() && $p->getIdMetodoPago() === 1
+        ) !== [];
+        $puedeAnular = !$venta->estaAnulada() && $devoluciones === [] && !$efectivoDeTurnoCerrado
+            && $this->usuario?->puedeAnularVenta($tienda->getIdTienda()) === true;
         $detalleCuadra = $venta->detalleCuadra($detalles);
         $pagosCuadran = $venta->pagosCuadran($pagos);
 

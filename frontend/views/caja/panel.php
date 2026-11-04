@@ -209,7 +209,7 @@ require __DIR__ . '/../parciales/guia.php';
         $enPausa = $miTurno->estaEnPausa();
         $numeroMiCaja = $numeroCaja[$miTurno->getIdCaja()] ?? '-';
         $misMovimientos = $movimientos[$miTurno->getIdCajaTurno()] ?? [];
-        $ventasTurno = $misVentas ?? ['ventas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'digital' => 0.0];
+        $ventasTurno = $misVentas ?? ['ventas' => 0, 'anuladas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'digital' => 0.0];
         $pasoTope = Dinero::centimos($enGaveta) > Dinero::centimos($regla['tope']);
         // Retiro de seguridad: con cierre ciego no se dice cuanto (seria mostrar lo esperado); sin el, se sugiere el monto
         $retiroSugerido = $regla['ciego'] ? 0 : MovimientoCaja::retiroSugerido(Dinero::centimos($enGaveta),
@@ -381,22 +381,31 @@ require __DIR__ . '/../parciales/guia.php';
         $drawerAncho = true;
         $drawerPantalla = true;
         require __DIR__ . '/../parciales/drawer_abrir.php';
-        $cobradoEfectivo = $miArqueo['efectivoCobrado'] ?? 0.0;
-        $retirosTurno = $miArqueo['retiros'] ?? 0.0;
-        $ingresosTurno = $miArqueo['ingresos'] ?? 0.0;
-        $devolucionesTurno = $miArqueo['devoluciones'] ?? 0.0;
+        $ciego = $regla['ciego'];
+        // El cuadre del turno, en el orden en que entra y sale el efectivo (parciales/cuadre_caja.php)
+        $cuadreTurno = [
+            'fondo' => $miTurno->getMontoInicial(), 'efectivo' => $miArqueo['efectivoCobrado'] ?? 0.0,
+            'devoluciones' => $miArqueo['devoluciones'] ?? 0.0, 'ingresos' => $miArqueo['ingresos'] ?? 0.0,
+            'retiros' => $miArqueo['retiros'] ?? 0.0, 'esperado' => $enGaveta,
+        ];
+        // Orden de los pasos: con cierre ciego primero se cuenta (sin ver nada que deje adivinar lo esperado);
+        // sin cierre ciego primero se revisa el cuadre del sistema y luego se cuenta viendo la diferencia.
+        $pasosCierre = $ciego
+            ? ['Cuenta el efectivo', 'Revisa tarjeta y Sip', 'Confirma y cierra']
+            : ['Revisa el cuadre', 'Cuenta el efectivo', 'Confirma y cierra'];
+        $nPasoConteo = $ciego ? 1 : 2;
         ?>
         <div class="arqueo-intro">
             <span class="arqueo-intro-icono"><?= icono('candado') ?></span>
             <div>
-                <strong>El sistema ya hizo las cuentas. Tú solo cuentas el efectivo.</strong>
-                <p><?= e($regla['ciego']
-                    ? 'Cierre ciego: cuentas sin ver lo esperado. Al confirmar, el sistema compara y te muestra la diferencia en el comprobante de cierre.'
-                    : 'Mientras cuentas ves si cuadra con lo esperado. Al confirmar, el sistema cierra el turno y arma el comprobante de cierre.') ?></p>
-                <ol class="pasos" data-pasos-cierre>
-                    <li class="hecho"><span>1</span>Resumen del sistema</li>
-                    <li class="activo"><span>2</span>Cuenta el efectivo</li>
-                    <li><span>3</span>Confirma y cierra</li>
+                <strong>El sistema hace las cuentas. Tú solo cuentas el efectivo de la gaveta.</strong>
+                <p><?= e($ciego
+                    ? 'Cierre ciego: primero cuentas sin ver lo esperado. Al confirmar, el sistema hace el cuadre y te muestra la diferencia en el comprobante de cierre.'
+                    : 'Primero revisa el cuadre que hizo el sistema; luego cuenta la gaveta y verás al momento si cuadra, sobra o falta.') ?></p>
+                <ol class="pasos" data-pasos-cierre data-modo="<?= $ciego ? 'ciego' : 'visible' ?>">
+                    <?php foreach ($pasosCierre as $i => $nombrePaso): ?>
+                        <li><span><?= $i + 1 ?></span><?= e($nombrePaso) ?></li>
+                    <?php endforeach; ?>
                 </ol>
             </div>
         </div>
@@ -405,47 +414,43 @@ require __DIR__ . '/../parciales/guia.php';
               data-confirmar="Vas a cerrar el turno <?= $miTurno->getIdCajaTurno() ?> declarando {total} en efectivo. Después ya no podrás vender ni corregir este conteo. ¿Cerrar el turno?"
               data-confirmar-boton="Sí, cerrar mi turno">
             <?= campoCsrf($csrf) ?>
-            <fieldset class="paso">
-                <legend><span class="paso-n">1</span>Lo que calculó el sistema</legend>
-                <div class="cierre-resumen">
-                    <div class="cierre-dato"><span>Ventas emitidas</span><strong><?= (int) $ventasTurno['ventas'] ?></strong></div>
-                    <div class="cierre-dato"><span>Fondo inicial</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong></div>
-                    <div class="cierre-dato efectivo"><span>Ventas en efectivo</span><strong><?php if ($regla['ciego']): ?><span class="velado" aria-label="Oculto">S/ ●●●.●●</span><?php else: ?><?= e(soles($cobradoEfectivo)) ?><?php endif; ?></strong></div>
-                    <div class="cierre-dato"><span>Retiros de caja</span><strong><?= e(($retirosTurno > 0 ? '− ' : '') . soles($retirosTurno)) ?></strong></div>
-                    <div class="cierre-dato"><span>Ingresos de caja</span><strong><?= e(($ingresosTurno > 0 ? '+ ' : '') . soles($ingresosTurno)) ?></strong></div>
-                    <?php if ($devolucionesTurno > 0): ?>
-                        <div class="cierre-dato"><span>Devoluciones</span><strong><?= e('− ' . soles($devolucionesTurno)) ?></strong></div>
-                    <?php endif; ?>
-                    <div class="cierre-dato voucher"><span>Tarjeta <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['tarjeta'])) ?></strong></div>
-                    <div class="cierre-dato voucher"><span>Billetera Sip <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['digital'])) ?></strong></div>
-                </div>
-                <div class="cierre-esperado<?= $regla['ciego'] ? ' oculto' : '' ?>">
-                    <span>Efectivo que debe haber en la gaveta</span>
-                    <?php if ($regla['ciego']): ?>
-                        <strong class="velado" aria-label="Oculto">S/ ●●●.●●</strong>
-                        <small><?= icono('candado') ?>Se compara solo al confirmar</small>
-                    <?php else: ?>
-                        <strong><?= e(soles($enGaveta)) ?></strong>
-                        <small>fondo + efectivo + ingresos − retiros − devoluciones</small>
-                    <?php endif; ?>
-                </div>
-                <p class="ayuda">Tarjeta y billetera Sip no entran al arqueo: cuádralas con sus vouchers.</p>
-            </fieldset>
-            <fieldset class="paso">
-                <legend><span class="paso-n">2</span>Cuenta el efectivo de la gaveta</legend>
-                <p class="ayuda">Incluye el fondo inicial. Escribe cuántos hay de cada billete y moneda, o solo el total.</p>
+            <?php if (!$ciego): ?>
+                <fieldset class="paso" data-paso-cierre="cuadre">
+                    <legend><span class="paso-n">1</span>Revisa el cuadre que hizo el sistema</legend>
+                    <?php
+                    $cuadre = $cuadreTurno;
+                    require __DIR__ . '/../parciales/cuadre_caja.php';
+                    ?>
+                    <p class="ayuda">Si algo no te parece, revisa los movimientos del turno antes de contar.</p>
+                </fieldset>
+            <?php endif; ?>
+            <fieldset class="paso" data-paso-cierre="conteo">
+                <legend><span class="paso-n"><?= (int) $nPasoConteo ?></span>Cuenta el efectivo de la gaveta</legend>
+                <p class="ayuda">Todo lo que hay en el cajón, incluido el fondo inicial. Toca + por cada billete o moneda, o escribe solo el total.</p>
                 <?php
                 $conteoId = 'cierre';
                 $conteoCampoTotal = 'monto_cierre';
                 $conteoValor = '';
-                $conteoEsperado = $regla['ciego'] ? null : $enGaveta;
+                $conteoEsperado = $ciego ? null : $enGaveta;
                 $conteoRotulo = 'lo esperado';
                 $conteoSinMarco = true;
                 $conteoGrande = true;
                 require __DIR__ . '/../parciales/conteo_efectivo.php';
                 ?>
             </fieldset>
-            <fieldset class="paso">
+            <fieldset class="paso" data-paso-cierre="vouchers">
+                <legend><?php if ($ciego): ?><span class="paso-n">2</span><?php endif; ?>Tarjeta y billetera Sip: no entran a la gaveta</legend>
+                <p class="ayuda">Cuádralas con los vouchers del POS y del celular. No se suman al efectivo.</p>
+                <div class="cierre-resumen">
+                    <div class="cierre-dato voucher"><span>Tarjeta <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['tarjeta'])) ?></strong></div>
+                    <div class="cierre-dato voucher"><span>Billetera Sip <small>(operaciones)</small></span><strong><?= e(soles($ventasTurno['digital'])) ?></strong></div>
+                    <div class="cierre-dato"><span>Ventas emitidas</span><strong><?= (int) $ventasTurno['ventas'] ?></strong></div>
+                    <?php if ($ventasTurno['anuladas'] > 0): ?>
+                        <div class="cierre-dato"><span>Ventas anuladas <small>(no cuentan)</small></span><strong><?= (int) $ventasTurno['anuladas'] ?></strong></div>
+                    <?php endif; ?>
+                </div>
+            </fieldset>
+            <fieldset class="paso" data-paso-cierre="confirmar">
                 <legend><span class="paso-n">3</span>Confirma y cierra</legend>
                 <label for="cierre-observacion">Observación <span class="sutil">(opcional)</span></label>
                 <input id="cierre-observacion" name="observacion" maxlength="150" placeholder="Ej.: un cliente pagó con billete roto">

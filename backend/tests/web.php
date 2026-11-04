@@ -278,15 +278,20 @@ revisar('El turno del cajero: barra de estado, movimientos y el cierre solo dent
     && substr_count($luis->cuerpo, 'action="/?ruta=turno_cerrar"') === 1
     && strpos($luis->cuerpo, 'id="arqueo-cierre"') < strpos($luis->cuerpo, 'action="/?ruta=turno_cerrar"')
     && $luis->tiene('data-confirmar="Vas a cerrar el turno') && !$luis->tiene('Ver estimado'));
-revisar('El cierre automático: resumen del sistema, conteo y confirmación en 3 pasos', $luis->get('ruta=caja') === 200
-    && $luis->tiene('data-cierre') && $luis->tiene('Lo que calculó el sistema') && $luis->tiene('data-pasos-cierre')
-    && $luis->tiene('Confirma y cierra') && !$luis->tiene('Efectivo que debe haber en la gaveta</span>' . "\n" . '                        <strong>S/'));
+revisar('Cierre ciego: primero se cuenta, luego tarjeta y Sip, y no hay cuadre en la página que deje adivinar lo esperado', $luis->get('ruta=caja') === 200
+    && $luis->tiene('data-cierre') && $luis->tiene('data-modo="ciego"') && $luis->tiene('Confirma y cierra')
+    && strpos($luis->cuerpo, 'data-paso-cierre="conteo"') < strpos($luis->cuerpo, 'data-paso-cierre="vouchers"')
+    && strpos($luis->cuerpo, 'data-paso-cierre="vouchers"') < strpos($luis->cuerpo, 'data-paso-cierre="confirmar"')
+    && !$luis->tiene('data-paso-cierre="cuadre"') && !$luis->tiene('class="cuadre"') && !$luis->tiene('Ventas en efectivo'));
 revisar('El total contado no se exige si hay billetes: el servidor los suma (sin JavaScript también se cierra)', $luis->get('ruta=caja') === 200
     && preg_match('/<input id="cierre-total"[^>]*>/', $luis->cuerpo, $totalCierre) === 1 && !str_contains($totalCierre[0], 'required')
     && $luis->tiene('data-conteo-modo'));
 revisar('El comprobante de cierre lo arma el sistema: ventas por pago, esperado, contado y diferencia', $rosa->get('ruta=turno_cierre&turno=1') === 200
     && $rosa->tiene('CIERRE DE CAJA') && $rosa->tiene('= Efectivo esperado') && $rosa->tiene('Efectivo contado')
-    && $rosa->tiene('class="cierre-resultado') && $rosa->tiene('data-imprimir') && !$rosa->tiene('?>'));
+    && $rosa->tiene('class="cierre-resultado') && $rosa->tiene('data-imprimir') && !$rosa->tiene('?>')
+    && $rosa->tiene('class="cuadre"') && $rosa->tiene('Efectivo esperado en la gaveta') && $rosa->tiene('contado − esperado'));
+revisar('Una venta en efectivo de un turno ya cerrado no ofrece anularla (descuadraría el arqueo)', $rosa->get('ruta=comprobante&serie=B001&numero=1') === 200
+    && !$rosa->tiene('action="/?ruta=venta_anular"') && $rosa->tiene('anularla descuadraría ese arqueo'));
 revisar('Un turno abierto o inventado no tiene comprobante de cierre: 404', $rosa->get('ruta=turno_cierre&turno=5') === 404
     && $rosa->get('ruta=turno_cierre&turno=abc') === 404 && $rosa->get('ruta=turno_cierre') === 404);
 revisar('El almacenero no ve cierres de caja: 403', $carmen->get('ruta=turno_cierre&turno=1') === 403);

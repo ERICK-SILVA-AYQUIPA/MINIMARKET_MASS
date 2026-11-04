@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @var ?Usuario $anuladaPor
  * @var Usuario[] $puedenAnular
  * @var bool $puedeAnular  el usuario actual puede anular esta venta
+ * @var bool $efectivoDeTurnoCerrado  tiene efectivo de un turno ya cerrado: no se anula (descuadraria el arqueo)
  * @var bool $detalleCuadra
  * @var bool $pagosCuadran
  * @var array<int, array{detalle: DetalleVenta, producto: ?Producto, unidad: string, disponible: int}> $lineas
@@ -115,6 +116,8 @@ require __DIR__ . '/../layout_inicio.php';
             <?= e(implode(', ', array_map(fn(Usuario $u): string => $u->nombreCompleto(), $puedenAnular)) ?: 'nadie') ?></p>
         <?php if ($devoluciones !== []): ?>
             <p class="sutil">Tiene devoluciones: ya no se puede anular.</p>
+        <?php elseif ($efectivoDeTurnoCerrado): ?>
+            <p class="sutil">Se cobró en efectivo en un turno que ya cerró su caja: anularla descuadraría ese arqueo. Para devolver el dinero, registra una devolución desde una caja abierta.</p>
         <?php elseif ($puedeAnular): ?>
             <form class="formulario" method="post" action="/?ruta=venta_anular" data-confirmar="¿Anular esta venta? Devuelve el stock al kardex y anula sus pagos. No se puede deshacer." data-confirmar-boton="Sí, anular">
                 <?= campoCsrf($csrf) ?>

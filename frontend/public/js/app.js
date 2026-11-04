@@ -1347,9 +1347,14 @@
     if (formCierre !== null && pasosCierre.length === 3) {
         const totalCierre = $('[data-total]', formCierre);
         const confirmo = $('#cierre-confirmo', formCierre);
-        const marcarPasos = () => {
+        // ciego: 1 contar, 2 tarjeta y Sip (se ven al contar), 3 confirmar. visible: 1 revisar el cuadre, 2 contar, 3 confirmar
+        const ciego = $('[data-pasos-cierre]').dataset.modo === 'ciego';
+        let empezo = false;
+        const marcarPasos = (evento) => {
+            empezo = empezo || evento !== undefined;
             const contado = centimos(totalCierre.value) !== null;
-            const hechos = [true, contado, contado && confirmo !== null && confirmo.checked];
+            const confirmado = contado && confirmo !== null && confirmo.checked;
+            const hechos = ciego ? [contado, contado, confirmado] : [empezo || contado, contado, confirmado];
             pasosCierre.forEach((paso, i) => {
                 paso.classList.toggle('hecho', hechos[i]);
                 paso.classList.toggle('activo', !hechos[i] && hechos.slice(0, i).every(Boolean));
