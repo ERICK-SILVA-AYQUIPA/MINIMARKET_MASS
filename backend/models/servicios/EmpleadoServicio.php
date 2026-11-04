@@ -67,13 +67,20 @@ class EmpleadoServicio extends Servicio
                 throw new ReglaNegocioException('No puedes cambiar tu propio rol ni desactivarte.');
             }
 
-            // Un cajero con la caja abierta primero cierra su turno (si no, el turno queda sin dueño activo)
+            // Un cajero con la caja abierta primero cierra su turno, y uno al que se le pidio volver a contar, recuenta:
+            // solo el cajero hace esas dos cosas, asi que si deja de serlo el turno queda sin dueño y no se cierra nunca
             $dejaDeSerCajero = (int) $empleado['id_rol'] === 2 && ($idRol !== 2 || $estado !== 'ACTIVO');
             if ($dejaDeSerCajero) {
-                $turno = $this->db->prepare('SELECT COUNT(*) FROM caja_turno WHERE id_empleado = :id AND estado = \'ABIERTO\'');
+                $turno = $this->db->prepare(
+                    'SELECT estado FROM caja_turno WHERE id_empleado = :id AND estado IN (\'ABIERTO\', \'RECONTEO\') LIMIT 1'
+                );
                 $turno->execute(['id' => $idEmpleado]);
-                if ((int) $turno->fetchColumn() > 0) {
+                $pendiente = $turno->fetchColumn();
+                if ($pendiente === 'ABIERTO') {
                     throw new ReglaNegocioException('Ese cajero tiene un turno abierto: que lo cierre primero.');
+                }
+                if ($pendiente === 'RECONTEO') {
+                    throw new ReglaNegocioException('Ese cajero tiene que volver a contar un turno: que lo cuente primero.');
                 }
             }
 

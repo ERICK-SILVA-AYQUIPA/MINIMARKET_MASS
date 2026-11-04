@@ -257,10 +257,16 @@ rechaza('El cajero no revisa su propio cierre', fn() => $caja->revisarCierre($mi
 rechaza('Un administrador de otra tienda no lo revisa', fn() => $caja->revisarCierre($rosa, $idTurno2, 'APROBAR', 'Visto'));
 rechaza('Revisar sin comentario', fn() => $caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', ''));
 rechaza('Una decisión que no existe', fn() => $caja->revisarCierre($lucia, $idTurno2, 'BORRAR', 'Prueba'));
+// Si Miguel ya no esta activo, no puede volver a contar: el reconteo dejaria el turno sin cerrar nunca
+$db->exec("UPDATE empleado SET estado = 'INACTIVO' WHERE id_empleado = 8");
+rechaza('Con el cajero inactivo no se pide reconteo (solo aprobar)', fn() => $caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', 'Cuenta otra vez'));
+$db->exec("UPDATE empleado SET estado = 'ACTIVO' WHERE id_empleado = 8");
 $caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', 'Cuenta de nuevo las monedas');
 revisar('Lucía pide reconteo: queda RECONTEO con quién y cuándo lo revisó', $estadoTurno($idTurno2) === 'RECONTEO'
     && valor($db, 'SELECT id_empleado_revisa FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === '7');
 rechaza('En reconteo tampoco abre otro turno', fn() => $caja->abrirTurno($miguel, 6, '100.00'));
+rechaza('No se desactiva a un cajero que debe volver a contar', fn() => $personal->editar($lucia, 8, 'Miguel', 'Nunez Cuadros', 2, 'INACTIVO'));
+rechaza('...ni se le cambia el rol', fn() => $personal->editar($lucia, 8, 'Miguel', 'Nunez Cuadros', 3, 'ACTIVO'));
 rechaza('Un conteo con una denominación que no existe', fn() => $caja->recontarTurno($miguel, '', ['3.00' => '1']));
 rechaza('Un conteo con cantidad negativa', fn() => $caja->recontarTurno($miguel, '', ['100.00' => '-1']));
 // El total escrito no manda: el servidor suma el desglose (1 x 50 + 2 x 20 + 1 x 10 = 100.00)

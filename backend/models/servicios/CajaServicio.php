@@ -157,6 +157,10 @@ class CajaServicio extends Servicio
             if ($turno['estado'] !== 'OBSERVADO') {
                 throw new ReglaNegocioException('Ese turno no tiene un cierre por revisar.');
             }
+            // Solo un cajero activo vuelve a contar: si ya no lo es, el turno quedaria en reconteo para siempre
+            if ($decision === 'RECONTEO' && !$turno['cajeroActivo']) {
+                throw new ReglaNegocioException('El cajero de ese turno ya no está activo como cajero: no puede volver a contar. Aprueba la diferencia con tu comentario.');
+            }
             $this->db->prepare(
                 'UPDATE caja_turno SET estado = :estado, observacion = :comentario,
                         id_empleado_revisa = :revisa, fecha_hora_revision = NOW()
@@ -378,7 +382,7 @@ class CajaServicio extends Servicio
 
     /**
      * Un turno de la tienda del administrador, bloqueado.
-     * @return array{estado: string, diferencia: ?string}
+     * @return array{estado: string, diferencia: ?string, cajeroActivo: bool}
      */
     private function turnoDeLaTienda(Usuario $administrador, int $idTurno): array
     {
@@ -386,7 +390,8 @@ class CajaServicio extends Servicio
             throw new ReglaNegocioException('Solo el administrador de la tienda revisa sus cajas.');
         }
         $consulta = $this->db->prepare(
-            'SELECT ct.estado, ct.diferencia, c.id_tienda FROM caja_turno ct JOIN caja c ON c.id_caja = ct.id_caja
+            'SELECT ct.estado, ct.diferencia, c.id_tienda, e.estado = \'ACTIVO\' AND e.id_rol = 2 AS cajero_activo
+               FROM caja_turno ct JOIN caja c ON c.id_caja = ct.id_caja JOIN empleado e ON e.id_empleado = ct.id_empleado
               WHERE ct.id_caja_turno = :turno FOR UPDATE'
         );
         $consulta->execute(['turno' => $idTurno]);
@@ -394,7 +399,7 @@ class CajaServicio extends Servicio
         if ($turno === false || (int) $turno['id_tienda'] !== $administrador->getIdTienda()) {
             throw new ReglaNegocioException('Ese turno no es de tu tienda.');
         }
-        return ['estado' => $turno['estado'], 'diferencia' => $turno['diferencia']];
+        return ['estado' => $turno['estado'], 'diferencia' => $turno['diferencia'], 'cajeroActivo' => (int) $turno['cajero_activo'] === 1];
     }
 
     private function cajaEsDeTienda(int $idCaja, int $idTienda): bool
