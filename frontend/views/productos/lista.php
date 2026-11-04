@@ -24,7 +24,9 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
         <p class="sutil"><?= count($filas) ?> productos · <?= $porReponer ?> por reponer en <?= e($tienda->getNombreTienda()) ?></p>
     </div>
     <div class="acciones">
-        <a class="boton secundario" href="/?ruta=stock"><?= icono('stock') ?>Stock de las 3 tiendas</a>
+        <?php if (count($tiendas) > 1): ?>
+            <a class="boton secundario" href="/?ruta=stock"><?= icono('stock') ?>Stock de las <?= count($tiendas) ?> tiendas</a>
+        <?php endif; ?>
         <?php if ($puedeEditar): ?>
             <a class="boton secundario" href="/?ruta=catalogo"><?= icono('categorias') ?>Categorías y marcas</a>
             <a class="boton secundario" href="/?ruta=catalogo_importar"><?= icono('descarga') ?>Importar CSV</a>
@@ -41,7 +43,7 @@ $guiaTitulo = 'Cómo se usa el catálogo';
 $guiaPasos = [
     'Elige una categoría o escribe en Buscar (nombre o código de barras): la lista se filtra al momento.',
     'Toca un producto para abrir su ficha a la derecha: precio, stock en la tienda, mínimo y kardex.',
-    'La etiqueta REPONER sale cuando el stock llegó a su mínimo. Cambia de tienda con las pestañas de arriba.',
+    'La etiqueta REPONER sale cuando el stock llegó a su mínimo.' . (count($tiendas) > 1 ? ' Cambia de tienda con las pestañas de arriba.' : ''),
 ];
 if ($puedeEditar) {
     $guiaPasos[] = 'Como administrador, desde la ficha puedes editar el producto y subir su foto. Cada producto trae su foto real; una foto subida la reemplaza.';

@@ -352,7 +352,7 @@ revisar('Rosa quita la foto y vuelve el icono de la categoría', $rosa->post('pr
 revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
 revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
 revisar('Inventario va en dos opciones: Productos y Movimientos', $carmen->get('ruta=inicio') === 200
-    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
+    && preg_match('#<div class="grupo">Inventario</div>(.*?)(?:<div class="grupo">|</nav>)#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
     && str_contains($m[1], '>Productos<') && str_contains($m[1], '>Movimientos<'));
 revisar('Mermas sale como pestaña de Movimientos y queda marcada', $carmen->get('ruta=mermas') === 200
     && $carmen->tiene('<a href="/?ruta=mermas" aria-current="page">') && $carmen->tiene('<a href="/?ruta=ajustes">')
@@ -517,6 +517,42 @@ $jefa->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']);
 revisar('Salir y volver a entrar empieza otra vez en su propia tienda',
     $jefa->post('salir', []) === 303 && $jefa->entrar('70000001') === 303
     && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="1" selected>'));
+
+echo "Cada empleado solo en su sucursal\n";
+// El cajero y el almacenero trabajan en su tienda: no ven pestañas de otras ni pueden pedirlas por la URL
+$miguel = new Navegador();
+revisar('Miguel (cajero de Yanahuara) entra', $miguel->entrar('70000008') === 303);
+revisar('El catálogo del cajero no tiene pestañas de tiendas ni el botón de stock de todas',
+    $miguel->get('ruta=productos') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
+    && !$miguel->tiene('aria-label="Elegir tienda"') && !$miguel->tiene('Stock de las')
+    && !$miguel->tiene('Mass Cayma') && !$miguel->tiene('Mass Cerro Colorado'));
+revisar('El cajero pide otra tienda en la URL y se queda en la suya',
+    $miguel->get('ruta=productos&tienda=1') === 200 && $miguel->tiene('por reponer en Mass Yanahuara') && !$miguel->tiene('Mass Cayma')
+    && $luis->get('ruta=producto&id=8&tienda=2') === 200 && !$luis->tiene('Mass Cerro Colorado'));
+revisar('Las ventas de otra tienda no se ven aunque se pidan en la URL',
+    $luis->get('ruta=ventas&tienda=2') === 200 && $luis->tiene('B001-') && !$luis->tiene('B002-')
+    && !$luis->tiene('aria-label="Elegir tienda"'));
+revisar('Un comprobante de otra tienda no existe para el cajero (página, ticket y panel): 404',
+    $rosa->get('ruta=comprobante&serie=B002&numero=1') === 200
+    && $luis->get('ruta=comprobante&serie=B002&numero=1') === 404
+    && $luis->get('ruta=comprobante_imprimir&serie=B002&numero=1') === 404
+    && $luis->get('ruta=ventas&ver=B002-1') === 200 && !$luis->tiene('B002-1'));
+revisar('El stock del cajero solo tiene la columna de su tienda (pantalla y CSV)',
+    $luis->get('ruta=stock') === 200 && $luis->tiene('Mass Cayma') && !$luis->tiene('Mass Cerro Colorado') && !$luis->tiene('Mass Yanahuara')
+    && $luis->get('ruta=stock_csv') === 200 && str_contains($luis->cuerpo, 'Mass Cayma') && !str_contains($luis->cuerpo, 'Mass Yanahuara'));
+revisar('El almacenero no abre el kardex, las mermas ni el conteo de otra tienda',
+    $carmen->get('ruta=kardex&tienda=2') === 200 && !$carmen->tiene('Mass Cerro Colorado') && !$carmen->tiene('aria-label="Elegir tienda"')
+    && $carmen->get('ruta=mermas&tienda=3') === 200 && !$carmen->tiene('Mass Yanahuara')
+    && $carmen->get('ruta=ajustes&tienda=2') === 200 && !$carmen->tiene('Mass Cerro Colorado')
+    && $carmen->get('ruta=traslados&tienda=2') === 200 && !$carmen->tiene('aria-label="Elegir tienda"'));
+revisar('El cajero no tiene Tiendas en el menú y la lista solo muestra la suya (sin el personal de otras)',
+    $miguel->get('ruta=inicio') === 200 && !$miguel->tiene('ruta=tiendas"')
+    && $miguel->get('ruta=tiendas') === 200 && $miguel->tiene('Mass Yanahuara') && !$miguel->tiene('Mass Cayma') && !$miguel->tiene('Caceres'));
+revisar('El administrador sí ve las pestañas, el stock de todas y la lista de tiendas',
+    $rosa->get('ruta=productos') === 200 && $rosa->tiene('aria-label="Elegir tienda"') && $rosa->tiene('Stock de las')
+    && $rosa->get('ruta=productos&tienda=3') === 200 && $rosa->tiene('por reponer en Mass Yanahuara')
+    && $rosa->get('ruta=stock') === 200 && $rosa->tiene('Mass Yanahuara')
+    && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=tiendas"'));
 
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);

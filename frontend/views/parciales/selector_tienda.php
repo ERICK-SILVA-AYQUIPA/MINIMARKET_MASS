@@ -5,7 +5,13 @@ declare(strict_types=1);
  * @var array<int, Tienda> $tiendas
  * @var Tienda $tienda        la tienda elegida
  * @var string $rutaSelector  la ruta de la pantalla ('productos', 'ventas', ...)
+ * @var ?Usuario $usuarioActual
+ * Solo el administrador cambia de tienda: el cajero y el almacenero trabajan en la suya y no ven las pestañas
+ * (el servidor tampoco les muestra otra tienda aunque pongan &tienda= en la URL: Controller::leerTienda).
  */
+if ($usuarioActual?->puedeElegirTienda() !== true) {
+    return;
+}
 ?>
 <nav class="tiendas" aria-label="Elegir tienda">
     <span class="rotulo">Tienda</span>
