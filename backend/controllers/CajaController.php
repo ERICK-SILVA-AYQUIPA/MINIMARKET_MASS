@@ -128,7 +128,57 @@ class CajaController extends Controller
             $this->panel($ex->getMessage(), 'arqueo-cierre');
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
+        $this->redirigir('/?ruta=turno_cierre&turno=' . $cierre['turno'], 'Turno ' . $cierre['turno'] . ' cerrado. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
+    }
+
+    /**
+     * GET /?ruta=turno_cierre&turno=N: el comprobante de cierre que arma el sistema solo
+     * (ventas por medio de pago, lo esperado, lo contado y la diferencia). Lo ve su cajero o el administrador.
+     */
+    public function comprobanteCierre(?string $turnoTexto): void
+    {
+        $usuario = $this->usuario;
+        $esAdministrador = $usuario !== null && $usuario->puedeVerArqueo($usuario->getIdTienda());
+        if ($usuario === null || (!$usuario->puedeManejarCaja() && !$esAdministrador)) {
+            $this->prohibido('El cierre de caja es para su cajero y para el administrador de la tienda.');
+            return;
+        }
+        $idTurno = $turnoTexto !== null && ctype_digit($turnoTexto) ? (int) $turnoTexto : 0;
+        $tienda = $this->tiendas->buscarPorId($usuario->getIdTienda());
+        $fila = null;
+        foreach ($this->cajas->arqueoDeTienda($tienda->getIdTienda()) as $f) {
+            if ($f['turno']->getIdCajaTurno() === $idTurno) {
+                $fila = $f;
+            }
+        }
+        // Un turno abierto todavia no tiene cierre; un cajero solo ve los suyos
+        if ($fila === null || $fila['turno']->estaAbierto()
+            || (!$esAdministrador && $fila['turno']->getIdEmpleado() !== $usuario->getIdEmpleado())) {
+            $this->noEncontrado('No hay un cierre de caja de ese turno.');
+            return;
+        }
+        $turno = $fila['turno'];
+        $ventas = $this->cajas->ventasDeTurno($idTurno);
+        $conteo = null;
+        foreach ($this->cajas->arqueosDeTienda($tienda->getIdTienda())[$idTurno] ?? [] as $a) {
+            if ($a['tipo'] === 'CIERRE') {
+                $conteo = $a;   // el ultimo conteo de cierre (el reconteo reemplaza al primero)
+            }
+        }
+        $numeroCaja = '-';
+        foreach ($this->tiendas->cajasDeTienda($tienda->getIdTienda()) as $c) {
+            if ($c->getIdCaja() === $turno->getIdCaja()) {
+                $numeroCaja = (string) $c->getNumeroCaja();
+            }
+        }
+        $cajero = '-';
+        foreach ($this->empleados->deTienda($tienda->getIdTienda()) as $empleado) {
+            if ($empleado->getIdEmpleado() === $turno->getIdEmpleado()) {
+                $cajero = $empleado->nombreCompleto();
+            }
+        }
+        $esSuyo = $turno->getIdEmpleado() === $usuario->getIdEmpleado();
+        $this->vista('caja/cierre', compact('tienda', 'fila', 'turno', 'ventas', 'conteo', 'numeroCaja', 'cajero', 'esSuyo'));
     }
 
     // POST /?ruta=turno_recontar: el cajero vuelve a contar el turno que el administrador mando a recontar
@@ -145,7 +195,7 @@ class CajaController extends Controller
             $this->panel($ex->getMessage());
             return;
         }
-        $this->redirigir('/?ruta=caja', 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
+        $this->redirigir('/?ruta=turno_cierre&turno=' . $cierre['turno'], 'Nuevo conteo del turno ' . $cierre['turno'] . '. ' . self::resultado($cierre), $cierre['estado'] === 'OBSERVADO' ? 'alerta' : 'ok');
     }
 
     // POST /?ruta=turno_pausa: accion=pausar o reanudar

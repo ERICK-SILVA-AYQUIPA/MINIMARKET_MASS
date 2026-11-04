@@ -278,6 +278,16 @@ revisar('El turno del cajero: barra de estado, movimientos y el cierre solo dent
     && substr_count($luis->cuerpo, 'action="/?ruta=turno_cerrar"') === 1
     && strpos($luis->cuerpo, 'id="arqueo-cierre"') < strpos($luis->cuerpo, 'action="/?ruta=turno_cerrar"')
     && $luis->tiene('data-confirmar="Vas a cerrar el turno') && !$luis->tiene('Ver estimado'));
+revisar('El cierre automático: resumen del sistema, conteo y confirmación en 3 pasos', $luis->get('ruta=caja') === 200
+    && $luis->tiene('data-cierre') && $luis->tiene('Lo que calculó el sistema') && $luis->tiene('data-pasos-cierre')
+    && $luis->tiene('Confirma y cierra') && !$luis->tiene('Efectivo que debe haber en la gaveta</span>' . "\n" . '                        <strong>S/'));
+revisar('El comprobante de cierre lo arma el sistema: ventas por pago, esperado, contado y diferencia', $rosa->get('ruta=turno_cierre&turno=1') === 200
+    && $rosa->tiene('CIERRE DE CAJA') && $rosa->tiene('= Efectivo esperado') && $rosa->tiene('Efectivo contado')
+    && $rosa->tiene('class="cierre-resultado') && $rosa->tiene('data-imprimir') && !$rosa->tiene('?>'));
+revisar('Un turno abierto o inventado no tiene comprobante de cierre: 404', $rosa->get('ruta=turno_cierre&turno=5') === 404
+    && $rosa->get('ruta=turno_cierre&turno=abc') === 404 && $rosa->get('ruta=turno_cierre') === 404);
+revisar('El almacenero no ve cierres de caja: 403', $carmen->get('ruta=turno_cierre&turno=1') === 403);
+revisar('El historial de turnos enlaza el comprobante de cierre', $rosa->get('ruta=caja') === 200 && $rosa->tiene('ruta=turno_cierre&amp;turno=1"'));
 revisar('Una venta de hace más de 7 días ya no ofrece devolución', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('ya no acepta devoluciones') && !$luis->tiene('venta_devolver'));
 revisar('La utilidad muestra la comparación por tienda y el margen', $rosa->get('ruta=utilidad&desde=2026-01-01') === 200

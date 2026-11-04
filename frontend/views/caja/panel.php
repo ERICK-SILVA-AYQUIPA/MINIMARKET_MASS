@@ -235,7 +235,7 @@ require __DIR__ . '/../parciales/guia.php';
                         <button class="secundario" type="submit" title="Si te alejas: nadie podrá vender con tu turno"><?= icono('pausa') ?>Pausar caja</button>
                     </form>
                 <?php endif; ?>
-                <a class="boton oscuro" href="#arqueo-cierre"><?= icono('candado') ?>Finalizar y arquear turno</a>
+                <a class="boton oscuro" href="#arqueo-cierre"><?= icono('candado') ?>Cerrar caja</a>
             </div>
         </header>
 
@@ -341,46 +341,87 @@ require __DIR__ . '/../parciales/guia.php';
 
         <?php
         $drawerId = 'arqueo-cierre';
-        $drawerTitulo = 'Arqueo ciego · cerrar el turno ' . $miTurno->getIdCajaTurno();
+        $drawerTitulo = 'Cierre automático · turno ' . $miTurno->getIdCajaTurno();
         $drawerSubtitulo = 'Caja ' . $numeroMiCaja . ' · ' . $usuario->nombreCompleto();
         $drawerCerrar = '#contenido';
         $drawerAbierto = $abrir === 'arqueo-cierre';
         $drawerAncho = true;
         $drawerPantalla = true;
         require __DIR__ . '/../parciales/drawer_abrir.php';
+        $cobradoEfectivo = $miArqueo['efectivoCobrado'] ?? 0.0;
+        $retirosTurno = $miArqueo['retiros'] ?? 0.0;
+        $ingresosTurno = $miArqueo['ingresos'] ?? 0.0;
+        $devolucionesTurno = $miArqueo['devoluciones'] ?? 0.0;
         ?>
         <div class="arqueo-intro">
             <span class="arqueo-intro-icono"><?= icono('candado') ?></span>
             <div>
-                <strong>Cuenta todo el efectivo de la gaveta, sin mirar el sistema.</strong>
-                <p>Incluye el fondo inicial. Lo esperado no se muestra: la diferencia (sobrante o faltante) se calcula recién cuando confirmes.</p>
+                <strong>El sistema ya hizo las cuentas. Tú solo cuentas el efectivo.</strong>
+                <p><?= e($regla['ciego']
+                    ? 'Cierre ciego: cuentas sin ver lo esperado. Al confirmar, el sistema compara y te muestra la diferencia en el comprobante de cierre.'
+                    : 'Mientras cuentas ves si cuadra con lo esperado. Al confirmar, el sistema cierra el turno y arma el comprobante de cierre.') ?></p>
+                <ol class="pasos" data-pasos-cierre>
+                    <li class="hecho"><span>1</span>Resumen del sistema</li>
+                    <li class="activo"><span>2</span>Cuenta el efectivo</li>
+                    <li><span>3</span>Confirma y cierra</li>
+                </ol>
             </div>
         </div>
         <?php if ($error !== null && $abrir === 'arqueo-cierre'): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
-        <form class="formulario arqueo-form" method="post" action="/?ruta=turno_cerrar"
+        <form class="formulario arqueo-form" method="post" action="/?ruta=turno_cerrar" data-cierre
               data-confirmar="Vas a cerrar el turno <?= $miTurno->getIdCajaTurno() ?> declarando {total} en efectivo. Después ya no podrás vender ni corregir este conteo. ¿Cerrar el turno?"
               data-confirmar-boton="Sí, cerrar mi turno">
             <?= campoCsrf($csrf) ?>
-            <?php
-            $conteoId = 'cierre';
-            $conteoCampoTotal = 'monto_cierre';
-            $conteoValor = '';
-            $conteoEsperado = null;
-            $conteoGrande = true;
-            require __DIR__ . '/../parciales/conteo_efectivo.php';
-            ?>
-            <div class="arqueo-vouchers">
-                <strong>No entran a la gaveta: confírmalos con los vouchers</strong>
-                <span>Tarjeta <?= e(soles($ventasTurno['tarjeta'])) ?></span>
-                <span>Billetera Sip <?= e(soles($ventasTurno['digital'])) ?></span>
-            </div>
-            <label for="cierre-observacion">Observación <span class="sutil">(opcional)</span></label>
-            <input id="cierre-observacion" name="observacion" maxlength="150" placeholder="Ej.: un cliente pagó con billete roto">
-            <label class="casilla confirmar-conteo"><input id="cierre-confirmo" type="checkbox" name="conteo_completo" value="S" required> Conté todo el efectivo de la gaveta, incluido el fondo inicial</label>
-            <div class="botones-formulario arqueo-botones">
-                <a class="boton secundario" href="#contenido">Volver al turno</a>
-                <button class="oscuro grande" type="submit"><?= icono('candado') ?>Confirmar y cerrar turno</button>
-            </div>
+            <fieldset class="paso">
+                <legend><span class="paso-n">1</span>Lo que calculó el sistema</legend>
+                <div class="cierre-resumen">
+                    <div class="cierre-dato"><span>Ventas emitidas</span><strong><?= (int) $ventasTurno['ventas'] ?></strong></div>
+                    <div class="cierre-dato"><span>Fondo inicial</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong></div>
+                    <div class="cierre-dato efectivo"><span>Ventas en efectivo</span><strong><?php if ($regla['ciego']): ?><span class="velado" aria-label="Oculto">S/ ●●●.●●</span><?php else: ?><?= e(soles($cobradoEfectivo)) ?><?php endif; ?></strong></div>
+                    <div class="cierre-dato"><span>Retiros al depósito</span><strong><?= e(($retirosTurno > 0 ? '− ' : '') . soles($retirosTurno)) ?></strong></div>
+                    <div class="cierre-dato"><span>Ingresos de sencillo</span><strong><?= e(($ingresosTurno > 0 ? '+ ' : '') . soles($ingresosTurno)) ?></strong></div>
+                    <?php if ($devolucionesTurno > 0): ?>
+                        <div class="cierre-dato"><span>Devoluciones</span><strong><?= e('− ' . soles($devolucionesTurno)) ?></strong></div>
+                    <?php endif; ?>
+                    <div class="cierre-dato voucher"><span>Tarjeta <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['tarjeta'])) ?></strong></div>
+                    <div class="cierre-dato voucher"><span>Billetera Sip <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['digital'])) ?></strong></div>
+                </div>
+                <div class="cierre-esperado<?= $regla['ciego'] ? ' oculto' : '' ?>">
+                    <span>Efectivo que debe haber en la gaveta</span>
+                    <?php if ($regla['ciego']): ?>
+                        <strong class="velado" aria-label="Oculto">S/ ●●●.●●</strong>
+                        <small><?= icono('candado') ?>Se compara solo al confirmar</small>
+                    <?php else: ?>
+                        <strong><?= e(soles($enGaveta)) ?></strong>
+                        <small>fondo + efectivo + ingresos − retiros − devoluciones</small>
+                    <?php endif; ?>
+                </div>
+                <p class="ayuda">Tarjeta y billetera Sip no entran al arqueo: cuádralas con sus vouchers.</p>
+            </fieldset>
+            <fieldset class="paso">
+                <legend><span class="paso-n">2</span>Cuenta el efectivo de la gaveta</legend>
+                <p class="ayuda">Incluye el fondo inicial. Escribe cuántos hay de cada billete y moneda, o solo el total.</p>
+                <?php
+                $conteoId = 'cierre';
+                $conteoCampoTotal = 'monto_cierre';
+                $conteoValor = '';
+                $conteoEsperado = $regla['ciego'] ? null : $enGaveta;
+                $conteoRotulo = 'lo esperado';
+                $conteoSinMarco = true;
+                $conteoGrande = true;
+                require __DIR__ . '/../parciales/conteo_efectivo.php';
+                ?>
+            </fieldset>
+            <fieldset class="paso">
+                <legend><span class="paso-n">3</span>Confirma y cierra</legend>
+                <label for="cierre-observacion">Observación <span class="sutil">(opcional)</span></label>
+                <input id="cierre-observacion" name="observacion" maxlength="150" placeholder="Ej.: un cliente pagó con billete roto">
+                <label class="casilla confirmar-conteo"><input id="cierre-confirmo" type="checkbox" name="conteo_completo" value="S" required> Conté todo el efectivo de la gaveta, incluido el fondo inicial</label>
+                <div class="botones-formulario arqueo-botones">
+                    <a class="boton secundario" href="#contenido">Volver al turno</a>
+                    <button class="oscuro grande" type="submit"><?= icono('candado') ?>Confirmar y cerrar turno</button>
+                </div>
+            </fieldset>
         </form>
         <?php require __DIR__ . '/../parciales/drawer_cerrar.php'; ?>
     <?php endif; ?>
@@ -494,7 +535,7 @@ require __DIR__ . '/../parciales/guia.php';
             <td class="num"><?= e($esCajero && !$esAdministrador && $regla['ciego'] && $t->estaAbierto() ? 'Oculto' : soles($fila['esperado'])) ?></td>
             <td class="num"><?= $t->getMontoCierre() === null ? '—' : e(soles($t->getMontoCierre())) ?></td>
             <td class="num"><?php if ($d === null): ?>—<?php else: ?><span class="etiqueta <?= e($claseDiferencia($d)) ?>"><?= e($textoDiferencia($d)) ?></span><?php endif; ?></td>
-            <td><a class="boton secundario chico" href="#turno-<?= $t->getIdCajaTurno() ?>"><?= icono('ver') ?>Ver</a></td>
+            <td class="acciones-fila"><a class="boton secundario chico" href="#turno-<?= $t->getIdCajaTurno() ?>"><?= icono('ver') ?>Ver</a><?php if (!$t->estaAbierto()): ?> <a class="boton secundario chico" href="/?ruta=turno_cierre&amp;turno=<?= $t->getIdCajaTurno() ?>"><?= icono('imprimir') ?>Cierre</a><?php endif; ?></td>
         </tr>
     <?php endforeach; ?>
     </tbody>

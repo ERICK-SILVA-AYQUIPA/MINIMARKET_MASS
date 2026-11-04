@@ -1142,5 +1142,30 @@
         });
     });
 
+    // ---------- Cierre automatico: los pasos se marcan solos mientras el cajero cuenta y confirma ----------
+    const formCierre = $('form[data-cierre]');
+    const pasosCierre = $$('[data-pasos-cierre] li');
+    if (formCierre !== null && pasosCierre.length === 3) {
+        const totalCierre = $('[data-total]', formCierre);
+        const confirmo = $('#cierre-confirmo', formCierre);
+        const marcarPasos = () => {
+            const contado = centimos(totalCierre.value) !== null;
+            const hechos = [true, contado, contado && confirmo !== null && confirmo.checked];
+            pasosCierre.forEach((paso, i) => {
+                paso.classList.toggle('hecho', hechos[i]);
+                paso.classList.toggle('activo', !hechos[i] && hechos.slice(0, i).every(Boolean));
+            });
+        };
+        formCierre.addEventListener('input', marcarPasos);
+        formCierre.addEventListener('change', marcarPasos);
+        marcarPasos();
+    }
+
+    // ---------- Comprobante de cierre: boton de imprimir (sin JavaScript queda Ctrl + P) ----------
+    $$('[data-imprimir]').forEach((boton) => {
+        boton.hidden = false;
+        boton.addEventListener('click', () => window.print());
+    });
+
     enfocarDrawer();
 }());
