@@ -289,7 +289,7 @@ En GitHub, cada push a `main` y cada pull request corren solos (`.github/workflo
 
 #### Pruebas E2E y capturas (regresión visual)
 
-Están en `tests/e2e/*.spec.ts` (`01-login`, `02-apertura-caja`, `03-venta`, `04-movimientos`, `05-arqueo-cierre`) y corren en ese orden con el cajero Miguel (DNI 70000008): cada flujo sigue donde dejó el anterior. Las capturas base están en `tests/e2e/<archivo>.spec.ts-snapshots/` y se suben a GitHub; las fechas y horas se tapan (rosado) para que solo se compare el diseño.
+Están en `tests/e2e/*.spec.ts` (`01-login`, `02-apertura-caja`, `03-venta`, `04-movimientos`, `05-arqueo-cierre`) y corren en ese orden con el cajero Miguel (DNI 70000008): cada flujo sigue donde dejó el anterior. Después, el proyecto **celular** (390 × 844, táctil) corre `06-celular`: la administradora Lucía aprueba el cierre que dejó `05` y Miguel abre, vende, mueve efectivo y cierra en el celular. Las capturas base están en `tests/e2e/<archivo>.spec.ts-snapshots/` y se suben a GitHub; las fechas y horas se tapan (rosado) para que solo se compare el diseño.
 
 Se corren **siempre en la imagen de Docker de Playwright** (`mcr.microsoft.com/playwright:v1.63.0-noble`), en tu PC y en la CI: otro sistema u otro Chromium dibuja las letras con otros píxeles y la comparación fallaría sin que nada haya cambiado. Necesitas Docker (en Windows, desde Git Bash o WSL):
 

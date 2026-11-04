@@ -166,16 +166,18 @@ class CajaRepository
 
     /**
      * Retiros e ingresos de efectivo de un turno, del primero al ultimo.
-     * @return array<int, array{fecha_hora: string, tipo: string, monto: float, motivo: string}>
+     * @return array<int, array{fecha_hora: string, tipo: string, categoria: string, monto: float, motivo: string, comprobante: ?string}>
      */
     public function movimientosDeTurno(int $idTurno): array
     {
         $consulta = $this->db->prepare(
-            'SELECT fecha_hora, tipo, monto, motivo FROM movimiento_caja WHERE id_caja_turno = :turno ORDER BY id_movimiento_caja'
+            'SELECT fecha_hora, tipo, categoria, monto, motivo, comprobante FROM movimiento_caja
+              WHERE id_caja_turno = :turno ORDER BY id_movimiento_caja'
         );
         $consulta->execute(['turno' => $idTurno]);
         return array_map(fn(array $f): array => [
-            'fecha_hora' => $f['fecha_hora'], 'tipo' => $f['tipo'], 'monto' => (float) $f['monto'], 'motivo' => $f['motivo'],
+            'fecha_hora' => $f['fecha_hora'], 'tipo' => $f['tipo'], 'categoria' => $f['categoria'], 'monto' => (float) $f['monto'],
+            'motivo' => $f['motivo'], 'comprobante' => $f['comprobante'],
         ], $consulta->fetchAll());
     }
 

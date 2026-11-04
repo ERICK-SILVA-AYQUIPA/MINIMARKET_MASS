@@ -20,7 +20,7 @@ declare(strict_types=1);
  * @var array<int, array> $turnoDeCaja  id_caja => fila del arqueo del turno abierto
  * @var array<int, array> $porRevisar   filas de turnos OBSERVADOS
  * @var array<int, array<int, array{fecha_hora: string, tipo: string, contado: float, esperado: float, observacion: ?string, id_empleado: int, detalle: array<string, int>}>> $arqueosPorTurno
- * @var array<int, array<int, array{fecha_hora: string, tipo: string, monto: float, motivo: string}>> $movimientos
+ * @var array<int, array<int, array{fecha_hora: string, tipo: string, categoria: string, monto: float, motivo: string, comprobante: ?string}>> $movimientos
  * @var array<int, string> $nombresEmpleado
  * @var Closure $horasAbierto
  * @var ?string $error
@@ -208,6 +208,10 @@ require __DIR__ . '/../parciales/guia.php';
         $numeroMiCaja = $numeroCaja[$miTurno->getIdCaja()] ?? '-';
         $misMovimientos = $movimientos[$miTurno->getIdCajaTurno()] ?? [];
         $ventasTurno = $misVentas ?? ['ventas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'digital' => 0.0];
+        $pasoTope = Dinero::centimos($enGaveta) > Dinero::centimos($regla['tope']);
+        // Retiro de seguridad: con cierre ciego no se dice cuanto (seria mostrar lo esperado); sin el, se sugiere el monto
+        $retiroSugerido = $regla['ciego'] ? 0 : MovimientoCaja::retiroSugerido(Dinero::centimos($enGaveta),
+            Dinero::centimos($regla['tope']), Dinero::centimos($fondos[$miTurno->getIdCaja()] ?? 0.0));
         ?>
         <header class="turno-barra<?= $enPausa ? ' en-pausa' : '' ?>" aria-label="Estado de tu turno">
             <div class="turno-barra-estado">
@@ -242,8 +246,18 @@ require __DIR__ . '/../parciales/guia.php';
         <?php if ($enPausa): ?>
             <div class="aviso alerta" role="status"><span>Caja en pausa desde las <?= e(substr((string) $miTurno->getEnPausaDesde(), 11, 5)) ?>: nadie puede vender con tu turno hasta que la reanudes.</span></div>
         <?php endif; ?>
-        <?php if (Dinero::centimos($enGaveta) > Dinero::centimos($regla['tope'])): ?>
-            <div class="aviso alerta" role="status"><span>La gaveta pasó el tope de <?= e(soles($regla['tope'])) ?>: haz un retiro al depósito.</span></div>
+        <?php if ($pasoTope): ?>
+            <div class="aviso alerta aviso-retiro" role="status">
+                <span>
+                    <strong>La gaveta pasó el tope de <?= e(soles($regla['tope'])) ?>.</strong>
+                    <?php if ($retiroSugerido > 0): ?>
+                        Retira <?= e(soles($retiroSugerido / 100)) ?> a la caja fuerte: queda el fondo para dar vuelto.
+                    <?php else: ?>
+                        Cuenta los billetes grandes y haz un retiro de seguridad a la caja fuerte.
+                    <?php endif; ?>
+                </span>
+                <a class="boton acento chico" href="#movimientos-titulo" data-retiro-seguridad="<?= e($retiroSugerido > 0 ? Dinero::aTexto($retiroSugerido) : '') ?>"><?= icono('retiro') ?><?= e($retiroSugerido > 0 ? 'Retirar ' . soles($retiroSugerido / 100) : 'Registrar retiro') ?></a>
+            </div>
         <?php endif; ?>
         <?php if ($horas > $regla['horas']): ?>
             <div class="aviso alerta" role="status"><span>Tu turno lleva más de <?= (int) $regla['horas'] ?> horas abierto. Arquéalo y ciérralo al terminar.</span></div>
@@ -286,7 +300,7 @@ require __DIR__ . '/../parciales/guia.php';
                     <p class="sutil">Anota cada vez que sacas billetes para el depósito o un gasto menor, o cuando te traen sencillo.</p>
                 </div>
             </div>
-            <form class="formulario movimiento-form" method="post" action="/?ruta=caja_movimiento">
+            <form class="formulario movimiento-form" method="post" action="/?ruta=caja_movimiento" data-movimiento>
                 <?= campoCsrf($csrf) ?>
                 <fieldset class="segmentado">
                     <legend class="visualmente-oculto">Tipo de movimiento</legend>
@@ -294,14 +308,31 @@ require __DIR__ . '/../parciales/guia.php';
                     <label><input type="radio" name="tipo" value="INGRESO"><span><?= icono('ingreso') ?>Ingreso <small>sencillo o cambio</small></span></label>
                 </fieldset>
                 <div class="movimiento-campos">
+                    <div class="movimiento-categoria-campo">
+                        <label for="categoria_movimiento">Categoría</label>
+                        <select id="categoria_movimiento" name="categoria" required>
+                            <?php foreach (MovimientoCaja::CATEGORIAS as $tipoMov => $categoriasMov): ?>
+                                <optgroup label="<?= $tipoMov === 'RETIRO' ? 'Retiro' : 'Ingreso' ?>" data-tipo="<?= e($tipoMov) ?>">
+                                    <?php foreach ($categoriasMov as $claveCat => $nombreCat): ?>
+                                        <option value="<?= e($claveCat) ?>"><?= e($nombreCat) ?></option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                     <div>
                         <label for="monto_movimiento">Monto (S/)</label>
                         <input id="monto_movimiento" name="monto" inputmode="decimal" required placeholder="0.00" autocomplete="off">
                     </div>
                     <div>
-                        <label for="motivo_movimiento">Motivo</label>
+                        <label for="comprobante_movimiento">Comprobante <span class="sutil">(opcional)</span></label>
+                        <input id="comprobante_movimiento" name="comprobante" maxlength="20" pattern="[A-Za-z0-9][A-Za-z0-9\/\-]{0,19}" placeholder="Ej.: B001-245" autocomplete="off">
+                    </div>
+                    <div class="movimiento-motivo">
+                        <label for="motivo_movimiento">Detalle</label>
                         <input id="motivo_movimiento" name="motivo" maxlength="150" required list="motivos-caja" placeholder="Ej.: depósito al banco, pago de bolsas" autocomplete="off">
                         <datalist id="motivos-caja">
+                            <option value="Retiro de seguridad a la caja fuerte">
                             <option value="Depósito parcial al banco">
                             <option value="Compra menor: bolsas">
                             <option value="Pago a proveedor">
@@ -323,7 +354,7 @@ require __DIR__ . '/../parciales/guia.php';
                     <tr>
                         <td class="fecha"><?= e(substr($m['fecha_hora'], 11, 5)) ?></td>
                         <td><span class="etiqueta <?= $esRetiro ? 'reponer' : 'ok' ?>"><?= $esRetiro ? 'Retiro' : 'Ingreso' ?></span></td>
-                        <td><?= e($m['motivo']) ?></td>
+                        <td><strong class="movimiento-categoria"><?= e(MovimientoCaja::nombreCategoria($m['tipo'], $m['categoria'])) ?></strong> <?= e($m['motivo']) ?><?php if ($m['comprobante'] !== null): ?> <span class="sutil">· <?= e($m['comprobante']) ?></span><?php endif; ?></td>
                         <td class="num <?= $esRetiro ? 'texto-error' : 'texto-ok' ?>"><?= e(($esRetiro ? '− ' : '+ ') . soles($m['monto'])) ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -378,8 +409,8 @@ require __DIR__ . '/../parciales/guia.php';
                     <div class="cierre-dato"><span>Ventas emitidas</span><strong><?= (int) $ventasTurno['ventas'] ?></strong></div>
                     <div class="cierre-dato"><span>Fondo inicial</span><strong><?= e(soles($miTurno->getMontoInicial())) ?></strong></div>
                     <div class="cierre-dato efectivo"><span>Ventas en efectivo</span><strong><?php if ($regla['ciego']): ?><span class="velado" aria-label="Oculto">S/ ●●●.●●</span><?php else: ?><?= e(soles($cobradoEfectivo)) ?><?php endif; ?></strong></div>
-                    <div class="cierre-dato"><span>Retiros al depósito</span><strong><?= e(($retirosTurno > 0 ? '− ' : '') . soles($retirosTurno)) ?></strong></div>
-                    <div class="cierre-dato"><span>Ingresos de sencillo</span><strong><?= e(($ingresosTurno > 0 ? '+ ' : '') . soles($ingresosTurno)) ?></strong></div>
+                    <div class="cierre-dato"><span>Retiros de caja</span><strong><?= e(($retirosTurno > 0 ? '− ' : '') . soles($retirosTurno)) ?></strong></div>
+                    <div class="cierre-dato"><span>Ingresos de caja</span><strong><?= e(($ingresosTurno > 0 ? '+ ' : '') . soles($ingresosTurno)) ?></strong></div>
                     <?php if ($devolucionesTurno > 0): ?>
                         <div class="cierre-dato"><span>Devoluciones</span><strong><?= e('− ' . soles($devolucionesTurno)) ?></strong></div>
                     <?php endif; ?>
@@ -564,7 +595,7 @@ require __DIR__ . '/../parciales/guia.php';
         <?php if (!$ocultarEsperado): ?>
             <dt>+ Efectivo cobrado</dt><dd><?= e(soles($fila['efectivoCobrado'])) ?></dd>
             <dt>− Devoluciones</dt><dd><?= e(soles($fila['devoluciones'])) ?></dd>
-            <dt>+ Ingresos de sencillo</dt><dd><?= e(soles($fila['ingresos'])) ?></dd>
+            <dt>+ Ingresos de caja</dt><dd><?= e(soles($fila['ingresos'])) ?></dd>
             <dt>− Retiros</dt><dd><?= e(soles($fila['retiros'])) ?></dd>
             <dt>= Esperado en gaveta</dt><dd><?= e(soles($fila['esperado'])) ?></dd>
         <?php endif; ?>
@@ -594,7 +625,7 @@ require __DIR__ . '/../parciales/guia.php';
         <ul class="lista-movimientos">
             <?php foreach ($movimientos[$t->getIdCajaTurno()] as $m): ?>
                 <?php $signo = $m['tipo'] === 'RETIRO' ? '− ' : '+ '; ?>
-                <li><span class="fecha"><?= e(substr($m['fecha_hora'], 11, 5)) ?></span> <?= e($signo . soles($m['monto'])) ?> · <?= e($m['motivo']) ?></li>
+                <li><span class="fecha"><?= e(substr($m['fecha_hora'], 11, 5)) ?></span> <?= e($signo . soles($m['monto'])) ?> · <?= e(MovimientoCaja::nombreCategoria($m['tipo'], $m['categoria'])) ?>: <?= e($m['motivo']) ?><?php if ($m['comprobante'] !== null): ?> <span class="sutil">(<?= e($m['comprobante']) ?>)</span><?php endif; ?></li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>

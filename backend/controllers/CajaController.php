@@ -314,7 +314,9 @@ class CajaController extends Controller
         }
         $tipo = $this->campo($post, 'tipo');
         try {
-            $this->servicio->registrarMovimiento($this->usuario, $tipo, $this->campo($post, 'monto'), $this->campo($post, 'motivo'));
+            $categoria = $this->campo($post, 'categoria');
+            $this->servicio->registrarMovimiento($this->usuario, $tipo, $this->campo($post, 'monto'), $this->campo($post, 'motivo'),
+                $categoria === '' ? 'OTRO' : $categoria, $this->campo($post, 'comprobante'));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
             $this->panel($ex->getMessage());

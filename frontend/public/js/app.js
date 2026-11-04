@@ -436,8 +436,114 @@
                 return li;
             }));
             caja.classList.toggle('con-avisos', avisos.length > 0);
+            pintarCliente(tipo ? tipo.value : 'B', documento);
+            pintarEfectivoRapido(falta);
+            totalVivo = total;
             actualizarCarrito();
         }
+
+        // Quien recibe el comprobante, al momento: CLIENTE VARIOS, DNI o RUC (el servidor vuelve a validar)
+        const etiquetaCliente = $('[data-cliente]', formVenta);
+        function pintarCliente(tipo, documento) {
+            if (etiquetaCliente === null) {
+                return;
+            }
+            let texto = 'Cliente varios';
+            let clase = 'neutra';
+            if (/^\d{11}$/.test(documento)) {
+                texto = 'RUC';
+                clase = 'ok';
+            } else if (/^\d{8}$/.test(documento)) {
+                texto = tipo === 'F' ? 'La factura pide RUC' : 'DNI';
+                clase = tipo === 'F' ? 'reponer' : 'ok';
+            } else if (documento !== '') {
+                texto = documento.length < 8 ? 'Faltan dígitos' : 'Ni DNI ni RUC';
+                clase = 'reponer';
+            } else if (tipo === 'F') {
+                texto = 'Falta el RUC';
+                clase = 'reponer';
+            }
+            etiquetaCliente.hidden = false;
+            etiquetaCliente.textContent = texto;
+            etiquetaCliente.className = 'etiqueta ' + clase;
+        }
+
+        // Botones de efectivo: lo exacto y los billetes con los que suele pagar el cliente (los que alcanzan)
+        const efectivoRapido = $('[data-efectivo-rapido]', formVenta);
+        let faltaRapido = -1;
+        function pintarEfectivoRapido(falta) {
+            if (efectivoRapido === null || falta === faltaRapido) {
+                return;
+            }
+            faltaRapido = falta;
+            const montos = [falta];
+            [1000, 2000, 5000, 10000, 20000].forEach((billete) => {
+                const redondeado = Math.ceil(falta / billete) * billete;
+                if (redondeado > falta && !montos.includes(redondeado)) {
+                    montos.push(redondeado);
+                }
+            });
+            efectivoRapido.hidden = falta <= 0;
+            efectivoRapido.replaceChildren(...montos.slice(0, 5).map((monto, i) => {
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'secundario chico';
+                boton.dataset.monto = (monto / 100).toFixed(2);
+                boton.textContent = i === 0 ? 'Exacto' : soles(monto);
+                if (i === 0) {
+                    boton.setAttribute('aria-label', 'Exacto, ' + soles(monto));
+                }
+                return boton;
+            }));
+        }
+        if (efectivoRapido !== null) {
+            efectivoRapido.addEventListener('click', (evento) => {
+                const boton = evento.target.closest('button[data-monto]');
+                if (boton) {
+                    const campoEfectivo = campo('efectivo_recibido');
+                    campoEfectivo.value = boton.dataset.monto;
+                    campoEfectivo.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            });
+        }
+
+        // Celular: barra fija con el total y "Cobrar", que baja al cobro. Se va cuando el cobro ya esta a la vista.
+        const cobroFijo = $('[data-cobro-fijo]', formVenta);
+        let totalVivo = 0;
+        function pintarCobroFijo(productos) {
+            if (cobroFijo === null) {
+                return;
+            }
+            cobroFijo.hidden = productos === 0;
+            $('[data-cobro-fijo-cuenta]', cobroFijo).textContent = productos + (productos === 1 ? ' producto' : ' productos');
+            $('[data-cobro-fijo-monto]', cobroFijo).textContent = soles(totalVivo);
+        }
+        if (cobroFijo !== null && 'IntersectionObserver' in window) {
+            new IntersectionObserver((entradas) => {
+                cobroFijo.classList.toggle('cobro-a-la-vista', entradas[0].isIntersecting);
+            }, { rootMargin: '0px 0px -45% 0px' }).observe($('#cobro', formVenta));
+        }
+        if (cobroFijo !== null) {
+            $('[data-cobro-fijo-ir]', cobroFijo).addEventListener('click', (evento) => {
+                evento.preventDefault();
+                const cobro = $('#cobro', formVenta);
+                const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+                cobro.scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'start' });
+                campo('efectivo_recibido').focus({ preventScroll: true });
+            });
+        }
+
+        // F9 registra la venta desde cualquier campo, como en una caja registradora (requestSubmit pasa por la validacion)
+        document.addEventListener('keydown', (evento) => {
+            if (evento.key === 'F9' && drawerAbierto() === null) {
+                evento.preventDefault();
+                if (totalVivo <= 0) {
+                    avisar('Agrega al menos un producto antes de cobrar.', true);
+                    return;
+                }
+                formVenta.requestSubmit($('button[type=submit]', formVenta));
+            }
+        });
 
         // ---------- Carrito: las filas del formulario vistas como productos con foto, cantidad e importe ----------
         // Las filas (select + cantidad) siguen siendo lo que se envia; el carrito solo las muestra y las cambia.
@@ -562,6 +668,7 @@
             const productos = enCarrito.size;
             $('[data-carrito-cuenta]', formVenta).textContent = String(productos);
             $('[data-carrito-vaciar]', formVenta).hidden = productos === 0;
+            pintarCobroFijo(productos);
         }
 
         function pintarCarrito() {
@@ -1004,6 +1111,49 @@
             // Sin almacenamiento queda el enlace del servidor
         }
     });
+
+    // ---------- Caja: movimientos de efectivo con su categoria ----------
+    // La lista de categorias muestra solo las del tipo elegido (retiro o ingreso). Sin JavaScript se ven las dos
+    // listas y el servidor rechaza una categoria que no corresponde al tipo.
+    const formMovimiento = $('form[data-movimiento]');
+    if (formMovimiento !== null) {
+        const categoria = formMovimiento.elements.namedItem('categoria');
+        const tipoElegido = () => {
+            const marcado = formMovimiento.querySelector('input[name=tipo]:checked');
+            return marcado ? marcado.value : 'RETIRO';
+        };
+        const filtrarCategorias = () => {
+            const tipo = tipoElegido();
+            $$('optgroup', categoria).forEach((grupo) => {
+                const delTipo = grupo.dataset.tipo === tipo;
+                grupo.hidden = !delTipo;
+                grupo.disabled = !delTipo;
+            });
+            const elegida = categoria.selectedOptions[0];
+            if (!elegida || elegida.parentElement.dataset.tipo !== tipo) {
+                const primera = $('optgroup[data-tipo="' + tipo + '"] option', categoria);
+                categoria.value = primera ? primera.value : '';
+            }
+        };
+        $$('input[name=tipo]', formMovimiento).forEach((radio) => radio.addEventListener('change', filtrarCategorias));
+        filtrarCategorias();
+
+        // "Retirar S/ X" del aviso de tope: llena el formulario como retiro de seguridad (el cajero confirma con Registrar)
+        $$('[data-retiro-seguridad]').forEach((enlace) => {
+            enlace.addEventListener('click', (evento) => {
+                evento.preventDefault();
+                const retiro = formMovimiento.querySelector('input[name=tipo][value=RETIRO]');
+                retiro.checked = true;
+                filtrarCategorias();
+                categoria.value = 'DEPOSITO';
+                formMovimiento.elements.namedItem('motivo').value = 'Retiro de seguridad a la caja fuerte';
+                const monto = formMovimiento.elements.namedItem('monto');
+                monto.value = enlace.dataset.retiroSeguridad || '';
+                formMovimiento.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+                monto.focus({ preventScroll: true });
+            });
+        });
+    }
 
     // ---------- Caja: contar billetes y monedas ----------
     // Suma la gaveta en centimos mientras se escribe y compara con el fondo fijo o con lo esperado.

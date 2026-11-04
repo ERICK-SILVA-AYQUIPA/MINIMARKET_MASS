@@ -138,7 +138,7 @@ $conSip = $v('sip_monto') !== '';
             </details>
         </section>
 
-        <aside class="panel resumen venta-carrito" aria-label="Carrito y cobro">
+        <aside class="panel resumen venta-carrito" id="cobro" aria-label="Carrito y cobro" tabindex="-1">
             <div class="carrito-cabeza" data-carrito-cabeza hidden>
                 <h2>Carrito <span class="etiqueta neutra" data-carrito-cuenta>0</span></h2>
                 <button type="button" class="enlace" data-carrito-vaciar>Vaciar</button>
@@ -168,13 +168,17 @@ $conSip = $v('sip_monto') !== '';
                 </div>
             </fieldset>
 
-            <label for="documento">DNI o RUC del cliente</label>
+            <div class="rotulo-con-estado">
+                <label for="documento">DNI o RUC del cliente</label>
+                <span class="etiqueta neutra" data-cliente aria-live="polite" hidden>Cliente varios</span>
+            </div>
             <span class="ayuda">Vacío = CLIENTE VARIOS. La factura exige RUC.</span>
             <input id="documento" name="documento" inputmode="numeric" maxlength="11" autocomplete="off" value="<?= e($v('documento')) ?>">
 
             <label for="efectivo_recibido">Efectivo que entrega el cliente (S/)</label>
             <span class="ayuda">Cubre lo que falte del total; el vuelto sale en el comprobante.</span>
             <input id="efectivo_recibido" name="efectivo_recibido" inputmode="decimal" value="<?= e($v('efectivo_recibido')) ?>">
+            <div class="efectivo-rapido" data-efectivo-rapido role="group" aria-label="Montos rápidos de efectivo" hidden></div>
 
             <details class="pago"<?= $conTarjeta ? ' open' : '' ?>>
                 <summary>Pagar una parte con tarjeta</summary>
@@ -206,10 +210,18 @@ $conSip = $v('sip_monto') !== '';
             </details>
 
             <div class="botones-formulario">
-                <button class="acento grande" type="submit"><?= icono('ok') ?>Registrar venta</button>
-                <small>El sistema calcula el total con los precios vigentes y valida el stock.</small>
+                <button class="acento grande" type="submit" aria-keyshortcuts="F9"><?= icono('ok') ?>Registrar venta</button>
+                <small>El sistema calcula el total con los precios vigentes y valida el stock. <span class="solo-teclado">Atajo: <kbd>F9</kbd>.</span></small>
             </div>
         </aside>
+        <!-- Celular: el total siempre a la vista; "Cobrar" baja al carrito y al cobro (app.js la muestra con productos) -->
+        <div class="cobro-fijo" data-cobro-fijo hidden>
+            <div class="cobro-fijo-total">
+                <span data-cobro-fijo-cuenta>0 productos</span>
+                <strong data-cobro-fijo-monto>S/ 0.00</strong>
+            </div>
+            <a class="boton acento" href="#cobro" data-cobro-fijo-ir><?= icono('venta') ?>Cobrar</a>
+        </div>
     </form>
 <?php endif; ?>
 <?php require __DIR__ . '/../layout_fin.php'; ?>

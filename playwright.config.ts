@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test';
  * - La base tiene que estar RECIÉN CREADA (docker compose down -v && docker compose up -d --wait mysql):
  *   las pruebas abren un turno, venden, registran movimientos y cierran la caja de verdad.
  * - Los archivos corren en orden (01 → 05) con un solo worker: cada flujo sigue donde quedó el anterior.
+ * - Después, el proyecto "celular" (390 x 844, táctil) corre 06-celular.spec.ts sobre lo que dejó 05.
  * - Las capturas base viven en tests/e2e/<archivo>.spec.ts-snapshots/ y se suben a GitHub.
  *   Se generan SIEMPRE dentro de la imagen de Docker de Playwright (tests/e2e/correr_en_docker.sh):
  *   la CI usa esa misma imagen, y otra PC u otro sistema dibuja las letras con otros píxeles.
@@ -44,7 +45,18 @@ export default defineConfig({
     projects: [
         {
             name: 'escritorio',
+            testIgnore: /celular\.spec\.ts/,
             use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 900 }, deviceScaleFactor: 1 },
+        },
+        {
+            // El celular sigue donde quedó la computadora (06 parte del cierre que dejó 05): corre después
+            name: 'celular',
+            testMatch: /celular\.spec\.ts/,
+            dependencies: ['escritorio'],
+            use: {
+                ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true,
+                userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36',
+            },
         },
     ],
     webServer: {
