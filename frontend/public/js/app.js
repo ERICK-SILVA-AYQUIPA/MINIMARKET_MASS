@@ -866,7 +866,7 @@
 
     function mensajeDe(campo) {
         if (campo.validity.valueMissing) {
-            return 'Este dato es obligatorio.';
+            return campo.dataset.mensaje || 'Este dato es obligatorio.';
         }
         if (campo.validity.patternMismatch || campo.validity.tooShort) {
             return campo.dataset.mensaje || campo.title || 'El formato no es válido.';
@@ -1188,7 +1188,7 @@
             let suma = 0;
             let alguno = false;
             campos.forEach((campo) => {
-                const subtotal = $('[data-subtotal]', campo.parentElement);
+                const subtotal = $('[data-subtotal]', campo.closest('.conteo-den'));
                 const texto = campo.value.trim();
                 const cantidad = /^\d{1,4}$/.test(texto) ? Number(texto) : 0;
                 if (texto !== '') {
@@ -1201,13 +1201,50 @@
             if (alguno) {
                 total.value = (suma / 100).toFixed(2);
                 total.readOnly = true;
-            } else {
+            } else if (total.readOnly) {
+                // Se borraron todos los billetes: el total vuelve a quedar libre y vacio
+                total.value = '';
                 total.readOnly = false;
+            }
+            // Con billetes contados el total ya esta; sin ellos hay que escribirlo
+            total.required = !alguno;
+            total.dataset.mensaje = 'Cuenta el efectivo: escribe cuántos billetes y monedas hay, o solo el total.';
+            if (modo !== null) {
+                modo.hidden = false;
+                modo.textContent = alguno ? 'Suma automática de los billetes y monedas' : 'O escribe aquí solo el total';
+                modo.classList.toggle('auto', alguno);
+            }
+            if (alguno && total.getAttribute('aria-invalid') === 'true') {
+                marcarCampo(total);
             }
             comparar();
         }
 
-        campos.forEach((campo) => campo.addEventListener('input', sumar));
+        // Botones − y + en cada billete y moneda: tocar suma uno, sin teclado
+        const modo = $('[data-conteo-modo]', conteo);
+        campos.forEach((campo) => {
+            const paso = (signo, texto, etiqueta) => {
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'conteo-paso';
+                boton.textContent = texto;
+                boton.setAttribute('aria-label', etiqueta);
+                boton.addEventListener('click', () => {
+                    const actual = /^\d{1,4}$/.test(campo.value.trim()) ? Number(campo.value.trim()) : 0;
+                    const nueva = Math.min(9999, Math.max(0, actual + signo));
+                    campo.value = nueva === 0 ? '' : String(nueva);
+                    sumar();
+                });
+                return boton;
+            };
+            const rotulo = campo.closest('.conteo-den').firstElementChild.textContent;
+            const fila = document.createElement('span');
+            fila.className = 'conteo-control';
+            campo.replaceWith(fila);
+            fila.append(paso(-1, '−', 'Uno menos de ' + rotulo), campo, paso(1, '+', 'Uno más de ' + rotulo));
+        });
+        // input, change y keyup: algunos teclados (Safari, autocompletar) no avisan con input
+        ['input', 'change', 'keyup'].forEach((tipo) => campos.forEach((campo) => campo.addEventListener(tipo, sumar)));
         total.addEventListener('input', comparar);
         conteo.conteoComparar = comparar;
 

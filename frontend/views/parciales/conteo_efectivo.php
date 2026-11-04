@@ -2,7 +2,7 @@
 declare(strict_types=1);
 /**
  * V: contar la gaveta. Por billetes y monedas (el total se suma solo con JavaScript y el servidor lo vuelve a sumar)
- * o escribiendo solo el total. Lo usan la apertura, el cierre, el reconteo y el arqueo sorpresa.
+ * o escribiendo solo el total. El total no es required: si va vacio, el servidor suma los billetes y monedas. Lo usan la apertura, el cierre, el reconteo y el arqueo sorpresa.
  * @var string $conteoId          prefijo de los id de los campos (unico en la pagina)
  * @var string $conteoCampoTotal  nombre del campo del total: monto_inicial, monto_cierre o monto
  * @var string $conteoValor       total que sale escrito al abrir el formulario
@@ -35,7 +35,7 @@ $clases = 'conteo' . ($conteoSinMarco ? ' sin-marco' : '') . ($conteoGrande ? ' 
                     <?php $valorDen = (float) $d; ?>
                     <label class="conteo-den <?= $valorDen >= 10 ? 'billete' : 'moneda' ?>" for="<?= e($conteoId . '-' . str_replace('.', '', $d)) ?>">
                         <span><?= e($valorDen >= 1 ? 'S/ ' . (string) (int) $valorDen : (string) (int) round($valorDen * 100) . ' cént.') ?></span>
-                        <input id="<?= e($conteoId . '-' . str_replace('.', '', $d)) ?>" name="conteo[<?= e($d) ?>]" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0" autocomplete="off" data-denominacion="<?= e($d) ?>">
+                        <input id="<?= e($conteoId . '-' . str_replace('.', '', $d)) ?>" name="conteo[<?= e($d) ?>]" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" data-denominacion="<?= e($d) ?>">
                         <small data-subtotal></small>
                     </label>
                 <?php endforeach; ?>
@@ -45,7 +45,8 @@ $clases = 'conteo' . ($conteoSinMarco ? ' sin-marco' : '') . ($conteoGrande ? ' 
     <div class="conteo-total">
         <div>
             <label for="<?= e($conteoId) ?>-total">Total contado (S/)</label>
-            <input id="<?= e($conteoId) ?>-total" name="<?= e($conteoCampoTotal) ?>" inputmode="decimal" required value="<?= e($conteoValor) ?>" data-total autocomplete="off" placeholder="0.00">
+            <input id="<?= e($conteoId) ?>-total" name="<?= e($conteoCampoTotal) ?>" inputmode="decimal" value="<?= e($conteoValor) ?>" data-total autocomplete="off" placeholder="0.00">
+            <small class="conteo-modo" data-conteo-modo hidden></small>
         </div>
         <?php if ($conteoExacto && $conteoEsperado !== null): ?>
             <button type="button" class="secundario" data-conteo-exacto hidden><?= icono('ok') ?>Viene exacto</button>

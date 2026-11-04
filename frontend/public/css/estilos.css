@@ -1426,3 +1426,21 @@ kbd { display: inline-block; padding: 0 var(--s-1); border: 1px solid var(--bord
     .conteo-den small { grid-column: 1 / -1; }
     .conteo-den small:empty { display: none; }
 }
+/* Conteo que se suma solo: − y + en cada billete y moneda, y el aviso de suma automática */
+.conteo-control { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; align-items: center; border: 1px solid var(--borde-fuerte); border-radius: var(--radio-chico); overflow: hidden; background: var(--superficie); }
+.conteo-control:focus-within { outline: 3px solid var(--foco); outline-offset: 1px; }
+form.formulario .conteo-control input, .conteo-control input { border: 0; border-radius: 0; min-height: 38px; text-align: center; padding: 4px 2px; box-shadow: none; outline: none; }
+.conteo-paso, button.conteo-paso { min-height: 38px; width: 32px; padding: 0; border: 0; border-radius: 0; background: var(--superficie-2); color: var(--tinta); font-size: 1.15rem; font-weight: 700; line-height: 1; }
+.conteo-paso:hover { background: var(--marca-suave); }
+.conteo-paso:active { background: var(--marca); }
+.conteo-modo { display: block; margin-top: 4px; font-size: .82rem; color: var(--suave); }
+.conteo-modo.auto { color: var(--verde); font-weight: 700; }
+.conteo-modo.auto::before { content: "✓ "; }
+.conteo-grilla { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+@media (max-width: 640px) {
+    /* En el celular: el nombre del billete a la izquierda y − cantidad + a la derecha, con botones de 44 px */
+    .conteo-grilla { grid-template-columns: minmax(0, 1fr); }
+    .conteo-den, form.formulario label.conteo-den { grid-template-columns: minmax(0, 1fr) 9.5rem; }
+    .conteo-control { grid-template-columns: 44px minmax(0, 1fr) 44px; }
+    .conteo-paso, button.conteo-paso { min-height: 44px; width: 44px; }
+}

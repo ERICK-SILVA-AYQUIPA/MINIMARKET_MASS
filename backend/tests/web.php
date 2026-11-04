@@ -281,6 +281,9 @@ revisar('El turno del cajero: barra de estado, movimientos y el cierre solo dent
 revisar('El cierre automático: resumen del sistema, conteo y confirmación en 3 pasos', $luis->get('ruta=caja') === 200
     && $luis->tiene('data-cierre') && $luis->tiene('Lo que calculó el sistema') && $luis->tiene('data-pasos-cierre')
     && $luis->tiene('Confirma y cierra') && !$luis->tiene('Efectivo que debe haber en la gaveta</span>' . "\n" . '                        <strong>S/'));
+revisar('El total contado no se exige si hay billetes: el servidor los suma (sin JavaScript también se cierra)', $luis->get('ruta=caja') === 200
+    && preg_match('/<input id="cierre-total"[^>]*>/', $luis->cuerpo, $totalCierre) === 1 && !str_contains($totalCierre[0], 'required')
+    && $luis->tiene('data-conteo-modo'));
 revisar('El comprobante de cierre lo arma el sistema: ventas por pago, esperado, contado y diferencia', $rosa->get('ruta=turno_cierre&turno=1') === 200
     && $rosa->tiene('CIERRE DE CAJA') && $rosa->tiene('= Efectivo esperado') && $rosa->tiene('Efectivo contado')
     && $rosa->tiene('class="cierre-resultado') && $rosa->tiene('data-imprimir') && !$rosa->tiene('?>'));
