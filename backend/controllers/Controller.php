@@ -92,16 +92,36 @@ abstract class Controller
         header('Location: ' . $url, true, 303);
     }
 
-    // Solo acepta un id de tienda que exista; si no, usa la del usuario o la tienda por defecto
+    /**
+     * Solo acepta un id de tienda que exista y que el usuario pueda ver; si no, usa la del usuario
+     * (o la tienda por defecto). El cajero y el almacenero no salen de su sucursal aunque cambien
+     * el &tienda= de la URL: se les muestra la suya, nunca la otra.
+     */
     protected function leerTienda(?string $valor): Tienda
     {
-        if ($valor !== null && ctype_digit($valor)) {
+        if ($valor !== null && ctype_digit($valor) && $this->puedeVerTienda((int) $valor)) {
             $tienda = $this->tiendas->buscarPorId((int) $valor);
             if ($tienda !== null) {
                 return $tienda;
             }
         }
         return $this->tiendas->buscarPorId($this->usuario?->getIdTienda() ?? self::TIENDA_POR_DEFECTO);
+    }
+
+    // Ver los datos (stock, ventas, kardex, personal) de esa sucursal: el administrador, todas; los demas, solo la suya
+    protected function puedeVerTienda(int $idTienda): bool
+    {
+        return $this->usuario !== null
+            && ($this->usuario->puedeElegirTienda() || $idTienda === $this->usuario->getIdTienda());
+    }
+
+    /**
+     * Las tiendas que este usuario puede ver (pestañas, columnas del stock, lista de tiendas).
+     * @return array<int, Tienda>
+     */
+    protected function tiendasVisibles(): array
+    {
+        return array_filter($this->tiendas->todas(), fn(Tienda $t): bool => $this->puedeVerTienda($t->getIdTienda()));
     }
 
     /**

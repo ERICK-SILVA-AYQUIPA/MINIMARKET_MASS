@@ -35,7 +35,7 @@ class ProductoController extends Controller
     public function lista(?string $tiendaPedida, ?string $ver = null, ?string $vistaPedida = null, ?string $categoriaPedida = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'productos';
         $puedeEditar = $this->puedeEditarCatalogo();
         $vista = $vistaPedida === 'tabla' ? 'tabla' : 'tarjetas';
@@ -152,7 +152,7 @@ class ProductoController extends Controller
     // GET /?ruta=stock: el stock de cada producto en todas las tiendas, lado a lado
     public function stockTiendas(): void
     {
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
 
         $filas = [];
         $porReponer = 0;
@@ -174,7 +174,7 @@ class ProductoController extends Controller
     // GET /?ruta=stock_csv: la misma tabla de stock por tienda, para Excel
     public function stockCsv(): void
     {
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $encabezado = ['id', 'producto', 'codigo_barras', 'precio', 'estado'];
         foreach ($tiendas as $tienda) {
             $encabezado[] = $tienda->getNombreTienda();
