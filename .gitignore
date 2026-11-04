@@ -25,3 +25,8 @@ frontend/public/img/productos/*
 # APK y paquetes de Android generados (se descargan desde la CI o Releases, no se suben)
 *.apk
 *.aab
+
+# Pruebas E2E (Playwright): dependencias e informes; las capturas base (tests/e2e/*-snapshots/) SI se suben
+node_modules/
+test-results/
+playwright-report/

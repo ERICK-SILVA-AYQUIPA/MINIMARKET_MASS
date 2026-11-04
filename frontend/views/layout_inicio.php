@@ -89,10 +89,13 @@ if ($usuarioActual !== null) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#16202b">
+    <meta name="theme-color" content="#0f172a">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
-    <link rel="preload" href="/fuentes/outfit.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="/css/estilos.css?v=16">
+    <link rel="preload" href="/fuentes/inter.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
+    <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
+    <link rel="stylesheet" href="/css/tokens.css?v=1">
+    <link rel="stylesheet" href="/css/estilos.css?v=17">
     <script src="/js/app.js?v=7" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
