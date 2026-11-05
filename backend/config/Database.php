@@ -13,7 +13,7 @@ final class Database
     public static function conexion(): PDO
     {
         if (self::$conexion === null) {
-            self::cargarEnv(__DIR__ . '/../../.env');
+            self::cargarEntorno();
 
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
@@ -29,6 +29,16 @@ final class Database
             ]);
         }
         return self::$conexion;
+    }
+
+    // Lee el .env de la raiz del proyecto una sola vez (tambien lo usa Aplicacion para el contacto de soporte)
+    public static function cargarEntorno(): void
+    {
+        static $cargado = false;
+        if (!$cargado) {
+            self::cargarEnv(__DIR__ . '/../../.env');
+            $cargado = true;
+        }
     }
 
     private static function leer(string $clave, string $porDefecto): string

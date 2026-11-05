@@ -12,6 +12,7 @@ declare(strict_types=1);
  * @var array<int, string> $categorias  las que tienen productos para vender, id => nombre
  * @var array $viejo
  * @var ?string $error
+ * @var string $claveOperacion  clave unica de esta venta: un reenvio (corte de red, F5) no la registra dos veces
  */
 $titulo = 'Nueva venta';
 require __DIR__ . '/../layout_inicio.php';
@@ -55,8 +56,9 @@ $conSip = $v('sip_monto') !== '';
         <div class="aviso alerta" role="status"><span>Tu caja está en pausa: reanúdala en <a href="/?ruta=caja">Mi caja</a> para registrar ventas.</span></div>
     <?php endif; ?>
 
-    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta>
+    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta<?= $error !== null ? ' data-con-error' : '' ?>>
         <?= campoCsrf($csrf) ?>
+        <input type="hidden" name="clave_operacion" value="<?= e($claveOperacion) ?>" data-clave-operacion>
         <section class="panel venta-catalogo">
             <h2 class="visualmente-oculto">Productos</h2>
             <?php

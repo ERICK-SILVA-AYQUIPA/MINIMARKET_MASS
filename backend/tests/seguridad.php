@@ -257,12 +257,18 @@ revisar('Las vistas solo cargan /js/app.js (sin scripts pegados, onclick= ni jav
 // app.js nunca convierte datos en HTML ni ejecuta texto, y no llama a otros sitios
 $js = file_get_contents($raiz . '/frontend/public/js/app.js');
 $peligrosos = [];
-foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function', 'setTimeout(\'', 'fetch(', 'XMLHttpRequest', 'http://', 'https://'] as $patron) {
+foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function', 'setTimeout(\'', 'XMLHttpRequest', 'http://', 'https://'] as $patron) {
     if (str_contains($js, $patron)) {
         $peligrosos[] = 'frontend/public/js/app.js:' . lineaDe($js, strpos($js, $patron)) . '  ' . $patron;
     }
 }
-revisar('app.js escribe con textContent, sin eval ni llamadas a otros sitios', $peligrosos === [], $peligrosos);
+// fetch solo a este mismo sitio y con una ruta escrita en el codigo ('/?ruta=salud', '/?ruta=venta_estado...')
+if (preg_match_all('/fetch\(\s*(?!\'\/\?ruta=[a-z_]+[\'&])/', $js, $sueltos, PREG_OFFSET_CAPTURE) > 0) {
+    foreach ($sueltos[0] as [, $posicion]) {
+        $peligrosos[] = 'frontend/public/js/app.js:' . lineaDe($js, $posicion) . '  fetch( a una dirección que no es /?ruta=...';
+    }
+}
+revisar('app.js escribe con textContent, sin eval ni llamadas a otros sitios (fetch solo a /?ruta=...)', $peligrosos === [], $peligrosos);
 revisar('La CSP solo permite scripts de este sitio', preg_match("/script-src 'self';/", $index) === 1
     && preg_match("/script-src[^;]*('unsafe-inline'|'unsafe-eval'|https?:)/", $index) === 0);
 

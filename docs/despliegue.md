@@ -68,10 +68,12 @@ Abrir `.env` y cambiar **las dos claves** (`DB_PASSWORD` y `DB_ROOT_PASSWORD`) p
 | `DB_ROOT_PASSWORD` | La que pongan | Clave larga, distinta | No se usa | No se usa |
 | `COMPOSE_PROFILES` | `web` | **vacío** | No se usa | No se usa |
 | `WEB_PORT` | `8000` | No se usa | No se usa | No se usa |
+| `SOPORTE_NOMBRE`, `SOPORTE_TELEFONO`, `SOPORTE_CORREO`, `SOPORTE_HORARIO` | Opcional | **A quién llamar** | **A quién llamar** | Opcional |
 
 - `COMPOSE_PROFILES=web` (lo trae `.env.example`) hace que Docker levante también la página con `php -S` en el puerto 8000, abierto a la red. En producción **va vacío**: ahí atiende nginx o Apache, y Docker abre sus puertos aunque el firewall `ufw` los cierre.
 - Con Docker, el usuario `mass_app` lo crea MySQL al levantar el contenedor, con permisos solo sobre la base `minimarket_mass`. `DB_ROOT_PASSWORD` solo la usan Docker y los scripts de respaldo.
 - Una variable que ya existe en el sistema (por ejemplo, puesta en PHP-FPM) gana sobre la del `.env`.
+- `SOPORTE_*` es el contacto que sale en el pie de cada página y en **Ayuda** (`docs/instalacion.md`). La versión sale del archivo `VERSION`. `verificar_instalacion.php` avisa si no hay teléfono ni correo de soporte.
 
 ## 4. La base de datos
 
@@ -218,6 +220,7 @@ y en `.env` se pone `DB_HOST=localhost` (PHP entra por el socket de MySQL), `DB_
 
 ```bash
 curl https://TU-DOMINIO/api/v1/salud                 # {"ok":true,"datos":{"servicio":"Minimarket Mass API",...}}
+curl https://TU-DOMINIO/?ruta=salud                  # {"estado":"ok","base":"ok","version":"1.0.0",...} (el monitor de docs/plan_sin_internet.md)
 curl -I http://TU-DOMINIO/                            # 301 hacia https://
 curl -I https://TU-DOMINIO/poo_ventas.php             # 404 en nginx, 403 en Apache
 sudo -u www-data php backend/scripts/verificar_instalacion.php

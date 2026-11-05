@@ -149,4 +149,13 @@ class PanelController extends Controller
     {
         return $this->usuario !== null && $this->usuario->puedeVerIngresos($this->usuario->getIdTienda());
     }
+
+    // GET /?ruta=ayuda: version, contacto de soporte, que hacer sin internet y el manual corto de su rol
+    public function ayuda(): void
+    {
+        require_once __DIR__ . '/../config/Aplicacion.php';
+        $version = Aplicacion::version();
+        $soporte = Aplicacion::soporte();
+        $this->vista('ayuda/ayuda', ['version' => $version, 'soporte' => $soporte]);
+    }
 }

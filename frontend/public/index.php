@@ -10,6 +10,7 @@ date_default_timezone_set('America/Lima');
 
 require __DIR__ . '/../../backend/config/Database.php';
 require __DIR__ . '/../../backend/config/Sesion.php';
+require __DIR__ . '/../../backend/config/Aplicacion.php';
 require __DIR__ . '/../../backend/controllers/AuthController.php';
 require __DIR__ . '/../../backend/controllers/ProductoController.php';
 require __DIR__ . '/../../backend/controllers/VentaController.php';
@@ -22,6 +23,8 @@ require __DIR__ . '/../../backend/controllers/ReporteController.php';
 require __DIR__ . '/../../backend/controllers/PanelController.php';
 require __DIR__ . '/../../backend/controllers/AuditoriaController.php';
 
+$metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
@@ -32,6 +35,24 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-s
 // Con HTTPS, el navegador recuerda por un año que este sitio solo se abre cifrado
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
     header('Strict-Transport-Security: max-age=31536000');
+}
+
+// GET /?ruta=salud: responde si la pagina y la base estan arriba, sin login ni sesion. La usa app.js para avisar
+// "Sin conexion con el servidor" y sirve para un monitor externo (docs/plan_sin_internet.md)
+if ($metodo === 'GET' && ($_GET['ruta'] ?? null) === 'salud') {
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store');
+    try {
+        Database::conexion()->query('SELECT 1');
+        $base = 'ok';
+    } catch (PDOException $ex) {
+        error_log('Minimarket Mass: salud sin MySQL: ' . $ex->getMessage());
+        http_response_code(503);
+        $base = 'caida';
+    }
+    echo json_encode(['estado' => $base === 'ok' ? 'ok' : 'error', 'base' => $base, 'version' => Aplicacion::version(),
+        'hora' => date('c')], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 try {
@@ -88,7 +109,7 @@ if ($usuario !== null && $idTiendaElegida !== null) {
 $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
-    new VentaServicio($db), $catalogo);
+    new VentaServicio($db), $catalogo, new OperacionMovilServicio($db));
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $ingresos = new IngresoRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
@@ -108,7 +129,6 @@ $leer = static function (string $clave): ?string {
     return is_string($valor) ? $valor : null;
 };
 
-$metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $ruta = $leer('ruta') ?? 'inicio';
 Controller::marcarRuta($ruta);
 // El modo del menu lateral lo guarda app.js en una cookie por usuario de este navegador
@@ -228,6 +248,14 @@ try {
 
             case 'venta_nueva':
                 $ventaController->nueva();
+                break;
+
+            case 'venta_estado':
+                $ventaController->estado($leer('clave'));
+                break;
+
+            case 'ayuda':
+                $panelController->ayuda();
                 break;
 
             case 'tiendas':
