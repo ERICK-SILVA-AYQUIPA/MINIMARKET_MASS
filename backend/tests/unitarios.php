@@ -107,6 +107,11 @@ revisar('Menos de 8 caracteres no', Clave::problema('ab12') !== null);
 revisar('Solo letras no', Clave::problema('solamente') !== null);
 revisar('Solo números no', Clave::problema('12345678') !== null);
 revisar('Más de 72 caracteres no', Clave::problema(str_repeat('a1', 37)) !== null);
+revisar('Como clave propia, la de prueba no (ni en minúsculas)', Clave::problemaPropia('Mass2026!', '70000002') !== null && Clave::problemaPropia('mass2026!', '70000002') !== null);
+revisar('Como clave propia, una de las más usadas no', Clave::problemaPropia('Password123', '70000002') !== null);
+revisar('Como clave propia, no puede llevar el DNI', Clave::problemaPropia('x70000002y', '70000002') !== null);
+revisar('Una clave propia buena sí', Clave::problemaPropia('Cebolla-roja7', '70000002') === null);
+revisar('La clave propia también sigue la regla general', Clave::problemaPropia('corta1', '70000002') !== null);
 revisar('El hash se verifica y no guarda la clave', password_verify('Mass2026!', $h = Clave::hash('Mass2026!')) && !str_contains($h, 'Mass2026'));
 
 echo "Producto y stock\n";

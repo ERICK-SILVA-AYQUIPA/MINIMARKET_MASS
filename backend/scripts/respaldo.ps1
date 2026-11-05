@@ -10,14 +10,17 @@
 #   RESPALDO_REMOTO=drive:mass    copia el respaldo fuera de la PC con rclone (rclone.org; configurarlo con: rclone config).
 #   RESPALDO_DIAS_REMOTO=90       dias que se guardan en el remoto (por defecto 90).
 #
-# La clave de root no se escribe aqui: la lee MySQL dentro del contenedor (variable MYSQL_ROOT_PASSWORD).
+#   RESPALDO_GUARDAR=30           respaldos que se guardan en esta PC (por defecto 30).
+#   RESPALDO_MODO=                docker, local (Laragon o MySQL instalado) o vacio = docker si existe el contenedor.
+#                                 Ver backend\scripts\mysql_local.ps1. En Laragon funciona sin tocar nada.
+#
+# Con Docker la clave de root no se escribe aqui: la lee MySQL dentro del contenedor (variable MYSQL_ROOT_PASSWORD).
 # Los respaldos llevan DNIs y hashes de claves: la carpeta respaldos\ esta en .gitignore y NO se sube a GitHub.
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..\..')
 $raiz = (Get-Location).Path
 
 $contenedor = 'minimarket_mass_db'
-$guardar = 30
 
 # Lee una variable del entorno o, si no esta, del .env
 function Leer-Env([string]$nombre) {
@@ -32,6 +35,12 @@ $clave = Leer-Env 'RESPALDO_CLAVE'
 $remoto = Leer-Env 'RESPALDO_REMOTO'
 $diasRemoto = Leer-Env 'RESPALDO_DIAS_REMOTO'
 if (-not $diasRemoto) { $diasRemoto = '90' }
+$guardar = Leer-Env 'RESPALDO_GUARDAR'
+if (-not $guardar) { $guardar = '30' }
+if ($guardar -notmatch '^[1-9][0-9]{0,3}$') { Write-Error "RESPALDO_GUARDAR debe ser un numero de 1 a 9999 (es: $guardar)." }
+$guardar = [int]$guardar
+. (Join-Path $PSScriptRoot 'mysql_local.ps1')
+$modo = Modo-Mysql
 
 if ($clave -and -not (Get-Command gpg -ErrorAction SilentlyContinue)) {
     Write-Error 'RESPALDO_CLAVE esta puesta pero falta gpg: instala Gpg4win (https://gpg4win.org) y vuelve a abrir la consola.'
@@ -45,12 +54,20 @@ $nombre = "minimarket_mass_$(Get-Date -Format 'yyyy-MM-dd_HHmm')"
 $temporal = Join-Path ([IO.Path]::GetTempPath()) "mass_$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $temporal | Out-Null
 try {
-    # 1. La base: se escribe dentro del contenedor y luego se copia, asi no cambia la codificacion (UTF-8)
-    docker exec $contenedor sh -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD exec mysqldump -uroot --single-transaction --routines --triggers --databases minimarket_mass --result-file=/tmp/respaldo.sql'
-    if ($LASTEXITCODE -ne 0) { throw 'No se pudo hacer el respaldo. Revisa que el contenedor este corriendo (docker compose ps).' }
-    docker cp "${contenedor}:/tmp/respaldo.sql" (Join-Path $temporal 'base.sql')
-    docker exec $contenedor rm -f /tmp/respaldo.sql
-    if (-not (Get-Content (Join-Path $temporal 'base.sql') -Tail 1 | Select-String 'Dump completed')) {
+    # 1. La base. Se escribe con --result-file (no con >), asi PowerShell no cambia la codificacion (UTF-8)
+    $base = Join-Path $temporal 'base.sql'
+    if ($modo -eq 'docker') {
+        docker exec $contenedor sh -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD exec mysqldump -uroot --single-transaction --routines --triggers --databases minimarket_mass --result-file=/tmp/respaldo.sql'
+        if ($LASTEXITCODE -ne 0) { throw 'No se pudo hacer el respaldo. Revisa que el contenedor este corriendo (docker compose ps).' }
+        docker cp "${contenedor}:/tmp/respaldo.sql" $base
+        docker exec $contenedor rm -f /tmp/respaldo.sql
+    } else {
+        $mysqldump = Buscar-Programa 'mysqldump'
+        $cnf = Preparar-MysqlLocal $temporal
+        & $mysqldump "--defaults-extra-file=$cnf" --single-transaction --routines --triggers --databases minimarket_mass "--result-file=$base"
+        if ($LASTEXITCODE -ne 0) { throw "No se pudo hacer el respaldo. Revisa que MySQL este iniciado (Laragon: Iniciar todo) y el usuario $usuarioLocal." }
+    }
+    if (-not (Test-Path $base) -or -not (Get-Content $base -Tail 1 | Select-String 'Dump completed')) {
         throw 'El respaldo de la base no se completo.'
     }
 
@@ -80,7 +97,7 @@ try {
 }
 Write-Host "Respaldo listo: $archivo ($detalle)"
 
-# 4. Se guardan los ultimos 30 respaldos (un mes si es diario); los mas antiguos se borran
+# 4. Se guardan los ultimos RESPALDO_GUARDAR respaldos (30 si no se pone); los mas antiguos se borran
 Get-ChildItem respaldos -File | Where-Object { $_.Name -match '^minimarket_mass_.*\.(sql|tar\.gz|tar\.gz\.gpg)$' } |
     Sort-Object LastWriteTime -Descending | Select-Object -Skip $guardar | ForEach-Object {
         Remove-Item $_.FullName

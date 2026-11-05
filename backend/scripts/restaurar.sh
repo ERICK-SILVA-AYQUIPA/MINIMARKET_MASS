@@ -7,6 +7,7 @@
 # Agregar --si al final para no preguntar (lo usa la prueba de restauracion de la CI).
 # Un respaldo .gpg pide la misma RESPALDO_CLAVE con la que se hizo (en .env o como variable).
 # Para traer uno de la copia de afuera:  rclone copy "$RESPALDO_REMOTO/ARCHIVO" respaldos/
+# Sirve con Docker y sin Docker (RESPALDO_MODO; ver backend/scripts/mysql_local.sh).
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 umask 077
@@ -68,6 +69,17 @@ fi
 TRAE_FOTOS=no
 [ -d "$TEMPORAL/abierto/productos" ] && TRAE_FOTOS=si
 
+# Donde esta MySQL (RESPALDO_MODO en .env; ver backend/scripts/mysql_local.sh). Se revisa antes de preguntar.
+. backend/scripts/mysql_local.sh
+MODO="$(modo_mysql)"
+if [ "$MODO" = local ]; then
+    preparar_mysql_local "$TEMPORAL"
+    if ! "$MYSQL_CLI" --defaults-extra-file="$TEMPORAL/mysql.cnf" -e 'SELECT 1' > /dev/null; then
+        echo "No se pudo entrar a MySQL como $USUARIO_LOCAL. Revisa que este iniciado y RESPALDO_DB_USER en .env." >&2
+        exit 1
+    fi
+fi
+
 if [ "$CONFIRMADO" != "--si" ]; then
     read -r -p "Esto reemplaza TODOS los datos de minimarket_mass$([ "$TRAE_FOTOS" = si ] && echo ' y las fotos de producto') con $ARCHIVO. Escribe SI para seguir: " RESPUESTA
     if [ "$RESPUESTA" != "SI" ]; then
@@ -76,8 +88,13 @@ if [ "$CONFIRMADO" != "--si" ]; then
     fi
 fi
 
-# 2. La base: el respaldo trae DROP TABLE + CREATE TABLE de cada tabla, asi que la deja igual que el dia del respaldo
-docker exec -i "$CONTENEDOR" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot' < "$TEMPORAL/base.sql"
+# 2. La base: el respaldo trae DROP TABLE + CREATE TABLE de cada tabla, asi que la deja igual que el dia del respaldo.
+#    Con Docker se usa el contenedor; sin Docker (MySQL de la PC o Laragon), el cliente mysql de esta PC.
+if [ "$MODO" = docker ]; then
+    docker exec -i "$CONTENEDOR" sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot' < "$TEMPORAL/base.sql"
+else
+    "$MYSQL_CLI" --defaults-extra-file="$TEMPORAL/mysql.cnf" < "$TEMPORAL/base.sql"
+fi
 echo "Base restaurada desde $ARCHIVO"
 
 # 3. Las fotos: se cambian las de ahora por las del respaldo (se deja el .gitkeep)

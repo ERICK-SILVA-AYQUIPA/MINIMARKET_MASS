@@ -518,6 +518,9 @@ rechaza('Rosa no se desactiva a sí misma', fn() => $personal->editar($rosa, 1, 
 rechaza('No se desactiva a un cajero con turno abierto', fn() => $personal->editar($rosa, 2, 'Luis', 'Caceres Pinto', 2, 'INACTIVO'));
 $personal->editar($rosa, $idNuevo, 'Diana', 'Torres Lazo', 3, 'INACTIVO');
 revisar('Diana pasa a almacenera INACTIVA', valor($db, 'SELECT CONCAT(id_rol, estado) FROM empleado WHERE id_empleado = ?', [$idNuevo]) === '3INACTIVO');
+rechaza('Luis no se queda con la clave de prueba', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'mass2026!', 'mass2026!'));
+rechaza('...ni con una que lleva su DNI', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'Luis70000002', 'Luis70000002'));
+rechaza('...ni con una de las más usadas', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'Password123', 'Password123'));
 $personal->cambiarMiClave($luis, 'Mass2026!', 'NuevaClave1', 'NuevaClave1');
 revisar('Luis cambia su clave', password_verify('NuevaClave1', valor($db, 'SELECT clave_hash FROM empleado WHERE id_empleado = 2')));
 rechaza('Cambiar clave con la actual errada', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'OtraClave2', 'OtraClave2'));
@@ -534,8 +537,20 @@ revisar('...revoca sus tokens de la app', $tokens->empleadoDe($tokenDeLuis) === 
 revisar('...y Luis tendrá que cambiarla al entrar', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = 2') === 'S');
 $tokenDeJorge = $tokens->crear(4, 'prueba')['token'];
 revisar('Los tokens de otros empleados siguen valiendo', $tokens->empleadoDe($tokenDeJorge) === 4);
-$personal->reiniciarClave($rosa, 1, 'Mass2026!');
+rechaza('Rosa no se pone a sí misma la clave de prueba', fn() => $personal->reiniciarClave($rosa, 1, 'Mass2026!'));
+$personal->reiniciarClave($rosa, 1, 'Rosa-Cayma7');
 revisar('Si Rosa se reinicia su propia clave, no se le obliga a cambiarla', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = 1') === 'N');
+// api.php corre despues y entra con la clave de prueba: se le devuelve a Rosa
+$db->prepare('UPDATE empleado SET clave_hash = ? WHERE id_empleado = 1')->execute([Clave::hash('Mass2026!')]);
+
+echo "Desbloqueo al reiniciar la clave\n";
+$db->exec("INSERT INTO intento_login (dni, ip, fecha_hora, exito) VALUES "
+    . implode(', ', array_fill(0, IntentoLoginRepository::MAXIMO_POR_DNI, "('70000002', '10.7.7.7', NOW(), 'N')")));
+$intentosLuis = new IntentoLoginRepository($db);
+revisar('Luis queda bloqueado tras 5 claves erradas', $intentosLuis->estaBloqueado('70000002', '10.7.7.8'));
+$personal->reiniciarClave($rosa, 2, 'Temporal2026x');
+revisar('...y Rosa lo desbloquea al ponerle una clave nueva', !$intentosLuis->estaBloqueado('70000002', '10.7.7.8'));
+$personal->reiniciarClave($rosa, 2, 'Mass2026!');
 rechaza('Jorge no reinicia la clave de alguien de Cayma', fn() => $personal->reiniciarClave($jorge, 2, 'Mass2026!'));
 
 echo "Limpieza de intentos y tokens\n";
