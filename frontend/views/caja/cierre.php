@@ -6,7 +6,7 @@ declare(strict_types=1);
  * @var Tienda $tienda
  * @var array{turno: CajaTurno, efectivoCobrado: float, devoluciones: float, ingresos: float, retiros: float, esperado: float, diferencia: ?float} $fila
  * @var CajaTurno $turno
- * @var array{ventas: int, anuladas: int, efectivo: float, tarjeta: float, digital: float} $ventas
+ * @var array{ventas: int, anuladas: int, efectivo: float, tarjeta: float, debito: float, credito: float, digital: float} $ventas
  * @var ?array{fecha_hora: string, tipo: string, contado: float, esperado: float, observacion: ?string, id_empleado: int, detalle: array<string, int>} $conteo
  * @var string $numeroCaja
  * @var string $cajero
@@ -37,7 +37,8 @@ $bloques = [
     [['Cajero', $cajero, false], ['Apertura', fecha($turno->getFechaHoraApertura()), false],
      ['Cierre', fecha((string) $turno->getFechaHoraCierre()), false], ['Ventas emitidas', (string) $ventas['ventas'], false],
      ...($ventas['anuladas'] > 0 ? [['Ventas anuladas', (string) $ventas['anuladas'], false]] : [])],
-    [['Efectivo', soles($ventas['efectivo']), false], ['Tarjeta', soles($ventas['tarjeta']), false],
+    [['Efectivo', soles($ventas['efectivo']), false], ['Tarjeta de débito', soles($ventas['debito']), false],
+     ['Tarjeta de crédito', soles($ventas['credito']), false],
      ['Billetera Sip', soles($ventas['digital']), false], ['TOTAL VENDIDO', soles($totalVendido), true]],
     array_values(array_filter([
         ['Fondo inicial', soles($turno->getMontoInicial()), false],

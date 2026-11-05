@@ -25,4 +25,13 @@ class Cajero extends Usuario
     {
         return $this->estaActivo() && $idTiendaDeLaVenta === $this->getIdTienda();
     }
+
+    // Al cobrar puede rebajar hasta el 10 % de la compra, con su motivo (queda en la auditoria).
+    // Un descuento mayor tiene que ser una promocion del administrador.
+    public const TOPE_DESCUENTO = 1000;
+
+    public function topeDescuentoManual(): int
+    {
+        return $this->estaActivo() ? self::TOPE_DESCUENTO : 0;
+    }
 }

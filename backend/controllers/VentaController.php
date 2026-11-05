@@ -10,6 +10,7 @@ require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
+require_once __DIR__ . '/../models/PromocionRepository.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
 
 /**
@@ -28,6 +29,7 @@ class VentaController extends Controller
         private CajaRepository $cajas,
         private VentaServicio $servicio,
         private CatalogoRepository $catalogo,
+        private PromocionRepository $promociones,
         private FotoProducto $fotos = new FotoProducto()
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
@@ -122,6 +124,12 @@ class VentaController extends Controller
         $detalles = array_column($lineas, 'detalle');
         $pagos = $this->ventas->pagosDeVenta($venta->getIdVenta());
 
+        // Descuentos (migracion 015): el de cada linea con el nombre de su promocion y el de toda la venta
+        $nombresPromocion = $this->promociones->nombres(array_filter(array_map(fn(DetalleVenta $d): ?int => $d->getIdPromocion(), $detalles)));
+        $descuentoVenta = $this->ventas->descuentoDeVenta($venta->getIdVenta());
+        $subtotal = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getImporte()), $detalles)) / 100;
+        $descuentoProductos = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getDescuento()), $detalles)) / 100;
+
         $anulacion = $this->ventas->anulacionDeVenta($venta->getIdVenta());
         $anuladaPor = $anulacion !== null ? $this->empleados->buscarPorId($anulacion->getIdEmpleado()) : null;
 
@@ -193,7 +201,23 @@ class VentaController extends Controller
             }
         }
         asort($categorias);
-        unset($nombresCategoria, $id, $c, $producto, $idCategoria);
+
+        // Promociones de hoy: el cartel de oferta en cada producto y las de toda la compra arriba del cobro
+        $ofertas = [];
+        $promocionesVenta = [];
+        $alPesoPorId = [];
+        foreach ($productos as $fila) {
+            $alPesoPorId[$fila['producto']->getIdProducto()] = $fila['producto']->esAlPeso();
+        }
+        foreach ($this->promociones->vigentes($tienda->getIdTienda()) as $promo) {
+            if ($promo->esDeVenta()) {
+                $promocionesVenta[] = $promo;
+            } elseif (isset($alPesoPorId[(int) $promo->getIdProducto()])) {
+                $ofertas[(int) $promo->getIdProducto()][] = $promo->descripcion($alPesoPorId[(int) $promo->getIdProducto()]);
+            }
+        }
+        $topeDescuento = $this->usuario->topeDescuentoManual();
+        unset($nombresCategoria, $id, $c, $producto, $idCategoria, $promo, $fila);
         $this->vista('ventas/nueva', get_defined_vars());
     }
 
@@ -211,6 +235,7 @@ class VentaController extends Controller
                 $this->campo($post, 'documento'),
                 $this->lineasDelFormulario($post),
                 [
+                    'medio'                => $this->campo($post, 'medio_pago'),
                     'tarjeta_monto'        => $this->campo($post, 'tarjeta_monto'),
                     'tarjeta_tipo'         => $this->campo($post, 'tarjeta_tipo'),
                     'tarjeta_marca'        => $this->campo($post, 'tarjeta_marca'),
@@ -220,7 +245,8 @@ class VentaController extends Controller
                     'sip_modalidad'        => $this->campo($post, 'sip_modalidad'),
                     'sip_operacion'        => $this->campo($post, 'sip_operacion'),
                     'efectivo_recibido'    => $this->campo($post, 'efectivo_recibido'),
-                ]
+                ],
+                $this->descuentoDelFormulario($post)
             );
         } catch (ReglaNegocioException $ex) {
             // Se vuelve a mostrar el formulario con lo que escribio y el error
@@ -232,6 +258,53 @@ class VentaController extends Controller
             '/?ruta=comprobante&serie=' . urlencode($r['serie']) . '&numero=' . $r['numero'],
             'Venta registrada.'
         );
+    }
+
+    /**
+     * GET /?ruta=venta_calcular&producto[]=1&cantidad[]=2&descuento_valor=5&descuento_unidad=PORCENTAJE&descuento_motivo=...
+     * Vista previa del carrito en JSON: promociones de hoy, descuento manual y total. No guarda nada;
+     * al registrar, el servidor vuelve a calcular todo.
+     */
+    public function calcular(array $get): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        if ($this->usuario === null || !$this->usuario->puedeVender()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Solo un cajero puede registrar ventas.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        try {
+            $r = $this->servicio->cotizar($this->usuario, $this->lineasDelFormulario($get), $this->descuentoDelFormulario($get));
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            echo json_encode(['error' => $ex->getMessage()], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $lineas = [];
+        foreach ($r['lineas'] as $id => $l) {
+            $lineas[(string) $id] = ['importe' => $l['importe'], 'descuento' => $l['descuento'], 'promocion' => $l['promocion'],
+                'general' => $l['general'], 'neto' => $l['neto']];
+        }
+        echo json_encode([
+            'subtotal'           => $r['subtotal'],
+            'descuentoProductos' => $r['descuentoProductos'],
+            'general'            => $r['general'] === null ? null : ['origen' => $r['general']['origen'], 'nombre' => $r['general']['nombre'], 'monto' => $r['general']['monto']],
+            'manualIgnorado'     => $r['manualIgnorado'],
+            'descuentoTotal'     => $r['descuentoTotal'],
+            'total'              => $r['total'],
+            'lineas'             => (object) $lineas,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /** @return array{valor: string, unidad: string, motivo: string} */
+    private function descuentoDelFormulario(array $datos): array
+    {
+        return [
+            'valor'  => $this->campo($datos, 'descuento_valor'),
+            'unidad' => $this->campo($datos, 'descuento_unidad'),
+            'motivo' => $this->campo($datos, 'descuento_motivo'),
+        ];
     }
 
     // POST /?ruta=venta_anular (desde el comprobante)

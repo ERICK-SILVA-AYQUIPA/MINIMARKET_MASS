@@ -48,7 +48,7 @@ require __DIR__ . '/../layout_inicio.php';
     <section class="panel">
         <h2>Revisión</h2>
         <ul class="lista-revision">
-            <li><span class="etiqueta <?= $detalleCuadra ? 'ok' : 'error' ?>"><?= $detalleCuadra ? 'Sí' : 'No' ?></span> Importes del detalle suman el total</li>
+            <li><span class="etiqueta <?= $detalleCuadra ? 'ok' : 'error' ?>"><?= $detalleCuadra ? 'Sí' : 'No' ?></span> Importes del detalle, menos sus descuentos, suman el total</li>
             <li><span class="etiqueta <?= $pagosCuadran ? 'ok' : 'error' ?>"><?= $pagosCuadran ? 'Sí' : 'No' ?></span> <?= $venta->estaAnulada() ? 'Todos los pagos están anulados' : 'Pagos válidos suman el total' ?></li>
         </ul>
     </section>
@@ -63,7 +63,7 @@ require __DIR__ . '/../layout_inicio.php';
                 <ul>
                     <?php foreach ($dev['lineas'] as $l): ?>
                         <?php $cantidadDevuelta = number_format($l['cantidad'], ($alPesoPorId[$l['id_producto']] ?? true) ? 3 : 0, '.', ''); ?>
-                        <li><?= e($nombres[$l['id_producto']] ?? '-') ?>: <?= e($cantidadDevuelta) ?> × <?= e(soles($l['precio'])) ?> = <?= e(soles($l['importe'])) ?></li>
+                        <li><?= e($nombres[$l['id_producto']] ?? '-') ?>: <?= e($cantidadDevuelta) ?> × <?= e(soles($l['precio'])) ?><?= Dinero::centimos($l['importe']) < Dinero::centimos($l['cantidad'] * $l['precio']) ? ' con descuento' : '' ?> = <?= e(soles($l['importe'])) ?></li>
                     <?php endforeach; ?>
                 </ul>
             </div>
@@ -77,7 +77,7 @@ require __DIR__ . '/../layout_inicio.php';
                 <?= campoCsrf($csrf) ?>
                 <input type="hidden" name="serie" value="<?= e($serie->getSerie()) ?>">
                 <input type="hidden" name="numero" value="<?= $venta->getNumeroCorrelativo() ?>">
-                <p class="ayuda">Escribe cuánto devuelve de cada producto; deja vacío lo que se queda. Se paga al precio de la venta, en efectivo.</p>
+                <p class="ayuda">Escribe cuánto devuelve de cada producto; deja vacío lo que se queda. Se paga lo que el cliente pagó (con sus descuentos), en efectivo.</p>
                 <?php foreach ($lineas as $linea): ?>
                     <?php
                     if ($linea['disponible'] <= 0) {

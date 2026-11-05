@@ -12,6 +12,10 @@ declare(strict_types=1);
  * @var array<int, array{detalle: DetalleVenta, producto: ?Producto, unidad: string}> $lineas
  * @var PagoVenta[] $pagos
  * @var ?AnulacionVenta $anulacion
+ * @var array<int, string> $nombresPromocion
+ * @var ?array{origen: string, nombre: string, porcentaje: ?float, monto: float, motivo: ?string} $descuentoVenta
+ * @var float $subtotal
+ * @var float $descuentoProductos
  */
 require_once __DIR__ . '/../parciales/funciones.php';
 $numero = $serie->formatear($venta->getNumeroCorrelativo());
@@ -68,8 +72,20 @@ $numero = $serie->formatear($venta->getNumeroCorrelativo());
                 <td><?= e(rtrim(rtrim(number_format($d->getCantidad(), 3, '.', ''), '0'), '.')) ?> <?= e($linea['unidad']) ?> x <?= e(number_format($d->getPrecioUnitario(), 2)) ?></td>
                 <td class="num"><?= e(number_format($d->getImporte(), 2)) ?></td>
             </tr>
+            <?php if ($d->getDescuento() > 0): ?>
+                <tr><td>&nbsp; <?= e($nombresPromocion[$d->getIdPromocion()] ?? 'Promoción') ?></td><td class="num">-<?= e(number_format($d->getDescuento(), 2)) ?></td></tr>
+            <?php endif; ?>
         <?php endforeach; ?>
+        <?php if ($descuentoProductos > 0 || $descuentoVenta !== null): ?>
+            <tr><td colspan="2"><hr></td></tr>
+            <tr><td>SUBTOTAL</td><td class="num"><?= e(number_format($subtotal, 2)) ?></td></tr>
+            <?php if ($descuentoProductos > 0): ?><tr><td>PROMOCIONES</td><td class="num">-<?= e(number_format($descuentoProductos, 2)) ?></td></tr><?php endif; ?>
+            <?php if ($descuentoVenta !== null): ?><tr><td><?= e(mb_strtoupper($descuentoVenta['nombre'])) ?></td><td class="num">-<?= e(number_format($descuentoVenta['monto'], 2)) ?></td></tr><?php endif; ?>
+        <?php endif; ?>
         <tr class="total"><td>TOTAL</td><td class="num"><?= e(soles($venta->getTotal())) ?></td></tr>
+        <?php if ($descuentoProductos > 0 || $descuentoVenta !== null): ?>
+            <tr><td colspan="2" class="centro">Usted ahorró S/ <?= e(number_format($descuentoProductos + ($descuentoVenta['monto'] ?? 0), 2)) ?></td></tr>
+        <?php endif; ?>
     </table>
     <hr>
     <table>

@@ -56,4 +56,10 @@ class Administrador extends Usuario
     {
         return $this->estaActivo();
     }
+
+    // Las promociones de SU tienda; las de toda la cadena, como el catalogo, cualquier administrador activo
+    public function puedeAdministrarPromociones(?int $idTienda): bool
+    {
+        return $idTienda === null ? $this->puedeAdministrarCatalogo() : $this->puedeAdministrarTienda($idTienda);
+    }
 }

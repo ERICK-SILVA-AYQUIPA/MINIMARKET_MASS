@@ -46,12 +46,13 @@ class Venta
         return $this->estado === 'ANULADA';
     }
 
-    /** La suma de los importes del detalle es el total. @param DetalleVenta[] $detalles */
+    /** La suma de lo cobrado en cada linea (importe menos sus descuentos) es el total. @param DetalleVenta[] $detalles */
     public function detalleCuadra(array $detalles): bool
     {
         $suma = 0;
         foreach ($detalles as $detalle) {
-            $suma += Dinero::centimos($detalle->getImporte());
+            $suma += Dinero::centimos($detalle->getImporte()) - Dinero::centimos($detalle->getDescuento())
+                - Dinero::centimos($detalle->getDescuentoGeneral());
         }
         return $suma === Dinero::centimos($this->total);
     }

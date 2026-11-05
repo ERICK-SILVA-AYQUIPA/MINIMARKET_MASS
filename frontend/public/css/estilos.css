@@ -494,6 +494,24 @@ kbd { font: 600 .75rem/1 var(--mono); padding: var(--s-1) var(--s-2); border: 1p
 .total-vivo .ayuda { color: #94a3b8; margin: 0; }
 .avisos-vivo { list-style: none; margin: 0 0 var(--s-2); padding: 0; display: grid; gap: var(--s-1); }
 .avisos-vivo li { background: var(--ambar-fondo); color: var(--ambar); border-radius: var(--radio-chico); padding: var(--s-2) var(--s-2); font-size: .85rem; font-weight: 600; }
+
+/* Venta: descuentos, promociones del dia y los 4 medios de pago */
+.total-vivo [data-descuentos] { color: #86efac; }
+.lista-descuentos { list-style: none; margin: 0 0 var(--s-2); padding: var(--s-2) 0 0; border-top: 1px dashed rgba(203, 213, 225, .35); display: grid; gap: var(--s-1); font-size: .8rem; color: #cbd5e1; }
+.promo-venta { display: flex; align-items: center; gap: var(--s-2); margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3); border-radius: var(--radio-chico); background: var(--verde-fondo); color: var(--verde); font-size: .85rem; font-weight: 600; }
+.promo-venta .icono { flex: none; }
+.medios-pago { display: grid; grid-template-columns: repeat(4, 1fr); }
+.medios-pago label { flex-direction: column; justify-content: center; gap: var(--s-1) !important; padding: var(--s-2) var(--s-1) !important; font-size: .85rem; text-align: center; }
+.medios-pago input { position: absolute; opacity: 0; pointer-events: none; }
+.medios-pago label:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--anillo-foco); }
+.pago-medio { display: grid; }
+.pago-medio[hidden] { display: none; }
+.descuento-valor { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-2); }
+.descuento-valor > div { display: grid; }
+.producto-venta-oferta {
+    position: absolute; top: 6px; left: 6px; max-width: calc(100% - 12px); padding: var(--s-0_5) var(--s-2); border-radius: var(--radio-full);
+    background: var(--verde); color: #fff; font-size: .68rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 input.campo-error, [aria-invalid=true] { border-color: var(--rojo) !important; background: var(--rojo-fondo); }
 .error-campo { display: block; color: var(--rojo); font-size: .82rem; font-weight: 600; margin-top: var(--s-1); }
 dialog.confirmacion {
@@ -1399,6 +1417,7 @@ kbd { display: inline-block; padding: 0 var(--s-1); border: 1px solid var(--bord
     .venta .producto-venta-pie { flex: none; margin: 0; flex-direction: column; align-items: flex-end; gap: var(--s-0_5); }
     .venta .producto-venta-cantidad { top: -6px; right: -6px; }
     .venta .producto-venta-agotado { inset: auto -4px -4px; font-size: .62rem; padding: 0 var(--s-1); }
+    .venta .producto-venta-oferta { top: -6px; left: -4px; font-size: .58rem; padding: 0 var(--s-1); }
     .efectivo-rapido button { flex: 1 1 calc(33% - var(--s-2)); min-height: 44px; }
     .movimiento-campos .movimiento-motivo, .movimiento-campos .movimiento-boton { grid-column: 1 / -1; }
     .movimiento-boton button { width: 100%; min-height: 48px; }

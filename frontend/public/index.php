@@ -21,6 +21,7 @@ require __DIR__ . '/../../backend/controllers/ClienteController.php';
 require __DIR__ . '/../../backend/controllers/ReporteController.php';
 require __DIR__ . '/../../backend/controllers/PanelController.php';
 require __DIR__ . '/../../backend/controllers/AuditoriaController.php';
+require __DIR__ . '/../../backend/controllers/PromocionController.php';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
@@ -87,8 +88,9 @@ if ($usuario !== null && $idTiendaElegida !== null) {
 
 $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoLoginRepository($db), $empleadoServicio);
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
+$promociones = new PromocionRepository($db);
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
-    new VentaServicio($db), $catalogo);
+    new VentaServicio($db), $catalogo, $promociones);
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $ingresos = new IngresoRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
@@ -100,6 +102,7 @@ $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reporte
 $panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
     $productos, $catalogo, $ingresos);
 Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda));
+$promocionController = new PromocionController($tiendas, $sesion, $usuario, $promociones, $productos, $empleados, new PromocionServicio($db));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
@@ -126,6 +129,7 @@ $rutasPost = [
     'producto_guardar', 'producto_estado', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
+    'promocion_crear', 'promocion_estado',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -181,6 +185,8 @@ try {
                 'caja_crear'         => $tiendaController->agregarCaja(),
                 'caja_estado'        => $tiendaController->estadoCaja($_POST),
                 'distrito_crear'     => $tiendaController->crearDistrito($_POST),
+                'promocion_crear'    => $promocionController->crear($_POST),
+                'promocion_estado'   => $promocionController->cambiarEstado($_POST),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -228,6 +234,15 @@ try {
 
             case 'venta_nueva':
                 $ventaController->nueva();
+                break;
+
+            // Vista previa del carrito (JSON): promociones y descuento, sin guardar nada
+            case 'venta_calcular':
+                $ventaController->calcular($_GET);
+                break;
+
+            case 'promociones':
+                $promocionController->lista();
                 break;
 
             case 'tiendas':

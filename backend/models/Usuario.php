@@ -152,4 +152,16 @@ abstract class Usuario
     {
         return false;
     }
+
+    // Crear, pausar y reactivar promociones de una tienda (null = de toda la cadena)
+    public function puedeAdministrarPromociones(?int $idTienda): bool
+    {
+        return false;
+    }
+
+    // Cuanto puede descontar a mano en una venta, en centesimas de % (1000 = 10 %). 0 = no puede.
+    public function topeDescuentoManual(): int
+    {
+        return 0;
+    }
 }

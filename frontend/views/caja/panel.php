@@ -209,7 +209,7 @@ require __DIR__ . '/../parciales/guia.php';
         $enPausa = $miTurno->estaEnPausa();
         $numeroMiCaja = $numeroCaja[$miTurno->getIdCaja()] ?? '-';
         $misMovimientos = $movimientos[$miTurno->getIdCajaTurno()] ?? [];
-        $ventasTurno = $misVentas ?? ['ventas' => 0, 'anuladas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'digital' => 0.0];
+        $ventasTurno = $misVentas ?? ['ventas' => 0, 'anuladas' => 0, 'efectivo' => 0.0, 'tarjeta' => 0.0, 'debito' => 0.0, 'credito' => 0.0, 'digital' => 0.0];
         $pasoTope = Dinero::centimos($enGaveta) > Dinero::centimos($regla['tope']);
         // Retiro de seguridad: con cierre ciego no se dice cuanto (seria mostrar lo esperado); sin el, se sugiere el monto
         $retiroSugerido = $regla['ciego'] ? 0 : MovimientoCaja::retiroSugerido(Dinero::centimos($enGaveta),
@@ -276,7 +276,8 @@ require __DIR__ . '/../parciales/guia.php';
                 <dl class="metrica-filas">
                     <dt>Efectivo</dt>
                     <dd><?php if ($regla['ciego']): ?><span class="sutil"><?= icono('candado') ?>se ve al cerrar</span><?php else: ?><?= e(soles($ventasTurno['efectivo'])) ?><?php endif; ?></dd>
-                    <dt>Tarjeta</dt><dd><?= e(soles($ventasTurno['tarjeta'])) ?></dd>
+                    <dt>Tarjeta de débito</dt><dd><?= e(soles($ventasTurno['debito'])) ?></dd>
+                    <dt>Tarjeta de crédito</dt><dd><?= e(soles($ventasTurno['credito'])) ?></dd>
                     <dt>Billetera Sip</dt><dd><?= e(soles($ventasTurno['digital'])) ?></dd>
                 </dl>
             </article>
@@ -442,7 +443,8 @@ require __DIR__ . '/../parciales/guia.php';
                 <legend><?php if ($ciego): ?><span class="paso-n">2</span><?php endif; ?>Tarjeta y billetera Sip: no entran a la gaveta</legend>
                 <p class="ayuda">Cuádralas con los vouchers del POS y del celular. No se suman al efectivo.</p>
                 <div class="cierre-resumen">
-                    <div class="cierre-dato voucher"><span>Tarjeta <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['tarjeta'])) ?></strong></div>
+                    <div class="cierre-dato voucher"><span>Débito <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['debito'])) ?></strong></div>
+                    <div class="cierre-dato voucher"><span>Crédito <small>(vouchers)</small></span><strong><?= e(soles($ventasTurno['credito'])) ?></strong></div>
                     <div class="cierre-dato voucher"><span>Billetera Sip <small>(operaciones)</small></span><strong><?= e(soles($ventasTurno['digital'])) ?></strong></div>
                     <div class="cierre-dato"><span>Ventas emitidas</span><strong><?= (int) $ventasTurno['ventas'] ?></strong></div>
                     <?php if ($ventasTurno['anuladas'] > 0): ?>

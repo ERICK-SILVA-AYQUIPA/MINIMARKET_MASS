@@ -367,6 +367,52 @@
         const nombreDe = (opcion) => opcion.textContent.split('·')[0].trim();
         caja.hidden = false;
 
+        // Promociones y descuento: los calcula el servidor (ruta venta_calcular, sin guardar nada) para que el total
+        // de la pantalla sea el mismo que se cobrara. Mientras llega la respuesta se muestra el total sin descuentos.
+        let cotizacion = null;          // {firma, datos} o {firma, error}
+        let firmaPedida = '';
+        let esperaCotizar = 0;
+        function parametrosCotizar(pedido) {
+            const p = new URLSearchParams({ ruta: 'venta_calcular' });
+            pedido.forEach((mil, id) => {
+                p.append('producto[]', id);
+                p.append('cantidad[]', (mil / 1000).toFixed(3));
+            });
+            const valor = campo('descuento_valor');
+            if (valor && valor.value.trim() !== '') {
+                p.append('descuento_valor', valor.value.trim());
+                p.append('descuento_unidad', campo('descuento_unidad').value);
+                p.append('descuento_motivo', campo('descuento_motivo').value);
+            }
+            return p.toString();
+        }
+        function cotizar(firma) {
+            if (firma === firmaPedida) {
+                return;
+            }
+            firmaPedida = firma;
+            clearTimeout(esperaCotizar);
+            esperaCotizar = setTimeout(async () => {
+                try {
+                    const respuesta = await fetch('/?' + firma, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+                    const datos = await respuesta.json();
+                    if (firma === firmaPedida) {
+                        cotizacion = respuesta.ok ? { firma, datos } : { firma, error: datos.error || 'No se pudo calcular el descuento.' };
+                        calcular();
+                    }
+                } catch (e) {
+                    // Sin red: queda el total sin descuentos; al registrar, el servidor calcula el de verdad
+                }
+            }, 200);
+        }
+
+        // Medio de pago elegido: muestra solo sus campos (sin JavaScript se ven todos)
+        const medioElegido = () => {
+            const marcado = formVenta.querySelector('input[name=medio_pago]:checked');
+            return marcado ? marcado.value : 'EFECTIVO';
+        };
+        const rotulosMedio = { EFECTIVO: 'Tarjeta o Sip', DEBITO: 'Con débito', CREDITO: 'Con crédito', SIP: 'Con Sip' };
+
         function calcular() {
             let total = 0;
             const avisos = [];
@@ -412,17 +458,59 @@
                 }
             });
 
-            const tarjeta = centimos(campo('tarjeta_monto').value || '0');
-            const sip = centimos(campo('sip_monto').value || '0');
+            // Promociones del dia y descuento manual (respuesta del servidor para este mismo carrito)
+            const subtotal = total;
+            let descuentos = 0;
+            const listaDescuentos = [];
+            const firma = parametrosCotizar(pedidoPorProducto);
+            if (pedidoPorProducto.size > 0) {
+                cotizar(firma);
+            }
+            if (cotizacion !== null && cotizacion.firma === firma && pedidoPorProducto.size > 0) {
+                if (cotizacion.error) {
+                    avisos.push(cotizacion.error);
+                } else {
+                    const d = cotizacion.datos;
+                    total = d.total;
+                    descuentos = d.descuentoTotal;
+                    Object.keys(d.lineas).forEach((id) => {
+                        const l = d.lineas[id];
+                        const opcion = $('select option[value="' + CSS.escape(id) + '"]', formVenta);
+                        if (l.descuento > 0 && opcion) {
+                            listaDescuentos.push(nombreDe(opcion) + ' · ' + l.promocion + ': −' + soles(l.descuento));
+                        }
+                    });
+                    if (d.general) {
+                        listaDescuentos.push(d.general.nombre + ': −' + soles(d.general.monto));
+                    }
+                    if (d.manualIgnorado) {
+                        avisos.push('La promoción de hoy descuenta más que tu descuento: se aplica la promoción.');
+                    }
+                }
+            }
+
+            const medio = medioElegido();
+            const conTarjeta = medio === 'DEBITO' || medio === 'CREDITO';
+            const montoMedio = (nombre) => {
+                const texto = campo(nombre).value.trim();
+                return texto === '' ? total : centimos(texto);
+            };
+            const tarjeta = conTarjeta ? montoMedio('tarjeta_monto') : 0;
+            const sip = medio === 'SIP' ? montoMedio('sip_monto') : 0;
             const efectivo = centimos(campo('efectivo_recibido').value || '0');
             const otros = (tarjeta || 0) + (sip || 0);
             const falta = Math.max(0, total - otros);
             const vuelto = efectivo === null ? 0 : Math.max(0, efectivo - falta);
+            $$('[data-pago]', formVenta).forEach((bloque) => {
+                const tipo = bloque.dataset.pago;
+                bloque.hidden = tipo === 'tarjeta' ? !conTarjeta : tipo === 'sip' ? medio !== 'SIP' : medio !== 'EFECTIVO' && falta <= 0;
+            });
+            $('[data-rotulo-otros]', caja).textContent = rotulosMedio[medio] || 'Tarjeta o Sip';
 
             if (tarjeta === null || sip === null || efectivo === null) {
                 avisos.push('Un monto de pago no es válido (usa hasta 2 decimales).');
             } else if (total > 0 && otros > total) {
-                avisos.push('Tarjeta y Sip suman más que el total.');
+                avisos.push((conTarjeta ? 'El monto con tarjeta' : 'El monto con Sip') + ' pasa el total.');
             } else if (total > 0 && efectivo < falta) {
                 avisos.push('Falta ' + soles(falta - efectivo) + ' en efectivo.');
             }
@@ -436,6 +524,16 @@
             }
 
             $('[data-total]', caja).textContent = soles(total);
+            $$('[data-fila-descuento]', caja).forEach((el) => { el.hidden = descuentos <= 0; });
+            $('[data-subtotal]', caja).textContent = soles(subtotal);
+            $('[data-descuentos]', caja).textContent = '−' + soles(descuentos);
+            const ulDescuentos = $('[data-lista-descuentos]', caja);
+            ulDescuentos.hidden = listaDescuentos.length === 0;
+            ulDescuentos.replaceChildren(...listaDescuentos.map((texto) => {
+                const li = document.createElement('li');
+                li.textContent = texto;
+                return li;
+            }));
             $('[data-otros]', caja).textContent = soles(otros);
             $('[data-falta]', caja).textContent = soles(falta);
             $('[data-vuelto]', caja).textContent = soles(vuelto);
