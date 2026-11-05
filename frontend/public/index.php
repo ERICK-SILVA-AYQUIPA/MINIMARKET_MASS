@@ -223,7 +223,7 @@ try {
                 break;
 
             case 'comprobante_imprimir':
-                $ventaController->comprobante($leer('serie'), $leer('numero'), true);
+                $ventaController->comprobante($leer('serie'), $leer('numero'), true, $leer('ancho'));
                 break;
 
             case 'venta_nueva':

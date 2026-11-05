@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/Entorno.php';
+
 /**
  * Conexion unica a MySQL con PDO.
  * Los datos de conexion salen de variables de entorno (o del archivo .env),
@@ -13,7 +15,7 @@ final class Database
     public static function conexion(): PDO
     {
         if (self::$conexion === null) {
-            self::cargarEnv(__DIR__ . '/../../.env');
+            Entorno::cargar();
 
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
@@ -33,25 +35,6 @@ final class Database
 
     private static function leer(string $clave, string $porDefecto): string
     {
-        $valor = getenv($clave);
-        return $valor === false || $valor === '' ? $porDefecto : $valor;
-    }
-
-    // Lee lineas CLAVE=valor del .env. Una variable que ya existe en el sistema no se pisa.
-    private static function cargarEnv(string $ruta): void
-    {
-        if (!is_readable($ruta)) {
-            return;
-        }
-        foreach (file($ruta, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $linea) {
-            $linea = trim($linea);
-            if ($linea === '' || $linea[0] === '#' || !str_contains($linea, '=')) {
-                continue;
-            }
-            [$clave, $valor] = array_map('trim', explode('=', $linea, 2));
-            if (getenv($clave) === false) {
-                putenv($clave . '=' . $valor);
-            }
-        }
+        return Entorno::leer($clave, $porDefecto);
     }
 }

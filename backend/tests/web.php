@@ -19,6 +19,13 @@ date_default_timezone_set('America/Lima');
 const BASE = 'http://127.0.0.1:8099';
 const CLAVE = 'Mass2026!';
 
+// Datos de la empresa para la cabecera del ticket (RUC de prueba con digito verificador valido)
+putenv('EMPRESA_RAZON_SOCIAL=MINIMARKET DE PRUEBA S.A.C.');
+putenv('EMPRESA_RUC=20600000005');
+putenv('EMPRESA_DIRECCION_FISCAL=Calle de Prueba 123, Arequipa');
+putenv('TICKET_ANCHO_MM=80');
+putenv('FACTURACION_PROVEEDOR=ninguno');
+
 $servidor = proc_open(
     [PHP_BINARY, '-S', '127.0.0.1:8099', '-t', __DIR__ . '/../../frontend/public'],
     [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
@@ -253,6 +260,17 @@ revisar('El menú del cajero no ofrece Reportes ni Personal', $luis->get('ruta=i
     && !$luis->tiene('ruta=reportes"') && !$luis->tiene('ruta=empleados"'));
 revisar('El ticket para imprimir es una página suelta de 80 mm', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200
     && $luis->tiene('size: 80mm') && $luis->tiene('TIENDA MASS') && !$luis->tiene('Menú principal'));
+revisar('El ticket lleva razón social, RUC y dirección fiscal de .env, no la dirección de ejemplo', $luis->tiene('MINIMARKET DE PRUEBA S.A.C.')
+    && $luis->tiene('RUC 20600000005') && $luis->tiene('Calle de Prueba 123, Arequipa') && !$luis->tiene('Direccion de ejemplo')
+    && !$luis->tiene('Faltan la razón social'));
+revisar('El ticket separa op. gravada, IGV 18% y total', $luis->tiene('OP. GRAVADA') && $luis->tiene('IGV 18%') && $luis->tiene('>TOTAL<'));
+revisar('Sin proveedor OSE/PSE el ticket dice que es interno y no válido ante SUNAT', $luis->tiene('TICKET DE VENTA INTERNO')
+    && $luis->tiene('NO VÁLIDO COMO COMPROBANTE DE PAGO') && !$luis->tiene('BOLETA DE VENTA'));
+revisar('Ticket de 58 mm para la ticketera chica (imprime 48 mm)', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1&ancho=58') === 200
+    && $luis->tiene('size: 58mm') && $luis->tiene('width: 48mm') && $luis->tiene('data-ancho="58"'));
+revisar('Un ancho que no existe usa el de .env (80 mm)', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1&ancho=999') === 200 && $luis->tiene('size: 80mm'));
+revisar('El comprobante tiene el botón de imprimir en ticketera y muestra el IGV', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
+    && $luis->tiene('ruta=comprobante_imprimir&amp;serie=B001&amp;numero=1&amp;auto=1') && $luis->tiene('Op. gravada') && $luis->tiene('Ticket interno'));
 revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=2') === 200 && $luis->tiene('>ANULADA<'));
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
@@ -365,8 +383,9 @@ revisar('Productos avisa con números lo que vence y lo que hay que reponer; el 
     && $carmen->tiene('class="menu-cuenta"') && $carmen->tiene('class="pestana-cuenta reponer"') && $carmen->tiene('class="pestanas-rotulo"')
     && $luis->get('ruta=stock') === 200 && !$luis->tiene('menu-cuenta') && !$luis->tiene('pestana-cuenta'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
-revisar('Las pantallas cargan solo /js/app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
-    && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));
+revisar('Las pantallas cargan solo /js/app.js y el ticket solo /js/ticket.js', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
+    && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200
+    && substr_count($luis->cuerpo, '<script') === 1 && $luis->tiene('<script src="/js/ticket.js" defer></script>'));
 revisar('La ficha del producto se abre en el panel lateral', $rosa->get('ruta=productos&ver=8') === 200
     && $rosa->tiene('id="ficha-producto"') && $rosa->tiene('drawer abierto'));
 revisar('Un panel pedido con un id que no existe no se abre', $rosa->get('ruta=productos&ver=99999') === 200 && !$rosa->tiene('drawer abierto')
