@@ -353,7 +353,7 @@ revisar('Un archivo que no es .csv: 422', $rosa->subir('catalogo_subir', [], 'ar
 @unlink($plantilla);
 revisar('El catálogo sale en tarjetas con chips de categoría y guía', $rosa->get('ruta=productos') === 200 && $rosa->tiene('id="tarjetas-productos"')
     && $rosa->tiene('data-chips="tarjetas-productos"') && $rosa->tiene('data-guia="catalogo"') && $rosa->tiene('src="/img/catalogo/1.jpg?v='));
-revisar('Filtrar por categoría deja solo esa (Lacteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
+revisar('Filtrar por categoría deja solo esa (Lácteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
     && substr_count($rosa->cuerpo, '<li id="fila-') === 12 && substr_count($rosa->cuerpo, '" data-categoria="2">') === 12);
 revisar('La vista en tabla también tiene foto chica', $rosa->get('ruta=productos&vista=tabla') === 200 && $rosa->tiene('id="filas-productos"')
     && $rosa->tiene('class="foto chica'));
@@ -531,7 +531,7 @@ revisar('Elegir Cerro Colorado vuelve a la opción pedida con un aviso',
     && str_ends_with($jefa->cabeceras['location'] ?? '', '/?ruta=empleados')
     && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Ahora trabajas en Mass Cerro Colorado.'));
 revisar('El personal que ve ahora es el de Cerro Colorado (Jorge, Ana, Pedro), no el de Cayma',
-    $jefa->tiene('Jorge') && $jefa->tiene('Pedro') && !$jefa->tiene('Caceres'));
+    $jefa->tiene('Jorge') && $jefa->tiene('Pedro') && !$jefa->tiene('Cáceres'));
 revisar('El menu marca Cerro Colorado y sigue diciendo cuál es la suya',
     $jefa->tiene('<option value="2" selected>Mass Cerro Colorado</option>') && $jefa->tiene('<option value="1">Mass Cayma · la tuya</option>'));
 revisar('Las ventas, el stock y los reportes se abren en Cerro Colorado',
@@ -546,7 +546,7 @@ revisar('Un volver con una URL de otro sitio se ignora: va al inicio',
     && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="3" selected>Mass Yanahuara</option>'));
 revisar('Volver a su tienda la deja como al entrar',
     $jefa->post('tienda_elegir', ['tienda' => '1', 'volver' => 'inicio']) === 303
-    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Caceres') && !$jefa->tiene('Pedro'));
+    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Cáceres') && !$jefa->tiene('Pedro'));
 $jefa->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']);
 revisar('Salir y volver a entrar empieza otra vez en su propia tienda',
     $jefa->post('salir', []) === 303 && $jefa->entrar('70000001') === 303
