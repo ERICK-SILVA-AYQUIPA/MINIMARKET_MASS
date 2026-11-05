@@ -108,7 +108,7 @@ class Promocion
             'PORCENTAJE' => self::porcentajeDe($importe, (int) $this->porcentaje),
             'PRECIO'     => $this->precio < $precio ? $importe - Cantidad::importe($milesimas, (int) $this->precio) : 0,
             'PACK'       => $this->descuentoPack($milesimas, $precio, $alPeso),
-            'VENTA'      => 0,
+            default      => 0,   // VENTA: se descuenta a toda la compra, no por linea
         };
         return max(0, min($descuento, $importe));
     }
@@ -152,7 +152,7 @@ class Promocion
             'PORCENTAJE' => self::porcentajeATexto((int) $this->porcentaje) . ' menos',
             'PRECIO'     => 'S/ ' . Dinero::aTexto((int) $this->precio) . ($alPeso ? ' el kg' : ' c/u'),
             'PACK'       => $this->cantidadPack . ' x S/ ' . Dinero::aTexto((int) $this->precio),
-            'VENTA'      => self::porcentajeATexto((int) $this->porcentaje) . ' a toda la compra'
+            default      => self::porcentajeATexto((int) $this->porcentaje) . ' a toda la compra'
                 . ((int) $this->montoMinimo > 0 ? ' desde S/ ' . Dinero::aTexto((int) $this->montoMinimo) : ''),
         };
     }

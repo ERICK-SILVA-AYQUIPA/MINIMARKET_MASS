@@ -111,8 +111,8 @@ class PromocionServicio extends Servicio
             ]);
             $id = (int) $this->db->lastInsertId();
             $this->auditar($admin, 'PROMOCION_CREADA', sprintf('#%d %s: %s%s, %s a %s, %s', $id, $promo->getNombre(),
-                $producto !== false && $producto !== null ? $producto['nombre_producto'] . ' ' : '',
-                $promo->descripcion($producto !== false && $producto !== null && $producto['se_vende_por_peso'] === 'S'),
+                $producto !== null ? $producto['nombre_producto'] . ' ' : '',
+                $promo->descripcion($producto !== null && $producto['se_vende_por_peso'] === 'S'),
                 $promo->getFechaInicio(), $promo->getFechaFin(), $promo->getIdTienda() === null ? 'toda la cadena' : 'esta tienda'));
             return $id;
         });
