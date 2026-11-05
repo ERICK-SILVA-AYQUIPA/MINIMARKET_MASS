@@ -194,6 +194,13 @@ try {
         header('Location: /?ruta=mi_clave', true, 303);
     } else {
         switch ($ruta) {
+            // La pagina avisa que el empleado sigue usando el teclado o el mouse (app.js): Sesion::idEmpleado()
+            // ya renovo la hora de la ultima actividad. No devuelve contenido.
+            case 'sesion_activa':
+                header('Cache-Control: no-store');
+                http_response_code(204);
+                break;
+
             case 'inicio':
                 $panelController->inicio();
                 break;

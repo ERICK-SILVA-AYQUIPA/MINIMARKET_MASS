@@ -7,6 +7,8 @@
 #   5. corre backend/scripts/verificar_instalacion.php
 # Borra TODOS los datos del contenedor: solo corre en la CI o pidiendolo con --borrar-todo.
 #   bash backend/tests/restauracion.sh --borrar-todo
+# Con RESPALDO_MODO=local (y RESPALDO_DB_USER, RESPALDO_DB_PASSWORD, RESPALDO_DB_HOST, RESPALDO_DB_PORT) los scripts
+# usan el mysqldump y el mysql de esta PC, como en Laragon o en un servidor sin Docker. La CI corre los dos modos.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -54,6 +56,7 @@ esperar_base() {
     return 1
 }
 
+echo "Modo de los scripts: ${RESPALDO_MODO:-docker (automatico)}"
 echo "Antes del respaldo"
 mkdir -p "$FOTOS"
 head -c 4096 /dev/urandom > "$FOTO_PRUEBA"
