@@ -102,6 +102,52 @@ abstract class Servicio
     }
 
     /**
+     * Lineas del ingreso (o de la orden de compra) -> [id_producto => milesimas, costo y costo total en centimos, vencimiento], ordenado por id.
+     * Cada producto va una sola vez, porque cada uno tiene su costo y su fecha de vencimiento.
+     * @return array<int, array{milesimas: int, costo: int, costoTotal: int, vence: ?string}>
+     */
+    protected function leerLineasIngreso(array $lineas): array
+    {
+        $resultado = [];
+        foreach ($lineas as $linea) {
+            $costoTexto = trim((string) ($linea['costo'] ?? ''));
+            if (trim((string) ($linea['id_producto'] ?? '')) === '' && trim((string) ($linea['cantidad'] ?? '')) === '' && $costoTexto === '') {
+                continue;
+            }
+            // Producto activo y cantidad valida, con los mismos mensajes que una venta
+            $leida = $this->leerLineas([$linea]);
+            $idProducto = array_key_first($leida);
+            $nombre = $leida[$idProducto]['nombre'];
+            if (isset($resultado[$idProducto])) {
+                throw new ReglaNegocioException($nombre . ' está dos veces: anota la cantidad total en una sola línea.');
+            }
+            $costo = Dinero::deTexto($costoTexto);
+            if ($costo === null) {
+                throw new ReglaNegocioException($nombre . ': costo unitario no válido (soles con hasta 2 decimales).');
+            }
+            $costoTotal = Cantidad::importe($leida[$idProducto]['milesimas'], $costo);
+            if ($costoTotal > Dinero::MAXIMO_CENTIMOS) {
+                throw new ReglaNegocioException($nombre . ': el costo total es demasiado grande.');
+            }
+            // Vencimiento opcional (no todo producto vence); un lote ya vencido no se recibe
+            $vence = trim((string) ($linea['vence'] ?? ''));
+            if ($vence === '') {
+                $vence = null;
+            } elseif (preg_match('/^([0-9]{4})-([0-9]{2})-([0-9]{2})$/', $vence, $m) !== 1 || !checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+                throw new ReglaNegocioException($nombre . ': la fecha de vencimiento no es válida.');
+            } elseif ($vence < date('Y-m-d')) {
+                throw new ReglaNegocioException($nombre . ': ese lote ya está vencido, no lo recibas.');
+            }
+            $resultado[$idProducto] = ['milesimas' => $leida[$idProducto]['milesimas'], 'costo' => $costo, 'costoTotal' => $costoTotal, 'vence' => $vence];
+        }
+        if ($resultado === []) {
+            throw new ReglaNegocioException('Agrega al menos un producto con su cantidad y costo.');
+        }
+        ksort($resultado);
+        return $resultado;
+    }
+
+    /**
      * Suma (positivo) o resta (negativo) stock de un producto en una tienda y lo anota en el kardex.
      * Bloquea la fila de stock (FOR UPDATE) hasta el fin de la transaccion.
      * @param array{id_venta?: int, id_traslado?: int, id_merma?: int, id_ajuste?: int, id_ingreso?: int, id_devolucion?: int} $origen exactamente uno

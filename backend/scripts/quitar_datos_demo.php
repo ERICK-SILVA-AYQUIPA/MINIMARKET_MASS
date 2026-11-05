@@ -58,7 +58,8 @@ if ($empleados !== 9 || $sinCambiar !== 9 || $admin === false || (int) $admin['i
 $vaciar = [
     'arqueo_detalle', 'arqueo_caja', 'movimiento_caja', 'detalle_devolucion', 'devolucion_venta',
     'efectivo', 'tarjeta', 'billetera_digital_sip', 'pago_venta', 'anulacion_venta', 'movimiento_stock',
-    'detalle_venta', 'venta', 'caja_turno', 'detalle_ingreso', 'ingreso_mercaderia', 'ajuste_inventario',
+    'detalle_venta', 'venta', 'caja_turno', 'detalle_ingreso', 'ingreso_mercaderia', 'detalle_orden_compra', 'orden_compra', 'proveedor',
+    'ajuste_inventario',
     'merma', 'traslado_mercaderia', 'stock', 'producto', 'cliente', 'auditoria', 'api_operacion', 'api_token', 'intento_login',
 ];
 $claveTemporal = 'Mass' . bin2hex(random_bytes(4)) . random_int(10, 99);

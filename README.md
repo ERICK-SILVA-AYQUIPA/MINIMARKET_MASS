@@ -152,7 +152,7 @@ php backend/scripts/migrar.php
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/consultas.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 13 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`). En total son 40. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 16 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`) y `proveedor`, `orden_compra` y `detalle_orden_compra` (migración `015_proveedores_ordenes_compra.sql`). En total son 43. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 

@@ -12,6 +12,11 @@ declare(strict_types=1);
  * @var array<int, array{ingreso: IngresoMercaderia, detalle: DetalleIngreso[]}> $filas
  * @var Paginacion $paginacion
  * @var string $urlPagina
+ * @var array<int, Proveedor> $proveedores
+ * @var OrdenCompra[] $porRecibir           ordenes abiertas de la tienda (solo a quien registra)
+ * @var ?OrdenCompra $ordenRecibir          la orden que se esta recibiendo (&orden=ID)
+ * @var array<int, DetalleOrdenCompra> $detalleOrden
+ * @var ?Proveedor $proveedorOrden
  * @var array $viejo
  * @var ?string $error
  */
@@ -29,10 +34,28 @@ $valorViejo = fn(string $clave, string $porDefecto = ''): string => is_string($v
         <?php if ($puedeRegistrar): ?><a class="boton acento" href="#nuevo-ingreso"><?= icono('mas') ?>Registrar ingreso</a><?php endif; ?>
     </div>
 </div>
+<?php if ($porRecibir !== []): ?>
+<section class="bloque" aria-label="Órdenes de compra por recibir">
+    <h2>Por recibir</h2>
+    <ul class="lista-movimientos">
+        <?php foreach ($porRecibir as $oc): ?>
+            <li>
+                <span class="codigo"><?= e($oc->numero()) ?></span>
+                <span><?= e(($proveedores[$oc->getIdProveedor()] ?? null)?->getRazonSocial() ?? '-') ?></span>
+                <span class="sutil">entrega <?= e(fecha($oc->getFechaEntrega())) ?></span>
+                <?php if ($oc->estaAtrasada($hoy)): ?><span class="etiqueta reponer">atrasada</span><?php endif; ?>
+                <?php if ($oc->getEstado() === 'PARCIAL'): ?><span class="etiqueta alerta">llegó una parte</span><?php endif; ?>
+                <a class="boton secundario chico" href="/?ruta=ingresos&amp;orden=<?= $oc->getIdOrdenCompra() ?>#nuevo-ingreso"><?= icono('ingresos') ?>Recibir</a>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+</section>
+<?php endif; ?>
 <?php
 $guiaClave = 'ingresos';
 $guiaTitulo = 'Cómo registrar la mercadería que llega';
 $guiaPasos = [
+    'Si el pedido se hizo con una orden de compra, pulsa Recibir en "Por recibir": el proveedor y los productos ya vienen puestos.',
     'Con la factura, guía o boleta del proveedor en la mano, escribe el tipo, el número, la fecha y el RUC del emisor.',
     'Agrega cada producto con la cantidad y el costo unitario. Si el lote vence, pon su fecha: así sale en Por vencer.',
     'Al registrar, el stock sube al momento y cada producto deja su entrada en el kardex. El administrador lo revisa aquí mismo.',
@@ -61,7 +84,7 @@ require __DIR__ . '/../parciales/guia.php';
         <tr id="fila-ing-<?= $i->getIdIngreso() ?>">
             <td><?= $i->getIdIngreso() ?></td>
             <td class="fecha"><?= e(fecha($i->getFechaHora())) ?></td>
-            <td class="codigo"><?= e($i->documento()) ?><br><small>del <?= e(fecha($i->getFechaDocumento())) ?></small></td>
+            <td class="codigo"><?= e($i->documento()) ?><br><small>del <?= e(fecha($i->getFechaDocumento())) ?><?php if ($i->getIdOrdenCompra() !== null): ?> · <?= e(OrdenCompra::formatear($i->getIdOrdenCompra())) ?><?php endif; ?></small></td>
             <td><?= e($i->getRazonSocial()) ?><br><small>RUC <?= e($i->getRucEmisor()) ?></small></td>
             <td class="num"><?= (int) count($fila['detalle']) ?></td>
             <td class="num"><?= e(soles($i->getTotal())) ?></td>
@@ -87,6 +110,9 @@ require __DIR__ . '/../parciales/guia.php';
     <dl class="datos">
         <dt>Registrado</dt><dd><?= e(fecha($i->getFechaHora())) ?> por <?= e($nombresEmpleado[$i->getIdEmpleado()] ?? '-') ?></dd>
         <dt>Fecha del documento</dt><dd><?= e(fecha($i->getFechaDocumento())) ?></dd>
+        <?php if ($i->getIdOrdenCompra() !== null): ?>
+            <dt>Orden de compra</dt><dd><a href="/?ruta=ordenes#oc-<?= $i->getIdOrdenCompra() ?>"><?= e(OrdenCompra::formatear($i->getIdOrdenCompra())) ?></a></dd>
+        <?php endif; ?>
         <dt>Observación</dt><dd><?= e($i->getObservacion() ?? '-') ?></dd>
     </dl>
     <div class="tabla bloque">
@@ -114,22 +140,31 @@ require __DIR__ . '/../parciales/guia.php';
 
 <?php if ($puedeRegistrar): ?>
     <?php
-    $opciones = array_filter($productos, fn(Producto $p): bool => $p->estaActivo());
-    $filasLineas = 6;
+    // Contra una orden: solo sus productos, una fila por cada uno que falta (y dos libres por si se corrige)
+    $opciones = array_filter($productos, fn(Producto $p): bool => $p->estaActivo()
+        && ($ordenRecibir === null || isset($detalleOrden[$p->getIdProducto()])));
+    $filasLineas = $ordenRecibir === null ? 6 : max(2, count(is_array($viejo['producto'] ?? null) ? $viejo['producto'] : []));
     $conCosto = true;
     $conVence = true;
     $tipoViejo = $valorViejo('tipo_documento');
     $drawerId = 'nuevo-ingreso';
-    $drawerTitulo = 'Registrar ingreso';
-    $drawerSubtitulo = 'Mercadería que llega a ' . $tienda->getNombreTienda();
+    $drawerTitulo = $ordenRecibir === null ? 'Registrar ingreso' : 'Recibir la orden ' . $ordenRecibir->numero();
+    $drawerSubtitulo = $ordenRecibir === null ? 'Mercadería que llega a ' . $tienda->getNombreTienda()
+        : ($proveedorOrden?->getRazonSocial() ?? '-') . ' · llega a ' . $tienda->getNombreTienda();
     $drawerCerrar = '/?ruta=ingresos';
-    $drawerAbierto = $error !== null; // si hubo un error, el formulario vuelve abierto con lo escrito
+    // Si hubo un error, el formulario vuelve abierto con lo escrito; al recibir una orden, abre de una vez
+    $drawerAbierto = $error !== null || $ordenRecibir !== null;
     $drawerAncho = true;
     require __DIR__ . '/../parciales/drawer_abrir.php';
     ?>
     <form class="formulario" method="post" action="/?ruta=ingreso_registrar" data-confirmar="¿Registrar este ingreso? El stock de la tienda sube con estas cantidades." data-confirmar-boton="Sí, registrar">
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <?= campoCsrf($csrf) ?>
+        <?php if ($ordenRecibir !== null): ?>
+            <input type="hidden" name="orden" value="<?= $ordenRecibir->getIdOrdenCompra() ?>">
+            <div class="aviso alerta" role="status">Vienen puestos los productos que faltan de la orden, al costo pactado. Corrige la cantidad a lo que
+                de verdad llegó (pon 0 en lo que no vino) y el costo si la factura trae otro. Lo que llegue de más va en un ingreso aparte.</div>
+        <?php endif; ?>
         <fieldset>
             <legend>Documento que trae la mercadería</legend>
             <div class="campos">
@@ -150,12 +185,24 @@ require __DIR__ . '/../parciales/guia.php';
                     <input id="fecha_documento" name="fecha_documento" type="date" max="<?= e($hoy) ?>" required value="<?= e($valorViejo('fecha_documento', $hoy)) ?>">
                 </div>
                 <div>
-                    <label for="ruc_emisor">RUC del emisor <span class="ayuda">11 dígitos</span></label>
-                    <input id="ruc_emisor" name="ruc_emisor" inputmode="numeric" maxlength="11" required value="<?= e($valorViejo('ruc_emisor')) ?>">
+                    <label for="ruc_emisor">RUC del emisor <span class="ayuda"><?= $ordenRecibir === null ? '11 dígitos' : 'el de la orden' ?></span></label>
+                    <?php if ($ordenRecibir === null): ?>
+                        <input id="ruc_emisor" name="ruc_emisor" inputmode="numeric" maxlength="11" required value="<?= e($valorViejo('ruc_emisor')) ?>" list="rucs-proveedores">
+                    <?php else: ?>
+                        <input id="ruc_emisor" value="<?= e($proveedorOrden?->getRuc() ?? '') ?>" readonly>
+                    <?php endif; ?>
                 </div>
             </div>
             <label for="razon_social">Razón social del emisor</label>
-            <input id="razon_social" name="razon_social" maxlength="100" required value="<?= e($valorViejo('razon_social')) ?>">
+            <?php if ($ordenRecibir === null): ?>
+                <input id="razon_social" name="razon_social" maxlength="100" required value="<?= e($valorViejo('razon_social')) ?>">
+                <!-- El navegador sugiere los RUC de los proveedores al escribir; uno nuevo se agrega solo al directorio -->
+                <datalist id="rucs-proveedores">
+                    <?php foreach ($proveedores as $prov): ?><option value="<?= e($prov->getRuc()) ?>"><?= e($prov->getRazonSocial()) ?></option><?php endforeach; ?>
+                </datalist>
+            <?php else: ?>
+                <input id="razon_social" value="<?= e($proveedorOrden?->getRazonSocial() ?? '') ?>" readonly>
+            <?php endif; ?>
         </fieldset>
         <h3>Productos que llegan</h3>
         <?php require __DIR__ . '/../parciales/lineas_producto.php'; ?>

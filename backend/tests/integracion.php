@@ -5,7 +5,7 @@ declare(strict_types=1);
  * Pruebas de integracion contra la base MySQL de Docker.
  *   php tests/integracion.php
  *
- * OJO: escribe ventas, traslados, mermas, ajustes, turnos, productos, empleados y tiendas de verdad. Para volver a los datos de datos.sql:
+ * OJO: escribe ventas, traslados, mermas, ajustes, turnos, productos, empleados, tiendas, proveedores y ordenes de compra de verdad. Para volver a los datos de datos.sql:
  *   docker compose down -v ; docker compose up -d
  *
  * Al final corre las consultas 20 a 31 de consultas.sql: cada una debe devolver 0 filas.
@@ -24,6 +24,8 @@ require __DIR__ . '/../models/servicios/ProductoServicio.php';
 require __DIR__ . '/../models/servicios/EmpleadoServicio.php';
 require __DIR__ . '/../models/servicios/ClienteServicio.php';
 require __DIR__ . '/../models/servicios/TiendaServicio.php';
+require __DIR__ . '/../models/servicios/CompraServicio.php';
+require __DIR__ . '/../models/CompraRepository.php';
 require __DIR__ . '/../models/ReporteRepository.php';
 require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/TokenApiRepository.php';
@@ -690,6 +692,125 @@ rechaza('Ni se le traslada mercadería', fn() => $inventario->trasladar($carmen,
 $almaceneroSachaca = $empleados->buscarPorId($personal->crear($elena, 'Nora', 'Vela', '70000044', 3, 'Nora2026x'));
 rechaza('Ni recibe un ingreso de mercadería', fn() => $inventario->registrarIngreso($almaceneroSachaca, ['numero' => 'G001-1'] + $documento,
     [['id_producto' => '2', 'cantidad' => '1', 'costo' => '1.00']]));
+
+echo "Proveedores y órdenes de compra\n";
+$compras = new CompraServicio($db);
+$comprasRepo = new CompraRepository($db);
+revisar('La migración volvió proveedores a los emisores de los ingresos de ejemplo y los enlazó', valor($db,
+    "SELECT GROUP_CONCAT(ruc ORDER BY id_proveedor) FROM proveedor WHERE id_proveedor <= 2") === '20456789123,20601234567'
+    && valor($db, 'SELECT COUNT(*) FROM ingreso_mercaderia WHERE id_proveedor IS NULL') === '0');
+revisar('El ingreso de un RUC nuevo agregó solo al proveedor y quedó unido a él', valor($db,
+    'SELECT p.razon_social FROM ingreso_mercaderia i JOIN proveedor p ON p.id_proveedor = i.id_proveedor WHERE i.id_ingreso = ?',
+    [$idIngreso]) === 'Distribuidora de Prueba S.A.C.' && valor($db, "SELECT COUNT(*) FROM proveedor WHERE ruc = '20100055237'") === '1');
+
+$datosProveedor = ['ruc' => '20512345678', 'razon_social' => 'Lácteos del Sur S.A.C.', 'contacto' => 'Ana Quispe',
+    'telefono' => '054 251234', 'correo' => 'pedidos@lacteosdelsur.pe', 'dias_entrega' => '2'];
+$idProveedor = $compras->guardarProveedor($rosa, null, $datosProveedor);
+$lacteos = $comprasRepo->proveedor($idProveedor);
+revisar("Rosa agrega el proveedor $idProveedor con su contacto y 2 días de entrega", $lacteos !== null && $lacteos->getContacto() === 'Ana Quispe'
+    && $lacteos->getDiasEntrega() === 2 && $lacteos->entregaEstimada('2026-11-05') === '2026-11-07' && $lacteos->estaActivo());
+rechaza('El almacenero no agrega proveedores', fn() => $compras->guardarProveedor($carmen, null, ['ruc' => '20512345679'] + $datosProveedor));
+rechaza('RUC repetido', fn() => $compras->guardarProveedor($rosa, null, $datosProveedor));
+rechaza('RUC de 10 dígitos', fn() => $compras->guardarProveedor($rosa, null, ['ruc' => '2051234567'] + $datosProveedor));
+rechaza('Correo sin @', fn() => $compras->guardarProveedor($rosa, null, ['ruc' => '20512345679', 'correo' => 'pedidos'] + $datosProveedor));
+rechaza('Teléfono con letras', fn() => $compras->guardarProveedor($rosa, null, ['ruc' => '20512345679', 'telefono' => 'llamar'] + $datosProveedor));
+rechaza('120 días de entrega', fn() => $compras->guardarProveedor($rosa, null, ['ruc' => '20512345679', 'dias_entrega' => '120'] + $datosProveedor));
+$compras->guardarProveedor($rosa, $idProveedor, ['ruc' => '99999999999', 'contacto' => 'Luis Mamani'] + $datosProveedor);
+revisar('Al editar cambia el contacto pero no el RUC', valor($db, 'SELECT CONCAT(ruc, \'/\', contacto) FROM proveedor WHERE id_proveedor = ?',
+    [$idProveedor]) === '20512345678/Luis Mamani');
+
+$lecheAntes = $stock(1, 1);
+$papaAntes = $stock(1, 8);
+$entrega = date('Y-m-d', strtotime('+2 days'));
+$lineasOrden = [['id_producto' => '1', 'cantidad' => '48', 'costo' => '3.50'], ['id_producto' => '8', 'cantidad' => '20.5', 'costo' => '1.80'],
+    ['id_producto' => '', 'cantidad' => '', 'costo' => '']];
+$idOrden = $compras->registrarOrden($carmen, $idProveedor, $entrega, 'Pedido semanal', $lineasOrden);
+$orden = $comprasRepo->orden($idOrden);
+revisar("Carmen emite la orden {$orden->numero()}: PENDIENTE, total = 48 x 3.50 + 20.5 x 1.80 = 204.90", $orden->getEstado() === 'PENDIENTE'
+    && $orden->getTotal() === 204.90 && $orden->getFechaEntrega() === $entrega && count($comprasRepo->detalleOrden($idOrden)) === 2);
+revisar('...la orden no mueve el stock ni el kardex', $stock(1, 1) === $lecheAntes && $stock(1, 8) === $papaAntes);
+revisar('...queda en la auditoría y lo pedido aparece "por llegar"', $comprasRepo->porLlegar(1)[1] === 48000 && $comprasRepo->porLlegar(1)[8] === 20500
+    && (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'ORDEN_COMPRA_EMITIDA' AND detalle LIKE ?", [$orden->numero() . ' a Lácteos del Sur%S/ 204.90']) === 1);
+rechaza('Un cajero no emite órdenes', fn() => $compras->registrarOrden($luis, $idProveedor, null, null, $lineasOrden));
+rechaza('Fecha de entrega pasada', fn() => $compras->registrarOrden($carmen, $idProveedor, date('Y-m-d', strtotime('-1 day')), null, $lineasOrden));
+rechaza('Sin proveedor', fn() => $compras->registrarOrden($carmen, 0, null, null, $lineasOrden));
+rechaza('Sin costo pactado', fn() => $compras->registrarOrden($carmen, $idProveedor, null, null, [['id_producto' => '1', 'cantidad' => '5', 'costo' => '']]));
+rechaza('Un producto dos veces', fn() => $compras->registrarOrden($carmen, $idProveedor, null, null,
+    [['id_producto' => '1', 'cantidad' => '5', 'costo' => '3.50'], ['id_producto' => '1', 'cantidad' => '2', 'costo' => '3.50']]));
+rechaza('Una orden sin productos', fn() => $compras->registrarOrden($carmen, $idProveedor, null, null, [['id_producto' => '', 'cantidad' => '', 'costo' => '']]));
+
+// Llega una parte: 30 leches y nada de papa (cantidad 0). El RUC escrito se ignora: manda el de la orden
+$guia = ['tipo' => 'GUIA', 'numero' => 'T001-777', 'fecha' => date('Y-m-d'), 'ruc' => '11111111111', 'razon_social' => 'otro',
+    'observacion' => null, 'orden' => (string) $idOrden];
+$idParcial = $inventario->registrarIngreso($carmen, $guia, [['id_producto' => '1', 'cantidad' => '30', 'costo' => '3.50'],
+    ['id_producto' => '8', 'cantidad' => '0', 'costo' => '1.80']]);
+revisar("Ingreso $idParcial contra la orden: suben 30 leches y la papa no", $stock(1, 1) === number_format((float) $lecheAntes + 30, 3, '.', '')
+    && $stock(1, 8) === $papaAntes);
+revisar('...queda a nombre del proveedor de la orden y unido a ella', valor($db,
+    'SELECT CONCAT(ruc_emisor, \'/\', id_proveedor, \'/\', id_orden_compra) FROM ingreso_mercaderia WHERE id_ingreso = ?', [$idParcial])
+    === "20512345678/$idProveedor/$idOrden");
+revisar('...el kardex anota la entrada con el documento y la orden', valor($db,
+    'SELECT observacion FROM movimiento_stock WHERE id_ingreso = ? AND id_producto = 1 AND id_tipo_movimiento = 8', [$idParcial])
+    === 'GUIA T001-777 · ' . $orden->numero());
+$detalleOrden = $comprasRepo->detalleOrden($idOrden);
+revisar('...la orden pasa a PARCIAL: de la leche faltan 18 y de la papa 20.5', $comprasRepo->orden($idOrden)->getEstado() === 'PARCIAL'
+    && $detalleOrden[1]->getRecibida() === 30000 && $detalleOrden[1]->pendiente() === 18000 && $detalleOrden[8]->pendiente() === 20500
+    && $comprasRepo->porLlegar(1)[1] === 18000);
+revisar('...y la auditoría dice contra qué orden', (int) valor($db,
+    "SELECT COUNT(*) FROM auditoria WHERE accion = 'INGRESO_REGISTRADO' AND detalle LIKE ?", ["Ingreso $idParcial:%contra " . $orden->numero()]) === 1);
+rechaza('Recibir más de lo que falta', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-778'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '19', 'costo' => '3.50']]));
+rechaza('Recibir un producto que no está en la orden', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-778'] + $guia,
+    [['id_producto' => '2', 'cantidad' => '1', 'costo' => '2.10']]));
+rechaza('Recibir con todo en 0', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-778'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '0', 'costo' => '3.50']]));
+rechaza('El administrador de otra tienda no recibe esta orden', fn() => $inventario->registrarIngreso($jorge, ['numero' => 'T001-778'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.50']]));
+rechaza('Una orden que no existe', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-778', 'orden' => '999999'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.50']]));
+$errorCheck = '';
+try {
+    $db->prepare('UPDATE detalle_orden_compra SET cantidad_recibida = 49 WHERE id_orden_compra = ? AND id_producto = 1')->execute([$idOrden]);
+} catch (PDOException $ex) {
+    $errorCheck = $ex->getMessage();
+}
+revisar('La base tampoco deja recibir más de lo pedido (ck_detalle_orden_recibida)', str_contains($errorCheck, 'ck_detalle_orden_recibida'));
+
+// Llega el resto, con la factura a otro costo: la orden queda RECIBIDA
+$idResto = $inventario->registrarIngreso($rosa, ['tipo' => 'FACTURA', 'numero' => 'F002-1500'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '18', 'costo' => '3.40'], ['id_producto' => '8', 'cantidad' => '20.5', 'costo' => '1.80']]);
+revisar("Ingreso $idResto completa la orden: RECIBIDA, 48 leches y 20.5 kg de papa en total", $comprasRepo->orden($idOrden)->getEstado() === 'RECIBIDA'
+    && $stock(1, 1) === number_format((float) $lecheAntes + 48, 3, '.', '') && $stock(1, 8) === number_format((float) $papaAntes + 20.5, 3, '.', '')
+    && count($comprasRepo->ingresosDeOrden($idOrden)) === 2 && !isset($comprasRepo->porLlegar(1)[1]));
+revisar('...y la última compra de la leche es a Lácteos del Sur a S/ 3.40 (lo que sugiere la orden desde Reponer)',
+    ($comprasRepo->ultimaCompraPorProducto()[1] ?? null) === ['id_proveedor' => $idProveedor, 'proveedor' => 'Lácteos del Sur S.A.C.', 'costo' => 340]);
+rechaza('Una orden recibida ya no recibe más', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-779'] + $guia,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.50']]));
+
+// Anular una sin recibir nada, cerrar otra a medias
+$idSinNada = $compras->registrarOrden($carmen, $idProveedor, null, null, [['id_producto' => '1', 'cantidad' => '12', 'costo' => '3.50']]);
+$idMedias = $compras->registrarOrden($rosa, $idProveedor, null, null, [['id_producto' => '1', 'cantidad' => '12', 'costo' => '3.50']]);
+$inventario->registrarIngreso($carmen, ['numero' => 'T001-780', 'orden' => (string) $idMedias] + $guia, [['id_producto' => '1', 'cantidad' => '5', 'costo' => '3.50']]);
+rechaza('El almacenero no anula órdenes', fn() => $compras->cancelarOrden($carmen, $idSinNada, 'El proveedor no tiene stock'));
+rechaza('Anular sin motivo', fn() => $compras->cancelarOrden($rosa, $idSinNada, ' '));
+rechaza('El administrador de otra tienda no la anula', fn() => $compras->cancelarOrden($jorge, $idSinNada, 'No va'));
+rechaza('No se desactiva un proveedor con órdenes abiertas', fn() => $compras->cambiarEstadoProveedor($rosa, $idProveedor, 'INACTIVO'));
+revisar('Sin nada recibido queda ANULADA', $compras->cancelarOrden($rosa, $idSinNada, 'El proveedor no tiene stock') === 'ANULADA'
+    && valor($db, 'SELECT CONCAT(id_empleado_cierre, \'/\', motivo_cierre) FROM orden_compra WHERE id_orden_compra = ?', [$idSinNada]) === '1/El proveedor no tiene stock');
+revisar('Con una parte recibida queda CERRADA y lo recibido se mantiene', $compras->cancelarOrden($rosa, $idMedias, 'Ya no enviarán el resto') === 'CERRADA'
+    && $comprasRepo->detalleOrden($idMedias)[1]->getRecibida() === 5000 && $comprasRepo->porLlegar(1) === []);
+rechaza('Una orden cerrada no se cierra otra vez', fn() => $compras->cancelarOrden($rosa, $idMedias, 'Otra vez'));
+rechaza('Ni recibe mercadería', fn() => $inventario->registrarIngreso($carmen, ['numero' => 'T001-781', 'orden' => (string) $idMedias] + $guia,
+    [['id_producto' => '1', 'cantidad' => '1', 'costo' => '3.50']]));
+revisar('Las ordenes anuladas y cerradas quedan en la auditoría', (int) valor($db,
+    "SELECT COUNT(*) FROM auditoria WHERE accion IN ('ORDEN_COMPRA_ANULADA', 'ORDEN_COMPRA_CERRADA')") === 2);
+$compras->cambiarEstadoProveedor($rosa, $idProveedor, 'INACTIVO');
+revisar('Sin órdenes abiertas, el proveedor se desactiva', $comprasRepo->proveedor($idProveedor)->getEstado() === 'INACTIVO');
+rechaza('Un proveedor inactivo no recibe órdenes nuevas', fn() => $compras->registrarOrden($carmen, $idProveedor, null, null, $lineasOrden));
+$compras->cambiarEstadoProveedor($rosa, $idProveedor, 'ACTIVO');
+revisar('CompraRepository: 3 órdenes en Cayma, ninguna abierta, y el resumen del proveedor', $comprasRepo->contarOrdenes(1, null) === 3
+    && $comprasRepo->contarOrdenes(1, 'ABIERTAS') === 0 && $comprasRepo->contarOrdenes(2, null) === 0
+    && ($comprasRepo->resumenProveedores(1)[$idProveedor]['ingresos'] ?? 0) === 3);
 
 echo "Auditoría\n";
 $auditado = fn(string $accion, string $parte): bool => (int) valor($db,

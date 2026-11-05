@@ -44,6 +44,13 @@ class Administrador extends Usuario
         return $this->puedeAdministrarTienda($idTienda);
     }
 
+    // El directorio de proveedores es de la cadena, como el catalogo: lo mantiene un administrador activo.
+    // Asi quien recibe la mercaderia no inventa a quien se le paga.
+    public function puedeAdministrarProveedores(): bool
+    {
+        return $this->estaActivo();
+    }
+
     // Abrir una tienda es una decision de la cadena: la toma un administrador activo
     public function puedeAbrirTiendas(): bool
     {

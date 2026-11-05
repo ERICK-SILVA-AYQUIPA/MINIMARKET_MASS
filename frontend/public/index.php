@@ -21,6 +21,7 @@ require __DIR__ . '/../../backend/controllers/ClienteController.php';
 require __DIR__ . '/../../backend/controllers/ReporteController.php';
 require __DIR__ . '/../../backend/controllers/PanelController.php';
 require __DIR__ . '/../../backend/controllers/AuditoriaController.php';
+require __DIR__ . '/../../backend/controllers/CompraController.php';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
@@ -91,14 +92,18 @@ $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $em
     new VentaServicio($db), $catalogo);
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $ingresos = new IngresoRepository($db);
+$compras = new CompraRepository($db);
+$panelRepositorio = new PanelRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
-    new InventarioServicio($db), $ingresos);
+    new InventarioServicio($db), $ingresos, $compras);
+$compraController = new CompraController($tiendas, $sesion, $usuario, $compras, $productos, $empleados, $panelRepositorio,
+    new CompraServicio($db));
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
 $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
-$panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
-    $productos, $catalogo, $ingresos);
+$panelController = new PanelController($tiendas, $sesion, $usuario, $panelRepositorio, $reportes, $inventario, $cajas,
+    $productos, $catalogo, $ingresos, $compras);
 Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
@@ -126,6 +131,7 @@ $rutasPost = [
     'producto_guardar', 'producto_estado', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
+    'proveedor_guardar', 'proveedor_estado', 'orden_registrar', 'orden_cancelar',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -181,6 +187,10 @@ try {
                 'caja_crear'         => $tiendaController->agregarCaja(),
                 'caja_estado'        => $tiendaController->estadoCaja($_POST),
                 'distrito_crear'     => $tiendaController->crearDistrito($_POST),
+                'proveedor_guardar'  => $compraController->guardarProveedor($_POST),
+                'proveedor_estado'   => $compraController->estadoProveedor($_POST),
+                'orden_registrar'    => $compraController->registrarOrden($_POST),
+                'orden_cancelar'     => $compraController->cancelarOrden($_POST),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -247,7 +257,19 @@ try {
                 break;
 
             case 'ingresos':
-                $inventarioController->ingresos($leer('pagina'));
+                $inventarioController->ingresos($leer('pagina'), [], null, $leer('orden'));
+                break;
+
+            case 'proveedores':
+                $compraController->proveedores();
+                break;
+
+            case 'ordenes':
+                $compraController->ordenes($leer('estado'), $leer('pagina'), $leer('nueva'), $leer('desde'), $leer('proveedor'));
+                break;
+
+            case 'orden_imprimir':
+                $compraController->imprimir($leer('id'));
                 break;
 
             case 'ingresos_csv':

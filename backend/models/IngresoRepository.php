@@ -24,7 +24,7 @@ class IngresoRepository
         // LIMIT y OFFSET son enteros calculados en PHP
         $consulta = $this->db->prepare(
             'SELECT id_ingreso, fecha_hora, tipo_documento, numero_documento, fecha_documento, ruc_emisor,
-                    razon_social, total, observacion, id_tienda, id_empleado
+                    razon_social, total, observacion, id_tienda, id_empleado, id_orden_compra
                FROM ingreso_mercaderia
               WHERE id_tienda = :tienda
               ORDER BY id_ingreso DESC
@@ -42,7 +42,8 @@ class IngresoRepository
             (float) $f['total'],
             $f['observacion'],
             (int) $f['id_tienda'],
-            (int) $f['id_empleado']
+            (int) $f['id_empleado'],
+            $f['id_orden_compra'] === null ? null : (int) $f['id_orden_compra']
         ), $consulta->fetchAll());
     }
 
