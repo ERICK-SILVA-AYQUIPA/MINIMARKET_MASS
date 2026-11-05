@@ -100,10 +100,18 @@ class EmpleadoServicio extends Servicio
     public function reiniciarClave(Usuario $admin, int $idEmpleado, string $claveNueva): int
     {
         $this->exigirClave($claveNueva);
+        if ($idEmpleado === $admin->getIdEmpleado()) {
+            // Su propia clave no se le obliga a cambiar: entonces tiene que ser una buena desde ya
+            $this->exigirClavePropia($claveNueva, $idEmpleado);
+        }
         return $this->enTransaccion(function () use ($admin, $idEmpleado, $claveNueva): int {
             $this->empleadoDeLaTienda($admin, $idEmpleado);
             // Si el administrador se reinicia su propia clave, ya la conoce solo el: no hace falta cambiarla otra vez
             $version = $this->guardarClave($idEmpleado, $claveNueva, $idEmpleado !== $admin->getIdEmpleado());
+            // Si quedo bloqueado por claves erradas, puede entrar ya con la nueva (sin esperar los 15 minutos)
+            $this->db->prepare(
+                "DELETE FROM intento_login WHERE exito = 'N' AND dni = (SELECT dni FROM empleado WHERE id_empleado = :id)"
+            )->execute(['id' => $idEmpleado]);
             $this->auditar($admin, 'CLAVE_REINICIADA', 'Empleado ' . $idEmpleado);
             return $version;
         });
@@ -128,7 +136,8 @@ class EmpleadoServicio extends Servicio
         if (hash_equals($actual, $nueva)) {
             throw new ReglaNegocioException('La clave nueva debe ser distinta de la actual.');
         }
-        $this->exigirClave($nueva);
+        // La que elige para si: ni la de prueba, ni una de las mas usadas, ni su DNI
+        $this->exigirClavePropia($nueva, $usuario->getIdEmpleado());
         return $this->enTransaccion(function () use ($usuario, $nueva): int {
             $version = $this->guardarClave($usuario->getIdEmpleado(), $nueva, false);
             $this->auditar($usuario, 'CLAVE_CAMBIADA', 'Cambió su propia clave');
@@ -179,6 +188,17 @@ class EmpleadoServicio extends Servicio
     {
         if (!isset(self::ROLES[$idRol])) {
             throw new ReglaNegocioException('Rol no válido.');
+        }
+    }
+
+    // La clave que el empleado elige para si mismo (ver Clave::problemaPropia)
+    private function exigirClavePropia(string $clave, int $idEmpleado): void
+    {
+        $consulta = $this->db->prepare('SELECT dni FROM empleado WHERE id_empleado = :id');
+        $consulta->execute(['id' => $idEmpleado]);
+        $problema = Clave::problemaPropia($clave, (string) $consulta->fetchColumn());
+        if ($problema !== null) {
+            throw new ReglaNegocioException($problema);
         }
     }
 

@@ -342,6 +342,14 @@ tfoot td, tr.total td, tr.total th { font-weight: 700; background: var(--superfi
 .aviso.info::before { content: "i"; background: var(--azul); }
 .aviso.alerta { background: var(--ambar-fondo); border-color: #f5d68a; color: var(--ambar); }
 .aviso.alerta::before { content: "!"; background: #b45309; }
+/* Cierre por inactividad (app.js): flota abajo, encima de todo, con cuenta regresiva y un boton */
+.aviso-inactividad {
+    position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); bottom: calc(var(--s-4) + env(safe-area-inset-bottom, 0px));
+    width: min(560px, calc(100% - 32px)); margin: 0; align-items: center; box-shadow: 0 12px 32px rgba(15, 23, 42, .25);
+}
+.aviso-inactividad span { flex: 1; }
+.aviso-inactividad button { flex: none; }
+.con-barra-inferior .aviso-inactividad { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .aviso a { color: inherit; font-weight: 700; }
 
 /* Estado vacío */

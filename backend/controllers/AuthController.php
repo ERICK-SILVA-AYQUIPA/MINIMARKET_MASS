@@ -29,7 +29,25 @@ class AuthController extends Controller
     // GET /?ruta=login
     public function formulario(string $dni = '', ?string $error = null): void
     {
+        $sinCifrar = self::sinCifrar();
         $this->vista('auth/login', get_defined_vars());
+    }
+
+    /**
+     * Verdadero si la clave viajaria sin cifrar por la red: se abrio con http:// y una direccion que no es
+     * la de esta misma PC (localhost). Con HTTPS, nginx/Apache pasan HTTPS=on (deploy/).
+     * Se mira la direccion que escribio el navegador (Host) y no la IP: con Docker, quien entra por
+     * localhost:8000 llega desde la IP de la red de Docker. Es solo un aviso para el empleado.
+     */
+    public static function sinCifrar(): bool
+    {
+        $https = $_SERVER['HTTPS'] ?? '';
+        if (is_string($https) && $https !== '' && $https !== 'off') {
+            return false;
+        }
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;   // sin el puerto
+        return !in_array($host, ['', 'localhost', '127.0.0.1', '[::1]'], true);
     }
 
     // POST /?ruta=login

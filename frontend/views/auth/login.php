@@ -5,6 +5,7 @@ declare(strict_types=1);
  * La bienvenida con el logo sale despues de entrar (ver layout_inicio.php).
  * @var string $dni
  * @var ?string $error
+ * @var bool $sinCifrar  se entra desde otra PC por http://: la clave viaja sin cifrar
  */
 $titulo = 'Ingresar';
 $paginaEntrada = true;
@@ -26,6 +27,7 @@ require __DIR__ . '/../layout_inicio.php';
         <div class="marca-acceso"><span class="logo" aria-hidden="true">M</span><span>Minimarket <b>Mass</b></span></div>
         <h1>Ingresar</h1>
         <p class="sutil">Usa tu DNI y tu clave de empleado.</p>
+        <?php if ($sinCifrar): ?><div class="aviso alerta" role="status">Conexión sin cifrar: tu clave viaja a la vista por la red. Pide al administrador que active HTTPS (guía de instalación, sección 6).</div><?php endif; ?>
         <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
         <form class="formulario" method="post" action="/?ruta=login" autocomplete="off">
             <?= campoCsrf($csrf) ?>

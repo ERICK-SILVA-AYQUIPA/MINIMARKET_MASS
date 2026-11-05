@@ -6,7 +6,7 @@ import { CAJERO, entrar, listo } from './comun';
  * Corre después de 01 → 05: el cierre de Miguel quedó con una diferencia, así que primero Lucía
  * (administradora de su tienda) lo aprueba y luego Miguel abre otro turno, vende, mueve efectivo y cierra.
  */
-const ADMINISTRADORA = { dni: '70000007', clave: 'Mass2026!', nombre: 'Lucia' };
+const ADMINISTRADORA = { dni: '70000007', clave: 'Mass2026!', nombre: 'Lucía' };
 
 /** Captura de la pantalla visible sin el aviso corto (toast) ni el cursor encima. */
 async function sinToast(page: Page): Promise<void> {

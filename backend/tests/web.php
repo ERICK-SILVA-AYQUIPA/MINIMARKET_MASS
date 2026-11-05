@@ -143,6 +143,11 @@ $anonimo = new Navegador();
 revisar('/ lleva al login (303)', $anonimo->get('') === 303 && str_contains($anonimo->cabeceras['location'] ?? '', 'ruta=login'));
 revisar('Cualquier pantalla lleva al login', $anonimo->get('ruta=reportes') === 303);
 revisar('El login responde 200', $anonimo->get('ruta=login') === 200);
+revisar('En la misma PC (localhost) el login no avisa de conexión sin cifrar', !$anonimo->tiene('Conexión sin cifrar'));
+$desdeOtraPc = curl_init(BASE . '/?ruta=login');
+curl_setopt_array($desdeOtraPc, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => ['Host: 192.168.1.20:8000'], CURLOPT_TIMEOUT => 20]);
+revisar('Desde otra PC por http:// el login avisa que la clave viaja sin cifrar', str_contains((string) curl_exec($desdeOtraPc), 'Conexión sin cifrar'));
+curl_close($desdeOtraPc);
 $csp = $anonimo->cabeceras['content-security-policy'] ?? '';
 revisar('Cabecera CSP: solo scripts del propio sitio, nada inline', str_contains($csp, "script-src 'self';")
     && !preg_match("/script-src[^;]*('unsafe-inline'|'unsafe-eval'|https?:)/", $csp) && str_contains($csp, "object-src 'none'"));
@@ -179,6 +184,8 @@ $nuevo = new Navegador();
 revisar('Con la clave de prueba, el login lleva a Mi clave', $nuevo->entrar('70000009') === 303
     && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=mi_clave'));
 revisar('Mi clave avisa que es obligatorio cambiarla', $nuevo->get('ruta=mi_clave') === 200 && $nuevo->tiene('para seguir usando el sistema'));
+revisar('No acepta la clave de prueba como clave nueva (422)', $nuevo->post('mi_clave_guardar', ['actual' => CLAVE, 'nueva' => 'MASS2026!', 'repetida' => 'MASS2026!']) === 422
+    && $nuevo->tiene('No puedes usar la clave de prueba'));
 revisar('Otra pantalla vuelve a Mi clave (303)', $nuevo->get('ruta=productos') === 303
     && str_contains($nuevo->cabeceras['location'] ?? '', 'ruta=mi_clave'));
 revisar('Un formulario de otra ruta tampoco pasa (303 a Mi clave)', $nuevo->post('stock_minimo', ['id_producto' => '1', 'minimo' => '5']) === 303
@@ -192,6 +199,11 @@ echo "Errores y entrada rara\n";
 $rosa = new Navegador();
 revisar('Rosa entra y va al panel de inicio', $rosa->entrar('70000001') === 303 && str_contains($rosa->cabeceras['location'] ?? '', 'ruta=inicio'));
 revisar('Panel de Rosa (200) con indicadores', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('Vendido hoy') && $rosa->tiene('Ventas de los últimos 14 días'));
+revisar('La página le dice a app.js tras cuántos minutos sin uso se cierra la sesión', $rosa->tiene('data-inactividad="30"'));
+revisar('Seguir conectado (sesion_activa): 204 sin contenido', $rosa->get('ruta=sesion_activa&t=1') === 204 && $rosa->cuerpo === '');
+revisar('...y sin sesión lleva al login', $anonimo->get('ruta=sesion_activa') === 303
+    && str_contains($anonimo->cabeceras['location'] ?? '', 'ruta=login'));
+revisar('El login no lleva el contador de inactividad', $anonimo->get('ruta=login') === 200 && !$anonimo->tiene('data-inactividad'));
 revisar('Ruta inexistente: 404', $rosa->get('ruta=xyz') === 404);
 revisar('<script> en la ruta no vuelve en la página', $rosa->get('ruta=%3Cscript%3Ealert(1)%3C/script%3E') === 404 && !$rosa->tiene('<script>alert'));
 revisar('<script> en la tienda se ignora', $rosa->get('ruta=productos&tienda=%3Cscript%3E') === 200 && !$rosa->tiene('<script>'));
@@ -341,7 +353,7 @@ revisar('Un archivo que no es .csv: 422', $rosa->subir('catalogo_subir', [], 'ar
 @unlink($plantilla);
 revisar('El catálogo sale en tarjetas con chips de categoría y guía', $rosa->get('ruta=productos') === 200 && $rosa->tiene('id="tarjetas-productos"')
     && $rosa->tiene('data-chips="tarjetas-productos"') && $rosa->tiene('data-guia="catalogo"') && $rosa->tiene('src="/img/catalogo/1.jpg?v='));
-revisar('Filtrar por categoría deja solo esa (Lacteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
+revisar('Filtrar por categoría deja solo esa (Lácteos: 12)', $rosa->get('ruta=productos&categoria=2') === 200
     && substr_count($rosa->cuerpo, '<li id="fila-') === 12 && substr_count($rosa->cuerpo, '" data-categoria="2">') === 12);
 revisar('La vista en tabla también tiene foto chica', $rosa->get('ruta=productos&vista=tabla') === 200 && $rosa->tiene('id="filas-productos"')
     && $rosa->tiene('class="foto chica'));
@@ -519,7 +531,7 @@ revisar('Elegir Cerro Colorado vuelve a la opción pedida con un aviso',
     && str_ends_with($jefa->cabeceras['location'] ?? '', '/?ruta=empleados')
     && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Ahora trabajas en Mass Cerro Colorado.'));
 revisar('El personal que ve ahora es el de Cerro Colorado (Jorge, Ana, Pedro), no el de Cayma',
-    $jefa->tiene('Jorge') && $jefa->tiene('Pedro') && !$jefa->tiene('Caceres'));
+    $jefa->tiene('Jorge') && $jefa->tiene('Pedro') && !$jefa->tiene('Cáceres'));
 revisar('El menu marca Cerro Colorado y sigue diciendo cuál es la suya',
     $jefa->tiene('<option value="2" selected>Mass Cerro Colorado</option>') && $jefa->tiene('<option value="1">Mass Cayma · la tuya</option>'));
 revisar('Las ventas, el stock y los reportes se abren en Cerro Colorado',
@@ -534,7 +546,7 @@ revisar('Un volver con una URL de otro sitio se ignora: va al inicio',
     && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="3" selected>Mass Yanahuara</option>'));
 revisar('Volver a su tienda la deja como al entrar',
     $jefa->post('tienda_elegir', ['tienda' => '1', 'volver' => 'inicio']) === 303
-    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Caceres') && !$jefa->tiene('Pedro'));
+    && $jefa->get('ruta=empleados') === 200 && $jefa->tiene('Cáceres') && !$jefa->tiene('Pedro'));
 $jefa->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']);
 revisar('Salir y volver a entrar empieza otra vez en su propia tienda',
     $jefa->post('salir', []) === 303 && $jefa->entrar('70000001') === 303
