@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\minimarket_mass_2026-11-03_2300.tar.gz
 #   powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\minimarket_mass_2026-10-27_1530.sql   (antiguos: solo la base)
 # Un respaldo .gpg pide la misma RESPALDO_CLAVE con la que se hizo (en .env). Agregar -Si para no preguntar.
+# Sirve con Docker y sin Docker, por ejemplo en Laragon (RESPALDO_MODO; ver backend\scripts\mysql_local.ps1).
 param([Parameter(Mandatory = $true)][string]$Archivo, [switch]$Si)
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..\..')
@@ -57,6 +58,15 @@ try {
     }
     $traeFotos = Test-Path (Join-Path $abierto 'productos')
 
+    # Donde esta MySQL (RESPALDO_MODO; ver mysql_local.ps1). Se revisa antes de preguntar.
+    . (Join-Path $PSScriptRoot 'mysql_local.ps1')
+    $modo = Modo-Mysql
+    if ($modo -eq 'local') {
+        $mysql = Buscar-Programa 'mysql'
+        $cnf = Preparar-MysqlLocal $temporal
+        if (-not (Probar-MysqlLocal $mysql $cnf)) { throw "No se pudo entrar a MySQL como $usuarioLocal. Revisa que este iniciado (Laragon: Iniciar todo) y RESPALDO_DB_USER en .env." }
+    }
+
     if (-not $Si) {
         $que = 'TODOS los datos de minimarket_mass'
         if ($traeFotos) { $que += ' y las fotos de producto' }
@@ -64,9 +74,14 @@ try {
         if ($respuesta -ne 'SI') { Write-Host 'Cancelado: no se cambio nada.'; exit 0 }
     }
 
-    # 2. La base: se copia al contenedor y MySQL la lee alli (sin pasar por la codificacion de PowerShell)
-    docker cp $base "${contenedor}:/tmp/restaurar.sql"
-    docker exec $contenedor sh -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysql -uroot < /tmp/restaurar.sql; status=$?; rm -f /tmp/restaurar.sql; exit $status'
+    # 2. La base, sin pasar por la codificacion de PowerShell: con Docker se copia al contenedor y MySQL la lee alli;
+    #    sin Docker, el cliente mysql la lee con "source" (ruta con / para que no confunda las \)
+    if ($modo -eq 'docker') {
+        docker cp $base "${contenedor}:/tmp/restaurar.sql"
+        docker exec $contenedor sh -c 'MYSQL_PWD=$MYSQL_ROOT_PASSWORD mysql -uroot < /tmp/restaurar.sql; status=$?; rm -f /tmp/restaurar.sql; exit $status'
+    } else {
+        & $mysql "--defaults-extra-file=$cnf" -e "source $($base -replace '\\', '/')"
+    }
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo restaurar la base.' }
     Write-Host "Base restaurada desde $Archivo"
 

@@ -124,7 +124,7 @@ class VentaController extends Controller
         $detalles = array_column($lineas, 'detalle');
         $pagos = $this->ventas->pagosDeVenta($venta->getIdVenta());
 
-        // Descuentos (migracion 015): el de cada linea con el nombre de su promocion y el de toda la venta
+        // Descuentos (migracion 017): el de cada linea con el nombre de su promocion y el de toda la venta
         $nombresPromocion = $this->promociones->nombres(array_filter(array_map(fn(DetalleVenta $d): ?int => $d->getIdPromocion(), $detalles)));
         $descuentoVenta = $this->ventas->descuentoDeVenta($venta->getIdVenta());
         $subtotal = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getImporte()), $detalles)) / 100;

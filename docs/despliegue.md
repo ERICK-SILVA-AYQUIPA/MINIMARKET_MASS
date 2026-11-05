@@ -225,6 +225,15 @@ sudo -u www-data php backend/scripts/verificar_instalacion.php
 
 `verificar_instalacion.php` se corre como `www-data` porque el `.env` solo lo pueden leer root y el servidor web; con otro usuario dice "No hay .env". Lo que revisa está en la sección 9.
 
+### 6.5 Servidor dentro de la tienda (red local, sin dominio)
+
+Si las cajas entran por la red a una PC de la tienda (`http://192.168.1.20:8000`), la clave viaja sin cifrar por el wifi y el login lo avisa con «Conexión sin cifrar». Hay dos salidas:
+
+- **Mejor**: usar el servidor en internet de la sección 6 (HTTPS con Let's Encrypt). Las tres tiendas comparten la misma base y no depende de una PC.
+- **Solo red local**: poner nginx o Apache en esa PC con un certificado propio. Con [mkcert](https://github.com/FiloSottile/mkcert): `mkcert -install` y `mkcert 192.168.1.20` en la PC servidor, usar los dos `.pem` en `ssl_certificate`/`ssl_certificate_key` de `deploy/nginx-mass.conf`, y copiar el archivo `rootCA.pem` (`mkcert -CAROOT`) a cada PC de caja para que el navegador confíe en él. En Laragon: menú *Apache → SSL → Enabled* hace lo mismo para `https://localhost`.
+
+No abrir el puerto de MySQL en la red: las cajas solo hablan con la página.
+
 ## 7. La app Android en producción
 
 La app no se instala en el servidor: se compila en una PC con Android Studio y se instala el `.apk` en los celulares. Solo necesita la dirección del servidor; nunca recibe datos de MySQL.
@@ -301,7 +310,8 @@ Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `displ
 - Los respaldos antiguos `.sql` (de antes de este cambio, solo la base) se siguen pudiendo restaurar con los mismos scripts; en ese caso las fotos quedan como están.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.
-- **Se guardan los últimos 30 respaldos**; cada respaldo nuevo borra los más antiguos.
+- **Se guardan los últimos 30 respaldos** (`RESPALDO_GUARDAR` en `.env` para cambiarlo); cada respaldo nuevo borra los más antiguos.
+- En Windows, lo que escribe cada respaldo programado queda en `respaldos\respaldo.log`.
 - **Restaurar reemplaza todos los datos actuales**. Pide escribir `SI` para seguir.
 - Los respaldos tienen DNIs y hashes de claves: `respaldos/` está en `.gitignore`, fuera de la raíz web y solo lo puede leer el usuario que lo crea.
 
@@ -334,7 +344,19 @@ rm -rf /tmp/prueba_mass
 ```
 
 Para probar la restauración completa, hacerlo en una PC de pruebas (nunca en la de la tienda): `bash backend/tests/restauracion.sh --borrar-todo` borra la base del contenedor de esa PC y la devuelve desde un respaldo nuevo.
-- **Sin Docker** (sección 6.3) los scripts no sirven. Respaldo: `sudo mysqldump --single-transaction --routines --triggers --databases minimarket_mass > respaldos/minimarket_mass_$(date +%F_%H%M).sql` y copiar aparte `frontend/public/img/productos/`. Restaurar: `sudo mysql < respaldos/ARCHIVO.sql`.
+### 10.3 Sin Docker (Laragon o MySQL instalado)
+
+Los mismos scripts sirven sin Docker: si no encuentran el contenedor `minimarket_mass_db`, usan el `mysqldump` y el `mysql` de la PC (se puede forzar con `RESPALDO_MODO=local` o `RESPALDO_MODO=docker`).
+
+- **Laragon**: no hay que configurar nada. El `.env` de Laragon ya trae `root` sin clave en `127.0.0.1:3306`, y los programas se buscan en `C:\laragon\bin\mysql\*\bin` (o en la carpeta de `RESPALDO_MYSQL_BIN`). MySQL tiene que estar iniciado (botón *Iniciar todo*) a la hora del respaldo.
+- **Servidor con MySQL instalado** (sección 6.3): la aplicación entra como `mass_app`, que no puede sacar un respaldo completo. Se usa root por el socket, con `sudo`:
+
+```bash
+RESPALDO_DB_USER=root
+RESPALDO_DB_HOST=localhost   # "localhost" = por el socket; root de Ubuntu no necesita clave con sudo
+```
+
+- Con otro usuario o clave: `RESPALDO_DB_USER`, `RESPALDO_DB_PASSWORD`, `RESPALDO_DB_HOST` y `RESPALDO_DB_PORT` (si no se ponen, se usan `DB_USER`, `DB_PASSWORD`, `DB_HOST` y `DB_PORT`). La clave va en un archivo temporal que solo lee quien corre el script, nunca en la línea de comandos.
 
 ## 11. Comprobar que el código funciona
 

@@ -22,7 +22,7 @@ require __DIR__ . '/../layout_inicio.php';
         <?= campoCsrf($csrf) ?>
         <label for="actual">Clave actual</label>
         <input id="actual" name="actual" type="password" required autocomplete="current-password">
-        <label for="nueva">Clave nueva <span class="ayuda">De 8 a 72 caracteres, con al menos una letra y un número.</span></label>
+        <label for="nueva">Clave nueva <span class="ayuda">De 8 a 72 caracteres, con al menos una letra y un número. No puede ser la clave de prueba ni llevar tu DNI.</span></label>
         <input id="nueva" name="nueva" type="password" minlength="8" maxlength="72" required autocomplete="new-password">
         <label for="repetida">Repite la clave nueva</label>
         <input id="repetida" name="repetida" type="password" minlength="8" maxlength="72" required autocomplete="new-password">

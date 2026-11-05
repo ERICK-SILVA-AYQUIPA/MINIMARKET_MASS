@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Promocion.php';
 
 /**
- * Promociones (migracion 015) y lo que ya se desconto con cada una. Las escribe PromocionServicio.
+ * Promociones (migracion 017) y lo que ya se desconto con cada una. Las escribe PromocionServicio.
  */
 class PromocionRepository
 {

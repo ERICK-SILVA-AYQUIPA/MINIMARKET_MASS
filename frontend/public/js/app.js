@@ -1500,5 +1500,98 @@
         mostrarCamposPromo();
     }
 
+    // ---------- Cierre de sesion por inactividad (el servidor la cierra a los N minutos sin pedidos) ----------
+    // Sin esto, una caja olvidada sigue mostrando ventas y montos aunque la sesion ya vencio.
+    // - Si se usa el teclado o el mouse, cada 5 minutos se avisa al servidor (GET ?ruta=sesion_activa) que se sigue trabajando.
+    // - 2 minutos antes de vencer sale un aviso con cuenta regresiva; al vencer se va al login.
+    // - Las pestanas comparten la hora del ultimo contacto (localStorage): una pestana quieta no saca a la otra.
+    const minutosSesion = Number(document.documentElement.dataset.inactividad || 0);
+    if (minutosSesion > 0) {
+        const limite = minutosSesion * 60 * 1000;
+        const avisarAntes = Math.min(2 * 60 * 1000, limite / 2);
+        const avisarServidorCada = Math.min(5 * 60 * 1000, limite / 3);
+        const claveContacto = 'mass_contacto_' + (document.documentElement.dataset.usuario || '');
+        let ultimoContacto = Date.now();   // la pagina recien llego del servidor
+        let aviso = null;
+        let cerrando = false;
+
+        const leerContacto = () => {
+            try {
+                const otro = Number(localStorage.getItem(claveContacto) || 0);
+                if (otro > ultimoContacto && otro <= Date.now()) {
+                    ultimoContacto = otro;
+                }
+            } catch (e) { /* sin localStorage: solo cuenta esta pestana */ }
+            return ultimoContacto;
+        };
+        const guardarContacto = () => {
+            try { localStorage.setItem(claveContacto, String(ultimoContacto)); } catch (e) { /* sin localStorage */ }
+        };
+        guardarContacto();
+
+        // Una imagen (no fetch): el servidor responde 204 y renueva la sesion con la misma cookie
+        const avisarServidor = () => {
+            new Image().src = '/?ruta=sesion_activa&t=' + Date.now();
+            ultimoContacto = Date.now();
+            guardarContacto();
+            quitarAviso();
+        };
+
+        const quitarAviso = () => {
+            if (aviso) {
+                aviso.remove();
+                aviso = null;
+            }
+        };
+
+        const mostrarAviso = (restante) => {
+            if (!aviso) {
+                aviso = document.createElement('div');
+                aviso.className = 'aviso alerta aviso-inactividad';
+                aviso.setAttribute('role', 'alertdialog');
+                aviso.setAttribute('aria-live', 'assertive');
+                const texto = document.createElement('span');
+                texto.dataset.texto = '';
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.textContent = 'Seguir conectado';
+                boton.addEventListener('click', avisarServidor);
+                aviso.append(texto, boton);
+                document.body.append(aviso);
+                boton.focus();
+            }
+            const seg = Math.max(0, Math.ceil(restante / 1000));
+            $('[data-texto]', aviso).textContent = 'Por seguridad, tu sesión se cerrará en '
+                + Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0') + ' si no la usas.';
+        };
+
+        const usar = () => {
+            // Si el aviso ya salio, se espera a que pulse el boton (un movimiento del mouse no basta)
+            if (!aviso && Date.now() - leerContacto() >= avisarServidorCada) {
+                avisarServidor();
+            }
+        };
+        ['keydown', 'pointerdown', 'input', 'wheel', 'touchstart'].forEach((tipo) => {
+            document.addEventListener(tipo, usar, { passive: true, capture: true });
+        });
+
+        setInterval(() => {
+            if (cerrando) {
+                return;
+            }
+            const transcurrido = Date.now() - leerContacto();
+            const restante = limite - transcurrido;
+            if (restante <= -5000) {
+                // 5 segundos de margen: el servidor ya la cerro y muestra el aviso en el login
+                cerrando = true;
+                window.location.href = '/?ruta=inicio';
+            } else if (restante <= avisarAntes) {
+                mostrarAviso(Math.max(0, restante));
+            } else {
+                quitarAviso();   // otra pestana renovo la sesion
+            }
+        }, 1000);
+    }
+
     enfocarDrawer();
 }());

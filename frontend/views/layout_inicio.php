@@ -106,7 +106,7 @@ if ($usuarioActual !== null) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="es"<?php if ($usuarioActual !== null): ?> data-usuario="<?= $usuarioActual->getIdEmpleado() ?>"<?php endif; ?><?php if ($modoMenu !== ''): ?> data-menu="<?= e($modoMenu) ?>"<?php endif; ?>>
+<html lang="es"<?php if ($usuarioActual !== null): ?> data-usuario="<?= $usuarioActual->getIdEmpleado() ?>" data-inactividad="<?= (int) Sesion::MINUTOS_INACTIVIDAD ?>"<?php endif; ?><?php if ($modoMenu !== ''): ?> data-menu="<?= e($modoMenu) ?>"<?php endif; ?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -116,8 +116,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=1">
-    <link rel="stylesheet" href="/css/estilos.css?v=21">
-    <script src="/js/app.js?v=11" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=22">
+    <script src="/js/app.js?v=12" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

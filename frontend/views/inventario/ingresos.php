@@ -107,7 +107,7 @@ require __DIR__ . '/../parciales/guia.php';
         <tfoot><tr><th scope="row" colspan="3">TOTAL</th><td class="num"><?= e(soles($i->getTotal())) ?></td><td></td></tr></tfoot>
     </table>
     </div>
-    <p class="sutil">Cada producto entró al kardex como INGRESO DE MERCADERIA. El costo no cambia el precio de venta.</p>
+    <p class="sutil">Cada producto entró al kardex como INGRESO DE MERCADERÍA. El costo no cambia el precio de venta.</p>
     <?php require __DIR__ . '/../parciales/drawer_cerrar.php'; ?>
 <?php endforeach; ?>
 <?php endif; ?>

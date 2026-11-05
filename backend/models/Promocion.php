@@ -5,7 +5,7 @@ require_once __DIR__ . '/Dinero.php';
 require_once __DIR__ . '/Cantidad.php';
 
 /**
- * Una fila de la tabla `promocion` (migracion 015). La crea el administrador y se aplica sola al vender.
+ * Una fila de la tabla `promocion` (migracion 017). La crea el administrador y se aplica sola al vender.
  * Montos en centimos y porcentajes en centesimas (1500 = 15.00 %), como Dinero: sin errores de redondeo.
  *   PORCENTAJE  un producto con X % menos
  *   PRECIO      un producto a precio de oferta (por unidad o por kg)
