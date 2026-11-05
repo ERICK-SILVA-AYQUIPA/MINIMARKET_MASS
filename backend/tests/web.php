@@ -220,6 +220,10 @@ $matriz = [
     'ajustes'              => [200, 200, 200],
     'reportes'             => [200, 403, 403],
     'reporte_csv'          => [200, 403, 403],
+    'reportes&alcance=cadena' => [200, 403, 403],
+    'reporte_csv&tipo=horas&alcance=cadena' => [200, 403, 403],
+    'reporte_excel'        => [200, 403, 403],
+    'reporte_pdf&alcance=cadena' => [200, 403, 403],
     'empleados'            => [200, 403, 403],
     'empleado&id=3'        => [200, 403, 403],
     'empleado&id=4'        => [404, 403, 403],
@@ -302,6 +306,24 @@ revisar('La utilidad muestra la comparación por tienda y el margen', $rosa->get
     && $rosa->tiene('Por tienda') && $rosa->tiene('Mass Cerro Colorado') && $rosa->tiene('Margen'));
 revisar('Reponer sugiere cuánto pedir y sale en el menú del almacenero', $carmen->get('ruta=reponer') === 200
     && ($carmen->tiene('Pedir') || $carmen->tiene('Nada por reponer')) && $carmen->get('ruta=inicio') === 200 && $carmen->tiene('ruta=reponer"'));
+revisar('Reportes: comparado con el mes anterior, gráficos de productos, hora y cajero, y botones Excel y PDF',
+    $rosa->get('ruta=reportes&desde=2026-01-01') === 200 && $rosa->tiene('Comparado con el mes anterior') && $rosa->tiene('Ventas por hora')
+    && $rosa->tiene('aria-label="Importe de los productos más vendidos"') && $rosa->tiene('aria-label="Total vendido por cajero"')
+    && $rosa->tiene('ruta=reporte_excel') && $rosa->tiene('ruta=reporte_pdf') && $rosa->tiene('Todas las tiendas') && !$rosa->tiene('<h2>Por tienda</h2>'));
+revisar('El consolidado suma las 3 tiendas y las compara; sus descargas siguen en la cadena',
+    $rosa->get('ruta=reportes&alcance=cadena&desde=2026-01-01') === 200 && $rosa->tiene('Reportes de toda la cadena')
+    && $rosa->tiene('<h2>Por tienda</h2>') && $rosa->tiene('Mass Cerro Colorado') && $rosa->tiene('3 tiendas')
+    && $rosa->tiene('ruta=reporte_excel&amp;desde=2026-01-01&amp;hasta=' . date('Y-m-d') . '&amp;alcance=cadena'));
+revisar('Un alcance inventado se queda en su tienda', $rosa->get('ruta=reportes&alcance=%3Cx%3E') === 200 && !$rosa->tiene('<h2>Por tienda</h2>'));
+revisar('El Excel se descarga como .xlsx con una hoja por tabla',
+    $rosa->get('ruta=reporte_excel&alcance=cadena&desde=2026-01-01') === 200
+    && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    && str_contains($rosa->cabeceras['content-disposition'] ?? '', 'reporte_ventas_cadena_2026-01-01_') && str_starts_with($rosa->cuerpo, 'PK')
+    && str_contains($rosa->cuerpo, 'name="Por tienda"') && str_contains($rosa->cuerpo, 'name="Ventas por hora"') && str_contains($rosa->cuerpo, 'Mass Cerro Colorado'));
+revisar('El PDF se descarga como application/pdf con el consolidado',
+    $rosa->get('ruta=reporte_pdf&alcance=cadena&desde=2026-01-01') === 200 && ($rosa->cabeceras['content-type'] ?? '') === 'application/pdf'
+    && str_starts_with($rosa->cuerpo, '%PDF-') && str_contains($rosa->cuerpo, '(Por tienda)') && str_contains($rosa->cuerpo, '(Mass Cerro Colorado)'));
+revisar('El CSV por hora sale con su encabezado', $rosa->get('ruta=reporte_csv&tipo=horas&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'hora,comprobantes,total'));
 revisar('El CSV de utilidad trae el margen', $rosa->get('ruta=reporte_csv&tipo=utilidad&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'margen_%'));
 revisar('El catálogo ofrece Importar CSV solo al administrador', $rosa->get('ruta=productos') === 200 && $rosa->tiene('ruta=catalogo_importar"')
     && $carmen->get('ruta=productos') === 200 && !$carmen->tiene('catalogo_importar'));

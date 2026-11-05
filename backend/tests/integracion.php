@@ -610,6 +610,21 @@ revisar('Un producto que nunca entró por ingreso queda sin costo', array_filter
 $porTienda = $reportes->utilidadPorTienda([1 => 'Mass Cayma', 2 => 'Mass Cerro Colorado'], '2026-01-01', $hoy);
 revisar('La utilidad de Cayma en la tabla por tienda suma la de sus productos', abs($porTienda[0]['utilidad']
     - array_sum(array_map(fn(array $p): float => $p['utilidad'] ?? 0.0, $utilidad))) < 0.01 && $porTienda[1]['tienda'] === 'Mass Cerro Colorado');
+$cadena = [1, 2, 3];
+$resumenCadena = $reportes->resumen($cadena, '2026-01-01', $hoy);
+$sumaTiendas = array_sum(array_map(fn(int $t): float => $reportes->resumen($t, '2026-01-01', $hoy)['total'], $cadena));
+revisar('El consolidado de la cadena suma lo vendido por cada tienda', abs($resumenCadena['total'] - $sumaTiendas) < 0.001
+    && $resumenCadena['total'] > $reportes->resumen(1, '2026-01-01', $hoy)['total']);
+$porTiendaVentas = $reportes->porTienda($cadena, '2026-01-01', $hoy);
+revisar('Ventas por tienda: una fila por tienda con ventas y el mismo total que el consolidado',
+    abs(array_sum(array_column($porTiendaVentas, 'total')) - $resumenCadena['total']) < 0.001
+    && in_array('Mass Cerro Colorado', array_column($porTiendaVentas, 'tienda'), true));
+$horas = $reportes->porHora(1, '2026-01-01', $hoy);
+revisar('Ventas por hora: horas de 0 a 23 que suman lo vendido en la tienda', $horas !== []
+    && min(array_column($horas, 'hora')) >= 0 && max(array_column($horas, 'hora')) <= 23
+    && abs(array_sum(array_column($horas, 'total')) - $reportes->resumen(1, '2026-01-01', $hoy)['total']) < 0.001);
+revisar('Por cajero y más vendidos aceptan varias tiendas', count($reportes->porCajero($cadena, '2026-01-01', $hoy)) >= count($reportes->porCajero(1, '2026-01-01', $hoy))
+    && $reportes->masVendidos($cadena, '2026-01-01', $hoy, 3) !== []);
 $reposicion = (new PanelRepository($db))->reposicion(1, Reposicion::DIAS_VENTA);
 revisar('La lista para reponer trae lo que está en su mínimo, con lo vendido y el sobrante de otras tiendas',
     count($reposicion) === (new PanelRepository($db))->contarPorReponer(1)

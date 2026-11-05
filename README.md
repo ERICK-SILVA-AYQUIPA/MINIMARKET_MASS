@@ -244,7 +244,7 @@ Cada operación escribe en MySQL dentro de una **transacción** (`backend/models
 | `?ruta=catalogo` | Categorías, marcas y unidades; el administrador agrega nuevas |
 | `?ruta=empleados` | Administrador: registrar, editar, desactivar y poner clave al personal de su tienda |
 | `?ruta=clientes` | Cajero y administrador: buscar clientes por DNI o RUC, ver sus compras y completar el documento que falta |
-| `?ruta=reportes` | Administrador: vendido, ticket promedio, ventas por día, más vendidos, por categoría, cajero y método de pago, con descarga CSV |
+| `?ruta=reportes` | Administrador: vendido, ticket promedio, ventas por día y por hora, más vendidos, por categoría, cajero y método de pago, con gráficos y comparado con el mes anterior. `&alcance=cadena` suma las tiendas (consolidado del dueño, con la comparación por tienda). Descarga en CSV (cada tabla), Excel (`reporte_excel`) y PDF (`reporte_pdf`) |
 | `?ruta=mi_clave` | Cada empleado cambia su propia clave |
 | `?ruta=ingresos` | Almacenero: registrar la mercadería que llega (documento, RUC del emisor, cantidades y costo); el stock sube y queda en el kardex. El administrador lo revisa y lo descarga en CSV (`?ruta=ingresos_csv`) |
 | `?ruta=ajustes` | Almacenero o administrador: hoja de conteo físico; lo contado reemplaza al stock y la diferencia va al kardex |
