@@ -33,6 +33,9 @@ require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require __DIR__ . '/../config/Migraciones.php';
+require_once __DIR__ . '/../models/exportar/LibroExcel.php';
+require_once __DIR__ . '/../models/exportar/DocumentoPdf.php';
+require_once __DIR__ . '/../controllers/ReporteController.php';
 
 $ok = 0;
 $fallas = 0;
@@ -276,6 +279,43 @@ $caja3 = new Caja(3, 3, 'INACTIVA', 1);
 revisar('La caja activa con turno de otro cajero está ocupada, no libre', $caja1->estadoAhora(isset($abiertos[1])) === 'ocupada');
 revisar('La caja activa sin turno abierto está libre (no inactiva)', $caja2->estadoAhora(isset($abiertos[2])) === 'libre' && $caja2->estaActiva());
 revisar('Solo la caja apagada por el administrador sale inactiva', $caja3->estadoAhora(false) === 'inactiva' && !$caja3->estaActiva());
+
+echo "Reportes: mes anterior, Excel y PDF\n";
+revisar('El mes anterior de un día cualquiera es el mismo día', ReporteController::mesAnterior('2026-10-15') === '2026-09-15');
+revisar('Fin de mes con fin de mes: 31/10 -> 30/09 y 30/09 -> 31/08', ReporteController::mesAnterior('2026-10-31') === '2026-09-30'
+    && ReporteController::mesAnterior('2026-09-30') === '2026-08-31');
+revisar('El 30 de marzo cae en el último de febrero; enero pasa a diciembre del año anterior',
+    ReporteController::mesAnterior('2026-03-30') === '2026-02-28' && ReporteController::mesAnterior('2026-01-10') === '2025-12-10');
+$libro = new LibroExcel();
+$libro->agregarHoja('Productos más vendidos', ['Producto', 'Importe'], [['=HYPERLINK("x")', 12.5], ['Leche <Gloria> & más', '3']], ['texto', 'soles']);
+$libro->agregarHoja('Productos más vendidos', ['A'], []);
+$xlsx = $libro->contenido();
+revisar('El Excel es un ZIP con libro, hojas y estilos', str_starts_with($xlsx, "PK\x03\x04") && str_contains($xlsx, 'xl/workbook.xml')
+    && str_contains($xlsx, 'xl/worksheets/sheet2.xml') && str_contains($xlsx, 'xl/styles.xml') && str_contains($xlsx, "PK\x05\x06"));
+revisar('Los textos van como texto (una fórmula no se ejecuta) y escapados; los montos como número',
+    str_contains($xlsx, '<t xml:space="preserve">=HYPERLINK(&quot;x&quot;)</t>') && !str_contains($xlsx, '<f>')
+    && str_contains($xlsx, 'Leche &lt;Gloria&gt; &amp; más') && str_contains($xlsx, 's="2"><v>12.5</v>') && str_contains($xlsx, 's="2"><v>3</v>'));
+revisar('Dos hojas con el mismo nombre no rompen el libro', str_contains($xlsx, 'name="Productos más vendidos"') && str_contains($xlsx, 'name="Productos más vendidos 2"'));
+if (class_exists('ZipArchive')) {
+    $temporal = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($temporal, $xlsx);
+    $zip = new ZipArchive();
+    revisar('PHP abre el Excel como ZIP válido (CRC y directorio central)', $zip->open($temporal, ZipArchive::CHECKCONS) === true
+        && $zip->numFiles === 7 && simplexml_load_string((string) $zip->getFromName('xl/worksheets/sheet1.xml')) !== false);
+    $zip->close();
+    @unlink($temporal);
+}
+$pdf = new DocumentoPdf('Prueba', 'Pie');
+$pdf->titulo('Reporte de ventas: Mass Cayma');
+$pdf->barras(['Leche', 'Pan (francés)'], [10.0, 5.0], ['S/ 10.00', 'S/ 5.00']);
+$pdf->tabla([['Producto', 3, 'izq'], ['Importe', 1, 'der']], array_fill(0, 120, ['Leche \\ (Gloria)', 'S/ 1.00']));
+$documento = $pdf->contenido();
+preg_match_all('/\/Type \/Page\b/', $documento, $paginas);
+preg_match('/startxref\n(\d+)/', $documento, $xref);
+revisar('El PDF empieza y termina bien y su tabla larga sigue en otra página', str_starts_with($documento, '%PDF-1.4')
+    && str_ends_with($documento, "%%EOF\n") && count($paginas[0]) >= 2 && str_contains($documento, "(P\xE1gina 1 de "));
+revisar('El PDF apunta bien a su tabla xref y escapa paréntesis; las tildes van en Windows-1252',
+    substr($documento, (int) ($xref[1] ?? 0), 4) === 'xref' && str_contains($documento, '(Pan \\(franc' . "\xE9" . 's\\))'));
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());

@@ -303,7 +303,7 @@ try {
                 break;
 
             case 'reportes':
-                $reporteController->ventas($leer('desde'), $leer('hasta'));
+                $reporteController->ventas($leer('desde'), $leer('hasta'), $leer('alcance'));
                 break;
 
             case 'utilidad':
@@ -319,7 +319,15 @@ try {
                 break;
 
             case 'reporte_csv':
-                $reporteController->csv($leer('tipo'), $leer('desde'), $leer('hasta'));
+                $reporteController->csv($leer('tipo'), $leer('desde'), $leer('hasta'), $leer('alcance'));
+                break;
+
+            case 'reporte_excel':
+                $reporteController->excel($leer('desde'), $leer('hasta'), $leer('alcance'));
+                break;
+
+            case 'reporte_pdf':
+                $reporteController->pdf($leer('desde'), $leer('hasta'), $leer('alcance'));
                 break;
 
             case 'ajustes':
