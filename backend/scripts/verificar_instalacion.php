@@ -86,7 +86,7 @@ echo "Base de datos\n";
 $usuario = (string) $db->query('SELECT CURRENT_USER()')->fetchColumn();
 revisar(!str_starts_with($usuario, 'root@'), 'La aplicación no entra como root', 'La aplicación entra como root: usa el usuario mass_app (docs/despliegue.md)');
 $tablas = (int) $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")->fetchColumn();
-revisar($tablas === 40, 'Las 40 tablas', "Hay $tablas tablas y deben ser 40: falta correr algún script de database/ o php backend/scripts/migrar.php (docs/despliegue.md, sección 8)");
+revisar($tablas === 42, 'Las 42 tablas', "Hay $tablas tablas y deben ser 42: falta correr algún script de database/ o php backend/scripts/migrar.php (docs/despliegue.md, sección 8)");
 try {
     $estadoMigraciones = (new Migraciones($db))->estado();
     revisar($estadoMigraciones['pendientes'] === [] && $estadoMigraciones['cambiadas'] === [],

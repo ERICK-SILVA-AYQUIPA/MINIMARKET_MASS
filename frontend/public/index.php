@@ -236,11 +236,6 @@ try {
                 $ventaController->nueva();
                 break;
 
-            // Vista previa del carrito (JSON): promociones y descuento, sin guardar nada
-            case 'venta_calcular':
-                $ventaController->calcular($_GET);
-                break;
-
             case 'promociones':
                 $promocionController->lista();
                 break;

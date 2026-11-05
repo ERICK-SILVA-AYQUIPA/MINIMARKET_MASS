@@ -13,6 +13,7 @@ declare(strict_types=1);
  * @var array<int, string[]> $ofertas  id_producto => promociones de hoy ("15 % menos", "3 x S/ 10.00")
  * @var Promocion[] $promocionesVenta  promociones de hoy a toda la compra
  * @var int $topeDescuento  centesimas: hasta cuanto puede descontar a mano este cajero
+ * @var string $datosPromociones  JSON con las promociones de hoy y el tope, para el total en vivo de app.js
  * @var array $viejo
  * @var ?string $error
  */
@@ -64,7 +65,7 @@ $conDescuento = $v('descuento_valor') !== '';
         <div class="aviso alerta" role="status"><span>Tu caja está en pausa: reanúdala en <a href="/?ruta=caja">Mi caja</a> para registrar ventas.</span></div>
     <?php endif; ?>
 
-    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta>
+    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta data-promociones="<?= e($datosPromociones) ?>">
         <?= campoCsrf($csrf) ?>
         <section class="panel venta-catalogo">
             <h2 class="visualmente-oculto">Productos</h2>
@@ -217,7 +218,7 @@ $conDescuento = $v('descuento_valor') !== '';
                 <legend>Medio de pago</legend>
                 <div class="opciones medios-pago" data-medios-pago>
                     <?php foreach ($medios as $valorMedio => [$textoMedio, $iconoMedio]): ?>
-                        <label><input type="radio" name="medio_pago" value="<?= e($valorMedio) ?>" <?= $medioElegido === $valorMedio ? 'checked' : '' ?>><?= icono($iconoMedio) ?><?= e($textoMedio) ?></label>
+                        <label><input type="radio" name="medio_pago" value="<?= e($valorMedio) ?>" <?= $medioElegido === $valorMedio ? 'checked' : '' ?>><?php if ($iconoMedio === 'billete'): ?><?= icono('billete') ?><?php elseif ($iconoMedio === 'qr'): ?><?= icono('qr') ?><?php else: ?><?= icono('tarjeta') ?><?php endif; ?><?= e($textoMedio) ?></label>
                     <?php endforeach; ?>
                 </div>
             </fieldset>

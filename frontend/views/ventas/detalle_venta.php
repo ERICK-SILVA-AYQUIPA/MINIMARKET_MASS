@@ -59,7 +59,7 @@ $hayDescuentos = $descuentoVenta !== null || array_filter($lineas, fn(array $l):
                 <tr class="fila-descuento"><th scope="row" colspan="5">Promociones de productos</th><td class="num">−<?= e(soles($descuentoProductos)) ?></td></tr>
             <?php endif; ?>
             <?php if ($descuentoVenta !== null): ?>
-                <tr class="fila-descuento"><th scope="row" colspan="5"><?= e($descuentoVenta['nombre']) ?><?= $descuentoVenta['porcentaje'] !== null ? ' (' . e(rtrim(rtrim(number_format($descuentoVenta['porcentaje'], 2, '.', ''), '0'), '.')) . ' %)' : '' ?><?= $descuentoVenta['motivo'] !== null ? ': ' . e($descuentoVenta['motivo']) : '' ?></th><td class="num">−<?= e(soles($descuentoVenta['monto'])) ?></td></tr>
+                <tr class="fila-descuento"><th scope="row" colspan="5"><?= e($descuentoVenta['nombre'] . ($descuentoVenta['porcentaje'] !== null ? ' (' . rtrim(rtrim(number_format($descuentoVenta['porcentaje'], 2, '.', ''), '0'), '.') . ' %)' : '') . ($descuentoVenta['motivo'] !== null ? ': ' . $descuentoVenta['motivo'] : '')) ?></th><td class="num">−<?= e(soles($descuentoVenta['monto'])) ?></td></tr>
             <?php endif; ?>
         <?php endif; ?>
         <tr><th scope="row" colspan="5">TOTAL</th><td class="num"><?= e(soles($venta->getTotal())) ?></td></tr>

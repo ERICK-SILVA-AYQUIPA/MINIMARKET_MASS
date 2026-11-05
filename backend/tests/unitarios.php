@@ -277,6 +277,56 @@ revisar('La caja activa con turno de otro cajero está ocupada, no libre', $caja
 revisar('La caja activa sin turno abierto está libre (no inactiva)', $caja2->estadoAhora(isset($abiertos[2])) === 'libre' && $caja2->estaActiva());
 revisar('Solo la caja apagada por el administrador sale inactiva', $caja3->estadoAhora(false) === 'inactiva' && !$caja3->estaActiva());
 
+echo "Descuentos y promociones\n";
+require_once __DIR__ . '/../models/Descuentos.php';
+$promo = fn(int $id, string $tipo, ?int $producto, ?int $pct = null, ?int $precio = null, ?int $pack = null, ?int $minimo = null, string $estado = 'ACTIVA', ?int $tienda = null): Promocion
+    => new Promocion($id, 'Promo ' . $id, $tipo, $producto, $tienda, $pct, $precio, $pack, $minimo, '2026-11-01', '2026-11-30', $estado);
+$leche = ['milesimas' => 3000, 'precio' => 450, 'al_peso' => false];   // 3 x S/ 4.50 = 13.50
+$papa = ['milesimas' => 1250, 'precio' => 250, 'al_peso' => true];     // 1.250 kg x S/ 2.50 = 3.13
+revisar('15 % de 13.50 = 2.03 (redondeo como MySQL)', $promo(1, 'PORCENTAJE', 1, 1500)->descuentoLinea(3000, 450, false) === 203);
+revisar('Precio de oferta S/ 2.00 el kg: 1.250 kg ahorra 3.13 - 2.50 = 0.63', $promo(2, 'PRECIO', 8, null, 200)->descuentoLinea(1250, 250, true) === 63);
+revisar('Oferta más cara que el precio normal no descuenta', $promo(3, 'PRECIO', 1, null, 500)->descuentoLinea(1000, 450, false) === 0);
+revisar('Pack 3 x S/ 10.00: 7 leches = 2 packs (ahorra 2 x 3.50) y 1 suelta', $promo(4, 'PACK', 1, null, 1000, 3)->descuentoLinea(7000, 450, false) === 700);
+revisar('3x2 es un pack de 3 al precio de 2', $promo(5, 'PACK', 1, null, 900, 3)->descuentoLinea(3000, 450, false) === 450);
+revisar('El pack no aplica a lo que va al peso', $promo(6, 'PACK', 8, null, 500, 3)->descuentoLinea(3000, 250, true) === 0);
+revisar('Promoción a toda la compra: no llega al mínimo = 0', $promo(7, 'VENTA', null, 500, null, null, 10000)->descuentoVenta(9999) === 0
+    && $promo(7, 'VENTA', null, 500, null, null, 10000)->descuentoVenta(10000) === 500);
+revisar('Pausada o de otra tienda no rige', !$promo(8, 'PORCENTAJE', 1, 1000, estado: 'PAUSADA')->rigeEn('2026-11-05', 1)
+    && !$promo(9, 'PORCENTAJE', 1, 1000, tienda: 2)->rigeEn('2026-11-05', 1) && $promo(10, 'PORCENTAJE', 1, 1000)->rigeEn('2026-11-30', 3)
+    && !$promo(10, 'PORCENTAJE', 1, 1000)->rigeEn('2026-12-01', 3));
+$noValida = function (callable $crear): bool {
+    try { $crear(); return false; } catch (InvalidArgumentException) { return true; }
+};
+revisar('No hay promociones de más de 90 % ni packs de 1', $noValida(fn() => $promo(11, 'PORCENTAJE', 1, 9500))
+    && $noValida(fn() => $promo(12, 'PACK', 1, null, 100, 1)) && $noValida(fn() => $promo(13, 'VENTA', 1, 500, null, null, 0)));
+
+$r = Descuentos::calcular([1 => $leche, 8 => $papa], [$promo(1, 'PORCENTAJE', 1, 1000), $promo(4, 'PACK', 1, null, 1000, 3)]);
+revisar('Se usa la promoción que más ahorra: pack (3.50) y no 10 % (1.35)', $r['lineas'][1]['descuento'] === 350 && $r['lineas'][1]['id_promocion'] === 4);
+revisar('Subtotal 16.63, descuento 3.50, total 13.13', $r['subtotal'] === 1663 && $r['descuentoTotal'] === 350 && $r['total'] === 1313);
+
+$manual = ['unidad' => 'PORCENTAJE', 'valor' => 1000, 'motivo' => 'Empaque dañado'];
+$r = Descuentos::calcular([1 => $leche, 8 => $papa], [], $manual, Cajero::TOPE_DESCUENTO);
+revisar('Descuento manual 10 % de 16.63 = 1.66 repartido sin perder céntimos', $r['general']['monto'] === 166 && $r['total'] === 1497
+    && $r['lineas'][1]['general'] + $r['lineas'][8]['general'] === 166 && $r['lineas'][1]['neto'] + $r['lineas'][8]['neto'] === 1497);
+$r = Descuentos::calcular([1 => $leche], [$promo(7, 'VENTA', null, 2000, null, null, 0)], $manual, Cajero::TOPE_DESCUENTO);
+revisar('Promoción de toda la compra y descuento manual no se suman: va el mayor (20 %)', $r['general']['origen'] === 'PROMOCION'
+    && $r['general']['monto'] === 270 && $r['manualIgnorado']);
+$rechazaCalculo = function (callable $calc): bool {
+    try { $calc(); return false; } catch (ReglaNegocioException) { return true; }
+};
+revisar('El cajero no pasa su tope (10 %) ni en soles', $rechazaCalculo(fn() => Descuentos::calcular([1 => $leche], [], ['unidad' => 'PORCENTAJE', 'valor' => 1500, 'motivo' => 'x'], 1000))
+    && $rechazaCalculo(fn() => Descuentos::calcular([1 => $leche], [], ['unidad' => 'MONTO', 'valor' => 136, 'motivo' => 'x'], 1000))
+    && !$rechazaCalculo(fn() => Descuentos::calcular([1 => $leche], [], ['unidad' => 'MONTO', 'valor' => 135, 'motivo' => 'x'], 1000)));
+revisar('Sin motivo o sin permiso (tope 0) no hay descuento manual', $rechazaCalculo(fn() => Descuentos::calcular([1 => $leche], [], ['unidad' => 'MONTO', 'valor' => 50, 'motivo' => ' '], 1000))
+    && $rechazaCalculo(fn() => Descuentos::calcular([1 => $leche], [], $manual, 0)));
+$rosaU = new Administrador(1, 'Rosa', 'Q', '12345678', 'ACTIVO', 1);
+$luisU = new Cajero(2, 'Luis', 'R', '23456789', 'ACTIVO', 1);
+revisar('Permisos: el administrador maneja promociones de su tienda y de la cadena; el cajero no, pero descuenta hasta 10 %',
+    $rosaU->puedeAdministrarPromociones(1) && !$rosaU->puedeAdministrarPromociones(2) && $rosaU->puedeAdministrarPromociones(null)
+    && !$luisU->puedeAdministrarPromociones(1) && $luisU->topeDescuentoManual() === 1000 && $rosaU->topeDescuentoManual() === 0);
+$reparto = Descuentos::repartir(100, [1 => 500, 2 => 500, 3 => 500]);
+revisar('Repartir 1.00 en 3 partes iguales: 34 + 33 + 33', array_sum($reparto) === 100 && max($reparto) === 34 && min($reparto) === 33);
+
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());
 

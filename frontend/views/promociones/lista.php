@@ -82,7 +82,7 @@ require __DIR__ . '/../parciales/guia.php';
                         <?= campoCsrf($csrf) ?>
                         <input type="hidden" name="id_promocion" value="<?= $pr->getIdPromocion() ?>">
                         <input type="hidden" name="estado" value="<?= $pr->estaPausada() ? 'ACTIVA' : 'PAUSADA' ?>">
-                        <button class="secundario chico" type="submit"><?= icono($pr->estaPausada() ? 'reanudar' : 'pausa') ?><?= $pr->estaPausada() ? 'Reactivar' : 'Pausar' ?></button>
+                        <?php if ($pr->estaPausada()): ?><button class="secundario chico" type="submit"><?= icono('reanudar') ?>Reactivar</button><?php else: ?><button class="secundario chico" type="submit"><?= icono('pausa') ?>Pausar</button><?php endif; ?>
                     </form>
                 <?php endif; ?>
             </td>

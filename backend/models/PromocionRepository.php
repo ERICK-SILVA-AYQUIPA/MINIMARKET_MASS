@@ -76,17 +76,14 @@ class PromocionRepository
     /** @return array<int, string> id_promocion => nombre, para mostrar el comprobante */
     public function nombres(array $ids): array
     {
-        $ids = array_values(array_unique(array_map('intval', $ids)));
-        if ($ids === []) {
-            return [];
-        }
-        // Solo enteros: se arma la lista de ? con su cantidad
-        $consulta = $this->db->prepare('SELECT id_promocion, nombre FROM promocion WHERE id_promocion IN ('
-            . implode(',', array_fill(0, count($ids), '?')) . ')');
-        $consulta->execute($ids);
         $nombres = [];
-        foreach ($consulta->fetchAll() as $f) {
-            $nombres[(int) $f['id_promocion']] = $f['nombre'];
+        $consulta = $this->db->prepare('SELECT nombre FROM promocion WHERE id_promocion = :id');
+        foreach (array_unique(array_map('intval', $ids)) as $id) {
+            $consulta->execute(['id' => $id]);
+            $nombre = $consulta->fetchColumn();
+            if ($nombre !== false) {
+                $nombres[$id] = (string) $nombre;
+            }
         }
         return $nombres;
     }

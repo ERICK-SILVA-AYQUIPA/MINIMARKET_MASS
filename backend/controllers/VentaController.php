@@ -205,11 +205,15 @@ class VentaController extends Controller
         // Promociones de hoy: el cartel de oferta en cada producto y las de toda la compra arriba del cobro
         $ofertas = [];
         $promocionesVenta = [];
+        $paraJs = [];
         $alPesoPorId = [];
         foreach ($productos as $fila) {
             $alPesoPorId[$fila['producto']->getIdProducto()] = $fila['producto']->esAlPeso();
         }
         foreach ($this->promociones->vigentes($tienda->getIdTienda()) as $promo) {
+            $paraJs[] = ['tipo' => $promo->getTipo(), 'nombre' => $promo->getNombre(), 'producto' => $promo->getIdProducto(),
+                'porcentaje' => $promo->getPorcentaje(), 'precio' => $promo->getPrecio(), 'pack' => $promo->getCantidadPack(),
+                'minimo' => $promo->getMontoMinimo()];
             if ($promo->esDeVenta()) {
                 $promocionesVenta[] = $promo;
             } elseif (isset($alPesoPorId[(int) $promo->getIdProducto()])) {
@@ -217,6 +221,7 @@ class VentaController extends Controller
             }
         }
         $topeDescuento = $this->usuario->topeDescuentoManual();
+        $datosPromociones = (string) json_encode(['promociones' => $paraJs, 'tope' => $topeDescuento]);
         unset($nombresCategoria, $id, $c, $producto, $idCategoria, $promo, $fila);
         $this->vista('ventas/nueva', get_defined_vars());
     }
@@ -258,43 +263,6 @@ class VentaController extends Controller
             '/?ruta=comprobante&serie=' . urlencode($r['serie']) . '&numero=' . $r['numero'],
             'Venta registrada.'
         );
-    }
-
-    /**
-     * GET /?ruta=venta_calcular&producto[]=1&cantidad[]=2&descuento_valor=5&descuento_unidad=PORCENTAJE&descuento_motivo=...
-     * Vista previa del carrito en JSON: promociones de hoy, descuento manual y total. No guarda nada;
-     * al registrar, el servidor vuelve a calcular todo.
-     */
-    public function calcular(array $get): void
-    {
-        header('Content-Type: application/json; charset=UTF-8');
-        header('Cache-Control: no-store');
-        if ($this->usuario === null || !$this->usuario->puedeVender()) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Solo un cajero puede registrar ventas.'], JSON_UNESCAPED_UNICODE);
-            return;
-        }
-        try {
-            $r = $this->servicio->cotizar($this->usuario, $this->lineasDelFormulario($get), $this->descuentoDelFormulario($get));
-        } catch (ReglaNegocioException $ex) {
-            http_response_code(422);
-            echo json_encode(['error' => $ex->getMessage()], JSON_UNESCAPED_UNICODE);
-            return;
-        }
-        $lineas = [];
-        foreach ($r['lineas'] as $id => $l) {
-            $lineas[(string) $id] = ['importe' => $l['importe'], 'descuento' => $l['descuento'], 'promocion' => $l['promocion'],
-                'general' => $l['general'], 'neto' => $l['neto']];
-        }
-        echo json_encode([
-            'subtotal'           => $r['subtotal'],
-            'descuentoProductos' => $r['descuentoProductos'],
-            'general'            => $r['general'] === null ? null : ['origen' => $r['general']['origen'], 'nombre' => $r['general']['nombre'], 'monto' => $r['general']['monto']],
-            'manualIgnorado'     => $r['manualIgnorado'],
-            'descuentoTotal'     => $r['descuentoTotal'],
-            'total'              => $r['total'],
-            'lineas'             => (object) $lineas,
-        ], JSON_UNESCAPED_UNICODE);
     }
 
     /** @return array{valor: string, unidad: string, motivo: string} */

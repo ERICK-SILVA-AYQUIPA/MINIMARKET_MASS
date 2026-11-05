@@ -296,7 +296,8 @@ class ConsultaMovilRepository
     public function detalleVenta(int $idVenta): array
     {
         $consulta = $this->db->prepare(
-            'SELECT dv.id_producto, p.nombre_producto, p.codigo_barras, u.abreviatura, dv.cantidad, dv.precio_unitario, dv.importe
+            'SELECT dv.id_producto, p.nombre_producto, p.codigo_barras, u.abreviatura, dv.cantidad, dv.precio_unitario, dv.importe,
+                    dv.descuento + dv.descuento_general AS descuento
                FROM detalle_venta dv
                JOIN producto p      ON p.id_producto = dv.id_producto
                JOIN unidad_medida u ON u.id_unidad = p.id_unidad
@@ -312,6 +313,7 @@ class ConsultaMovilRepository
             'cantidad'        => $f['cantidad'],
             'precio_unitario' => $f['precio_unitario'],
             'importe'         => $f['importe'],
+            'descuento'       => $f['descuento'],   // promociones y descuento general (migracion 015)
         ], $consulta->fetchAll());
     }
 

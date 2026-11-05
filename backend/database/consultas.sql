@@ -226,10 +226,10 @@ SELECT v.id_venta, v.total
    AND ROUND(v.total - COALESCE((SELECT SUM(pv.monto_pagado) FROM pago_venta pv
                                   WHERE pv.id_venta = v.id_venta AND pv.estado = 'VALIDO'), 0), 2) <> 0;
 
--- 21. Ventas cuyo detalle no suma el total.
+-- 21. Ventas cuyo detalle (importe menos sus descuentos, migracion 015) no suma el total.
 SELECT v.id_venta, v.total
   FROM venta v
- WHERE ROUND(v.total - (SELECT SUM(d.importe) FROM detalle_venta d WHERE d.id_venta = v.id_venta), 2) <> 0;
+ WHERE ROUND(v.total - (SELECT SUM(d.importe - d.descuento - d.descuento_general) FROM detalle_venta d WHERE d.id_venta = v.id_venta), 2) <> 0;
 
 -- 22. Facturas cuyo cliente no tiene RUC.
 SELECT v.id_venta
