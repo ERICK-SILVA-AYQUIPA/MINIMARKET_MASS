@@ -1,7 +1,7 @@
 # Revision automatica en cada push y pull request. Tres trabajos que corren a la vez:
 # - pruebas: sintaxis de todos los .php, pruebas unitarias, revision de seguridad del codigo, pruebas web por rol,
 #   pruebas de integracion, API de la app Android (contra MySQL en Docker) y, al final, la prueba de restauracion
-#   (respaldo -> se borra todo -> restaurar -> verificar_instalacion.php).
+#   (respaldo -> se borra todo -> restaurar -> verificar_instalacion.php), con Docker y sin Docker.
 # - analisis: PHPStan nivel 5 (solo falla con errores nuevos: los que ya habia estan en phpstan-baseline.neon)
 #   y que los scripts .ps1 y .sh se puedan leer.
 # - android: pruebas de la app (CarritoTest, CodigoLeidoTest...) y el APK de prueba, que queda para descargar.
@@ -60,6 +60,19 @@ jobs:
       # Al final: borra la base del contenedor (docker compose down -v) y la devuelve desde el respaldo
       - name: Prueba de restauracion (respaldo, se borra todo, restaurar, verificar)
         run: bash backend/tests/restauracion.sh
+
+      # Lo mismo sin docker exec: los scripts usan el mysqldump y el mysql del runner, como en Laragon
+      # o en un servidor con MySQL instalado (RESPALDO_MODO=local). La base sigue en el contenedor, por el puerto 3307.
+      - name: Prueba de restauracion sin Docker (RESPALDO_MODO=local)
+        env:
+          RESPALDO_MODO: local
+          RESPALDO_DB_USER: root
+          RESPALDO_DB_PASSWORD: cambia_esta_clave_root
+          RESPALDO_DB_HOST: 127.0.0.1
+          RESPALDO_DB_PORT: '3307'
+        run: |
+          command -v mysqldump > /dev/null || { sudo apt-get update -q && sudo apt-get install -y -q mysql-client; }
+          bash backend/tests/restauracion.sh
 
       - name: Log de MySQL si algo fallo
         if: failure()

@@ -329,6 +329,14 @@ tfoot td, tr.total td, tr.total th { font-weight: 700; background: var(--superfi
 .aviso.info::before { content: "i"; background: var(--azul); }
 .aviso.alerta { background: var(--ambar-fondo); border-color: #f5d68a; color: var(--ambar); }
 .aviso.alerta::before { content: "!"; background: #b45309; }
+/* Cierre por inactividad (app.js): flota abajo, encima de todo, con cuenta regresiva y un boton */
+.aviso-inactividad {
+    position: fixed; z-index: 90; left: 50%; transform: translateX(-50%); bottom: calc(var(--s-4) + env(safe-area-inset-bottom, 0px));
+    width: min(560px, calc(100% - 32px)); margin: 0; align-items: center; box-shadow: 0 12px 32px rgba(15, 23, 42, .25);
+}
+.aviso-inactividad span { flex: 1; }
+.aviso-inactividad button { flex: none; }
+.con-barra-inferior .aviso-inactividad { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 .aviso a { color: inherit; font-weight: 700; }
 
 /* Estado vacío */
@@ -1484,3 +1492,18 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
 }
 .cuadre tfoot td { background: none; }
 .cuadre-diferencia.cuadra td { background: var(--verde-fondo); } .cuadre-diferencia.sobra td { background: var(--ambar-fondo); } .cuadre-diferencia.falta td { background: var(--rojo-fondo); }
+
+/* Reportes: barras horizontales (productos, cajeros, tiendas), una barra por fila con su valor escrito al lado */
+.barras-h { list-style: none; margin: 0 0 var(--s-3); padding: 0; display: grid; gap: var(--s-1); }
+.barras-h li { display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; align-items: center; gap: var(--s-2); font-size: .82rem; }
+.barras-h .nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--texto); }
+.barras-h .pista { height: 12px; }
+.barras-h .pista span { display: block; height: 100%; min-width: 2px; background: var(--tinta); border-radius: 0 4px 4px 0; transition: background var(--dur-1) var(--curva); }
+.barras-h li:hover .pista span { background: var(--marca-fuerte); }
+.barras-h .valor { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--suave); }
+.alcance-reporte, .atajos-fecha { margin-bottom: var(--s-3); }
+.alcance-reporte a { display: inline-flex; align-items: center; gap: var(--s-1); }
+.panel .grafico { margin-bottom: var(--s-3); }
+/* Reportes: dos columnas como maximo, para que cada grafico y su tabla tengan ancho */
+.rejilla-reportes { grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); }
+.grafico .barra small:empty { visibility: hidden; }
