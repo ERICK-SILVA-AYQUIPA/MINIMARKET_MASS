@@ -250,6 +250,9 @@ $matriz = [
     'vencimientos'         => [200, 403, 200],
     'vencimientos&dias=7'  => [200, 403, 200],
     'reponer'              => [200, 403, 200],
+    'productos_app'        => [200, 403, 200],
+    'productos_app&tienda=2&desde=2026-01-01&hasta=2026-02-30&q=%25' => [200, 403, 200],
+    'productos_app&tienda=x&pagina=-1' => [200, 403, 200],
     'reponer_csv'          => [200, 403, 200],
     'utilidad'             => [200, 403, 403],
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
@@ -398,6 +401,10 @@ revisar('La ficha de un producto marca Productos y la pestaña Catálogo', $rosa
 revisar('Productos avisa con números lo que vence y lo que hay que reponer; el cajero no los ve', $carmen->get('ruta=stock') === 200
     && $carmen->tiene('class="menu-cuenta"') && $carmen->tiene('class="pestana-cuenta reponer"') && $carmen->tiene('class="pestanas-rotulo"')
     && $luis->get('ruta=stock') === 200 && !$luis->tiene('menu-cuenta') && !$luis->tiene('pestana-cuenta'));
+revisar('"Desde la app" es una pestaña de Productos para el almacenero y el administrador, no para el cajero',
+    $carmen->get('ruta=productos_app') === 200 && $carmen->tiene('<a href="/?ruta=productos_app" aria-current="page">')
+    && ($carmen->tiene('href="#app-') || $carmen->tiene('Todavía nadie registró productos desde la app'))
+    && $rosa->get('ruta=stock') === 200 && $rosa->tiene('ruta=productos_app"') && $luis->get('ruta=stock') === 200 && !$luis->tiene('ruta=productos_app'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /js/app.js y el ticket ninguno', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200 && !$luis->tiene('<script'));

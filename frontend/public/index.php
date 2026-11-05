@@ -217,6 +217,10 @@ try {
                 $productoController->stockTiendas();
                 break;
 
+            case 'productos_app':
+                $productoController->desdeApp($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('q'), $leer('pagina'));
+                break;
+
             case 'stock_csv':
                 $productoController->stockCsv();
                 break;
