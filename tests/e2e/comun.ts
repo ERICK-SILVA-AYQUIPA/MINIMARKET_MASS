@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Miguel Nunez: cajero de la tienda 3. En la base recién creada no tiene turno abierto (datos.sql). */
+/** Miguel Núñez: cajero de la tienda 3. En la base recién creada no tiene turno abierto (datos.sql). */
 export const CAJERO = { dni: '70000008', clave: 'Mass2026!', nombre: 'Miguel' };
 
 /** Entra con DNI y clave como lo haría la persona, y espera a que se vaya la bienvenida. */

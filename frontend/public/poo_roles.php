@@ -8,8 +8,8 @@ require __DIR__ . '/../../backend/models/Almacenero.php';
 
 /** @var Usuario[] $usuarios */
 $usuarios = [
-    new Administrador(1, 'Rosa', 'Quispe Huaman', '70000001', 'ACTIVO', 1),
-    new Cajero(2, 'Luis', 'Caceres Pinto', '70000002', 'ACTIVO', 1),
+    new Administrador(1, 'Rosa', 'Quispe Huamán', '70000001', 'ACTIVO', 1),
+    new Cajero(2, 'Luis', 'Cáceres Pinto', '70000002', 'ACTIVO', 1),
     new Almacenero(3, 'Carmen', 'Ccori Flores', '70000003', 'ACTIVO', 1),
 ];
 

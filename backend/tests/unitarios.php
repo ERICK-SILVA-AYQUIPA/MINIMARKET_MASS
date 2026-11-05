@@ -185,7 +185,8 @@ revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-1
 revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
 
 echo "Fotos de producto\n";
-revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Embutidos y huevos') === 'embutido'
+revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Lácteos') === 'lacteo'
+    && FotoProducto::tono('Lácteos') === 1 && FotoProducto::icono('Embutidos y huevos') === 'embutido'
     && FotoProducto::icono('Frutas y verduras') === 'fruta' && FotoProducto::tono('Bebidas') === 3);
 revisar('Una categoría nueva usa el icono general y siempre el mismo color', FotoProducto::icono('Mascotas') === 'catalogo'
     && FotoProducto::tono('Mascotas') === FotoProducto::tono('MASCOTAS') && FotoProducto::tono('Mascotas') >= 1 && FotoProducto::tono('Mascotas') <= 8);
@@ -215,7 +216,7 @@ revisar('Quitar la foto borra el archivo', $fotos->borrar(5) && $fotos->url(5) =
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);
-$luis = new Cajero(2, 'Luis', 'Caceres', '70000002', 'ACTIVO', 1);
+$luis = new Cajero(2, 'Luis', 'Cáceres', '70000002', 'ACTIVO', 1);
 $carmen = new Almacenero(3, 'Carmen', 'Flores', '70000003', 'ACTIVO', 1);
 $cesado = new Cajero(9, 'Ana', 'Ruiz', '70000099', 'INACTIVO', 1);
 revisar('Solo el cajero vende', $luis->puedeVender() && !$rosa->puedeVender() && !$carmen->puedeVender());

@@ -88,6 +88,39 @@ $stock = fn(int $tienda, int $producto): string => valor($db,
     'SELECT cantidad_actual FROM stock WHERE id_tienda = ? AND id_producto = ?', [$tienda, $producto]);
 $ventasTotales = fn(): string => valor($db, 'SELECT COUNT(*) FROM venta');
 
+echo "Tildes y utf8mb4\n";
+revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',
+    valor($db, 'SELECT DEFAULT_CHARACTER_SET_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()') === 'utf8mb4'
+    && valor($db, 'SELECT @@character_set_connection') === 'utf8mb4'
+    && valor($db, "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE()
+                   AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'") === '0');
+revisar('Los datos de ejemplo llevan tildes y eñes (migración 015)',
+    valor($db, 'SELECT nombre_categoria FROM categoria WHERE id_categoria = 2') === 'Lácteos'
+    && valor($db, 'SELECT nombre_marca FROM marca WHERE id_marca = 2') === 'Costeño'
+    && valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 7") === 'Lucía Zegarra Paredes'
+    && valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 8") === 'Miguel Núñez Cuadros'
+    && valor($db, 'SELECT direccion FROM tienda WHERE id_tienda = 1') === 'Dirección de ejemplo, Cayma'
+    && valor($db, 'SELECT nombre_producto FROM producto WHERE id_producto = 10') === 'Azúcar rubia Costeño 1 kg');
+revisar('...guardadas como UTF-8 de verdad, no como texto mal convertido ("NÃºÃ±ez")',
+    valor($db, 'SELECT HEX(apellidos) FROM empleado WHERE id_empleado = 8') === strtoupper(bin2hex('Núñez Cuadros'))
+    && valor($db, 'SELECT CHAR_LENGTH(apellidos) FROM empleado WHERE id_empleado = 8') === '13');
+revisar('No queda ningún texto de ejemplo sin tilde',
+    valor($db, "SELECT (SELECT COUNT(*) FROM producto WHERE nombre_producto COLLATE utf8mb4_bin
+                        REGEXP 'Costeno|Atun |Azucar|Platano|Bolivar|Cafe |Nescafe|tallarin|Frejol|Lejia|Jabon|Panales|higienic|clasic|[Ll]imon')
+                  + (SELECT COUNT(*) FROM categoria WHERE nombre_categoria COLLATE utf8mb4_bin = 'Lacteos')
+                  + (SELECT COUNT(*) FROM tienda WHERE direccion COLLATE utf8mb4_bin LIKE 'Direccion%')
+                  + (SELECT COUNT(*) FROM empleado WHERE CONCAT(nombres, ' ', apellidos) COLLATE utf8mb4_bin
+                        REGEXP 'Lucia|Nunez|Sofia|Caceres|Huaman|Avila')
+                  + (SELECT COUNT(*) FROM tipo_movimiento WHERE nombre_movimiento COLLATE utf8mb4_bin REGEXP 'ANULACION|DEVOLUCION|MERCADERIA')") === '0');
+revisar('Buscar sin tilde encuentra el texto con tilde ("azucar" -> "Azúcar")',
+    valor($db, "SELECT COUNT(*) FROM producto WHERE nombre_producto LIKE '%azucar%'") === '3'
+    && valor($db, "SELECT id_categoria FROM categoria WHERE nombre_categoria = 'lacteos'") === '2');
+$cambiadas = 0;
+foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../database/migraciones/015_tildes_en_datos.sql')) as $sentencia) {
+    $cambiadas += (int) $db->exec($sentencia);
+}
+revisar('Correr la migración 015 otra vez no cambia nada', $cambiadas === 0);
+
 echo "Sucursal elegida por el administrador\n";
 $rosaEnCerro = $rosa->enTienda(2);
 revisar('Solo el administrador activo puede elegir sucursal',
@@ -270,8 +303,8 @@ $caja->revisarCierre($lucia, $idTurno2, 'RECONTEO', 'Cuenta de nuevo las monedas
 revisar('Lucía pide reconteo: queda RECONTEO con quién y cuándo lo revisó', $estadoTurno($idTurno2) === 'RECONTEO'
     && valor($db, 'SELECT id_empleado_revisa FROM caja_turno WHERE id_caja_turno = ?', [$idTurno2]) === '7');
 rechaza('En reconteo tampoco abre otro turno', fn() => $caja->abrirTurno($miguel, 6, '100.00'));
-rechaza('No se desactiva a un cajero que debe volver a contar', fn() => $personal->editar($lucia, 8, 'Miguel', 'Nunez Cuadros', 2, 'INACTIVO'));
-rechaza('...ni se le cambia el rol', fn() => $personal->editar($lucia, 8, 'Miguel', 'Nunez Cuadros', 3, 'ACTIVO'));
+rechaza('No se desactiva a un cajero que debe volver a contar', fn() => $personal->editar($lucia, 8, 'Miguel', 'Núñez Cuadros', 2, 'INACTIVO'));
+rechaza('...ni se le cambia el rol', fn() => $personal->editar($lucia, 8, 'Miguel', 'Núñez Cuadros', 3, 'ACTIVO'));
 rechaza('Un conteo con una denominación que no existe', fn() => $caja->recontarTurno($miguel, '', ['3.00' => '1']));
 rechaza('Un conteo con cantidad negativa', fn() => $caja->recontarTurno($miguel, '', ['100.00' => '-1']));
 // El total escrito no manda: el servidor suma el desglose (1 x 50 + 2 x 20 + 1 x 10 = 100.00)
@@ -460,6 +493,7 @@ $inicial = CatalogoCsv::leer((string) file_get_contents(__DIR__ . '/../database/
 $revision = $catalogo->importarCatalogo($rosa, $inicial['filas'], true);
 revisar("El catálogo de ejemplo (" . count($inicial['filas']) . " filas) se revisa sin errores ni productos nuevos",
     $inicial['errores'] === [] && $revision['errores'] === [] && $revision['creados'] === 0 && $revision['sinCambios'] >= count($inicial['filas']) - 2);
+// La fila 2 escribe "Lacteos" sin tilde, como un CSV viejo: igual encuentra "Lácteos" y no crea otra categoria
 $filasCsv = [
     2 => ['codigo_barras' => '7750000000011', 'nombre' => 'Leche evaporada Gloria entera 400 g', 'categoria' => 'Lacteos', 'marca' => 'Gloria', 'unidad' => 'und', 'precio_venta' => '4.90', 'al_peso' => 'N'],
     3 => ['codigo_barras' => '7751234000017', 'nombre' => 'Comida para perro Ricocan adulto 1 kg', 'categoria' => 'Mascotas', 'marca' => 'Ricocan', 'unidad' => 'UND', 'precio_venta' => '9.90', 'al_peso' => 'no'],
@@ -513,9 +547,9 @@ revisar('...con la clave en hash, no en texto', password_verify('Caja2026x', val
 revisar('...y la cambia en su primer ingreso (la clave la eligió Rosa)', valor($db, 'SELECT debe_cambiar_clave FROM empleado WHERE id_empleado = ?', [$idNuevo]) === 'S');
 rechaza('DNI repetido', fn() => $personal->crear($rosa, 'Otra', 'Persona', '70000002', 2, 'Caja2026x'));
 rechaza('Clave sin números', fn() => $personal->crear($rosa, 'Otra', 'Persona', '70000011', 2, 'solamenteletras'));
-rechaza('Jorge no edita personal de Cayma', fn() => $personal->editar($jorge, 2, 'Luis', 'Caceres Pinto', 2, 'INACTIVO'));
-rechaza('Rosa no se desactiva a sí misma', fn() => $personal->editar($rosa, 1, 'Rosa', 'Quispe Huaman', 1, 'INACTIVO'));
-rechaza('No se desactiva a un cajero con turno abierto', fn() => $personal->editar($rosa, 2, 'Luis', 'Caceres Pinto', 2, 'INACTIVO'));
+rechaza('Jorge no edita personal de Cayma', fn() => $personal->editar($jorge, 2, 'Luis', 'Cáceres Pinto', 2, 'INACTIVO'));
+rechaza('Rosa no se desactiva a sí misma', fn() => $personal->editar($rosa, 1, 'Rosa', 'Quispe Huamán', 1, 'INACTIVO'));
+rechaza('No se desactiva a un cajero con turno abierto', fn() => $personal->editar($rosa, 2, 'Luis', 'Cáceres Pinto', 2, 'INACTIVO'));
 $personal->editar($rosa, $idNuevo, 'Diana', 'Torres Lazo', 3, 'INACTIVO');
 revisar('Diana pasa a almacenera INACTIVA', valor($db, 'SELECT CONCAT(id_rol, estado) FROM empleado WHERE id_empleado = ?', [$idNuevo]) === '3INACTIVO');
 $personal->cambiarMiClave($luis, 'Mass2026!', 'NuevaClave1', 'NuevaClave1');
@@ -680,7 +714,7 @@ rechaza('No se desactiva la caja 1 de Cayma: Luis tiene el turno abierto', fn() 
 $tiendas->cambiarEstadoCaja($rosa, 2, 'INACTIVA');
 revisar('Rosa desactiva la caja 2 de Cayma', valor($db, 'SELECT estado FROM caja WHERE id_caja = 2') === 'INACTIVA');
 rechaza('No se desactiva una tienda con turnos abiertos', fn() => $tiendas->editar($rosa, 1,
-    ['nombre' => 'Mass Cayma', 'direccion' => 'Direccion de ejemplo, Cayma', 'telefono' => '', 'distrito' => '1'], 'INACTIVA'));
+    ['nombre' => 'Mass Cayma', 'direccion' => 'Dirección de ejemplo, Cayma', 'telefono' => '', 'distrito' => '1'], 'INACTIVA'));
 $tiendas->editar($elena, $idTienda, ['nombre' => 'Mass Sachaca', 'direccion' => 'Av. de prueba 123', 'telefono' => '', 'distrito' => '1'], 'INACTIVA');
 $cajeroSachaca = $personal->crear($elena, 'Raul', 'Soto', '70000043', 2, 'Raul2026x');
 $raul = $empleados->buscarPorId($cajeroSachaca);

@@ -126,7 +126,8 @@ final class FotoProducto
     /** @return array{0: string, 1: int}|array{} */
     private static function buscar(string $categoria): array
     {
-        $nombre = mb_strtolower($categoria);
+        // Sin tildes: "Lácteos" y "Lacteos" son la misma categoria
+        $nombre = strtr(mb_strtolower($categoria), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u']);
         foreach (self::CATEGORIAS as $palabra => $dibujo) {
             if (str_contains($nombre, $palabra)) {
                 return $dibujo;
