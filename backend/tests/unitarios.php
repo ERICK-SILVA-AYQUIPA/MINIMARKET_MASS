@@ -36,6 +36,9 @@ require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require __DIR__ . '/../config/Migraciones.php';
+require_once __DIR__ . '/../models/exportar/LibroExcel.php';
+require_once __DIR__ . '/../models/exportar/DocumentoPdf.php';
+require_once __DIR__ . '/../controllers/ReporteController.php';
 
 $ok = 0;
 $fallas = 0;
@@ -110,6 +113,11 @@ revisar('Menos de 8 caracteres no', Clave::problema('ab12') !== null);
 revisar('Solo letras no', Clave::problema('solamente') !== null);
 revisar('Solo números no', Clave::problema('12345678') !== null);
 revisar('Más de 72 caracteres no', Clave::problema(str_repeat('a1', 37)) !== null);
+revisar('Como clave propia, la de prueba no (ni en minúsculas)', Clave::problemaPropia('Mass2026!', '70000002') !== null && Clave::problemaPropia('mass2026!', '70000002') !== null);
+revisar('Como clave propia, una de las más usadas no', Clave::problemaPropia('Password123', '70000002') !== null);
+revisar('Como clave propia, no puede llevar el DNI', Clave::problemaPropia('x70000002y', '70000002') !== null);
+revisar('Una clave propia buena sí', Clave::problemaPropia('Cebolla-roja7', '70000002') === null);
+revisar('La clave propia también sigue la regla general', Clave::problemaPropia('corta1', '70000002') !== null);
 revisar('El hash se verifica y no guarda la clave', password_verify('Mass2026!', $h = Clave::hash('Mass2026!')) && !str_contains($h, 'Mass2026'));
 
 echo "Producto y stock\n";
@@ -188,7 +196,8 @@ revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-1
 revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
 
 echo "Fotos de producto\n";
-revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Embutidos y huevos') === 'embutido'
+revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Lácteos') === 'lacteo'
+    && FotoProducto::tono('Lácteos') === 1 && FotoProducto::icono('Embutidos y huevos') === 'embutido'
     && FotoProducto::icono('Frutas y verduras') === 'fruta' && FotoProducto::tono('Bebidas') === 3);
 revisar('Una categoría nueva usa el icono general y siempre el mismo color', FotoProducto::icono('Mascotas') === 'catalogo'
     && FotoProducto::tono('Mascotas') === FotoProducto::tono('MASCOTAS') && FotoProducto::tono('Mascotas') >= 1 && FotoProducto::tono('Mascotas') <= 8);
@@ -218,7 +227,7 @@ revisar('Quitar la foto borra el archivo', $fotos->borrar(5) && $fotos->url(5) =
 
 echo "Roles y permisos\n";
 $rosa = new Administrador(1, 'Rosa', 'Quispe', '70000001', 'ACTIVO', 1);
-$luis = new Cajero(2, 'Luis', 'Caceres', '70000002', 'ACTIVO', 1);
+$luis = new Cajero(2, 'Luis', 'Cáceres', '70000002', 'ACTIVO', 1);
 $carmen = new Almacenero(3, 'Carmen', 'Flores', '70000003', 'ACTIVO', 1);
 $cesado = new Cajero(9, 'Ana', 'Ruiz', '70000099', 'INACTIVO', 1);
 revisar('Solo el cajero vende', $luis->puedeVender() && !$rosa->puedeVender() && !$carmen->puedeVender());
@@ -307,6 +316,42 @@ revisar('Órdenes: las emiten almacenero y administrador de SU tienda, no el caj
     && !$almaOc->puedeEmitirOrdenCompra(2) && !$cajeroOc->puedeEmitirOrdenCompra(1));
 revisar('Anular o cerrar una orden: solo el administrador de la tienda', $adminOc->puedeCancelarOrdenCompra(1) && !$adminOc->puedeCancelarOrdenCompra(2)
     && !$almaOc->puedeCancelarOrdenCompra(1));
+echo "Reportes: mes anterior, Excel y PDF\n";
+revisar('El mes anterior de un día cualquiera es el mismo día', ReporteController::mesAnterior('2026-10-15') === '2026-09-15');
+revisar('Fin de mes con fin de mes: 31/10 -> 30/09 y 30/09 -> 31/08', ReporteController::mesAnterior('2026-10-31') === '2026-09-30'
+    && ReporteController::mesAnterior('2026-09-30') === '2026-08-31');
+revisar('El 30 de marzo cae en el último de febrero; enero pasa a diciembre del año anterior',
+    ReporteController::mesAnterior('2026-03-30') === '2026-02-28' && ReporteController::mesAnterior('2026-01-10') === '2025-12-10');
+$libro = new LibroExcel();
+$libro->agregarHoja('Productos más vendidos', ['Producto', 'Importe'], [['=HYPERLINK("x")', 12.5], ['Leche <Gloria> & más', '3']], ['texto', 'soles']);
+$libro->agregarHoja('Productos más vendidos', ['A'], []);
+$xlsx = $libro->contenido();
+revisar('El Excel es un ZIP con libro, hojas y estilos', str_starts_with($xlsx, "PK\x03\x04") && str_contains($xlsx, 'xl/workbook.xml')
+    && str_contains($xlsx, 'xl/worksheets/sheet2.xml') && str_contains($xlsx, 'xl/styles.xml') && str_contains($xlsx, "PK\x05\x06"));
+revisar('Los textos van como texto (una fórmula no se ejecuta) y escapados; los montos como número',
+    str_contains($xlsx, '<t xml:space="preserve">=HYPERLINK(&quot;x&quot;)</t>') && !str_contains($xlsx, '<f>')
+    && str_contains($xlsx, 'Leche &lt;Gloria&gt; &amp; más') && str_contains($xlsx, 's="2"><v>12.5</v>') && str_contains($xlsx, 's="2"><v>3</v>'));
+revisar('Dos hojas con el mismo nombre no rompen el libro', str_contains($xlsx, 'name="Productos más vendidos"') && str_contains($xlsx, 'name="Productos más vendidos 2"'));
+if (class_exists('ZipArchive')) {
+    $temporal = tempnam(sys_get_temp_dir(), 'xlsx');
+    file_put_contents($temporal, $xlsx);
+    $zip = new ZipArchive();
+    revisar('PHP abre el Excel como ZIP válido (CRC y directorio central)', $zip->open($temporal, ZipArchive::CHECKCONS) === true
+        && $zip->numFiles === 7 && simplexml_load_string((string) $zip->getFromName('xl/worksheets/sheet1.xml')) !== false);
+    $zip->close();
+    @unlink($temporal);
+}
+$pdf = new DocumentoPdf('Prueba', 'Pie');
+$pdf->titulo('Reporte de ventas: Mass Cayma');
+$pdf->barras(['Leche', 'Pan (francés)'], [10.0, 5.0], ['S/ 10.00', 'S/ 5.00']);
+$pdf->tabla([['Producto', 3, 'izq'], ['Importe', 1, 'der']], array_fill(0, 120, ['Leche \\ (Gloria)', 'S/ 1.00']));
+$documento = $pdf->contenido();
+preg_match_all('/\/Type \/Page\b/', $documento, $paginas);
+preg_match('/startxref\n(\d+)/', $documento, $xref);
+revisar('El PDF empieza y termina bien y su tabla larga sigue en otra página', str_starts_with($documento, '%PDF-1.4')
+    && str_ends_with($documento, "%%EOF\n") && count($paginas[0]) >= 2 && str_contains($documento, "(P\xE1gina 1 de "));
+revisar('El PDF apunta bien a su tabla xref y escapa paréntesis; las tildes van en Windows-1252',
+    substr($documento, (int) ($xref[1] ?? 0), 4) === 'xref' && str_contains($documento, '(Pan \\(franc' . "\xE9" . 's\\))'));
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());

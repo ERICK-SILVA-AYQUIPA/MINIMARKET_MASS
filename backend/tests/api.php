@@ -364,7 +364,7 @@ revisar('El historial de la app trae la venta de la web primero', ($historial[0]
 
 echo "Historial y detalle\n";
 revisar('Detalle de la venta de la app', $luis->get('ventas/' . $registrada['id_venta']) === 200
-    && ($luis->datos()['lineas'][0]['cantidad'] ?? '') === '2.000' && ($luis->datos()['cajero'] ?? '') === 'Luis Caceres Pinto');
+    && ($luis->datos()['lineas'][0]['cantidad'] ?? '') === '2.000' && ($luis->datos()['cajero'] ?? '') === 'Luis Cáceres Pinto');
 revisar('Buscar por número de comprobante', $luis->get('ventas?comprobante=' . $registrada['comprobante']) === 200
     && ($luis->datos()['total'] ?? 0) === 1);
 revisar('Filtro por fecha de hoy', $luis->get('ventas?desde=' . date('Y-m-d') . '&hasta=' . date('Y-m-d')) === 200 && ($luis->datos()['total'] ?? 0) >= 3);
@@ -421,7 +421,7 @@ revisar('La respuesta trae el documento y el stock nuevo', ($recibido['numero_do
     && (float) ($recibido['lineas'][0]['stock_actual'] ?? -1) === (float) $antes + 10);
 revisar('El stock subió 10 una sola vez', (float) stockApp($carmen, 1) === (float) $antes + 10);
 $carmen->get('productos/1');
-revisar('Quedó en el kardex como ingreso, no como venta ni ajuste', ($carmen->datos()['movimientos'][0]['tipo'] ?? '') === 'INGRESO DE MERCADERIA');
+revisar('Quedó en el kardex como ingreso, no como venta ni ajuste', ($carmen->datos()['movimientos'][0]['tipo'] ?? '') === 'INGRESO DE MERCADERÍA');
 revisar('Reintento con la misma clave: 200 sin sumar otra vez', $carmen->post('ingresos', $ingreso, $clave) === 200
     && (float) stockApp($carmen, 1) === (float) $antes + 10);
 revisar('El mismo documento con otra clave: 422 (no se recibe dos veces)', $carmen->post('ingresos', $ingreso, nuevaClave()) === 422

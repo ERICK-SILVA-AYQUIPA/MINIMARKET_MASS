@@ -29,6 +29,6 @@ test.describe('Login', () => {
 
     test('con la clave correcta entra al sistema', async ({ page }) => {
         await entrar(page);
-        await expect(page.locator('.lateral')).toContainText('Nunez');
+        await expect(page.locator('.lateral')).toContainText('Núñez');
     });
 });

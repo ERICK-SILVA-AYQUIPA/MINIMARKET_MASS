@@ -1,7 +1,8 @@
 # Programa el respaldo diario (23:00) en el Programador de tareas de Windows. Se puede correr dos veces sin duplicarlo.
 #   powershell -ExecutionPolicy Bypass -File backend\scripts\programar_respaldo.ps1           # programa
 #   powershell -ExecutionPolicy Bypass -File backend\scripts\programar_respaldo.ps1 -Quitar   # lo quita
-# Corre con el usuario que inicio sesion, que es quien tiene Docker Desktop abierto.
+# Corre con el usuario que inicio sesion, que es quien tiene Docker Desktop (o Laragon) abierto.
+# Lo que escribe cada respaldo queda en respaldos\respaldo.log, para revisar si alguna noche fallo.
 param([switch]$Quitar)
 $ErrorActionPreference = 'Stop'
 
@@ -13,9 +14,13 @@ if ($Quitar) {
 }
 
 $script = Join-Path $PSScriptRoot 'respaldo.ps1'
-$accion = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$script`""
+$carpeta = Join-Path $PSScriptRoot '..\..\respaldos'
+New-Item -ItemType Directory -Force -Path $carpeta | Out-Null
+$log = Join-Path (Resolve-Path $carpeta).Path 'respaldo.log'
+$comando = "& { Write-Output ('--- ' + (Get-Date -Format 'yyyy-MM-dd HH:mm')); & '$script' } *>> '$log'"
+$accion = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -Command `"$comando`""
 $cuando = New-ScheduledTaskTrigger -Daily -At '23:00'
 # Si la PC estaba apagada a las 23:00, corre apenas se prenda
 $opciones = New-ScheduledTaskSettingsSet -StartWhenAvailable
 Register-ScheduledTask -TaskName $nombre -Action $accion -Trigger $cuando -Settings $opciones -Force | Out-Null
-Write-Host "Listo: '$nombre' corre todos los dias a las 23:00. Se ve en el Programador de tareas."
+Write-Host "Listo: '$nombre' corre todos los dias a las 23:00. Se ve en el Programador de tareas. Log: $log"
