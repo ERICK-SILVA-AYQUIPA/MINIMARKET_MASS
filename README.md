@@ -210,6 +210,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 - **`frontend/public/index.php`**: único punto de entrada; también están las páginas de prueba `poo_*.php`.
 - **`docs/mvc.md`**: guía del MVC, reglas y seguridad.
 - **`docs/explicacion_archivos.md`**: qué hace cada archivo, para estudiar antes de la entrega.
+- **`docs/guia_estudio_3_personas.md`**: el proyecto repartido en 3 bloques para estudiarlo (cimientos, vender y mercadería), con orden de lectura y preguntas de repaso.
 - **`docs/reparto.md`**: comandos git por integrante si se pide un Pull Request por persona.
 - **`docs/bitacora_ia.md`**: bitácora del uso de IA.
 
