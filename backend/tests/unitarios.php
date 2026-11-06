@@ -552,6 +552,7 @@ revisar('Sugerencia: elige la categoría del catálogo por el nombre y las categ
     $adivinar('Leche evaporada Gloria entera 400 g') === 2 && $adivinar('Gaseosa Fanta Kola Inglesa x 500ml') === 3
     && $adivinar('Sal Marina EMSAL') === 1 && $adivinar('Salsa de tomate Alacena') === 1 && $adivinar('Jabón Protex avena 110 g') === 8
     && $adivinar('Papas fritas Lay\'s') === 7 && $adivinar('Detergente Bolívar') === 5 && $adivinar('Sporade Tropical', ['energy drinks']) === 3
+    && $adivinar('Pan De Molde Blanco Bimbo 590 g', ['plant based foods and beverages', 'breads', 'sliced breads']) === 6
     && $adivinar('Producto XYZ') === null && SugerenciaPublica::categoria('Leche', [], [1 => 'Abarrotes']) === null);
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',

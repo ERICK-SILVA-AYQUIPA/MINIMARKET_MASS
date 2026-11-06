@@ -17,8 +17,8 @@ final class SugerenciaPublica
         'lacteos' => ['leche', 'yogur', 'yogurt', 'queso', 'mantequilla', 'manjar', 'dairies', 'dairy', 'milks', 'cheeses', 'yogurts', 'butters'],
         'bebidas' => ['gaseosa', 'agua', 'jugo', 'nectar', 'refresco', 'cerveza', 'bebida', 'rehidratante', 'energizante',
             'beverages', 'sodas', 'waters', 'juices', 'nectars', 'beers', 'soft drinks', 'energy drinks'],
-        'desayuno' => ['cafe', 'avena', 'cereal', 'mermelada', 'infusion', 'manzanilla', 'anis', 'cocoa', 'chocolate en polvo',
-            'coffees', 'breakfast', 'teas', 'herbal teas', 'oat', 'jams', 'cocoa and its products'],
+        'desayuno' => ['pan', 'tostada', 'tortilla', 'cafe', 'avena', 'cereal', 'mermelada', 'infusion', 'manzanilla', 'anis', 'cocoa', 'chocolate en polvo',
+            'coffees', 'breakfast', 'teas', 'herbal teas', 'oat', 'jams', 'cocoa and its products', 'breads', 'sliced breads'],
         'snacks y golosinas' => ['galleta', 'chocolate', 'caramelo', 'chupetin', 'papas fritas', 'papitas', 'chifle', 'snack',
             'chicle', 'gomitas', 'turron', 'biscuits', 'cookies', 'candies', 'confectioneries', 'chips', 'snacks', 'chocolates', 'crackers'],
         'cuidado personal' => ['jabon', 'shampoo', 'champu', 'acondicionador', 'pasta dental', 'crema dental', 'cepillo dental',
@@ -109,7 +109,9 @@ final class SugerenciaPublica
     public static function categoria(string $nombre, array $categoriasPublicas, array $catalogo): ?int
     {
         $enNombre = ' ' . self::normalizar($nombre) . ' ';
-        $enInternet = array_map(static fn(string $c): string => ' ' . self::normalizar($c) . ' ', $categoriasPublicas);
+        // "plant based foods and beverages" es un cajon de sastre (el pan de molde esta ahi): no dice que sea bebida
+        $enInternet = array_map(static fn(string $c): string => ' ' . self::normalizar($c) . ' ',
+            array_filter($categoriasPublicas, static fn(string $c): bool => !str_contains($c, 'foods and beverages')));
         $mejor = null;
         $mejorPuntaje = 0;
         foreach (self::PISTAS as $categoria => $palabras) {
