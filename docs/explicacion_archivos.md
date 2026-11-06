@@ -2,6 +2,8 @@
 
 Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar con tus palabras, ábrela y pregunta antes de la entrega.
 
+> Esta guía explica los archivos principales. La lista **completa** de archivos, repartida entre los 3 integrantes con su orden de lectura y preguntas, está en [`docs/equipo/estudio_3.md`](equipo/estudio_3.md).
+
 ## Recorrido de un pedido
 
 0. Antes de todo, `index.php` revisa la sesión: sin login manda a `?ruta=login`, y en un POST exige el token CSRF.

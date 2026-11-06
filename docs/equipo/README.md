@@ -1,6 +1,8 @@
 # Notas del equipo
 
 > **Para levantar el proyecto en tu PC con Docker y mantenerlo igual al del equipo: [`docker.md`](docker.md).**
+>
+> **Para estudiar el código entre los 3 (qué archivos le tocan a cada uno, en qué orden y qué preguntas saber): [`estudio_3.md`](estudio_3.md).**
 
 Cada integrante escribe aquí su propia nota, en un archivo con su nombre en minúsculas y sin tildes
 (`erick.md`, `gerald.md`, `alexander.md`, `keymer.md`, `jhon.md`, `luana.md`).

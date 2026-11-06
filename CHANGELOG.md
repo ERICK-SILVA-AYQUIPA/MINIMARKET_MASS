@@ -3,6 +3,14 @@
 La versión actual está en el archivo `VERSION` y sale en el pie de cada página, en **Ayuda** y en `GET /?ruta=salud`.
 Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aquí lo que cambió, lo más nuevo arriba.
 
+## Sin publicar (entra en la próxima versión)
+
+- **Proveedores y órdenes de compra** conectados con Reponer e Ingresos (migración 019).
+- **Promociones, descuento del cajero y los 4 medios de pago** (migración 020); el IGV se calcula sobre lo cobrado.
+- **Cada cajero opera solo en su sede**: la base lo exige con triggers y pedir otra tienda por la URL da 403 (migración 021).
+- **Productos «Recién agregados»** desde la app, el escáner, la web o el CSV, con revisión del administrador (migraciones 018 y 022).
+- **App Android**: inicio con buscador, aviso de stock y barra inferior con escáner.
+
 ## 1.0.0 · 2026-11-05
 
 Primera versión de entrega: ventas con boleta y factura, caja con arqueo a ciegas, inventario por tienda
@@ -19,3 +27,4 @@ En esta versión, además:
 - **Documentación de entrega**: guía de instalación corta (`docs/instalacion.md`) y manual de usuario con
   resumen en una página (`docs/manual_usuario.md`).
 - `GET /?ruta=salud` para monitorear el servidor.
+- **Ticket con RUC e IGV**, facturación electrónica (OSE/PSE) preparada e impresión en ticketera de 58 y 80 mm.
