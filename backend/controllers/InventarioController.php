@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/InventarioRepository.php';
 require_once __DIR__ . '/../models/IngresoRepository.php';
+require_once __DIR__ . '/../models/CompraRepository.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/EmpleadoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
@@ -25,7 +26,8 @@ class InventarioController extends Controller
         private EmpleadoRepository $empleados,
         private CatalogoRepository $catalogo,
         private InventarioServicio $servicio,
-        private IngresoRepository $ingresos
+        private IngresoRepository $ingresos,
+        private CompraRepository $compras
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -81,8 +83,12 @@ class InventarioController extends Controller
             ['id', 'fecha', 'producto', 'tipo', 'cantidad', 'stock_nuevo', 'origen', 'empleado', 'observacion'], $filas);
     }
 
-    // GET /?ruta=ingresos&pagina=2: mercaderia recibida en la tienda del usuario, con su documento y costo
-    public function ingresos(?string $pagina, array $viejo = [], ?string $error = null): void
+    /**
+     * GET /?ruta=ingresos&pagina=2: mercaderia recibida en la tienda del usuario, con su documento y costo.
+     * Con &orden=12 el formulario recibe esa orden de compra: el proveedor es el de la orden y las lineas
+     * llegan llenas con lo que falta y su costo pactado (se corrige a lo que de verdad llego).
+     */
+    public function ingresos(?string $pagina, array $viejo = [], ?string $error = null, ?string $ordenPedida = null): void
     {
         if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
             $this->prohibido('Los ingresos de mercadería los ven el almacenero y el administrador de la tienda.');
@@ -101,16 +107,46 @@ class InventarioController extends Controller
             $filas[] = ['ingreso' => $ingreso, 'detalle' => $this->ingresos->detalle($ingreso->getIdIngreso())];
         }
         $urlPagina = '/?ruta=ingresos';
+
+        // Ordenes que esperan mercaderia en esta tienda, para recibirlas con un clic
+        $proveedores = $this->compras->proveedores();
+        $porRecibir = $puedeRegistrar ? $this->compras->ordenes($tienda->getIdTienda(), 'ABIERTAS', 20, 0) : [];
+
+        // Recibir contra una orden: solo si es de esta tienda y sigue abierta
+        $ordenRecibir = null;
+        $detalleOrden = [];
+        $idOrden = $this->leerId($ordenPedida);
+        if ($puedeRegistrar && $idOrden > 0) {
+            $ordenRecibir = $this->compras->orden($idOrden);
+            if ($ordenRecibir === null || $ordenRecibir->getIdTienda() !== $tienda->getIdTienda() || !$ordenRecibir->estaAbierta()) {
+                $error ??= 'Esa orden de compra no es de tu tienda o ya no espera mercadería.';
+                $ordenRecibir = null;
+            } else {
+                $detalleOrden = $this->compras->detalleOrden($idOrden);
+                if ($viejo === []) {
+                    foreach ($detalleOrden as $idProducto => $d) {
+                        if ($d->pendiente() > 0) {
+                            $alPeso = ($productos[$idProducto] ?? null)?->esAlPeso() === true;
+                            $viejo['producto'][] = (string) $idProducto;
+                            $viejo['cantidad'][] = $alPeso ? Cantidad::aTexto($d->pendiente()) : (string) intdiv($d->pendiente(), 1000);
+                            $viejo['costo'][] = Dinero::aTexto($d->getCostoUnitario());
+                        }
+                    }
+                }
+            }
+        }
+        $proveedorOrden = $ordenRecibir !== null ? ($proveedores[$ordenRecibir->getIdProveedor()] ?? null) : null;
         $this->vista('inventario/ingresos', get_defined_vars());
     }
 
-    // POST /?ruta=ingreso_registrar
+    // POST /?ruta=ingreso_registrar (con orden: se recibe contra esa orden de compra)
     public function registrarIngreso(array $post): void
     {
         if ($this->usuario === null || !$this->usuario->puedeRegistrarIngreso($this->usuario->getIdTienda())) {
             $this->prohibido('Solo el almacenero o el administrador de la tienda registran el ingreso de mercadería.');
             return;
         }
+        $orden = $this->campo($post, 'orden');
         try {
             $id = $this->servicio->registrarIngreso($this->usuario, [
                 'tipo'         => $this->campo($post, 'tipo_documento'),
@@ -119,10 +155,16 @@ class InventarioController extends Controller
                 'ruc'          => $this->campo($post, 'ruc_emisor'),
                 'razon_social' => $this->campo($post, 'razon_social'),
                 'observacion'  => $this->campo($post, 'observacion'),
+                'orden'        => $orden,
             ], $this->lineasDelFormulario($post));
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
-            $this->ingresos(null, $post, $ex->getMessage());
+            $this->ingresos(null, $post, $ex->getMessage(), $orden !== '' ? $orden : null);
+            return;
+        }
+        if ($orden !== '') {
+            $this->redirigir('/?ruta=ordenes#oc-' . $this->leerId($orden), "Ingreso $id registrado contra la orden "
+                . OrdenCompra::formatear($this->leerId($orden)) . ': el stock ya subió, quedó en el kardex y la orden muestra lo que falta.');
             return;
         }
         $this->redirigir('/?ruta=ingresos', "Ingreso $id registrado: el stock ya subió y quedó en el kardex.");

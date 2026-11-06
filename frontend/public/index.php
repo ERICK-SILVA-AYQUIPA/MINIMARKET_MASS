@@ -10,6 +10,7 @@ date_default_timezone_set('America/Lima');
 
 require __DIR__ . '/../../backend/config/Database.php';
 require __DIR__ . '/../../backend/config/Sesion.php';
+require __DIR__ . '/../../backend/config/Aplicacion.php';
 require __DIR__ . '/../../backend/controllers/AuthController.php';
 require __DIR__ . '/../../backend/controllers/ProductoController.php';
 require __DIR__ . '/../../backend/controllers/VentaController.php';
@@ -22,6 +23,9 @@ require __DIR__ . '/../../backend/controllers/ReporteController.php';
 require __DIR__ . '/../../backend/controllers/PanelController.php';
 require __DIR__ . '/../../backend/controllers/AuditoriaController.php';
 require __DIR__ . '/../../backend/controllers/PromocionController.php';
+require __DIR__ . '/../../backend/controllers/CompraController.php';
+
+$metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 // Cabeceras de seguridad: no se carga en un iframe de otro sitio y no se adivinan tipos
 header('X-Frame-Options: DENY');
@@ -33,6 +37,24 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self'; object-s
 // Con HTTPS, el navegador recuerda por un año que este sitio solo se abre cifrado
 if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
     header('Strict-Transport-Security: max-age=31536000');
+}
+
+// GET /?ruta=salud: responde si la pagina y la base estan arriba, sin login ni sesion. La usa app.js para avisar
+// "Sin conexion con el servidor" y sirve para un monitor externo (docs/plan_sin_internet.md)
+if ($metodo === 'GET' && ($_GET['ruta'] ?? null) === 'salud') {
+    header('Content-Type: application/json; charset=UTF-8');
+    header('Cache-Control: no-store');
+    try {
+        Database::conexion()->query('SELECT 1');
+        $base = 'ok';
+    } catch (PDOException $ex) {
+        error_log('Minimarket Mass: salud sin MySQL: ' . $ex->getMessage());
+        http_response_code(503);
+        $base = 'caida';
+    }
+    echo json_encode(['estado' => $base === 'ok' ? 'ok' : 'error', 'base' => $base, 'version' => Aplicacion::version(),
+        'hora' => date('c')], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 try {
@@ -90,17 +112,21 @@ $auth = new AuthController($tiendas, $sesion, $usuario, $empleados, new IntentoL
 $productoController = new ProductoController($tiendas, $sesion, $usuario, $productos, $catalogo, new ProductoServicio($db));
 $promociones = new PromocionRepository($db);
 $ventaController = new VentaController($tiendas, $sesion, $usuario, $ventas, $empleados, $clientes, $productos, $cajas,
-    new VentaServicio($db), $catalogo, $promociones);
+    new VentaServicio($db), $catalogo, $promociones, new OperacionMovilServicio($db));
 $tiendaController = new TiendaController($tiendas, $sesion, $usuario, $empleados, $ventas, new TiendaServicio($db));
 $ingresos = new IngresoRepository($db);
+$compras = new CompraRepository($db);
+$panelRepositorio = new PanelRepository($db);
 $inventarioController = new InventarioController($tiendas, $sesion, $usuario, $inventario, $productos, $empleados, $catalogo,
-    new InventarioServicio($db), $ingresos);
+    new InventarioServicio($db), $ingresos, $compras);
+$compraController = new CompraController($tiendas, $sesion, $usuario, $compras, $productos, $empleados, $panelRepositorio,
+    new CompraServicio($db));
 $cajaController = new CajaController($tiendas, $sesion, $usuario, $cajas, $empleados, new CajaServicio($db));
 $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $empleados, $empleadoServicio);
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
-$panelController = new PanelController($tiendas, $sesion, $usuario, new PanelRepository($db), $reportes, $inventario, $cajas,
-    $productos, $catalogo, $ingresos);
+$panelController = new PanelController($tiendas, $sesion, $usuario, $panelRepositorio, $reportes, $inventario, $cajas,
+    $productos, $catalogo, $ingresos, $compras);
 Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda));
 $promocionController = new PromocionController($tiendas, $sesion, $usuario, $promociones, $productos, $empleados, new PromocionServicio($db));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
@@ -111,7 +137,6 @@ $leer = static function (string $clave): ?string {
     return is_string($valor) ? $valor : null;
 };
 
-$metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $ruta = $leer('ruta') ?? 'inicio';
 Controller::marcarRuta($ruta);
 // El modo del menu lateral lo guarda app.js en una cookie por usuario de este navegador
@@ -130,6 +155,7 @@ $rutasPost = [
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
     'promocion_crear', 'promocion_estado',
+    'proveedor_guardar', 'proveedor_estado', 'orden_registrar', 'orden_cancelar',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -187,6 +213,10 @@ try {
                 'distrito_crear'     => $tiendaController->crearDistrito($_POST),
                 'promocion_crear'    => $promocionController->crear($_POST),
                 'promocion_estado'   => $promocionController->cambiarEstado($_POST),
+                'proveedor_guardar'  => $compraController->guardarProveedor($_POST),
+                'proveedor_estado'   => $compraController->estadoProveedor($_POST),
+                'orden_registrar'    => $compraController->registrarOrden($_POST),
+                'orden_cancelar'     => $compraController->cancelarOrden($_POST),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -251,6 +281,14 @@ try {
                 $promocionController->lista();
                 break;
 
+            case 'venta_estado':
+                $ventaController->estado($leer('clave'));
+                break;
+
+            case 'ayuda':
+                $panelController->ayuda();
+                break;
+
             case 'tiendas':
                 $tiendaController->lista();
                 break;
@@ -268,7 +306,19 @@ try {
                 break;
 
             case 'ingresos':
-                $inventarioController->ingresos($leer('pagina'));
+                $inventarioController->ingresos($leer('pagina'), [], null, $leer('orden'));
+                break;
+
+            case 'proveedores':
+                $compraController->proveedores();
+                break;
+
+            case 'ordenes':
+                $compraController->ordenes($leer('estado'), $leer('pagina'), $leer('nueva'), $leer('desde'), $leer('proveedor'));
+                break;
+
+            case 'orden_imprimir':
+                $compraController->imprimir($leer('id'));
                 break;
 
             case 'ingresos_csv':

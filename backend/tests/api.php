@@ -362,6 +362,26 @@ $historial = $luis->datos()['ventas'] ?? [];
 revisar('El historial de la app trae la venta de la web primero', ($historial[0]['productos'] ?? 0) === 1 && ($historial[0]['estado'] ?? '') === 'EMITIDA'
     && ($historial[0]['comprobante'] ?? '') !== ($registrada['comprobante'] ?? ''));
 
+echo "Venta web reenviada (corte de red): una sola venta\n";
+$claveWeb = bin2hex(random_bytes(16));
+$antesWeb = stockApp($luis, 1);
+$ventaWeb = ['tipo' => 'B', 'documento' => '', 'producto' => ['1'], 'cantidad' => ['1'], 'efectivo_recibido' => '50', 'clave_operacion' => $claveWeb];
+revisar('Primer envío: 303 al comprobante, con la clave para borrar la copia del navegador', $webLuis->post('venta_registrar', $ventaWeb) === 303
+    && str_contains($webLuis->destino(), 'registrada=' . $claveWeb));
+$primerDestino = $webLuis->destino();
+revisar('El mismo formulario otra vez: mismo comprobante', $webLuis->post('venta_registrar', $ventaWeb) === 303 && $webLuis->destino() === $primerDestino);
+revisar('...y avisa que ya estaba registrada', $webLuis->get('ruta=inicio') === 200 && str_contains($webLuis->cuerpo, 'ya estaba registrada'));
+revisar('El stock bajó una sola vez', (float) stockApp($luis, 1) === (float) $antesWeb - 1);
+$webLuis->get('ruta=venta_estado&clave=' . $claveWeb);
+$estadoWeb = json_decode($webLuis->cuerpo, true);
+revisar('venta_estado: registrada, con su comprobante', ($estadoWeb['registrada'] ?? false) === true
+    && preg_match('/^B[0-9]{3}-[0-9]{8}$/', (string) ($estadoWeb['comprobante'] ?? '')) === 1
+    && str_contains($primerDestino, 'serie=' . substr((string) $estadoWeb['comprobante'], 0, 4)));
+$webMiguel = new Web();
+$webMiguel->entrar('70000008');
+revisar('Otro cajero no ve las claves de Luis', $webMiguel->get('ruta=venta_estado&clave=' . $claveWeb) === 200
+    && json_decode($webMiguel->cuerpo, true) === ['registrada' => false]);
+
 echo "Historial y detalle\n";
 revisar('Detalle de la venta de la app', $luis->get('ventas/' . $registrada['id_venta']) === 200
     && ($luis->datos()['lineas'][0]['cantidad'] ?? '') === '2.000' && ($luis->datos()['cajero'] ?? '') === 'Luis Cáceres Pinto');

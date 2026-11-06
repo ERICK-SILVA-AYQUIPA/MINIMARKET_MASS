@@ -135,6 +135,24 @@ abstract class Usuario
         return $this->puedeRegistrarIngreso($idTienda) || $this->puedeAdministrarTienda($idTienda);
     }
 
+    // Emitir ordenes de compra para una tienda: los mismos que reciben su mercaderia
+    public function puedeEmitirOrdenCompra(int $idTienda): bool
+    {
+        return $this->puedeRegistrarIngreso($idTienda);
+    }
+
+    // Anular una orden o cerrar lo que falta de ella: el administrador de la tienda (quien la emite no la cancela solo)
+    public function puedeCancelarOrdenCompra(int $idTienda): bool
+    {
+        return $this->puedeAdministrarTienda($idTienda);
+    }
+
+    // Dar de alta y editar proveedores (el directorio es de toda la cadena)
+    public function puedeAdministrarProveedores(): bool
+    {
+        return false;
+    }
+
     // Elegir en el menu lateral la sucursal con la que trabaja (sin cambiar su ficha)
     public function puedeElegirTienda(): bool
     {

@@ -16,6 +16,7 @@ declare(strict_types=1);
  * @var string $datosPromociones  JSON con las promociones de hoy y el tope, para el total en vivo de app.js
  * @var array $viejo
  * @var ?string $error
+ * @var string $claveOperacion  clave unica de esta venta: un reenvio (corte de red, F5) no la registra dos veces
  */
 $titulo = 'Nueva venta';
 require __DIR__ . '/../layout_inicio.php';
@@ -65,8 +66,9 @@ $conDescuento = $v('descuento_valor') !== '';
         <div class="aviso alerta" role="status"><span>Tu caja está en pausa: reanúdala en <a href="/?ruta=caja">Mi caja</a> para registrar ventas.</span></div>
     <?php endif; ?>
 
-    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta data-promociones="<?= e($datosPromociones) ?>">
+    <form class="formulario caja-pantalla venta" method="post" action="/?ruta=venta_registrar" data-venta data-promociones="<?= e($datosPromociones) ?>"<?= $error !== null ? ' data-con-error' : '' ?>>
         <?= campoCsrf($csrf) ?>
+        <input type="hidden" name="clave_operacion" value="<?= e($claveOperacion) ?>" data-clave-operacion>
         <section class="panel venta-catalogo">
             <h2 class="visualmente-oculto">Productos</h2>
             <?php

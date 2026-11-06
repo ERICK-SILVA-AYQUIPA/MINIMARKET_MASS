@@ -59,6 +59,11 @@ if ($usuarioActual !== null) {
     $inventarioMenu = ['productos' => ['Productos', 'catalogo'], $primeraMovimientos => ['Movimientos', 'traslados']];
     // [opcion del menu => [nombre del grupo de pestañas, sus pestañas]]
     $pestanasMenu = ['productos' => ['Productos', $productosPestanas], $primeraMovimientos => ['Movimientos', $movimientosPestanas]];
+    // Compras: ordenes a los proveedores y el directorio, para quien recibe la mercaderia y su administrador
+    if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
+        $inventarioMenu['ordenes'] = ['Compras', 'orden'];
+        $pestanasMenu['ordenes'] = ['Compras', ['ordenes' => ['Órdenes de compra', 'orden'], 'proveedores' => ['Proveedores', 'usuario']]];
+    }
     // Numeros de aviso: en la pestaña y, sumados, en la opcion Productos del menu
     $alertasInventario ??= [];
     $alertasMenu = ['productos' => array_sum($alertasInventario)];

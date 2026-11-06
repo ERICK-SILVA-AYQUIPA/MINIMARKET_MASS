@@ -355,6 +355,119 @@
         });
     });
 
+    // ---------- localStorage que no rompe la pagina (modo privado o bloqueado) ----------
+    const memoria = {
+        leer(clave) {
+            try { return localStorage.getItem(clave); } catch (error) { return null; }
+        },
+        poner(clave, valor) {
+            try { localStorage.setItem(clave, valor); } catch (error) { /* sin espacio o bloqueado: se sigue sin guardar */ }
+        },
+        quitar(clave) {
+            try { localStorage.removeItem(clave); } catch (error) { /* idem */ }
+        },
+    };
+
+    // La venta ya se registro: el comprobante llega con &registrada=<clave> y se borra su copia del navegador
+    const registrada = new URLSearchParams(location.search).get('registrada');
+    if (registrada !== null && document.documentElement.dataset.usuario) {
+        const claveBorrador = 'venta_borrador_' + document.documentElement.dataset.usuario;
+        try {
+            if ((JSON.parse(memoria.leer(claveBorrador) || 'null') || {}).clave === registrada) {
+                memoria.quitar(claveBorrador);
+            }
+        } catch (error) {
+            memoria.quitar(claveBorrador);
+        }
+        history.replaceState(null, '', location.href.replace(/&registrada=[^&#]*/, ''));
+    }
+
+    // ---------- Conexion con el servidor: franja roja si se cae (red de la tienda, internet o servidor) ----------
+    // navigator.onLine solo sabe si la PC tiene red; para saber si el servidor responde se pide ?ruta=salud.
+    const conexion = (() => {
+        let caida = !navigator.onLine;
+        let franja = null;
+        let reloj = 0;
+        let vigilando = false;
+
+        function pintar(volvio) {
+            if (franja === null) {
+                franja = document.createElement('div');
+                franja.className = 'conexion-aviso';
+                franja.setAttribute('role', 'alert');
+                franja.hidden = true;
+                (document.querySelector('.cuerpo') || document.body).prepend(franja);
+            }
+            if (caida) {
+                franja.classList.remove('volvio');
+                franja.textContent = document.querySelector('form[data-venta]')
+                    ? 'Sin conexión con el servidor. No cierres esta página: la venta queda guardada y la registras cuando vuelva.'
+                    : 'Sin conexión con el servidor. Lo que guardes ahora no llegará; espera a que vuelva la conexión.';
+                franja.hidden = false;
+            } else if (volvio) {
+                franja.classList.add('volvio');
+                franja.textContent = 'Conexión recuperada.';
+                franja.hidden = false;
+                setTimeout(() => {
+                    if (!caida) {
+                        franja.hidden = true;
+                    }
+                }, 4000);
+            }
+        }
+
+        function cambiar(nuevo) {
+            const antes = caida;
+            caida = nuevo;
+            if (antes !== caida || caida) {
+                pintar(antes && !caida);
+            }
+        }
+
+        async function probar() {
+            if (!navigator.onLine) {
+                cambiar(true);
+                return;
+            }
+            const corte = new AbortController();
+            const espera = setTimeout(() => corte.abort(), 5000);
+            try {
+                const respuesta = await fetch('/?ruta=salud', { cache: 'no-store', signal: corte.signal });
+                cambiar(!respuesta.ok);
+            } catch (error) {
+                cambiar(true);
+            } finally {
+                clearTimeout(espera);
+            }
+        }
+
+        // Cada 30 segundos (5 si esta caida), solo con la pagina a la vista
+        function programar() {
+            clearTimeout(reloj);
+            if (vigilando) {
+                reloj = setTimeout(async () => {
+                    if (document.visibilityState === 'visible') {
+                        await probar();
+                    }
+                    programar();
+                }, caida ? 5000 : 30000);
+            }
+        }
+
+        window.addEventListener('offline', () => cambiar(true));
+        window.addEventListener('online', () => probar().then(programar));
+        if (caida) {
+            pintar(false);
+        }
+        return {
+            caida: () => caida,
+            vigilar() {
+                vigilando = true;
+                programar();
+            },
+        };
+    })();
+
     // ---------- Pantalla de venta: total, pagos y avisos en vivo ----------
 
     const formVenta = $('form[data-venta]');
@@ -986,6 +1099,177 @@
             });
             escanear.focus({ preventScroll: true });
         }
+
+        // ---------- Venta sin terminar: se guarda en este navegador y se recupera ----------
+        // Si se corta la red (o se cierra la pagina) la venta armada no se pierde. Cada formulario trae su
+        // clave_operacion: si el envio llego al servidor, reenviarla devuelve el mismo comprobante (no cobra dos veces).
+        // Al volver a Nueva venta se pregunta al servidor si la venta enviada se registro (?ruta=venta_estado).
+        const campoClave = $('[data-clave-operacion]', formVenta);
+        const CAMPOS_BORRADOR = ['documento', 'efectivo_recibido', 'tarjeta_monto', 'tarjeta_tipo', 'tarjeta_marca',
+            'tarjeta_ultimos4', 'tarjeta_autorizacion', 'sip_monto', 'sip_modalidad', 'sip_operacion'];
+        const HORAS_BORRADOR = 12;
+
+        function leidoDelFormulario() {
+            const filas = lineas()
+                .map((fila) => [$('select', fila).value, $('input[name="cantidad[]"]', fila).value])
+                .filter(([id]) => id !== '');
+            const campos = { tipo: campo('tipo').value };
+            CAMPOS_BORRADOR.forEach((nombre) => {
+                campos[nombre] = campo(nombre).value;
+            });
+            return { clave: campoClave.value, guardado: Date.now(), enviado: false, lineas: filas, campos };
+        }
+
+        function guardarBorrador(enviado = false) {
+            if (!enviado && formVenta.dataset.enviando === '1') {
+                return;   // ya se envio: no se pisa la marca de "enviada"
+            }
+            const borrador = leidoDelFormulario();
+            borrador.enviado = enviado;
+            if (borrador.lineas.length === 0 && !enviado) {
+                memoria.quitar(CLAVE_BORRADOR);
+                return;
+            }
+            memoria.poner(CLAVE_BORRADOR, JSON.stringify(borrador));
+        }
+        const guardarLuego = () => setTimeout(() => guardarBorrador(), 0);
+
+        function ponerEnFormulario(borrador) {
+            lineas().forEach((fila) => {
+                $('select', fila).value = '';
+                $('input[name="cantidad[]"]', fila).value = '';
+            });
+            let faltan = 0;
+            borrador.lineas.forEach(([id, cantidad]) => {
+                const opcion = $('select option[value="' + CSS.escape(String(id)) + '"]', formVenta);
+                const fila = opcion === null ? null : (lineas().find((f) => $('select', f).value === '') || filaNueva());
+                if (fila === null) {
+                    faltan++;
+                    return;
+                }
+                $('select', fila).value = String(id);
+                $('input[name="cantidad[]"]', fila).value = String(cantidad);
+            });
+            const campos = borrador.campos || {};
+            if (campos.tipo === 'B' || campos.tipo === 'F') {
+                campo('tipo').value = campos.tipo;
+            }
+            CAMPOS_BORRADOR.forEach((nombre) => {
+                if (typeof campos[nombre] === 'string' && campos[nombre] !== '') {
+                    campo(nombre).value = campos[nombre];
+                }
+            });
+            ['tarjeta_monto', 'sip_monto'].forEach((nombre) => {
+                if (campo(nombre).value !== '') {
+                    campo(nombre).closest('details').open = true;
+                }
+            });
+            campoClave.value = borrador.clave;
+            calcular();
+            pintarCarrito();
+            return faltan;
+        }
+
+        // Aviso que se queda (no se va solo como el toast): arriba del formulario, con un enlace opcional
+        function avisoVenta(tipo, texto, enlace) {
+            const aviso = document.createElement('div');
+            aviso.className = 'aviso ' + tipo;
+            aviso.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
+            const parrafo = document.createElement('span');
+            parrafo.textContent = texto + ' ';
+            if (enlace) {
+                const a = document.createElement('a');
+                a.href = enlace[0];
+                a.textContent = enlace[1];
+                parrafo.appendChild(a);
+            }
+            aviso.appendChild(parrafo);
+            const cerrar = document.createElement('button');
+            cerrar.type = 'button';
+            cerrar.className = 'aviso-cerrar';
+            cerrar.setAttribute('aria-label', 'Cerrar aviso');
+            cerrar.textContent = '×';
+            cerrar.addEventListener('click', () => aviso.remove());
+            aviso.appendChild(cerrar);
+            formVenta.before(aviso);
+        }
+
+        async function recuperarBorrador() {
+            let borrador = null;
+            try {
+                borrador = JSON.parse(memoria.leer(CLAVE_BORRADOR) || 'null');
+            } catch (error) {
+                borrador = null;
+            }
+            const valido = borrador !== null && typeof borrador.clave === 'string' && Array.isArray(borrador.lineas)
+                && Date.now() - Number(borrador.guardado) < HORAS_BORRADOR * 3600 * 1000;
+            if (!valido) {
+                memoria.quitar(CLAVE_BORRADOR);
+                return;
+            }
+            if (!borrador.enviado) {
+                const faltan = ponerEnFormulario(borrador);
+                avisoVenta('alerta', 'Recuperamos la venta que estabas armando y no se llegó a registrar.'
+                    + (faltan > 0 ? ' ' + faltan + ' producto(s) ya no se pueden vender y no se agregaron.' : '')
+                    + ' Revísala y regístrala, o pulsa Vaciar.');
+                return;
+            }
+            // Se envio y no sabemos si llego: se pregunta al servidor
+            try {
+                const respuesta = await fetch('/?ruta=venta_estado&clave=' + encodeURIComponent(borrador.clave),
+                    { cache: 'no-store', credentials: 'same-origin' });
+                if (!respuesta.ok) {
+                    throw new Error('HTTP ' + respuesta.status);
+                }
+                const estado = await respuesta.json();
+                if (estado.registrada) {
+                    memoria.quitar(CLAVE_BORRADOR);
+                    avisoVenta('alerta', 'Tu venta anterior sí quedó registrada' + (estado.comprobante ? ' (' + estado.comprobante + ')' : '')
+                        + '. No la cobres otra vez.', estado.url ? [estado.url, 'Ver comprobante'] : null);
+                    return;
+                }
+                ponerEnFormulario(borrador);
+                avisoVenta('alerta', 'La venta que enviaste no llegó al servidor: no se registró ni se cobró en el sistema. '
+                    + 'La recuperamos tal cual; revísala y vuelve a registrarla.');
+            } catch (error) {
+                // Sin conexion: se arma igual con la MISMA clave. Si ya estaba registrada, el servidor no la duplica.
+                ponerEnFormulario(borrador);
+                avisoVenta('error', 'Sin conexión: no se puede saber todavía si tu última venta se registró. '
+                    + 'La dejamos armada; al registrarla, si ya estaba, el sistema muestra el mismo comprobante sin cobrar dos veces.');
+            }
+        }
+
+        const CLAVE_BORRADOR = 'venta_borrador_' + (document.documentElement.dataset.usuario || '0');
+        if (campoClave !== null) {
+            if (formVenta.hasAttribute('data-con-error')) {
+                // El servidor devolvio el formulario con un error: lo que se ve es lo ultimo que se envio
+                guardarBorrador();
+            } else {
+                recuperarBorrador();
+            }
+            formVenta.addEventListener('input', guardarLuego);
+            formVenta.addEventListener('change', guardarLuego);
+            formVenta.addEventListener('click', guardarLuego);
+            formVenta.addEventListener('keydown', guardarLuego);
+            document.addEventListener('click', guardarLuego);   // el dialogo de "Vaciar" esta fuera del formulario
+            window.addEventListener('pagehide', () => {
+                if (formVenta.dataset.enviando !== '1') {
+                    guardarBorrador();
+                }
+            });
+
+            // Sin conexion no se envia: la venta queda armada y guardada hasta que vuelva
+            formVenta.addEventListener('submit', (evento) => {
+                if (conexion.caida()) {
+                    evento.preventDefault();
+                    guardarBorrador();
+                    avisar('Sin conexión con el servidor: la venta NO se envió. Queda guardada; regístrala cuando vuelva la conexión.', true);
+                    return;
+                }
+                guardarBorrador(true);
+            });
+            conexion.vigilar();
+        }
     }
 
     // ---------- Validacion de formularios con mensajes junto al campo ----------
@@ -1086,7 +1370,7 @@
 
     document.addEventListener('submit', async (evento) => {
         const form = evento.target;
-        if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'post') {
+        if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== 'post' || evento.defaultPrevented) {
             return;
         }
         if (form.dataset.enviando === '1') {

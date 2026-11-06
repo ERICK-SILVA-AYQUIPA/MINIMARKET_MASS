@@ -57,6 +57,8 @@ La tabla `auditoria` (`backend/database/auditoria.sql`) guarda quién hizo cada 
 
 El administrador la ve en `?ruta=auditoria`, filtrada por acción y de 50 en 50; solo ve la de su tienda. Ventas, traslados, mermas y ajustes no se repiten aquí porque ya quedan en el kardex (`movimiento_stock`) con empleado y fecha.
 
+**Ventas que no se repiten**: cada pantalla de Nueva venta lleva una clave única (`clave_operacion`, 32 caracteres al azar). Si el mismo formulario llega dos veces (corte de red, F5), se guarda una sola venta y la segunda vez se devuelve el mismo comprobante (`OperacionMovilServicio`, tabla `api_operacion`, la misma de la app). `?ruta=venta_estado` solo responde al cajero dueño de la clave. `?ruta=salud` no pide login ni abre sesión: solo dice si la base responde y la versión (ver `docs/plan_sin_internet.md`).
+
 **Registro de errores**: los errores inesperados se escriben con `error_log()` en el log de PHP (con `php -S` salen en la consola; con Apache en `error.log`).
 
 ## 4. Respaldos

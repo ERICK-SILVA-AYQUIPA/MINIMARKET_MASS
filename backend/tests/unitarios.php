@@ -26,6 +26,9 @@ require __DIR__ . '/../models/Cajero.php';
 require __DIR__ . '/../models/Almacenero.php';
 require __DIR__ . '/../models/IngresoMercaderia.php';
 require __DIR__ . '/../models/DetalleIngreso.php';
+require __DIR__ . '/../models/Proveedor.php';
+require __DIR__ . '/../models/OrdenCompra.php';
+require __DIR__ . '/../models/DetalleOrdenCompra.php';
 require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
@@ -339,6 +342,33 @@ revisar('Permisos: el administrador maneja promociones de su tienda y de la cade
     && !$luisU->puedeAdministrarPromociones(1) && $luisU->topeDescuentoManual() === 1000 && $rosaU->topeDescuentoManual() === 0);
 $reparto = Descuentos::repartir(100, [1 => 500, 2 => 500, 3 => 500]);
 revisar('Repartir 1.00 en 3 partes iguales: 34 + 33 + 33', array_sum($reparto) === 100 && max($reparto) === 34 && min($reparto) === 33);
+echo "Proveedores y órdenes de compra\n";
+$prov = new Proveedor(1, '20512345678', 'Lácteos del Sur S.A.C.', 'Ana', '054 251234', null, 3, 'ACTIVO');
+revisar('Un pedido de hoy llega en 3 días', $prov->entregaEstimada('2026-12-30') === '2027-01-02' && $prov->estaActivo());
+revisar('Sin días de entrega no se estima', (new Proveedor(2, '20512345679', 'X', null, null, null, null, 'INACTIVO'))->entregaEstimada('2026-11-05') === null);
+rechazaDato('Proveedor con RUC de 10 dígitos', fn() => new Proveedor(1, '2051234567', 'X', null, null, null, null, 'ACTIVO'));
+rechazaDato('Proveedor con estado inventado', fn() => new Proveedor(1, '20512345678', 'X', null, null, null, null, 'BORRADO'));
+$oc = new OrdenCompra(12, '2026-11-01 09:00:00', '2026-11-03', 'PARCIAL', 204.90, null, 1, 1, 3);
+revisar('La orden 12 se llama OC-000012', $oc->numero() === 'OC-000012' && OrdenCompra::formatear(7) === 'OC-000007');
+revisar('Abierta y con la entrega pasada está atrasada', $oc->estaAbierta() && $oc->estaAtrasada('2026-11-04') && !$oc->estaAtrasada('2026-11-03'));
+revisar('Una recibida no está atrasada ni abierta', !(new OrdenCompra(1, 'x', '2026-11-01', 'RECIBIDA', 1.0, null, 1, 1, 3))->estaAtrasada('2026-12-01'));
+rechazaDato('Orden con estado inventado', fn() => new OrdenCompra(1, 'x', null, 'EN CAMINO', 1.0, null, 1, 1, 3));
+revisar('Nada recibido: PENDIENTE', OrdenCompra::estadoPorRecepcion([['pedida' => 5000, 'recibida' => 0], ['pedida' => 2500, 'recibida' => 0]]) === 'PENDIENTE');
+revisar('Una parte: PARCIAL', OrdenCompra::estadoPorRecepcion([['pedida' => 5000, 'recibida' => 5000], ['pedida' => 2500, 'recibida' => 0]]) === 'PARCIAL');
+revisar('Todo: RECIBIDA', OrdenCompra::estadoPorRecepcion([['pedida' => 5000, 'recibida' => 5000], ['pedida' => 2500, 'recibida' => 2500]]) === 'RECIBIDA');
+$linea = new DetalleOrdenCompra(1, 8, 20500, 5000, 180, 3690);
+revisar('De 20.5 kg pedidos llegaron 5: faltan 15.5', $linea->pendiente() === 15500);
+rechazaDato('No se recibe más de lo pedido', fn() => new DetalleOrdenCompra(1, 8, 1000, 2000, 180, 180));
+rechazaDato('Costo total de la orden que no cuadra', fn() => new DetalleOrdenCompra(1, 8, 20500, 0, 180, 3689));
+$adminOc = new Administrador(1, 'Rosa', 'X', '70000001', 'ACTIVO', 1);
+$almaOc = new Almacenero(3, 'Carmen', 'X', '70000003', 'ACTIVO', 1);
+$cajeroOc = new Cajero(2, 'Luis', 'X', '70000002', 'ACTIVO', 1);
+revisar('Proveedores: solo el administrador los agrega', $adminOc->puedeAdministrarProveedores() && !$almaOc->puedeAdministrarProveedores()
+    && !$cajeroOc->puedeAdministrarProveedores());
+revisar('Órdenes: las emiten almacenero y administrador de SU tienda, no el cajero', $almaOc->puedeEmitirOrdenCompra(1) && $adminOc->puedeEmitirOrdenCompra(1)
+    && !$almaOc->puedeEmitirOrdenCompra(2) && !$cajeroOc->puedeEmitirOrdenCompra(1));
+revisar('Anular o cerrar una orden: solo el administrador de la tienda', $adminOc->puedeCancelarOrdenCompra(1) && !$adminOc->puedeCancelarOrdenCompra(2)
+    && !$almaOc->puedeCancelarOrdenCompra(1));
 echo "\nTicket: IGV, emisor y ancho del papel\n";
 revisar('S/ 1.18 con IGV = 1.00 gravado + 0.18 de IGV', DesgloseIgv::valorSinIgv(118) === 100);
 $d = DesgloseIgv::deLineas([350, 1290, 99]);

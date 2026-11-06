@@ -12,6 +12,7 @@ if (PHP_SAPI !== 'cli') {
 }
 require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../config/Migraciones.php';
+require __DIR__ . '/../config/Aplicacion.php';
 require __DIR__ . '/../models/Emisor.php';
 require __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 date_default_timezone_set('America/Lima');
@@ -88,7 +89,7 @@ echo "Base de datos\n";
 $usuario = (string) $db->query('SELECT CURRENT_USER()')->fetchColumn();
 revisar(!str_starts_with($usuario, 'root@'), 'La aplicación no entra como root', 'La aplicación entra como root: usa el usuario mass_app (docs/despliegue.md)');
 $tablas = (int) $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'")->fetchColumn();
-revisar($tablas === 42, 'Las 42 tablas', "Hay $tablas tablas y deben ser 42: falta correr algún script de database/ o php backend/scripts/migrar.php (docs/despliegue.md, sección 8)");
+revisar($tablas === 45, 'Las 45 tablas', "Hay $tablas tablas y deben ser 45: falta correr algún script de database/ o php backend/scripts/migrar.php (docs/despliegue.md, sección 8)");
 try {
     $estadoMigraciones = (new Migraciones($db))->estado();
     revisar($estadoMigraciones['pendientes'] === [] && $estadoMigraciones['cambiadas'] === [],
@@ -142,6 +143,12 @@ revisar(trim((string) getenv('RESPALDO_REMOTO')) !== '', 'Los respaldos se copia
     'Los respaldos solo quedan en este disco: configura RESPALDO_REMOTO en .env (docs/despliegue.md, sección 10)', 'AVISO');
 revisar(strlen((string) getenv('RESPALDO_CLAVE')) >= 12, 'Los respaldos se cifran (RESPALDO_CLAVE)',
     'Los respaldos no se cifran: pon una RESPALDO_CLAVE de 12 caracteres o más en .env', 'AVISO');
+
+echo "Entrega\n";
+revisar(Aplicacion::version() !== 'sin versión', 'Versión ' . Aplicacion::version() . ' (archivo VERSION)',
+    'El archivo VERSION falta o no tiene el formato 1.2.3: el pie de página no mostrará la versión', 'AVISO');
+revisar(Aplicacion::soporteConfigurado(), 'Contacto de soporte: ' . Aplicacion::soporte()['nombre'],
+    'Nadie a quien llamar: pon SOPORTE_NOMBRE y SOPORTE_TELEFONO o SOPORTE_CORREO en .env (sale en el pie y en Ayuda)', 'AVISO');
 
 echo PHP_EOL . "$fallas fallas, $avisos avisos" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

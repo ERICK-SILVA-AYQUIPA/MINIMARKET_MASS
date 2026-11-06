@@ -1,6 +1,17 @@
 # Manual de usuario
 
-Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI** y su clave, y ve solo el menú de su rol. Para instalar el sistema, ver `docs/despliegue.md`.
+Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI** y su clave, y ve solo el menú de su rol. Para instalar el sistema, ver `docs/instalacion.md` (corta) o `docs/despliegue.md` (completa).
+
+## En una página
+
+Lo mismo sale dentro del sistema en **Ayuda** (pie de cada página), solo con lo del rol de quien entró.
+
+| Rol | Lo de todos los días |
+|---|---|
+| **Cajero** | **Caja** → abrir turno con el efectivo inicial · **Nueva venta** → escanear o tocar productos → boleta o factura → efectivo (o tarjeta / Sip) → **Registrar venta** (`F9`) · **Imprimir ticket** en el comprobante · **Caja** → movimientos de efectivo · **Caja** → contar y **Cerrar turno** |
+| **Almacenero** | **Ingresos** → registrar lo que llega con su documento, costo y vencimiento · **Reponer** → qué pedir · **Por vencer** · **Traslados**, **Mermas** y **Conteo** · todo queda en el **Kardex** |
+| **Administrador** | **Caja** → revisar turnos y diferencias · **Ventas** → anular con motivo · **Reportes** y **Utilidad** · **Catálogo** y precios · **Personal** · **Auditoría** |
+| **Todos** | **Mi clave** para cambiarla · **Ayuda** para el soporte y qué hacer sin internet · si sale la franja roja *Sin conexión*, no cerrar la página (sección 7) |
 
 ## 1. Entrar y salir
 
@@ -35,6 +46,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 - **Teclado**: `Esc` cierra un panel lateral o el menú del celular. En **Nueva venta**, `F9` registra la venta.
 - **Celular**: quien maneja la caja tiene abajo una barra con **Inicio**, **Caja**, **Vender** (el botón amarillo del centro), **Ventas** y **Menú**. En **Nueva venta**, mientras se eligen productos, una barra oscura muestra el total y **Cobrar** baja directo al carrito y al cobro.
 - **Confirmación**: anular una venta, descontinuar un producto, cerrar el turno, desactivar una caja, y registrar una merma, un traslado, un ingreso o un conteo piden confirmar antes de guardar.
+- **Pie de página**: la versión del sistema (por ejemplo `v1.0.0`), a quién llamar si algo falla y el enlace a **Ayuda**.
 - Si falta un dato o tiene mal formato, el mensaje sale debajo del campo. Mientras se guarda, el botón dice **Guardando…** para no registrar dos veces lo mismo.
 
 ## 2. Lo que ven todos
@@ -69,8 +81,10 @@ Si algo no se puede (no hay stock, el pago no cuadra con el total, el RUC no tie
 | Tarea | Pasos |
 |---|---|
 | Recibir mercadería | **Ingresos** → **Registrar ingreso** (o, desde el inicio, **Recibir mercadería**) → elegir el documento que trae el repartidor (guía, factura o boleta), su número (por ejemplo `F001-00012345`), su fecha, el RUC y la razón social del emisor → cada producto con su cantidad, su costo unitario y, si tiene, su fecha de vencimiento → **Registrar ingreso**. El stock sube en ese momento y cada producto queda en el kardex como INGRESO DE MERCADERIA. Un mismo documento no se puede registrar dos veces |
+| Pedir a un proveedor | **Compras** → **Órdenes de compra** → **Nueva orden** (o, desde **Reponer**, **Armar orden de compra** o **Pedir a ...**, que la llenan con lo sugerido y el último costo) → proveedor, fecha de entrega, productos, cantidad y costo pactado → **Emitir orden**. La orden no cambia el stock. **Imprimir o PDF** la deja lista para enviarla al proveedor |
+| Recibir una orden de compra | **Ingresos** → en **Por recibir**, **Recibir** (o, en la orden, **Recibir mercadería**) → el proveedor y lo que falta ya vienen puestos: anotar el documento, corregir cada cantidad a lo que de verdad llegó (0 si no vino) y el costo si la factura trae otro → **Registrar ingreso**. El stock sube, el kardex dice el documento y la orden, y la orden pasa a PARCIAL o RECIBIDA. No se recibe más de lo pedido: lo que llegue de más va en un ingreso aparte |
 | Trasladar mercadería | **Traslados** → **Enviar mercadería** → tienda de destino, productos y cantidades → **Registrar traslado**. Sale de su tienda y entra en la otra, y las dos quedan en el kardex |
-| Qué pedir | **Reponer** → lista de lo que llegó a su stock mínimo: cuánto hay, cuánto se vende por día, para cuántos días alcanza y cuánto pedir (para 14 días de venta). Si otra tienda tiene sobrante, aparece para pedir un traslado. **Lista de pedido en CSV** la baja para Excel |
+| Qué pedir | **Reponer** → lista de lo que llegó a su stock mínimo: cuánto hay, cuánto se vende por día, para cuántos días alcanza y cuánto pedir (para 14 días de venta, descontando lo que ya está pedido en una orden abierta) y a quién se le compró por última vez. Si otra tienda tiene sobrante, aparece para pedir un traslado. **Lista de pedido en CSV** la baja para Excel |
 | Productos por vencer | **Por vencer** → elegir 7, 15, 30 o 60 días. Cada lote dice cuándo vence, cuánto queda (estimado: se vende primero lo más antiguo) y su valor al costo. Lo vencido sale en rojo; **Dar de baja lo vencido** lleva a registrar la merma |
 | Registrar una merma | **Mermas** → **Registrar merma** → producto, cantidad y motivo (vencido, dañado, robo u otro) → registrar |
 | Conteo físico | **Conteo** → escribir lo que se contó en el anaquel. Lo contado reemplaza al stock y la diferencia va al kardex como ajuste de entrada o de salida |
@@ -97,6 +111,8 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Abrir una tienda nueva | **Tiendas** → **Abrir una tienda**: se crea con su caja 1, sus series de boleta y factura, stock en 0 y su primer administrador |
 | Auditoría | **Auditoría**: quién anuló ventas, cambió precios, editó personal o reinició claves en su tienda, con fecha y detalle. Se filtra por acción |
 | Revisar compras | **Ingresos**: ve lo que recibió su tienda, con documento, emisor, costos y quién lo registró. **Descargar en CSV (Excel)** saca una fila por producto. Cada ingreso también queda en la **Auditoría** |
+| Proveedores | **Compras** → **Proveedores** → **Agregar proveedor** (RUC, razón social, contacto, teléfono, correo y días de entrega), **Editar** o **Desactivar**. El directorio es de toda la cadena. Un RUC nuevo que llega en un ingreso se agrega solo; aquí se completa su contacto. Uno con órdenes abiertas no se desactiva |
+| Anular o cerrar una orden | **Compras** → **Órdenes de compra** → **Ver** → escribir el motivo → **Anular orden** (no llegó nada) o **Cerrar orden** (llegó una parte y el resto ya no vendrá). Queda en la **Auditoría** |
 | Conteo físico | **Conteo**, igual que el almacenero |
 | Por vencer | **Por vencer**: lo mismo que ve el almacenero, para decidir ofertas o reclamos al proveedor |
 
@@ -109,3 +125,20 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Error en rojo dentro del formulario | Falta un dato o no cumple una regla. No se guardó nada; corregir y volver a enviar |
 | **El formulario venció** (403) | La página estuvo abierta mucho tiempo. Recargar y volver a enviar |
 | **La base de datos no está disponible** (503) | MySQL está apagado. Avisar a quien administra el sistema |
+| **Sin conexión con el servidor** (franja roja arriba) | Se cortó el internet o el servidor no responde. No cerrar la página: ver la sección 7 |
+| **Esta venta ya estaba registrada** (amarillo) | La venta se envió dos veces (por ejemplo, después de un corte). Se registró una sola vez: no cobrar otra vez |
+
+## 7. Si se cae el internet
+
+1. **Franja roja *Sin conexión con el servidor***: no cerrar la página. La venta que se está armando queda guardada en ese navegador y **Registrar venta** no la envía hasta que vuelva la conexión (sale *Conexión recuperada* en verde).
+2. **Se pulsó Registrar y el navegador mostró un error**: **no cobrar otra vez**. Al volver la conexión, entrar a **Nueva venta**: dice si la venta quedó registrada (con su número y **Ver comprobante**) o la devuelve armada para registrarla. Enviarla de nuevo nunca la duplica.
+3. **Se cerró el navegador o se fue la luz**: entrar otra vez, en la misma PC y con el mismo usuario, a **Nueva venta**: la venta aparece armada con un aviso amarillo (hasta 12 horas). Si ya no se quiere, **Vaciar**.
+4. **El sistema no vuelve y hay clientes**: solo efectivo, anotar cada venta en la hoja de contingencia y, al volver, registrarlas en **Nueva venta** anotando el número de comprobante en la hoja.
+
+El plan completo (qué funciona sin internet, la hoja de contingencia para imprimir y cómo preparar la tienda) está en `docs/plan_sin_internet.md`.
+
+## 8. Versión y soporte
+
+- La versión sale en el pie de cada página y en **Ayuda**. Los cambios de cada versión están en `CHANGELOG.md`.
+- El contacto de soporte (nombre, teléfono, correo y horario) también sale en el pie y en **Ayuda**. Lo configura quien instala el sistema en el `.env` (`docs/instalacion.md`).
+- Al pedir ayuda, tener a la mano: la pantalla donde se estaba, qué se hizo, el mensaje que salió, el número de comprobante (si hay) y la versión.
