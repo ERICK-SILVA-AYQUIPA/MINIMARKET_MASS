@@ -393,16 +393,17 @@ fun EtiquetaStock(producto: Producto, modifier: Modifier = Modifier) {
 }
 
 /**
- * Barra fina del stock: llena segun lo que hay frente a tres veces el minimo de la tienda.
+ * Barra fina del stock: llena segun lo que hay frente a tres veces el minimo de la tienda (sin minimo no aparece).
  * Verde si esta bien, ambar si llego al minimo y coral si se agoto (los mismos avisos de la etiqueta).
  */
 @Composable
 fun BarraStock(producto: Producto, modifier: Modifier = Modifier) {
-    if (!producto.activo || !producto.stockRegistrado) return
+    val minimo = producto.stockMinimo.toDoubleOrNull() ?: 0.0
+    // Sin minimo no hay contra que medir: no se dibuja (una barra siempre llena engañaria)
+    if (!producto.activo || !producto.stockRegistrado || minimo <= 0.0) return
     val c = Mass.colores
     val stock = producto.stock.toDoubleOrNull() ?: 0.0
-    val minimo = producto.stockMinimo.toDoubleOrNull() ?: 0.0
-    val tope = if (minimo > 0.0) minimo * 3 else maxOf(stock, 1.0)
+    val tope = minimo * 3
     val llenado = (stock / tope).coerceIn(0.0, 1.0).toFloat()
     val color = when {
         producto.agotado -> c.peligro

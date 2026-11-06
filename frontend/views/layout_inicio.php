@@ -12,7 +12,7 @@ declare(strict_types=1);
  * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro
  * @var ?string $modoMenu  '' (fijo), 'iconos' o 'auto': como ve el menu lateral este usuario
  * @var ?bool $bienvenida  true en la primera pagina despues de entrar: logo con barra de carga
- * @var ?string $estadoTurno  'abierto', 'pausa' o 'cerrado' para quien maneja caja; null para los demas (la pone Controller::vista)
+ * @var ?string $estadoTurno  'abierto', 'pausa', 'revision' o 'cerrado' para quien maneja caja; null para los demas (la pone Controller::vista)
  * @var ?string $buscado  lo que se busco desde la barra superior (solo el catalogo lo usa)
  */
 $usuarioActual ??= null;
@@ -123,6 +123,7 @@ if ($usuarioActual !== null) {
     $turnoIndicador = match ($estadoTurno) {
         'abierto' => ['abierto', 'Turno activo'],
         'pausa'   => ['pausa', 'Turno en pausa'],
+        'revision' => ['pausa', 'Cierre en revisión'],
         'cerrado' => ['cerrado', 'Sin turno abierto'],
         default   => null,
     };

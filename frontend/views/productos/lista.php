@@ -131,7 +131,7 @@ require __DIR__ . '/../parciales/buscador.php';
                 <span class="tarjeta-pie">
                     <span>
                         <span class="tarjeta-precio"><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small> /kg</small>' : '' ?></span>
-                        <span class="tarjeta-codigo"><?= e($p->getCodigoBarras() ?? 'Al peso') ?></span>
+                        <span class="tarjeta-codigo" data-texto="Al peso"><?= e($p->getCodigoBarras() ?? '') ?></span>
                     </span>
                     <span class="tarjeta-ver" aria-hidden="true" title="Ver ficha"><?= icono('ver') ?></span>
                 </span>

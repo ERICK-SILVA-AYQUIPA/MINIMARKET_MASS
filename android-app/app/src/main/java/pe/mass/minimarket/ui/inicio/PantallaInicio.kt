@@ -448,14 +448,14 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
 private fun Resumen(estado: EstadoInicio, onIr: (String) -> Unit) {
     val c = Mass.colores
     val datos = buildList {
-        estado.agotados?.let { add(Triple(Indicador("Agotados", it, Icons.Filled.RemoveShoppingCart), c.peligroFondo to c.peligro, Rutas.inventario(Filtro.AGOTADOS))) }
-        estado.bajos?.let { add(Triple(Indicador("Por reponer", it, Icons.AutoMirrored.Filled.TrendingDown), c.alertaFondo to c.alerta, Rutas.inventario(Filtro.BAJO))) }
-        estado.ventasHoy?.let { add(Triple(Indicador("Ventas hoy", it, Icons.AutoMirrored.Filled.ReceiptLong), c.exitoFondo to c.exito, Rutas.HISTORIAL)) }
+        estado.agotados?.let { add(Triple(Indicador("Agotados", it, Icons.Filled.RemoveShoppingCart), c.peligro, Rutas.inventario(Filtro.AGOTADOS))) }
+        estado.bajos?.let { add(Triple(Indicador("Por reponer", it, Icons.AutoMirrored.Filled.TrendingDown), c.alerta, Rutas.inventario(Filtro.BAJO))) }
+        estado.ventasHoy?.let { add(Triple(Indicador("Ventas hoy", it, Icons.AutoMirrored.Filled.ReceiptLong), c.exito, Rutas.HISTORIAL)) }
     }
     if (datos.isEmpty()) return
     // Tarjeta con borde fino: punto e icono de su color arriba, el numero en JetBrains Mono y el nombre debajo
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        datos.forEach { (ind, colores, ruta) ->
+        datos.forEach { (ind, color, ruta) ->
             Surface(
                 onClick = { onIr(ruta) },
                 shape = MaterialTheme.shapes.medium,
@@ -465,12 +465,12 @@ private fun Resumen(estado: EstadoInicio, onIr: (String) -> Unit) {
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(colores.second))
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
                         Spacer(Modifier.weight(1f))
-                        Icon(ind.icono, contentDescription = null, tint = colores.second, modifier = Modifier.size(16.dp))
+                        Icon(ind.icono, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.size(2.dp))
-                    Text(ind.valor.toString(), style = MaterialTheme.typography.headlineSmall.numeros(), color = colores.second)
+                    Text(ind.valor.toString(), style = MaterialTheme.typography.headlineSmall.numeros(), color = color)
                     Text(
                         ind.titulo,
                         style = MaterialTheme.typography.labelMedium,

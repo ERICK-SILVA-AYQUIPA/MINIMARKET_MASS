@@ -134,6 +134,7 @@
     --ancho-lateral: 280px;
     --ancho-plegado: 72px;
     --alto-control: var(--s-10);
+    --alto-barra-superior: 73px;   /* barra superior de la computadora: 16 + 40 + 16 y su borde */
 }
 
 /* ---------- Al imprimir: paleta clara (papel blanco, tinta negra) ---------- */
@@ -147,5 +148,7 @@
         --borde: rgba(15, 23, 42, .12); --borde-fuerte: rgba(15, 23, 42, .25);
         --verde: #166534; --verde-fondo: #dcfce7; --rojo: #b42318; --rojo-fondo: #fee4e2;
         --ambar: #92400e; --ambar-fondo: #fef3c7; --azul: #1d4ed8; --azul-fondo: #dbeafe; --gris: #475569; --gris-fondo: #e2e8f0;
+        --verde-borde: #a6e3b8; --rojo-borde: #f6b8b2; --ambar-borde: #f5d68a; --azul-borde: #b3cdf6;
+        --vidrio: #ffffff; --vidrio-denso: #ffffff; --vidrio-borde: rgba(15, 23, 42, .12); --velo: transparent;
     }
 }

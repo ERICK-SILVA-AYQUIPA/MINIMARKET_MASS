@@ -42,7 +42,7 @@ code { font-family: var(--mono); background: var(--gris-fondo); padding: var(--s
 td.recortado { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .texto-largo { white-space: pre-wrap; overflow-wrap: anywhere; }
 .num, td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-/* Los encabezados y los textos dentro de una celda de números siguen en Inter */
+/* Los encabezados y los textos dentro de una celda de números siguen en la letra de la interfaz */
 th.num, th, :is(.num, td, dd) :is(.sutil, .etiqueta, small) { font-family: var(--letra); }
 
 /* Enlace para saltar el menú con el teclado */
@@ -292,7 +292,16 @@ footer.pie .pie-version { font-family: var(--mono); }
 .turno-indicador.cerrado { background: rgba(255, 255, 255, .04); color: var(--suave); border-color: var(--borde); }
 @keyframes latido-turno { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
 @media (max-width: 960px) { .barra-superior { display: none; } }
-@media print { .barra-superior { display: none !important; } }
+/* Lo que se queda fijo al bajar (barra del turno, total de la venta, resumen de la apertura) va debajo de la barra superior */
+@media (min-width: 961px) {
+    .turno-barra { top: calc(var(--alto-barra-superior) + var(--s-3)); }
+    .venta .resumen, .apertura-resumen { top: calc(var(--alto-barra-superior) + var(--s-4)); }
+    .venta .venta-carrito { max-height: calc(100vh - var(--alto-barra-superior) - 2 * var(--s-4)); }
+}
+@media print {
+    .barra-superior { display: none !important; }
+    .tarjeta-stock { background: none; }
+}
 
 /* ---------- 4. Encabezado de página ---------- */
 .cabecera {
@@ -874,6 +883,7 @@ body.entrada-pagina::after {
 .tarjeta-pie > span:first-child { display: grid; gap: var(--s-1); min-width: 0; }
 .tarjeta-precio { font-family: var(--mono); letter-spacing: -.03em; font-weight: 700; font-size: 1.125rem; color: var(--marca); line-height: 1.2; }
 .tarjeta-precio small { font-weight: 500; color: var(--suave); }
+.tarjeta-codigo:empty::before { content: attr(data-texto); } /* "Al peso": se ve, pero el buscador no lo encuentra */
 .tarjeta-codigo {
     justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     padding: var(--s-0_5) 6px; border-radius: var(--radio-base); background: rgba(255, 255, 255, .05);

@@ -25,7 +25,6 @@ import pe.mass.minimarket.data.ModoTema
 
 // La marca: el mismo amarillo y la misma tinta de la pagina web (frontend/public/css/tokens.css)
 val Marca = Color(0xFFFFC400)
-val MarcaFuerte = Color(0xFFE5B000)
 val Tinta = Color(0xFF0F172A)
 
 // Fondo y tarjetas del tema oscuro de punto de venta (los mismos de la web)

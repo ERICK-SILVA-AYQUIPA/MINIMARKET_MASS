@@ -1487,7 +1487,7 @@
         // "/" lleva al buscador de la pagina
         if (evento.key === '/' && !escribiendo && drawer === null) {
             const buscador = $('[data-buscador]:not([hidden]) input') || $('form.filtros input:not([type=hidden])')
-                || $('[data-busqueda-global] input[type=search]');
+                || [$('[data-busqueda-global] input[type=search]')].find((campo) => campo && campo.offsetParent !== null);
             if (buscador) {
                 evento.preventDefault();
                 buscador.focus();
