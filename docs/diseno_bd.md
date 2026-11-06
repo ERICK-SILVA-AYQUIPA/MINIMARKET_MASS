@@ -679,6 +679,13 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `caja_apertura.sql` | Tablas `regla_caja`, `arqueo_caja` y `arqueo_detalle`; columnas `caja.fondo_fijo` y, en `caja_turno`, `monto_esperado`, `diferencia`, `en_pausa_desde`, `observacion`, `id_empleado_revisa`, `fecha_hora_revision` y dos columnas generadas únicas | Apertura y cierre de caja por empleado: fondo fijo, arqueo por billetes y monedas, diferencia guardada y revisión del administrador |
 | `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
 | `migraciones/020_descuentos_promociones.sql` | Tablas `promocion` y `descuento_venta`; columnas `detalle_venta.descuento`, `descuento_general` e `id_promocion`; el CHECK de `detalle_devolucion.importe` pasa a `importe <= ROUND(cantidad * precio_unitario, 2)` | Promociones (por producto con %, precio de oferta, pack, y % a toda la compra) y descuento manual del cajero. Lo cobrado de cada línea es `importe - descuento - descuento_general` y `venta.total` es su suma; una devolución paga lo cobrado |
+| `migraciones/023_producto_codigo_alterno.sql` | Tabla `producto_codigo` | Otros códigos de barras de un producto (empaque nuevo, pack, caja ITF-14): el escáner también lo reconoce con ellos |
+
+#### `producto_codigo`
+Otros códigos con los que el escáner reconoce un producto. Los vincula cualquier empleado desde la app al escanear un código desconocido; el administrador los quita en la ficha web.
+- `id_producto_codigo` (INT UNSIGNED, AUTO_INCREMENT, PK), `id_producto` (FK)
+- `codigo` (VARCHAR(14), UNIQUE, CHECK 8 a 14 dígitos). Que no repita el `codigo_barras` de otro producto (en ninguna variante con ceros adelante) lo revisa `ProductoServicio`
+- `fecha_registro` (DATETIME), `id_empleado_registro` (FK), `id_tienda_registro` (FK)
 
 #### `promocion`
 La crea el administrador (de su tienda o de toda la cadena) y se aplica sola al vender mientras esté ACTIVA y dentro de sus fechas.

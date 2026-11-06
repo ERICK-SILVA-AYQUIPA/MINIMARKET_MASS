@@ -51,7 +51,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`backend/database/caja_apertura.sql`**: Apertura y cierre de caja por empleado: fondo fijo de cada caja, reglas de caja por tienda (`regla_caja`), arqueo por billetes y monedas (`arqueo_caja`, `arqueo_detalle`), esperado y diferencia guardados en cada turno, estados OBSERVADO y RECONTEO para la revisión del administrador, y una sola caja abierta por turno también en la base.
 - **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
-- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 45 tablas (26 del diseño y 19 de apoyo de la aplicación).
+- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 46 tablas (26 del diseño y 20 de apoyo de la aplicación).
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero), con un resumen en una página. Dentro del sistema, la pantalla **Ayuda** muestra el manual corto del rol, la versión y el contacto de soporte.
 - **`docs/instalacion.md`**: Guía de instalación corta (Laragon, Docker o servidor con HTTPS) y cómo poner el contacto de soporte.
