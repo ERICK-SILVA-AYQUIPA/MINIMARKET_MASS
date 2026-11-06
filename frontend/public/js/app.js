@@ -1135,7 +1135,8 @@
         const campoClave = $('[data-clave-operacion]', formVenta);
         // medio_pago son radios (EFECTIVO, DEBITO, CREDITO, SIP): namedItem da su RadioNodeList, que tambien tiene .value
         const CAMPOS_BORRADOR = ['documento', 'medio_pago', 'efectivo_recibido', 'tarjeta_monto', 'tarjeta_marca',
-            'tarjeta_ultimos4', 'tarjeta_autorizacion', 'sip_monto', 'sip_modalidad', 'sip_operacion'];
+            'tarjeta_ultimos4', 'tarjeta_autorizacion', 'sip_monto', 'sip_modalidad', 'sip_operacion',
+            'descuento_valor', 'descuento_unidad', 'descuento_motivo'];
         const HORAS_BORRADOR = 12;
 
         function leidoDelFormulario() {
@@ -1192,6 +1193,11 @@
                     elemento.value = campos[nombre];
                 }
             });
+            // El descuento que se le dijo al cliente vuelve a la vista, con su bloque abierto
+            const bloqueDescuento = $('[data-descuento]', formVenta);
+            if (bloqueDescuento !== null && typeof campos.descuento_valor === 'string' && campos.descuento_valor !== '') {
+                bloqueDescuento.open = true;
+            }
             campoClave.value = borrador.clave;
             calcular();
             pintarCarrito();

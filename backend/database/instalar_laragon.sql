@@ -2869,8 +2869,11 @@ INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('023_producto_c
    - Idempotente: si el DNI ya existe (alguien lo registro a mano en Personal) no se inserta otra vez
      ni se cambia su clave. Los empleados que ya estaban no se tocan.
    - Solo en la base de ejemplo: cada uno entra a la sede del cajero de ejemplo de esa sede (Luis 70000002,
-     Ana 70000005, Miguel 70000008). Una tienda real (quitar_datos_demo.php ya borro a esos cajeros)
-     no recibe empleados con una clave conocida.
+     Ana 70000005, Miguel 70000008) si ese cajero sigue ACTIVO en una tienda ACTIVA y la administradora de
+     ejemplo (Rosa, 70000001) sigue registrada. Una tienda real (quitar_datos_demo.php borra a esos cajeros y
+     cambia el DNI del empleado 1) no recibe empleados con una clave conocida. Si una tienda trabaja con la
+     base de ejemplo sin limpiarla, verificar_instalacion.php marca como FALLA a todo empleado activo que
+     siga con la clave de prueba, estos incluidos.
    - SET NAMES: el cliente mysql de Docker conecta en latin1; sin esto la tilde de Raúl llega mal.
    ===================================================================== */
 
@@ -2888,7 +2891,9 @@ SELECT n.nombres, n.apellidos, n.dni, n.clave_hash, 1, 'S', 'ACTIVO', c.id_tiend
         SELECT 'Raúl', 'Apaza Medina', '70000103', '70000008',
                '$2y$10$.aS2wc8EDpaEx5D73ov3DOqOlZsGRMatl3VisV2F3hpWGMPiQLqh2'
        ) AS n
-  JOIN empleado c ON c.dni = n.dni_companero COLLATE utf8mb4_unicode_ci
+  JOIN empleado c ON c.dni = n.dni_companero COLLATE utf8mb4_unicode_ci AND c.estado = 'ACTIVO'
   JOIN rol r ON r.id_rol = c.id_rol AND r.nombre_rol = 'CAJERO'
- WHERE NOT EXISTS (SELECT 1 FROM empleado e WHERE e.dni = n.dni COLLATE utf8mb4_unicode_ci);
-INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('024_cajero_caja_2_por_sede.sql', NOW(), 'd672125b5d6ef2f950ad268d2e48f4ef2021d4dd882af93e456421c7ec518d99');
+  JOIN tienda t ON t.id_tienda = c.id_tienda AND t.estado = 'ACTIVA'
+ WHERE NOT EXISTS (SELECT 1 FROM empleado e WHERE e.dni = n.dni COLLATE utf8mb4_unicode_ci)
+   AND EXISTS (SELECT 1 FROM empleado a WHERE a.dni = '70000001' AND a.id_rol = 1);
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('024_cajero_caja_2_por_sede.sql', NOW(), '421cc9126d0b29ad3be31a10ec8449236f2adbe01daa7915195fc46248f72d4a');

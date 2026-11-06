@@ -138,7 +138,8 @@ revisar('...con la clave de prueba solo como hash y obligados a cambiarla al ent
 revisar('Cada sede tiene tantos cajeros activos como cajas',
     valor($db, "SELECT COUNT(*) FROM tienda t
                  WHERE (SELECT COUNT(*) FROM caja c WHERE c.id_tienda = t.id_tienda AND c.estado = 'ACTIVA')
-                    <> (SELECT COUNT(*) FROM empleado e WHERE e.id_tienda = t.id_tienda AND e.id_rol = 2 AND e.estado = 'ACTIVO')") === '0');
+                    <> (SELECT COUNT(*) FROM empleado e JOIN rol r ON r.id_rol = e.id_rol
+                         WHERE e.id_tienda = t.id_tienda AND r.nombre_rol = 'CAJERO' AND e.estado = 'ACTIVO')") === '0');
 $cambiadas = 0;
 foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../database/migraciones/024_cajero_caja_2_por_sede.sql')) as $sentencia) {
     $cambiadas += (int) $db->exec($sentencia);

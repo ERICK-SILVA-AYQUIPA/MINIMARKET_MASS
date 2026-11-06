@@ -10,7 +10,7 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
   a la vez. Solo se agregan en la base de ejemplo y no tocan a los empleados que ya estaban.
 - **Corregido**: en Nueva venta, la venta armada ya no se guardaba en el navegador (el campo `tarjeta_tipo` se
   quitó al rediseñar los medios de pago y el guardado fallaba con un error de JavaScript). Ahora guarda y recupera
-  también el medio de pago.
+  también el medio de pago y el descuento manual.
 
 ## 1.0.0 · 2026-11-05
 
