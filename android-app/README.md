@@ -43,7 +43,7 @@ Kotlin, Jetpack Compose (Material 3), MVVM con `ViewModel` y `StateFlow`, Camera
    (en Laragon, ejecutar `backend/database/api_movil.sql` en HeidiSQL). Un contenedor nuevo ya la corre solo.
 3. Encender el servidor PHP:
    - Emulador: `php -S localhost:8000 -t frontend/public`
-   - Celular real en el mismo Wi-Fi: `php -S 0.0.0.0:8000 -t frontend/public` y usar la IP de la PC (por ejemplo `http://192.168.1.50:8000/`). Puede que haya que permitir el puerto 8000 en el firewall de Windows.
+   - Celular real en el mismo Wi-Fi: `php -S 0.0.0.0:8000 -t frontend/public` (es lo que hace `iniciar_servidor_laragon.bat`, que además muestra la IP) y usar la IP de la PC (por ejemplo `http://192.168.1.50:8000/`). Puede que haya que permitir el puerto 8000 en el firewall de Windows. Con `localhost` el celular no llega y la app dice *No se pudo conectar con el servidor*.
 4. Probar en el navegador: `http://localhost:8000/api/v1/salud` debe responder `{"ok":true,...}`.
 
 ## Compilar el APK de prueba (debug)

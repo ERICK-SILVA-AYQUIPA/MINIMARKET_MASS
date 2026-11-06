@@ -92,7 +92,8 @@ class Repositorio(private val config: Configuracion) {
             cadena.proceed(pedido.build())
         }
         val cliente = OkHttpClient.Builder()
-            .connectTimeout(10, TimeUnit.SECONDS)
+            // En el Wi-Fi del local la PC responde en milisegundos: si en 6 s no conecta, no va a conectar
+            .connectTimeout(6, TimeUnit.SECONDS)
             .readTimeout(20, TimeUnit.SECONDS)
             .writeTimeout(20, TimeUnit.SECONDS)
             // Un POST de venta no se reenvia solo: el reintento lo decide la app con la misma Idempotency-Key
@@ -137,15 +138,26 @@ class Repositorio(private val config: Configuracion) {
                     respuesta.code(),
                 )
             } catch (e: SocketTimeoutException) {
-                Resultado.Error("El servidor tardó demasiado en responder. Revisa la conexión e intenta otra vez.", "RED", 0)
+                // "failed to connect ... after" / "connect timed out": nunca llego al servidor (IP equivocada, servidor
+                // apagado, escuchando solo en localhost o el firewall de la PC). No es que el servidor sea lento.
+                if (e.message.orEmpty().contains("connect", ignoreCase = true)) {
+                    Resultado.Error(sinConexion(), "RED", 0)
+                } else {
+                    Resultado.Error("El servidor tardó demasiado en responder. Intenta otra vez en un momento.", "RED", 0)
+                }
             } catch (e: IOException) {
-                Resultado.Error("No hay conexión con el servidor ($urlActual). Revisa el Wi-Fi o los datos móviles.", "RED", 0)
+                Resultado.Error(sinConexion(), "RED", 0)
             } catch (e: SerializationException) {
                 Resultado.Error("La respuesta del servidor no se pudo leer. ¿La dirección es la de Minimarket Mass?", "FORMATO", -1)
             } catch (e: IllegalArgumentException) {
                 Resultado.Error("La respuesta del servidor no se pudo leer. ¿La dirección es la de Minimarket Mass?", "FORMATO", -1)
             }
         }
+
+    /** Por que no se llega al servidor y que revisar, en palabras del trabajador. */
+    private fun sinConexion(): String =
+        "No se pudo conectar con el servidor ($urlActual). Revisa que la PC tenga el servidor encendido, " +
+            "que la dirección sea la que muestra la PC y que el celular esté en el mismo Wi-Fi."
 
     // ---------- Sesion ----------
 
