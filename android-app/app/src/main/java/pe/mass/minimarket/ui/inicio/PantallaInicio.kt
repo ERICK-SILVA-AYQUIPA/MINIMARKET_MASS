@@ -3,6 +3,7 @@ package pe.mass.minimarket.ui.inicio
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.RemoveShoppingCart
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.AlertDialog
@@ -61,9 +63,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -81,10 +86,13 @@ import pe.mass.minimarket.data.ModoTema
 import pe.mass.minimarket.data.Repositorio
 import pe.mass.minimarket.data.Resultado
 import pe.mass.minimarket.data.api.EstadoCaja
+import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.data.api.Perfil
 import pe.mass.minimarket.dominio.saludo
 import pe.mass.minimarket.ui.comun.BarraSuperior
 import pe.mass.minimarket.ui.comun.BotonGrande
+import pe.mass.minimarket.ui.comun.DialogoBuscarProducto
+import pe.mass.minimarket.ui.comun.FilaProducto
 import pe.mass.minimarket.ui.comun.FilaReciente
 import pe.mass.minimarket.ui.comun.Inicial
 import pe.mass.minimarket.ui.comun.Pastilla
@@ -101,18 +109,28 @@ import pe.mass.minimarket.ui.tema.Tinta
 import java.time.LocalDate
 import java.time.LocalTime
 
-private data class Opcion(val titulo: String, val detalle: String, val icono: ImageVector, val ruta: String)
+private data class Opcion(
+    val titulo: String,
+    val detalle: String,
+    val icono: ImageVector,
+    val ruta: String,
+    // Nombre corto para la fila de accesos rapidos (4 por fila)
+    val corto: String = titulo,
+    // Texto del boton oscuro de la tarjeta amarilla
+    val accion: String = "Abrir",
+)
 
 /** La accion principal del rol: lo que mas hace en el dia, en grande y arriba. */
 private fun principal(perfil: Perfil): Opcion? {
     val p = perfil.permisos
     return when {
-        p.vender -> Opcion("Nueva venta", "Escanea y cobra", Icons.Filled.PointOfSale, Rutas.VENTA)
+        p.vender -> Opcion("Nueva venta", "Escanea y cobra", Icons.Filled.PointOfSale, Rutas.VENTA, accion = "Vender")
         p.registrarIngreso -> Opcion(
             "Entrada de stock",
             if (p.crearProducto) "Escanea lo que llega; si es nuevo, regístralo ahí mismo" else "Recibe mercadería con su guía o factura",
             Icons.Filled.LocalShipping,
             Rutas.ENTRADA,
+            accion = "Escanear",
         )
         else -> null
     }
@@ -121,9 +139,9 @@ private fun principal(perfil: Perfil): Opcion? {
 /** Los accesos rapidos: solo lo que permite el rol (el servidor igual revisa cada permiso). */
 private fun accesos(perfil: Perfil): List<Opcion> = buildList {
     val p = perfil.permisos
-    add(Opcion("Consultar precio", "Precio y stock al instante", Icons.Filled.QrCodeScanner, Rutas.consulta()))
-    if (p.crearProducto) add(Opcion("Agregar producto", "Escanea un código nuevo", Icons.Filled.AddBox, Rutas.REGISTRAR))
-    if (p.vender && p.registrarIngreso) add(Opcion("Entrada de stock", "Recibir mercadería", Icons.Filled.LocalShipping, Rutas.ENTRADA))
+    add(Opcion("Consultar precio", "Precio y stock al instante", Icons.Filled.QrCodeScanner, Rutas.consulta(), corto = "Consultar"))
+    if (p.crearProducto) add(Opcion("Agregar producto", "Escanea un código nuevo", Icons.Filled.AddBox, Rutas.REGISTRAR, corto = "Agregar"))
+    if (p.vender && p.registrarIngreso) add(Opcion("Entrada de stock", "Recibir mercadería", Icons.Filled.LocalShipping, Rutas.ENTRADA, corto = "Entrada"))
     if (p.verInventario) add(Opcion("Inventario", "Stock de la tienda", Icons.Filled.Inventory2, Rutas.inventario()))
     if (p.verVentas) add(Opcion("Ventas", "Comprobantes de la tienda", Icons.AutoMirrored.Filled.ReceiptLong, Rutas.HISTORIAL))
 }
@@ -134,6 +152,10 @@ data class EstadoInicio(
     val agotados: Int? = null,
     val bajos: Int? = null,
     val ventasHoy: Int? = null,
+    // Primeros productos agotados o con poco stock, para nombrarlos en el aviso "Requiere atención"
+    val porReponer: List<Producto> = emptyList(),
+    // Los productos vistos hace poco, con su stock de ahora (pedido al servidor)
+    val recientes: List<Producto> = emptyList(),
     val actualizando: Boolean = false,
     // Solo cuando el usuario desliza hacia abajo se muestra el indicador de "actualizando"
     val refrescando: Boolean = false,
@@ -144,7 +166,7 @@ class InicioViewModel(private val repo: Repositorio) : ViewModel() {
     private val _estado = MutableStateFlow(EstadoInicio(perfil = repo.perfil))
     val estado: StateFlow<EstadoInicio> = _estado
 
-    fun actualizar(desdeGesto: Boolean = false) {
+    fun actualizar(idsRecientes: List<Int>, desdeGesto: Boolean = false) {
         if (_estado.value.actualizando) return
         _estado.update { it.copy(actualizando = true, refrescando = desdeGesto) }
         viewModelScope.launch {
@@ -153,15 +175,21 @@ class InicioViewModel(private val repo: Repositorio) : ViewModel() {
             val p = perfil?.permisos
             val hoy = LocalDate.now().toString()
             val caja = async { if (p?.vender == true) (repo.caja() as? Resultado.Ok)?.datos else null }
-            val agotados = async { if (p?.verInventario == true) (repo.productos(null, Filtro.AGOTADOS.clave, 1) as? Resultado.Ok)?.datos?.total else null }
-            val bajos = async { if (p?.verInventario == true) (repo.productos(null, Filtro.BAJO.clave, 1) as? Resultado.Ok)?.datos?.total else null }
+            val agotados = async { if (p?.verInventario == true) (repo.productos(null, Filtro.AGOTADOS.clave, 1) as? Resultado.Ok)?.datos else null }
+            val bajos = async { if (p?.verInventario == true) (repo.productos(null, Filtro.BAJO.clave, 1) as? Resultado.Ok)?.datos else null }
             val ventas = async { if (p?.verVentas == true) (repo.ventas(hoy, hoy, null, null, 1) as? Resultado.Ok)?.datos?.total else null }
+            // Precio y stock al dia de los vistos hace poco (si alguno falla, se muestra como antes, sin stock)
+            val recientes = idsRecientes.map { id -> async { (repo.producto(id) as? Resultado.Ok)?.datos } }
+            val pagAgotados = agotados.await()
+            val pagBajos = bajos.await()
             _estado.value = EstadoInicio(
                 perfil = perfil,
                 caja = caja.await(),
-                agotados = agotados.await(),
-                bajos = bajos.await(),
+                agotados = pagAgotados?.total,
+                bajos = pagBajos?.total,
                 ventasHoy = ventas.await(),
+                porReponer = (pagAgotados?.productos.orEmpty() + pagBajos?.productos.orEmpty()).distinctBy { it.idProducto },
+                recientes = recientes.mapNotNull { it.await() },
                 actualizando = false,
             )
         }
@@ -174,13 +202,15 @@ fun PantallaInicio(onIr: (String) -> Unit) {
     val vm = vistaModelo { InicioViewModel(it) }
     val estado by vm.estado.collectAsState()
     val ajustes by preferencias().ajustes.collectAsState()
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.actualizar() }
+    val idsRecientes = ajustes.recientes.take(MAX_EN_INICIO).map { it.id }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { vm.actualizar(idsRecientes) }
+    var buscar by remember { mutableStateOf(false) }
 
     Scaffold { relleno ->
         val perfil = estado.perfil ?: return@Scaffold
         PullToRefreshBox(
             isRefreshing = estado.refrescando,
-            onRefresh = { vm.actualizar(desdeGesto = true) },
+            onRefresh = { vm.actualizar(idsRecientes, desdeGesto = true) },
             modifier = Modifier.fillMaxSize().padding(relleno),
         ) {
             LazyColumn(
@@ -189,6 +219,7 @@ fun PantallaInicio(onIr: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 item { Encabezado(perfil, onPerfil = { onIr(Rutas.PERFIL) }) }
+                item { Buscador(onBuscar = { buscar = true }, onEscanear = { onIr(Rutas.consulta()) }) }
                 principal(perfil)?.let { op ->
                     item { TarjetaPrincipal(op, detalle = textoCaja(perfil, estado.caja) ?: op.detalle) { onIr(op.ruta) } }
                 }
@@ -196,26 +227,132 @@ fun PantallaInicio(onIr: (String) -> Unit) {
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         TituloSeccion("Accesos rápidos")
-                        accesos(perfil).chunked(2).forEach { fila ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        accesos(perfil).chunked(POR_FILA).forEach { fila ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 fila.forEach { op -> TarjetaAcceso(op, Modifier.weight(1f)) { onIr(op.ruta) } }
-                                if (fila.size == 1) Spacer(Modifier.weight(1f))
+                                repeat(POR_FILA - fila.size) { Spacer(Modifier.weight(1f)) }
                             }
+                        }
+                    }
+                }
+                if ((estado.agotados ?: 0) > 0 || (estado.bajos ?: 0) > 0) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TituloSeccion("Requiere atención")
+                            AvisoStock(estado) { filtro -> onIr(Rutas.inventario(filtro)) }
                         }
                     }
                 }
                 if (ajustes.recientes.isNotEmpty()) {
                     item {
+                        val alDia = estado.recientes.associateBy { it.idProducto }
                         Tarjeta(Modifier.fillMaxWidth()) {
-                            TituloSeccion("Vistos hace poco", Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp))
-                            ajustes.recientes.take(5).forEach { r ->
-                                FilaReciente(r, onClick = { onIr(Rutas.consulta(r.id)) })
+                            TituloSeccion(
+                                "Vistos hace poco",
+                                Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp),
+                                accion = if (perfil.permisos.verInventario) "Ver todo" else null,
+                                onAccion = { onIr(Rutas.inventario()) },
+                            )
+                            ajustes.recientes.take(MAX_EN_INICIO).forEach { r ->
+                                val producto = alDia[r.id]
+                                // Con el stock de ahora se ve la etiqueta (agotado, bajo o cuantos hay)
+                                if (producto != null) {
+                                    FilaProducto(producto, onClick = { onIr(Rutas.consulta(r.id)) })
+                                } else {
+                                    FilaReciente(r, onClick = { onIr(Rutas.consulta(r.id)) })
+                                }
                             }
                             Spacer(Modifier.size(4.dp))
                         }
                     }
                 }
             }
+        }
+    }
+
+    if (buscar) {
+        DialogoBuscarProducto(
+            onElegir = { producto ->
+                buscar = false
+                onIr(Rutas.consulta(producto.idProducto))
+            },
+            onCerrar = { buscar = false },
+            soloActivos = false,
+        )
+    }
+}
+
+private const val POR_FILA = 4
+private const val MAX_EN_INICIO = 5
+
+/** Campo de busqueda (abre la busqueda por nombre o codigo) con el boton amarillo del escaner. */
+@Composable
+private fun Buscador(onBuscar: () -> Unit, onEscanear: () -> Unit) {
+    Tarjeta(Modifier.fillMaxWidth(), onClick = onBuscar) {
+        Row(Modifier.heightIn(min = 54.dp).padding(start = 14.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "Buscar producto o código…",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Surface(
+                onClick = onEscanear,
+                shape = MaterialTheme.shapes.small,
+                color = Marca,
+                contentColor = Tinta,
+                modifier = Modifier.size(40.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.QrCodeScanner, contentDescription = "Escanear código") }
+            }
+        }
+    }
+}
+
+/** "5 agotados y 8 por reponer · Fanta, Leche Gloria y más": lleva a la lista del inventario. */
+@Composable
+private fun AvisoStock(estado: EstadoInicio, onIr: (Filtro) -> Unit) {
+    val c = Mass.colores
+    val agotados = estado.agotados ?: 0
+    val bajos = estado.bajos ?: 0
+    val titulo = when {
+        agotados > 0 && bajos > 0 -> "$agotados agotado${if (agotados == 1) "" else "s"} y $bajos por reponer"
+        agotados > 0 -> if (agotados == 1) "1 producto agotado" else "$agotados productos agotados"
+        else -> if (bajos == 1) "1 producto con poco stock" else "$bajos productos con poco stock"
+    }
+    val nombres = estado.porReponer.map { it.nombre }
+    val detalle = when {
+        nombres.isEmpty() -> "Revisa el inventario para reponer"
+        nombres.size <= 2 && agotados + bajos <= 2 -> nombres.joinToString(" y ")
+        else -> nombres.take(2).joinToString(", ") + " y más por reponer"
+    }
+    Surface(
+        onClick = { onIr(if (agotados > 0) Filtro.AGOTADOS else Filtro.BAJO) },
+        shape = MaterialTheme.shapes.medium,
+        color = c.peligroFondo,
+        contentColor = c.peligro,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = MaterialTheme.shapes.small, color = c.peligro, contentColor = c.peligroFondo, modifier = Modifier.size(42.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.WarningAmber, contentDescription = null) }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(titulo, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                Text(
+                    detalle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -270,6 +407,14 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
             Modifier
                 .fillMaxWidth()
                 .background(Brush.linearGradient(listOf(Marca, Color(0xFFFFC300))))
+                // Circulo claro de adorno en la esquina de abajo
+                .drawBehind {
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.35f),
+                        radius = 85.dp.toPx(),
+                        center = Offset(size.width - 45.dp.toPx(), size.height - 35.dp.toPx()),
+                    )
+                }
                 .padding(20.dp),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -278,8 +423,12 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
                         Box(contentAlignment = Alignment.Center) { Icon(opcion.icono, contentDescription = null, modifier = Modifier.size(28.dp)) }
                     }
                     Spacer(Modifier.weight(1f))
-                    Surface(shape = CircleShape, color = Tinta.copy(alpha = 0.08f), contentColor = Tinta, modifier = Modifier.size(40.dp)) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null) }
+                    Surface(shape = CircleShape, color = Tinta, contentColor = Color.White) {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(opcion.accion, style = MaterialTheme.typography.labelLarge)
+                            Spacer(Modifier.width(6.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
                 Column {
@@ -322,29 +471,22 @@ private fun Resumen(estado: EstadoInicio, onIr: (String) -> Unit) {
 
 private data class Indicador(val titulo: String, val valor: Int, val icono: ImageVector)
 
+/** Acceso rapido: un cuadro con el icono y el nombre corto debajo (4 por fila, como en la web). */
 @Composable
 private fun TarjetaAcceso(opcion: Opcion, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Tarjeta(modifier.heightIn(min = 120.dp), onClick = onClick) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(42.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) { Icon(opcion.icono, contentDescription = null) }
-            }
-            Column {
-                Text(opcion.titulo, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    opcion.detalle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Tarjeta(Modifier.fillMaxWidth().aspectRatio(1f), onClick = onClick) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(opcion.icono, contentDescription = opcion.titulo, modifier = Modifier.size(28.dp))
             }
         }
+        Text(
+            opcion.corto,
+            style = MaterialTheme.typography.labelMedium,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

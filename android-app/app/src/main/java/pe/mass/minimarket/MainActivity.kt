@@ -12,8 +12,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,9 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import pe.mass.minimarket.ui.comun.BarraInferior
+import pe.mass.minimarket.ui.comun.Pestana
+import pe.mass.minimarket.ui.comun.pestanasDe
 import pe.mass.minimarket.ui.comun.preferencias
 import pe.mass.minimarket.ui.comun.repositorio
 import pe.mass.minimarket.ui.entrada.PantallaEntrada
@@ -97,81 +105,124 @@ private fun Navegacion() {
         repo.sesionVencida.collect { irAlLogin(nav) }
     }
 
-    NavHost(
-        navController = nav,
-        startDestination = if (repo.haySesion) Rutas.INICIO else Rutas.LOGIN,
-        // Transiciones cortas: la pantalla nueva entra deslizandose y la anterior se desvanece
-        enterTransition = {
-            slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(DURACION)) + fadeIn(tween(DURACION))
+    // La barra de abajo solo se ve en las pantallas principales (no al vender, escanear ni en el login)
+    val rutaActual = nav.currentBackStackEntryAsState().value?.destination?.route
+    val pestanaActual = when (rutaActual) {
+        Rutas.INICIO -> Pestana.INICIO
+        Rutas.INVENTARIO -> Pestana.INVENTARIO
+        Rutas.HISTORIAL -> Pestana.VENTAS
+        Rutas.PERFIL -> Pestana.CUENTA
+        else -> null
+    }
+
+    Scaffold(
+        // Cada pantalla maneja sus propios margenes de sistema; aqui solo se reserva el alto de la barra
+        contentWindowInsets = WindowInsets(0),
+        bottomBar = {
+            if (pestanaActual != null) {
+                BarraInferior(
+                    pestanas = pestanasDe(repo.perfil),
+                    actual = pestanaActual,
+                    onPestana = { p -> irPestana(nav, p) },
+                    onEscanear = { nav.navigate(Rutas.consulta()) },
+                )
+            }
         },
-        exitTransition = { fadeOut(tween(DURACION / 2)) },
-        popEnterTransition = { fadeIn(tween(DURACION)) },
-        popExitTransition = {
-            slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(DURACION)) + fadeOut(tween(DURACION))
-        },
-    ) {
-        composable(Rutas.LOGIN) {
-            PantallaLogin(onEntrar = {
-                nav.navigate(Rutas.INICIO) { popUpTo(Rutas.LOGIN) { inclusive = true } }
-            })
+    ) { relleno ->
+        NavHost(
+            navController = nav,
+            modifier = Modifier.padding(relleno).consumeWindowInsets(relleno),
+            startDestination = if (repo.haySesion) Rutas.INICIO else Rutas.LOGIN,
+            // Transiciones cortas: la pantalla nueva entra deslizandose y la anterior se desvanece
+            enterTransition = {
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(DURACION)) + fadeIn(tween(DURACION))
+            },
+            exitTransition = { fadeOut(tween(DURACION / 2)) },
+            popEnterTransition = { fadeIn(tween(DURACION)) },
+            popExitTransition = {
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(DURACION)) + fadeOut(tween(DURACION))
+            },
+        ) {
+            composable(Rutas.LOGIN) {
+                PantallaLogin(onEntrar = {
+                    nav.navigate(Rutas.INICIO) { popUpTo(Rutas.LOGIN) { inclusive = true } }
+                })
+            }
+            composable(Rutas.INICIO) {
+                PantallaInicio(onIr = { ruta -> nav.navigate(ruta) })
+            }
+            composable(Rutas.PERFIL) {
+                PantallaPerfil(onAtras = { nav.popBackStack() }, onSalir = { irAlLogin(nav) })
+            }
+            composable(
+                Rutas.CONSULTA,
+                arguments = listOf(navArgument("id") { type = NavType.IntType; defaultValue = 0 }),
+            ) { entrada ->
+                PantallaConsulta(
+                    onAtras = { nav.popBackStack() },
+                    modo = ModoConsulta.PRECIO,
+                    idInicial = entrada.arguments?.getInt("id")?.takeIf { it > 0 },
+                    onAbrirFicha = null,
+                )
+            }
+            composable(Rutas.ESCANER_INVENTARIO) {
+                PantallaConsulta(
+                    onAtras = { nav.popBackStack() },
+                    modo = ModoConsulta.INVENTARIO,
+                    onAbrirFicha = { id -> nav.navigate(Rutas.producto(id)) { popUpTo(Rutas.ESCANER_INVENTARIO) { inclusive = true } } },
+                )
+            }
+            composable(Rutas.REGISTRAR) {
+                PantallaConsulta(onAtras = { nav.popBackStack() }, modo = ModoConsulta.REGISTRAR, onAbrirFicha = null)
+            }
+            composable(
+                Rutas.INVENTARIO,
+                arguments = listOf(navArgument("filtro") { type = NavType.StringType; defaultValue = Filtro.TODOS.clave }),
+            ) { entrada ->
+                PantallaInventario(
+                    filtroInicial = Filtro.deClave(entrada.arguments?.getString("filtro")),
+                    onAtras = { nav.popBackStack() },
+                    onAbrir = { id -> nav.navigate(Rutas.producto(id)) },
+                    onEscanear = { nav.navigate(Rutas.ESCANER_INVENTARIO) },
+                )
+            }
+            composable(Rutas.PRODUCTO, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entrada ->
+                PantallaProducto(idProducto = entrada.arguments?.getInt("id") ?: 0, onAtras = { nav.popBackStack() })
+            }
+            composable(Rutas.VENTA) {
+                PantallaVenta(
+                    onAtras = { nav.popBackStack() },
+                    onVerVenta = { id -> nav.navigate(Rutas.detalleVenta(id)) },
+                    onHistorial = { nav.navigate(Rutas.HISTORIAL) },
+                )
+            }
+            composable(Rutas.ENTRADA) {
+                PantallaEntrada(onAtras = { nav.popBackStack() })
+            }
+            composable(Rutas.HISTORIAL) {
+                PantallaHistorial(onAtras = { nav.popBackStack() }, onAbrir = { id -> nav.navigate(Rutas.detalleVenta(id)) })
+            }
+            composable(Rutas.DETALLE_VENTA, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entrada ->
+                PantallaDetalleVenta(idVenta = entrada.arguments?.getLong("id") ?: 0L, onAtras = { nav.popBackStack() })
+            }
         }
-        composable(Rutas.INICIO) {
-            PantallaInicio(onIr = { ruta -> nav.navigate(ruta) })
-        }
-        composable(Rutas.PERFIL) {
-            PantallaPerfil(onAtras = { nav.popBackStack() }, onSalir = { irAlLogin(nav) })
-        }
-        composable(
-            Rutas.CONSULTA,
-            arguments = listOf(navArgument("id") { type = NavType.IntType; defaultValue = 0 }),
-        ) { entrada ->
-            PantallaConsulta(
-                onAtras = { nav.popBackStack() },
-                modo = ModoConsulta.PRECIO,
-                idInicial = entrada.arguments?.getInt("id")?.takeIf { it > 0 },
-                onAbrirFicha = null,
-            )
-        }
-        composable(Rutas.ESCANER_INVENTARIO) {
-            PantallaConsulta(
-                onAtras = { nav.popBackStack() },
-                modo = ModoConsulta.INVENTARIO,
-                onAbrirFicha = { id -> nav.navigate(Rutas.producto(id)) { popUpTo(Rutas.ESCANER_INVENTARIO) { inclusive = true } } },
-            )
-        }
-        composable(Rutas.REGISTRAR) {
-            PantallaConsulta(onAtras = { nav.popBackStack() }, modo = ModoConsulta.REGISTRAR, onAbrirFicha = null)
-        }
-        composable(
-            Rutas.INVENTARIO,
-            arguments = listOf(navArgument("filtro") { type = NavType.StringType; defaultValue = Filtro.TODOS.clave }),
-        ) { entrada ->
-            PantallaInventario(
-                filtroInicial = Filtro.deClave(entrada.arguments?.getString("filtro")),
-                onAtras = { nav.popBackStack() },
-                onAbrir = { id -> nav.navigate(Rutas.producto(id)) },
-                onEscanear = { nav.navigate(Rutas.ESCANER_INVENTARIO) },
-            )
-        }
-        composable(Rutas.PRODUCTO, arguments = listOf(navArgument("id") { type = NavType.IntType })) { entrada ->
-            PantallaProducto(idProducto = entrada.arguments?.getInt("id") ?: 0, onAtras = { nav.popBackStack() })
-        }
-        composable(Rutas.VENTA) {
-            PantallaVenta(
-                onAtras = { nav.popBackStack() },
-                onVerVenta = { id -> nav.navigate(Rutas.detalleVenta(id)) },
-                onHistorial = { nav.navigate(Rutas.HISTORIAL) },
-            )
-        }
-        composable(Rutas.ENTRADA) {
-            PantallaEntrada(onAtras = { nav.popBackStack() })
-        }
-        composable(Rutas.HISTORIAL) {
-            PantallaHistorial(onAtras = { nav.popBackStack() }, onAbrir = { id -> nav.navigate(Rutas.detalleVenta(id)) })
-        }
-        composable(Rutas.DETALLE_VENTA, arguments = listOf(navArgument("id") { type = NavType.LongType })) { entrada ->
-            PantallaDetalleVenta(idVenta = entrada.arguments?.getLong("id") ?: 0L, onAtras = { nav.popBackStack() })
-        }
+    }
+}
+
+/** Cambiar de pestaña sin apilar pantallas: siempre queda Inicio debajo, y "atrás" vuelve a Inicio. */
+private fun irPestana(nav: NavHostController, pestana: Pestana) {
+    if (pestana == Pestana.INICIO) {
+        nav.popBackStack(Rutas.INICIO, inclusive = false)
+        return
+    }
+    val ruta = when (pestana) {
+        Pestana.INVENTARIO -> Rutas.inventario()
+        Pestana.VENTAS -> Rutas.HISTORIAL
+        else -> Rutas.PERFIL
+    }
+    nav.navigate(ruta) {
+        popUpTo(Rutas.INICIO)
+        launchSingleTop = true
     }
 }
 
