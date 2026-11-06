@@ -115,6 +115,12 @@ abstract class Controller
             && ($this->usuario->puedeElegirTienda() || $idTienda === $this->usuario->getIdTienda());
     }
 
+    // La unica sucursal que este usuario puede ver; null si puede ver todas (el administrador)
+    protected function tiendaRestringida(): ?int
+    {
+        return $this->usuario?->puedeElegirTienda() === true ? null : $this->usuario?->getIdTienda();
+    }
+
     /**
      * Las tiendas que este usuario puede ver (pestañas, columnas del stock, lista de tiendas).
      * @return array<int, Tienda>

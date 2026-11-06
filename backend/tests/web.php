@@ -680,7 +680,9 @@ revisar('El cajero pide otra tienda en la URL: 403, sin datos de esa tienda',
     && $luis->get('ruta=stock_csv&tienda=3') === 403 && !str_contains($luis->cuerpo, 'Mass Yanahuara'));
 revisar('Con su propia tienda (o sin tienda) en la URL, todo sigue igual',
     $miguel->get('ruta=productos&tienda=3') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
-    && $miguel->get('ruta=productos&tienda=') === 200 && $miguel->tiene('por reponer en Mass Yanahuara'));
+    && $miguel->get('ruta=productos&tienda=03') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
+    && $miguel->get('ruta=productos&tienda=') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
+    && $miguel->get('ruta=productos&tienda=3x') === 403);
 revisar('Las ventas de otra tienda no se ven: pedirlas es 403 y la lista solo trae su serie',
     $luis->get('ruta=ventas&tienda=2') === 403
     && $luis->get('ruta=ventas') === 200 && $luis->tiene('B001-') && !$luis->tiene('B002-') && !$luis->tiene('aria-label="Elegir tienda"'));

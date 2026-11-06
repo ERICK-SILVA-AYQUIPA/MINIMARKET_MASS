@@ -93,9 +93,7 @@ class ProductoController extends Controller
         $tiendas = $this->tiendasVisibles();
         // El administrador filtra la sucursal que quiera (o todas); el almacenero ve solo lo registrado desde la suya
         $idTienda = $tiendaPedida !== null && ctype_digit($tiendaPedida) && isset($tiendas[(int) $tiendaPedida]) ? (int) $tiendaPedida : null;
-        if (!$this->usuario->puedeElegirTienda()) {
-            $idTienda = $this->usuario->getIdTienda();
-        }
+        $idTienda = $this->tiendaRestringida() ?? $idTienda;
         $desde = $this->leerFecha($desdePedido);
         $hasta = $this->leerFecha($hastaPedido);
         if ($desde !== null && $hasta !== null && $desde > $hasta) {

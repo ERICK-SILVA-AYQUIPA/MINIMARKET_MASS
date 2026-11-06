@@ -32,8 +32,8 @@ class ClienteRepository
             "SELECT c.id_cliente, c.dni, c.ruc,
                     COUNT(v.id_venta) AS compras, COALESCE(SUM(v.total), 0) AS total
                FROM cliente c
-               LEFT JOIN venta v ON v.id_cliente = c.id_cliente AND v.estado = 'EMITIDA'
-                    AND (:todas = 1 OR v.id_serie IN (SELECT id_serie FROM serie_comprobante WHERE id_tienda = :tienda))
+               LEFT JOIN (venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie)
+                      ON v.id_cliente = c.id_cliente AND v.estado = 'EMITIDA' AND (:todas = 1 OR s.id_tienda = :tienda)
               WHERE $donde
               GROUP BY c.id_cliente, c.dni, c.ruc
               ORDER BY total DESC, c.id_cliente

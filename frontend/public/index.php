@@ -228,9 +228,10 @@ try {
         header('Location: /?ruta=login', true, 303);
     } elseif ($debeCambiarClave && $ruta !== 'mi_clave') {
         header('Location: /?ruta=mi_clave', true, 303);
-    } elseif (!$usuario->puedeElegirTienda() && ($leer('tienda') ?? '') !== '' && $leer('tienda') !== (string) $usuario->getIdTienda()) {
-        // Solo el administrador cambia de sucursal. Al cajero y al almacenero, pedir otra tienda por la URL
-        // se les rechaza en cualquier pantalla (las de hoy y las que se agreguen); Controller::leerTienda es el respaldo.
+    } elseif (!$usuario->puedeElegirTienda() && ($leer('tienda') ?? '') !== ''
+              && !(ctype_digit($leer('tienda')) && (int) $leer('tienda') === $usuario->getIdTienda())) {
+        // Solo el administrador cambia de sucursal. Si el cajero o el almacenero piden otra con &tienda=, en
+        // cualquier pantalla, se rechaza (403) en vez de mostrar otra cosa; Controller::leerTienda queda de respaldo.
         $productoController->prohibido('Solo puedes ver los datos de tu tienda.');
     } else {
         switch ($ruta) {

@@ -9,6 +9,7 @@
    - venta:      la serie del comprobante es de la misma sede que la caja del turno.
    - empleado:   no se cambia de sede a un empleado con un turno de caja sin cerrar
                  (seguiria vendiendo en la sede anterior). Con todos sus turnos cerrados, si se puede.
+   Se compara con <=> (igual que acepta NULL) para que un dato que falta no deje pasar la fila.
    Los triggers solo revisan lo nuevo: el historial no se toca. Si alguno salta, la aplicacion ya
    estaba fallando antes (CajaServicio::abrirTurno y VentaServicio::registrar revisan lo mismo).
    ===================================================================== */
@@ -18,8 +19,8 @@ DELIMITER $$
 CREATE TRIGGER trg_caja_turno_sede BEFORE INSERT ON caja_turno
 FOR EACH ROW
 BEGIN
-    IF (SELECT id_tienda FROM empleado WHERE id_empleado = NEW.id_empleado)
-       <> (SELECT id_tienda FROM caja WHERE id_caja = NEW.id_caja) THEN
+    IF NOT ((SELECT id_tienda FROM empleado WHERE id_empleado = NEW.id_empleado)
+            <=> (SELECT id_tienda FROM caja WHERE id_caja = NEW.id_caja)) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cajero solo abre turnos en una caja de su sede';
     END IF;
 END$$
@@ -28,8 +29,8 @@ CREATE TRIGGER trg_caja_turno_sede_cambio BEFORE UPDATE ON caja_turno
 FOR EACH ROW
 BEGIN
     IF (NEW.id_caja <> OLD.id_caja OR NEW.id_empleado <> OLD.id_empleado)
-       AND (SELECT id_tienda FROM empleado WHERE id_empleado = NEW.id_empleado)
-           <> (SELECT id_tienda FROM caja WHERE id_caja = NEW.id_caja) THEN
+       AND NOT ((SELECT id_tienda FROM empleado WHERE id_empleado = NEW.id_empleado)
+                <=> (SELECT id_tienda FROM caja WHERE id_caja = NEW.id_caja)) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El cajero solo abre turnos en una caja de su sede';
     END IF;
 END$$
@@ -37,9 +38,9 @@ END$$
 CREATE TRIGGER trg_venta_sede BEFORE INSERT ON venta
 FOR EACH ROW
 BEGIN
-    IF (SELECT id_tienda FROM serie_comprobante WHERE id_serie = NEW.id_serie)
-       <> (SELECT c.id_tienda FROM caja_turno ct JOIN caja c ON c.id_caja = ct.id_caja
-            WHERE ct.id_caja_turno = NEW.id_caja_turno) THEN
+    IF NOT ((SELECT id_tienda FROM serie_comprobante WHERE id_serie = NEW.id_serie)
+            <=> (SELECT c.id_tienda FROM caja_turno ct JOIN caja c ON c.id_caja = ct.id_caja
+                  WHERE ct.id_caja_turno = NEW.id_caja_turno)) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La venta usa una serie de otra sede';
     END IF;
 END$$
