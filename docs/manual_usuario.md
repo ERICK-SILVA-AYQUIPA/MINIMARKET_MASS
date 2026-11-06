@@ -25,13 +25,15 @@ Lo mismo sale dentro del sistema en **Ayuda** (pie de cada página), solo con lo
 
 ### Usuarios de prueba
 
-La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **Mi clave**.
+La clave de los 12 es `Mass2026!`. Al entrar por primera vez el sistema pide cambiarla (en la web y en la app); la nueva no puede ser `Mass2026!`.
 
-| Tienda | Administrador | Cajero | Almacenero |
-|---|---|---|---|
-| Mass Cayma | Rosa · `70000001` | Luis · `70000002` | Carmen · `70000003` |
-| Mass Cerro Colorado | Jorge · `70000004` | Ana · `70000005` | Pedro · `70000006` |
-| Mass Yanahuara | Lucía · `70000007` | Miguel · `70000008` | Sofía · `70000009` |
+| Tienda | Administrador | Cajero (caja 1) | Cajero (caja 2) | Almacenero |
+|---|---|---|---|---|
+| Mass Cayma | Rosa · `70000001` | Luis · `70000002` | Diego · `70000101` | Carmen · `70000003` |
+| Mass Cerro Colorado | Jorge · `70000004` | Ana · `70000005` | Elena · `70000102` | Pedro · `70000006` |
+| Mass Yanahuara | Lucía · `70000007` | Miguel · `70000008` | Raúl · `70000103` | Sofía · `70000009` |
+
+Cada empleado trabaja solo en su sede. Los dos cajeros de una sede pueden tener su turno abierto a la vez, cada uno en su caja (migración `024_cajero_caja_2_por_sede.sql`). Cualquier administrador puede elegir otra sucursal en el menú lateral.
 
 ### Cómo moverse
 

@@ -141,7 +141,7 @@ if ($usuarioActual !== null) {
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=2">
     <link rel="stylesheet" href="/css/estilos.css?v=25">
-    <script src="/js/app.js?v=14" defer></script>
+    <script src="/js/app.js?v=15" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

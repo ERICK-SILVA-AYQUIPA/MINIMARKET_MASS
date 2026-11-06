@@ -224,7 +224,7 @@ Aplicación en PHP 8.3 sin framework, organizada en Modelo, Vista y Controlador,
 
 ### Backend completo: login, ventas, anulaciones, inventario y caja
 
-Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave de prueba de los 9 empleados es `Mass2026!` (está en `backend/database/login.sql` solo como hash; cámbienla fuera del aula).
+Todas las pantallas piden iniciar sesión con el **DNI** del empleado. La clave de prueba de los 12 empleados es `Mass2026!` (está en `backend/database/login.sql` y en la migración `024` solo como hash; al primer ingreso se pide cambiarla). Cada sede tiene un administrador, dos cajeros (uno por caja) y un almacenero: la tabla completa está en `docs/manual_usuario.md`.
 
 | Rol | Ejemplo (Cayma) | Qué puede hacer |
 |---|---|---|

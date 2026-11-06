@@ -279,7 +279,7 @@ Después correr otra vez `verificar_instalacion.php`: revisa también que no fal
 
 ## 9. Antes de usarlo con datos reales
 
-La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados con la clave `Mass2026!` y ventas de ejemplo). Antes de abrir:
+La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 12 empleados con la clave `Mass2026!` y ventas de ejemplo). Antes de abrir:
 
 1. Claves de `.env` largas (12 caracteres o más) y distintas.
 2. Quitar los datos de ejemplo y dejar solo lo mínimo (roles, unidades, categorías, marcas, distritos, tipos de comprobante, métodos de pago, la tienda 1 con sus cajas y un administrador). Se hace **una sola vez, con la base recién instalada**; si alguien ya cambió su clave, el script no borra nada:

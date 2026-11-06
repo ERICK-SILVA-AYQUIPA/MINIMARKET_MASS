@@ -68,5 +68,5 @@ El administrador la ve en `?ruta=auditoria`, filtrada por acción y de 50 en 50;
 ## 5. Lo que queda fuera (para un sistema real)
 
 - **HTTPS**: en el aula se usa `http://localhost`. En un servidor real se pone HTTPS (por ejemplo con Let's Encrypt, `docs/despliegue.md` sección 6) y la cookie pasa a `Secure` sola. Si las cajas de la tienda entran por la red local a una PC servidor, ver la sección 6.5 de esa guía.
-- **Cambiar las claves de prueba**: los 9 empleados de `datos.sql` tienen `Mass2026!`. Al entrar por primera vez, el sistema les pide cambiarla en `?ruta=mi_clave` (migración `013_clave_y_sesiones.sql`). Para una tienda real, `backend/scripts/quitar_datos_demo.php` deja solo un administrador con clave temporal (`docs/despliegue.md`, sección 9).
+- **Cambiar las claves de prueba**: los 9 empleados de `datos.sql` y los 3 cajeros de la migración `024` tienen `Mass2026!`. Al entrar por primera vez, el sistema les pide cambiarla en `?ruta=mi_clave` (migración `013_clave_y_sesiones.sql`). Para una tienda real, `backend/scripts/quitar_datos_demo.php` deja solo un administrador con clave temporal (`docs/despliegue.md`, sección 9).
 - **Facturación electrónica SUNAT**: los comprobantes se numeran sin huecos, pero no se envían a SUNAT ni a un OSE.
