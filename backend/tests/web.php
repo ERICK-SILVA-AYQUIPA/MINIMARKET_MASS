@@ -265,6 +265,15 @@ $matriz = [
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
     'catalogo_importar'    => [200, 403, 403],
     'catalogo_plantilla'   => [200, 403, 403],
+    'proveedores'          => [200, 403, 200],
+    'ordenes'              => [200, 403, 200],
+    'ordenes&estado=ABIERTAS' => [200, 403, 200],
+    'ordenes&estado=%3Cx%3E' => [200, 403, 200],
+    'ordenes&nueva=1&proveedor=2' => [200, 403, 200],
+    'ordenes&desde=reponer' => [200, 403, 200],
+    'orden_imprimir&id=999' => [404, 403, 404],
+    'orden_imprimir&id=abc' => [404, 403, 404],
+    'ingresos&orden=999'   => [200, 403, 200],
 ];
 foreach ($todas as $ruta) {
     $matriz[$ruta] = [200, 200, 200];
@@ -406,9 +415,28 @@ revisar('Rosa quita la foto y vuelve el icono de la categoría', $rosa->post('pr
 @unlink($fotoPrueba);
 revisar('Subir sin archivo: 422', $rosa->post('catalogo_subir', ['modo' => 'revisar']) === 422 && $rosa->tiene('Elige el archivo CSV'));
 revisar('El cajero y el almacenero no suben el catálogo', $luis->post('catalogo_subir', []) === 403 && $carmen->post('catalogo_subir', []) === 403);
-revisar('Inventario va en dos opciones: Productos y Movimientos', $carmen->get('ruta=inicio') === 200
-    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
-    && str_contains($m[1], '>Productos<') && str_contains($m[1], '>Movimientos<'));
+revisar('Inventario va en tres opciones para el almacenero: Productos, Movimientos y Compras', $carmen->get('ruta=inicio') === 200
+    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $carmen->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 3
+    && str_contains($m[1], '>Productos<') && str_contains($m[1], '>Movimientos<') && str_contains($m[1], '>Compras<'));
+revisar('El cajero no ve Compras: solo Productos y Movimientos', $luis->get('ruta=inicio') === 200
+    && preg_match('#<div class="grupo">Inventario</div>(.*?)<div class="grupo">#s', $luis->cuerpo, $m) === 1 && substr_count($m[1], '<a ') === 2
+    && !str_contains($m[1], '>Compras<'));
+revisar('Compras abre con las pestañas Órdenes de compra y Proveedores', $carmen->get('ruta=proveedores') === 200
+    && $carmen->tiene('<a href="/?ruta=proveedores" aria-current="page">') && $carmen->tiene('<a href="/?ruta=ordenes">')
+    && $carmen->tiene('<a href="/?ruta=ordenes" class="activo" aria-current="page" data-pestanas="Compras">'));
+revisar('Los proveedores de la migración se ven; solo el administrador los edita', $carmen->get('ruta=proveedores') === 200
+    && $carmen->tiene('Distribuidora Arequipa Sur S.A.C.') && !$carmen->tiene('proveedor_guardar')
+    && $rosa->get('ruta=proveedores') === 200 && $rosa->tiene('action="/?ruta=proveedor_guardar"') && $rosa->tiene('action="/?ruta=proveedor_estado"'));
+revisar('Reponer ofrece armar la orden y pedir al último proveedor', $carmen->get('ruta=reponer') === 200
+    && $carmen->tiene('Armar orden de compra') && $carmen->tiene('ruta=ordenes&amp;desde=reponer&amp;proveedor=') && $carmen->tiene('Último proveedor'));
+revisar('Desde Reponer la orden nueva abre llena con lo sugerido', $carmen->get('ruta=ordenes&desde=reponer') === 200
+    && $carmen->tiene('class="drawer abierto ancho" id="nueva-orden"') && $carmen->tiene('action="/?ruta=orden_registrar"')
+    && $carmen->tiene('producto(s) de Reponer'));
+revisar('La orden nueva no abre sola sin pedirla', $carmen->get('ruta=ordenes') === 200 && $carmen->tiene('class="drawer ancho" id="nueva-orden"'));
+revisar('Recibir una orden que no existe avisa y abre el ingreso normal', $carmen->get('ruta=ingresos&orden=999') === 200
+    && $carmen->tiene('ya no espera mercadería') && !$carmen->tiene('name="orden"'));
+revisar('El ingreso sugiere los RUC de los proveedores', $carmen->get('ruta=ingresos') === 200 && $carmen->tiene('<datalist id="rucs-proveedores">')
+    && $carmen->tiene('<option value="20456789123">'));
 revisar('Mermas sale como pestaña de Movimientos y queda marcada', $carmen->get('ruta=mermas') === 200
     && $carmen->tiene('<a href="/?ruta=mermas" aria-current="page">') && $carmen->tiene('<a href="/?ruta=ajustes">')
     && $carmen->tiene('<a href="/?ruta=ingresos" class="activo" aria-current="page" data-pestanas="Movimientos">'));
@@ -476,6 +504,11 @@ $prohibidos = [
     [$rosa, 'Rosa', 'venta_registrar', ['tipo' => 'B']],
     [$rosa, 'Rosa', 'traslado_registrar', ['destino' => '2']],
     [$luis, 'Luis', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
+    [$luis, 'Luis', 'orden_registrar', ['proveedor' => '1']],
+    [$luis, 'Luis', 'proveedor_guardar', ['ruc' => '20512345678', 'razon_social' => 'X']],
+    [$carmen, 'Carmen', 'proveedor_guardar', ['ruc' => '20512345678', 'razon_social' => 'X']],
+    [$carmen, 'Carmen', 'proveedor_estado', ['id' => '1', 'estado' => 'INACTIVO']],
+    [$carmen, 'Carmen', 'orden_cancelar', ['id' => '1', 'motivo' => 'x']],
 ];
 foreach ($prohibidos as [$quien, $nombre, $ruta, $datos]) {
     revisar("$nombre → $ruta: 403", $quien->post($ruta, $datos) === 403);
@@ -499,6 +532,18 @@ revisar('Ingreso con RUC corto: 422 y vuelve lo escrito', $carmen->post('ingreso
 revisar('Ingreso sin costo: 422', $carmen->post('ingreso_registrar', ['tipo_documento' => 'GUIA', 'numero_documento' => 'T001-1',
     'fecha_documento' => date('Y-m-d'), 'ruc_emisor' => '20100055237', 'razon_social' => 'Emisor',
     'producto' => ['1'], 'cantidad' => ['1'], 'costo' => ['']]) === 422 && $carmen->tiene('costo unitario no válido'));
+revisar('Proveedor con RUC corto: 422 y vuelve lo escrito', $rosa->post('proveedor_guardar', ['ruc' => '123', 'razon_social' => '<b>Prov</b>']) === 422
+    && $rosa->tiene('11 dígitos') && $rosa->tiene('&lt;b&gt;Prov') && $rosa->tiene('class="drawer abierto" id="nuevo-proveedor"'));
+revisar('Corregir un proveedor que no existe: 422', $rosa->post('proveedor_guardar', ['id' => '999', 'razon_social' => 'X']) === 422
+    && $rosa->tiene('no existe'));
+revisar('Orden sin proveedor: 422 y el formulario vuelve abierto', $carmen->post('orden_registrar', ['proveedor' => '',
+    'producto' => ['1'], 'cantidad' => ['10'], 'costo' => ['3.50']]) === 422 && $carmen->tiene('Elige el proveedor')
+    && $carmen->tiene('class="drawer abierto ancho" id="nueva-orden"'));
+revisar('Cancelar una orden que no existe: 422', $rosa->post('orden_cancelar', ['id' => '999', 'motivo' => 'x']) === 422
+    && $rosa->tiene('no es de tu tienda'));
+revisar('Recibir contra una orden que no existe: 422', $carmen->post('ingreso_registrar', ['tipo_documento' => 'GUIA', 'numero_documento' => 'T001-1',
+    'fecha_documento' => date('Y-m-d'), 'orden' => '999', 'producto' => ['1'], 'cantidad' => ['1'], 'costo' => ['3.60']]) === 422
+    && $carmen->tiene('no es de tu tienda'));
 revisar('Conteo con texto: 422', $carmen->post('ajuste_registrar', ['motivo' => 'CONTEO_FISICO', 'producto' => ['1'], 'cantidad' => ['muchos']]) === 422);
 revisar('Empleado con DNI de 7 dígitos: 422', $rosa->post('empleado_crear',
     ['nombres' => 'Ana', 'apellidos' => 'Ruiz', 'dni' => '1234567', 'rol' => '2', 'clave' => 'Clave2026x']) === 422);

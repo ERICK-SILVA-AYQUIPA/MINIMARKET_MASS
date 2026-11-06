@@ -11,6 +11,7 @@ require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/Vencimiento.php';
 require_once __DIR__ . '/../models/Reposicion.php';
+require_once __DIR__ . '/../models/CompraRepository.php';
 
 /**
  * C: panel de inicio y lista de reposicion. Cada rol ve los indicadores de SU tienda que le sirven para trabajar.
@@ -30,7 +31,8 @@ class PanelController extends Controller
         private CajaRepository $cajas,
         private ProductoRepository $productos,
         private CatalogoRepository $catalogo,
-        private IngresoRepository $ingresos
+        private IngresoRepository $ingresos,
+        private CompraRepository $compras
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -104,6 +106,16 @@ class PanelController extends Controller
         $sinStock = count(array_filter($filas, fn(array $f): bool => $f['actual'] === 0));
         $conSobrante = count(array_filter($filas, fn(array $f): bool => $f['otras'] !== []));
         $puedeTrasladar = $this->usuario->puedeMoverMercaderia();
+        $puedePedir = $this->usuario->puedeEmitirOrdenCompra($tienda->getIdTienda()) && $tienda->estaActiva();
+        // Botones "Pedir a ...": un grupo por el proveedor de la ultima compra, solo con lo que aun hay que pedir
+        $porProveedor = [];
+        foreach ($filas as $f) {
+            if ($f['sugerido'] > 0 && $f['proveedor'] !== null) {
+                $porProveedor[$f['proveedor']['id_proveedor']] ??= ['nombre' => $f['proveedor']['proveedor'], 'productos' => 0];
+                $porProveedor[$f['proveedor']['id_proveedor']]['productos']++;
+            }
+        }
+        $porPedir = count(array_filter($filas, fn(array $f): bool => $f['sugerido'] > 0));
         $this->vista('panel/reponer', get_defined_vars());
     }
 
@@ -122,23 +134,35 @@ class PanelController extends Controller
             Cantidad::aTexto($f['minimo']),
             Cantidad::aTexto($f['ventaDiaria']),
             $f['cobertura'] ?? '',
+            Cantidad::aTexto($f['porLlegar']),
             Cantidad::aTexto($f['sugerido']),
+            $f['proveedor']['proveedor'] ?? '',
             implode('; ', array_map(fn(array $o): string => $o['tienda'] . ' ' . Cantidad::aTexto($o['sobrante']), $f['otras'])),
         ], $this->filasReposicion($idTienda));
         $this->enviarCsv(sprintf('reponer_tienda%d_%s.csv', $idTienda, date('Y-m-d')),
-            ['producto', 'unidad', 'hay', 'minimo', 'venta_diaria', 'dias_que_alcanza', 'pedir', 'sobrante_en_otras_tiendas'], $filas);
+            ['producto', 'unidad', 'hay', 'minimo', 'venta_diaria', 'dias_que_alcanza', 'ya_pedido', 'pedir', 'ultimo_proveedor',
+             'sobrante_en_otras_tiendas'], $filas);
     }
 
-    /** @return array<int, array<string, mixed>> filas de PanelRepository::reposicion() con venta diaria, cobertura y sugerido */
+    /**
+     * Filas de PanelRepository::reposicion() con venta diaria, cobertura, lo ya pedido en ordenes abiertas,
+     * el sugerido (que descuenta lo ya pedido: no se pide dos veces) y el proveedor de la ultima compra.
+     * @return array<int, array<string, mixed>>
+     */
     private function filasReposicion(int $idTienda): array
     {
+        $porLlegar = $this->compras->porLlegar($idTienda);
+        $ultimaCompra = $this->compras->ultimaCompraPorProducto();
         $filas = [];
         foreach ($this->panel->reposicion($idTienda, Reposicion::DIAS_VENTA) as $f) {
             $diaria = Reposicion::ventaDiaria($f['vendido']);
+            $pedido = $porLlegar[$f['id_producto']] ?? 0;
             $filas[] = $f + [
                 'ventaDiaria' => $diaria,
                 'cobertura'   => Reposicion::diasCobertura($f['actual'], $diaria),
-                'sugerido'    => Reposicion::sugerido($f['actual'], $f['minimo'], $diaria, $f['al_peso']),
+                'porLlegar'   => $pedido,
+                'sugerido'    => Reposicion::sugerido($f['actual'] + $pedido, $f['minimo'], $diaria, $f['al_peso']),
+                'proveedor'   => $ultimaCompra[$f['id_producto']] ?? null,
             ];
         }
         return $filas;

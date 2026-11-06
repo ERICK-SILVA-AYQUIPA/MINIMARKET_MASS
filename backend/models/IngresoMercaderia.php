@@ -20,7 +20,8 @@ class IngresoMercaderia
         private float $total,              // total DECIMAL(10,2)
         private ?string $observacion,      // observacion VARCHAR(200) NULL
         private int $idTienda,
-        private int $idEmpleado
+        private int $idEmpleado,
+        private ?int $idOrdenCompra = null   // id_orden_compra NULL (migraciones/015): la orden contra la que se recibio
     ) {
         if (!in_array($tipoDocumento, self::TIPOS_DOCUMENTO, true)) {
             throw new InvalidArgumentException('Tipo de documento no valido');
@@ -44,6 +45,7 @@ class IngresoMercaderia
     public function getObservacion(): ?string { return $this->observacion; }
     public function getIdTienda(): int { return $this->idTienda; }
     public function getIdEmpleado(): int { return $this->idEmpleado; }
+    public function getIdOrdenCompra(): ?int { return $this->idOrdenCompra; }
 
     // "FACTURA F001-00012345"
     public function documento(): string
