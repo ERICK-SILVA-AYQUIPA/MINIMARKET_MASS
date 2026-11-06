@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: editar un empleado de la tienda y ponerle una clave nueva.
+ * V: editar un empleado de la tienda (nombres, DNI, dirección, teléfono, rol y estado) y ponerle una clave nueva.
  * @var Usuario $empleado
  * @var array<int, string> $roles
  * @var bool $esElMismo  el administrador editandose a si mismo
@@ -18,7 +18,7 @@ $estadoElegido = $valor('estado', $empleado->getEstado());
 <div class="cabecera">
     <div>
         <h1><?= e($empleado->nombreCompleto()) ?></h1>
-        <p class="sutil"><?= e(ucfirst(strtolower($empleado->getNombreRol()))) ?> · DNI <?= e($empleado->dniOculto()) ?> (no se cambia: es su usuario)</p>
+        <p class="sutil"><?= e(ucfirst(strtolower($empleado->getNombreRol()))) ?> · DNI <?= e($empleado->dniOculto()) ?></p>
     </div>
 </div>
 <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
@@ -32,6 +32,12 @@ $estadoElegido = $valor('estado', $empleado->getEstado());
     <input id="nombres" name="nombres" maxlength="60" required value="<?= e($valor('nombres', $empleado->getNombres())) ?>">
     <label for="apellidos">Apellidos</label>
     <input id="apellidos" name="apellidos" maxlength="60" required value="<?= e($valor('apellidos', $empleado->getApellidos())) ?>">
+    <label for="dni">DNI <span class="ayuda">8 dígitos. Es con lo que entra al sistema: si lo cambias, avísale (su clave no cambia).</span></label>
+    <input id="dni" name="dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" required autocomplete="off" value="<?= e($valor('dni', $empleado->getDni())) ?>">
+    <label for="direccion">Dirección <span class="ayuda">opcional</span></label>
+    <input id="direccion" name="direccion" maxlength="120" autocomplete="off" value="<?= e($valor('direccion', $empleado->getDireccion() ?? '')) ?>">
+    <label for="telefono">Teléfono <span class="ayuda">opcional; celular de 9 dígitos o fijo de 6 a 9</span></label>
+    <input id="telefono" name="telefono" type="tel" inputmode="numeric" maxlength="11" autocomplete="off" value="<?= e($valor('telefono', $empleado->getTelefono() ?? '')) ?>">
     <?php if ($esElMismo): ?>
         <div class="aviso info bloque">No puedes cambiar tu propio rol ni desactivarte.</div>
         <input type="hidden" name="rol" value="<?= $empleado->getIdRol() ?>">

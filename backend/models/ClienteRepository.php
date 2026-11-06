@@ -12,15 +12,22 @@ class ClienteRepository
 
     public function buscarPorId(int $idCliente): ?Cliente
     {
-        $consulta = $this->db->prepare('SELECT id_cliente, dni, ruc FROM cliente WHERE id_cliente = :id');
+        $consulta = $this->db->prepare(
+            'SELECT id_cliente, dni, ruc, nombre, direccion, telefono FROM cliente WHERE id_cliente = :id'
+        );
         $consulta->execute(['id' => $idCliente]);
         $fila = $consulta->fetch();
-        return $fila === false ? null : new Cliente((int) $fila['id_cliente'], $fila['dni'], $fila['ruc']);
+        return $fila === false ? null : $this->crear($fila);
+    }
+
+    private function crear(array $f): Cliente
+    {
+        return new Cliente((int) $f['id_cliente'], $f['dni'], $f['ruc'], $f['nombre'], $f['direccion'], $f['telefono']);
     }
 
     /**
      * Una pagina de clientes con cuantas compras EMITIDAS tienen y cuanto suman.
-     * Con $documento, solo los que tienen un DNI o RUC que empieza con esos digitos.
+     * Con $documento, solo los que tienen un DNI o RUC que empieza con esos digitos (o, si es texto, con esa parte del nombre).
      * Con $idTienda, las compras y el total cuentan solo las ventas de esa sucursal (el cliente es de la cadena).
      * @return array<int, array{cliente: Cliente, compras: int, total: float}>
      */
@@ -29,19 +36,19 @@ class ClienteRepository
         [$donde, $parametros] = $this->donde($documento);
         // LIMIT y OFFSET son enteros calculados en PHP
         $consulta = $this->db->prepare(
-            "SELECT c.id_cliente, c.dni, c.ruc,
+            "SELECT c.id_cliente, c.dni, c.ruc, c.nombre, c.direccion, c.telefono,
                     COUNT(v.id_venta) AS compras, COALESCE(SUM(v.total), 0) AS total
                FROM cliente c
                LEFT JOIN (venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie)
                       ON v.id_cliente = c.id_cliente AND v.estado = 'EMITIDA' AND (:todas = 1 OR s.id_tienda = :tienda)
               WHERE $donde
-              GROUP BY c.id_cliente, c.dni, c.ruc
+              GROUP BY c.id_cliente, c.dni, c.ruc, c.nombre, c.direccion, c.telefono
               ORDER BY total DESC, c.id_cliente
               LIMIT " . (int) $limite . ' OFFSET ' . (int) $offset
         );
         $consulta->execute($parametros + ['todas' => $idTienda === null ? 1 : 0, 'tienda' => $idTienda ?? 0]);
         return array_map(fn(array $f): array => [
-            'cliente' => new Cliente((int) $f['id_cliente'], $f['dni'], $f['ruc']),
+            'cliente' => $this->crear($f),
             'compras' => (int) $f['compras'],
             'total'   => (float) $f['total'],
         ], $consulta->fetchAll());
@@ -55,11 +62,18 @@ class ClienteRepository
         return (int) $consulta->fetchColumn();
     }
 
-    /** @return array{0: string, 1: array<string, string>} */
+    /**
+     * $documento: digitos = inicio del DNI o del RUC; otro texto = parte del nombre.
+     * @return array{0: string, 1: array<string, string>}
+     */
     private function donde(?string $documento): array
     {
         if ($documento === null) {
             return ['1 = 1', []];
+        }
+        if (!ctype_digit($documento)) {
+            // Los comodines de LIKE que escribio la persona se buscan como texto
+            return ['c.nombre LIKE :nombre', ['nombre' => '%' . addcslashes($documento, '%_\\') . '%']];
         }
         // El documento ya viene validado como digitos; LIKE con prefijo usa el indice UNIQUE
         return ['(c.dni LIKE :dni OR c.ruc LIKE :ruc)', ['dni' => $documento . '%', 'ruc' => $documento . '%']];

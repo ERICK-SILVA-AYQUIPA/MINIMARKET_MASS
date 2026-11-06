@@ -14,7 +14,9 @@ abstract class Usuario
         private string $apellidos,    // apellidos VARCHAR(60)
         private string $dni,          // dni CHAR(8), unico
         private string $estado,       // estado: 'ACTIVO' o 'INACTIVO'
-        private int $idTienda         // id_tienda: la tienda donde trabaja
+        private int $idTienda,        // id_tienda: la tienda donde trabaja
+        private ?string $direccion = null, // direccion VARCHAR(120) NULL (migracion 026)
+        private ?string $telefono = null   // telefono VARCHAR(9) NULL, solo digitos
     ) {
         if (preg_match('/^[0-9]{8}$/', $dni) !== 1) {
             throw new InvalidArgumentException('El DNI debe tener 8 digitos');
@@ -33,6 +35,9 @@ abstract class Usuario
     public function getApellidos(): string { return $this->apellidos; }
     public function getEstado(): string { return $this->estado; }
     public function getIdTienda(): int { return $this->idTienda; }
+    public function getDni(): string { return $this->dni; }
+    public function getDireccion(): ?string { return $this->direccion; }
+    public function getTelefono(): ?string { return $this->telefono; }
 
     // La tienda donde trabaja segun su ficha (empleado.id_tienda). Solo difiere de getIdTienda()
     // cuando un administrador eligio otra sucursal en el menu lateral.

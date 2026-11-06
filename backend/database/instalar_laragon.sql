@@ -6,7 +6,7 @@
 
    NO SE EDITA A MANO: lo arma backend/scripts/generar_instalador.php
    con los 12 scripts de backend/database/ (schema, datos, boleta, login, seguridad, ajustes, auditoria, ingresos, operaciones, catalogo, api_movil, caja_apertura)
-   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 018_producto_origen.sql, 019_proveedores_ordenes_compra.sql, 020_descuentos_promociones.sql, 021_cajero_en_su_sede.sql, 022_producto_revision.sql, 023_producto_codigo_alterno.sql, 024_cajero_caja_2_por_sede.sql, 025_clave_demo_para_todos.sql).
+   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 018_producto_origen.sql, 019_proveedores_ordenes_compra.sql, 020_descuentos_promociones.sql, 021_cajero_en_su_sede.sql, 022_producto_revision.sql, 023_producto_codigo_alterno.sql, 024_cajero_caja_2_por_sede.sql, 025_clave_demo_para_todos.sql, 026_datos_de_contacto.sql).
    ======================================================== */
 
 -- >>> INICIO DE database/schema.sql <<<
@@ -2969,3 +2969,29 @@ UPDATE empleado e
 
 DROP TEMPORARY TABLE clave_demo;
 INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('025_clave_demo_para_todos.sql', NOW(), '088d0e15728b0d1ba4f3a03c301e2b97d164854be95f3200261ad459955fb67a');
+
+
+-- >>> INICIO DE database/migraciones/026_datos_de_contacto.sql <<<
+/* =====================================================================
+   MINIMARKET MASS - migracion 026: direccion y telefono del personal; nombre, direccion y telefono del cliente
+
+   - empleado: direccion y telefono, opcionales. El administrador los pone al registrar o editar a su personal
+     (?ruta=empleado). El DNI ya existia: ahora tambien se corrige desde la misma pantalla.
+   - cliente: nombre, direccion y telefono, opcionales. Un cliente nuevo se puede registrar a mano desde
+     ?ruta=clientes (antes solo nacia al poner su DNI o RUC en una venta). Sigue necesitando DNI o RUC
+     (ck_cliente_documento).
+   - telefono: solo digitos, de 6 a 9 (fijo con o sin codigo de ciudad, o celular de 9).
+   La tabla migracion_aplicada anota esta migracion: se aplica una sola vez en cada base.
+   ===================================================================== */
+
+ALTER TABLE empleado
+    ADD COLUMN direccion VARCHAR(120) NULL AFTER dni,
+    ADD COLUMN telefono  VARCHAR(9)   NULL AFTER direccion,
+    ADD CONSTRAINT ck_empleado_telefono CHECK (telefono IS NULL OR telefono REGEXP '^[0-9]{6,9}$');
+
+ALTER TABLE cliente
+    ADD COLUMN nombre    VARCHAR(100) NULL AFTER id_cliente,
+    ADD COLUMN direccion VARCHAR(120) NULL AFTER ruc,
+    ADD COLUMN telefono  VARCHAR(9)   NULL AFTER direccion,
+    ADD CONSTRAINT ck_cliente_telefono CHECK (telefono IS NULL OR telefono REGEXP '^[0-9]{6,9}$');
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('026_datos_de_contacto.sql', NOW(), 'f0faf5e28bb4a264a272ecdfd1ae9d40a777ce2bff61c9e062538a9a27606eb7');

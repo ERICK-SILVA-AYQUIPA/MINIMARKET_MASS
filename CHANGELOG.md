@@ -5,6 +5,12 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Personal: dirección, DNI y teléfono** (migración `026_datos_de_contacto.sql`): al registrar o editar a un
+  empleado (Personal → *Editar*) el administrador pone su dirección y su teléfono, y ahora también corrige su DNI
+  (es con lo que entra; su clave no cambia). La lista de Personal muestra el teléfono.
+- **Clientes: registrar un cliente a mano** (Clientes → *Registrar cliente*): nombre, DNI (o RUC si pide factura),
+  dirección y teléfono. En la ficha de cualquier cliente se cambian nombre, dirección y teléfono; la lista muestra el
+  nombre y se busca también por nombre. DNI de 8 dígitos; teléfono de 6 a 9 dígitos (se aceptan espacios y guiones).
 - **Etiquetas QR para reconocer cada producto** (Catálogo → *Etiquetas QR*, o *Imprimir etiqueta* en la ficha):
   hoja A4 de 3 etiquetas por fila con el QR, el nombre y el precio, de todo el catálogo, de una categoría o de un
   producto (con copias). El QR lleva el código del producto: la app (Nueva venta, Entrada de stock, Consultar) lo

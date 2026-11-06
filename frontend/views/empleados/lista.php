@@ -27,12 +27,13 @@ require __DIR__ . '/../parciales/buscador.php';
 ?>
 <div class="tabla">
 <table>
-    <thead><tr><th scope="col">Nombre</th><th scope="col">DNI</th><th scope="col">Rol</th><th scope="col">Estado</th><th scope="col"><span class="visualmente-oculto">Acciones</span></th></tr></thead>
+    <thead><tr><th scope="col">Nombre</th><th scope="col">DNI</th><th scope="col">Teléfono</th><th scope="col">Rol</th><th scope="col">Estado</th><th scope="col"><span class="visualmente-oculto">Acciones</span></th></tr></thead>
     <tbody id="filas-personal">
     <?php foreach ($personal as $empleado): ?>
         <tr>
             <td><?= e($empleado->nombreCompleto()) ?></td>
             <td><?= e($empleado->dniOculto()) ?></td>
+            <td><?= e($empleado->getTelefono() ?? '-') ?></td>
             <td><?= e($empleado->getNombreRol()) ?></td>
             <td><span class="etiqueta <?= $empleado->estaActivo() ? 'ok' : 'anulada' ?>"><?= e($empleado->getEstado()) ?></span></td>
             <td><a class="boton secundario chico" href="/?ruta=empleado&amp;id=<?= $empleado->getIdEmpleado() ?>"><?= icono('editar') ?>Editar</a></td>
@@ -59,6 +60,10 @@ require __DIR__ . '/../parciales/drawer_abrir.php';
     <input id="apellidos" name="apellidos" maxlength="60" required value="<?= e($viejoTexto('apellidos')) ?>">
     <label for="dni">DNI <span class="ayuda">8 dígitos; con él ingresa al sistema</span></label>
     <input id="dni" name="dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" required value="<?= e($viejoTexto('dni')) ?>">
+    <label for="direccion">Dirección <span class="ayuda">opcional</span></label>
+    <input id="direccion" name="direccion" maxlength="120" value="<?= e($viejoTexto('direccion')) ?>">
+    <label for="telefono">Teléfono <span class="ayuda">opcional; celular de 9 dígitos o fijo de 6 a 9</span></label>
+    <input id="telefono" name="telefono" type="tel" inputmode="numeric" maxlength="11" value="<?= e($viejoTexto('telefono')) ?>">
     <label for="rol">Rol</label>
     <select id="rol" name="rol" required>
         <?php foreach ($roles as $id => $nombre): ?>

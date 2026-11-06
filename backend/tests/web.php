@@ -537,6 +537,8 @@ $prohibidos = [
     [$luis, 'Luis', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
     [$carmen, 'Carmen', 'regla_caja_guardar', ['tolerancia' => '1', 'tope' => '500', 'horas' => '10']],
     [$carmen, 'Carmen', 'cliente_documento', ['id' => '1', 'dni' => '12345678']],
+    [$carmen, 'Carmen', 'cliente_crear', ['nombre' => 'X', 'dni' => '12345670']],
+    [$carmen, 'Carmen', 'cliente_contacto', ['id' => '1', 'nombre' => 'X']],
     [$carmen, 'Carmen', 'caja_movimiento', ['tipo' => 'RETIRO', 'monto' => '1', 'motivo' => 'x']],
     [$carmen, 'Carmen', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
     [$rosa, 'Rosa', 'venta_devolver', ['serie' => 'B001', 'numero' => '1', 'producto' => ['1'], 'cantidad' => ['1'], 'motivo' => 'x']],
@@ -592,6 +594,11 @@ revisar('Empleado con DNI de 7 dígitos: 422', $rosa->post('empleado_crear',
     ['nombres' => 'Ana', 'apellidos' => 'Ruiz', 'dni' => '1234567', 'rol' => '2', 'clave' => 'Clave2026x']) === 422);
 revisar('Empleado con clave débil: 422', $rosa->post('empleado_crear',
     ['nombres' => 'Ana', 'apellidos' => 'Ruiz', 'dni' => '12345678', 'rol' => '2', 'clave' => '123']) === 422);
+revisar('Cliente sin DNI ni RUC: 422 y el formulario vuelve abierto', $luis->post('cliente_crear', ['nombre' => 'Pepe', 'dni' => '', 'ruc' => '']) === 422
+    && $luis->tiene('class="drawer abierto" id="nuevo-cliente"') && $luis->tiene('value="Pepe"'));
+revisar('Cliente con teléfono con letras: 422', $rosa->post('cliente_crear', ['nombre' => 'Pepe', 'dni' => '12345670', 'telefono' => 'abc']) === 422);
+revisar('Editar empleado con DNI de 7 dígitos: 422', $rosa->post('empleado_guardar',
+    ['id' => '3', 'nombres' => 'Carmen', 'apellidos' => 'Ccori Flores', 'dni' => '7000003', 'rol' => '3', 'estado' => 'ACTIVO']) === 422);
 revisar('Tienda con teléfono con letras: 422', $rosa->post('tienda_guardar',
     ['nombre' => 'Mass Cayma', 'direccion' => 'Av. 1', 'telefono' => 'abc', 'distrito' => '1', 'estado' => 'ACTIVA']) === 422);
 revisar('Mi clave con la actual errada: 422', $rosa->post('mi_clave_guardar', ['actual' => 'otra', 'nueva' => 'Nueva2026x', 'repetida' => 'Nueva2026x']) === 422);
