@@ -44,4 +44,16 @@ class SugerenciaTest {
         assertEquals("Agua san Luis", s?.nombre)
         assertEquals(listOf("beverages", "waters", "aguas de mesa"), s?.categorias)
     }
+
+    @Test
+    fun leeLaBusquedaDeUnaTiendaEnLinea() {
+        val cuerpo = """[{"productName":"Gaseosa KOLA INGLESA Botella 500ml","brand":"FANTA","categories":["/Bebidas/Gaseosas/Gaseosas Personales/","/Bebidas/"]}]"""
+        val s = Sugerencias.desdeTiendaEnLinea(cuerpo)
+        assertEquals("Gaseosa KOLA INGLESA Botella 500ml", s?.nombre)
+        assertEquals("FANTA", s?.marca)
+        assertEquals(listOf("Bebidas", "Gaseosas", "Gaseosas Personales"), s?.categorias)
+        assertNull(Sugerencias.desdeTiendaEnLinea("[]"))
+        assertNull(Sugerencias.desdeTiendaEnLinea("<html>404</html>"))
+        assertNull(Sugerencias.desdeTiendaEnLinea("""{"status":1}"""))
+    }
 }

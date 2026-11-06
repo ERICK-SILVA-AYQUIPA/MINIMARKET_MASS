@@ -8,8 +8,8 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Lo que dice una base publica (Open Food Facts, Open Products Facts) de un codigo de barras que no esta en nuestro
- * catalogo. Es una ayuda para llenar el formulario: el trabajador lo revisa y pone el precio.
+ * Lo que dicen las tiendas peruanas en linea (Plaza Vea, Wong) o las bases publicas (Open Food Facts,
+ * Open Products Facts) de un codigo de barras que no esta en nuestro catalogo. Es una ayuda para llenar el formulario: el trabajador lo revisa y pone el precio.
  * @param categorias las categorias de esa base, en ingles y sin prefijo ("sodas", "milks"): con ellas y el nombre
  *                   se elige la categoria de nuestro catalogo ([Categorias.adivinar])
  */
@@ -43,6 +43,23 @@ object Sugerencias {
             runCatching { it.jsonPrimitive.contentOrNull }.getOrNull()?.substringAfter(':')?.replace('-', ' ')
         }
         // Algunos nombres vienen en minusculas ("agua san Luis")
+        return Sugerencia(nombre.limpio().replaceFirstChar { it.uppercaseChar() }.take(100), marca.limpio().take(50), categorias)
+    }
+
+    /**
+     * Lee la busqueda por codigo de las tiendas peruanas en linea (Plaza Vea, Wong: VTEX)
+     * https://www.plazavea.com.pe/api/catalog_system/pub/products/search?fq=alternateIds_Ean:{codigo}
+     * Traen el nombre como en la gondola ("Gaseosa Fanta Kola Inglesa Botella 500ml"), la marca y la ruta de su
+     * categoria ("/Bebidas/Gaseosas/"), que se pasa como categorias. null si la tienda no lo vende.
+     */
+    fun desdeTiendaEnLinea(cuerpo: String): Sugerencia? {
+        val lista = runCatching { json.parseToJsonElement(cuerpo) as? JsonArray }.getOrNull() ?: return null
+        val producto = lista.firstOrNull() as? JsonObject ?: return null
+        val nombre = producto.texto("productName") ?: return null
+        val marca = producto.texto("brand").orEmpty()
+        val categorias = (producto["categories"] as? JsonArray).orEmpty()
+            .mapNotNull { runCatching { it.jsonPrimitive.contentOrNull }.getOrNull() }
+            .flatMap { it.split('/') }.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
         return Sugerencia(nombre.limpio().replaceFirstChar { it.uppercaseChar() }.take(100), marca.limpio().take(50), categorias)
     }
 

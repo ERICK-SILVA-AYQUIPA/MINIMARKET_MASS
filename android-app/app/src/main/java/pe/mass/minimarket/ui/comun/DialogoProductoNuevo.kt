@@ -176,7 +176,7 @@ fun DialogoProductoNuevo(
                     Text("Ya existe con otro código: vincular", modifier = Modifier.weight(1f))
                 }
                 if (sugerido) {
-                    Text("Nombre, marca y categoría completados desde Open Food Facts: revísalos y pon el precio.",
+                    Text("Nombre, marca y categoría completados con datos de internet: revísalos y pon el precio.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 error?.let { TarjetaAviso(Aviso(it, TipoAviso.ERROR)) }

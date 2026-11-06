@@ -30,6 +30,8 @@ class CategoriasTest {
     fun conLasCategoriasDeInternet() {
         assertEquals("Bebidas", adivinar("Sporade Tropical", listOf("beverages", "energy drinks")))
         assertEquals("Lácteos", adivinar("Pura Vida", listOf("dairies", "milks")))
+        // La ruta de la tienda en linea ("/Limpieza/Lavanderia/")
+        assertEquals("Limpieza", adivinar("Opal Ultra 2.6 kg", listOf("Limpieza", "Lavandería")))
         // El cajon "plant based foods and beverages" no hace bebida al pan de molde
         assertEquals("Desayuno", adivinar("Pan De Molde Blanco Bimbo 590 g", listOf("plant based foods and beverages", "breads", "sliced breads")))
     }

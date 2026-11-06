@@ -214,28 +214,35 @@ class Repositorio(private val config: Configuracion) {
     }
 
     /**
-     * Nombre, marca y categorias de un codigo que no esta en el catalogo, segun las bases publicas y gratuitas
-     * Open Food Facts (alimentos y bebidas, ~2 900 productos del Peru) y Open Products Facts (limpieza, cuidado personal).
-     * Se preguntan a la vez; gana la de alimentos si las dos lo conocen.
-     * Solo ayuda a llenar el formulario: sin internet o si nadie lo conoce, devuelve null y se escribe a mano.
+     * Nombre, marca y categoria reales de un codigo que no esta en el catalogo. Se pregunta a la vez a:
+     * - Plaza Vea y Wong (tiendas peruanas en linea): el nombre como en la gondola; casi todo el abarrote del Peru.
+     * - Open Food Facts y Open Products Facts (bases publicas y gratuitas): alimentos, limpieza y cuidado personal.
+     * Gana la primera de esa lista que lo conozca. Solo ayuda a llenar el formulario: sin internet o si nadie
+     * lo conoce, devuelve null y se escribe a mano. Las farmacias no estan (sus tiendas no publican la busqueda).
      */
     suspend fun sugerenciaPublica(codigo: String): Sugerencia? {
         if (!Regex("^[0-9]{8,14}$").matches(codigo)) return null
+        val tienda = "/api/catalog_system/pub/products/search?fq=alternateIds_Ean:$codigo"
+        val base = "/api/v2/product/$codigo.json?fields=product_name,product_name_es,brands,quantity,categories_tags"
         return coroutineScope {
-            val alimentos = async { consultarBase("world.openfoodfacts.org", codigo) }
-            val productos = async { consultarBase("world.openproductsfacts.org", codigo) }
-            alimentos.await() ?: productos.await()
+            listOf(
+                async { consultar("https://www.plazavea.com.pe$tienda", Sugerencias::desdeTiendaEnLinea) },
+                async { consultar("https://www.wong.pe$tienda", Sugerencias::desdeTiendaEnLinea) },
+                async { consultar("https://world.openfoodfacts.org$base", Sugerencias::desdeOpenFoodFacts) },
+                async { consultar("https://world.openproductsfacts.org$base", Sugerencias::desdeOpenFoodFacts) },
+            ).firstNotNullOfOrNull { it.await() }
         }
     }
 
-    private suspend fun consultarBase(servidor: String, codigo: String): Sugerencia? = withContext(Dispatchers.IO) {
+    private suspend fun consultar(url: String, leer: (String) -> Sugerencia?): Sugerencia? = withContext(Dispatchers.IO) {
         val pedido = Request.Builder()
-            .url("https://$servidor/api/v2/product/$codigo.json?fields=product_name,product_name_es,brands,quantity,categories_tags")
+            .url(url)
             .header("User-Agent", "MassTienda-Android/${BuildConfig.VERSION_NAME}")
+            .header("Accept", "application/json")
             .build()
         runCatching {
             clientePublico.newCall(pedido).execute().use { r ->
-                if (r.isSuccessful) r.body?.string()?.let(Sugerencias::desdeOpenFoodFacts) else null
+                if (r.isSuccessful) r.body?.string()?.let(leer) else null
             }
         }.getOrNull()
     }

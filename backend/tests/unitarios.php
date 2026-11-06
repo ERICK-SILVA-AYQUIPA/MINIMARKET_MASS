@@ -538,9 +538,18 @@ $publica = new SugerenciaPublica(static function (string $url) use (&$pedidas, $
     return str_contains($url, 'openfoodfacts') ? null : $fanta;
 });
 $sugerida = $publica->buscar('7750182002363');
-revisar('Sugerencia: si Open Food Facts no lo tiene, pregunta a Open Products Facts; nombre y marca como en el empaque',
+revisar('Sugerencia: pregunta a Plaza Vea, Wong, Open Food Facts y Open Products Facts, en ese orden, hasta que uno lo conozca',
     $sugerida !== null && $sugerida['nombre'] === 'Gaseosa Fanta Kola Inglesa x 500ml' && $sugerida['marca'] === 'Fanta'
-    && $sugerida['categorias'] === ['beverages', 'carbonated drinks', 'sodas'] && count($pedidas) === 2);
+    && $sugerida['categorias'] === ['beverages', 'carbonated drinks', 'sodas'] && count($pedidas) === 4
+    && str_contains($pedidas[0], 'plazavea.com.pe/api/catalog_system/pub/products/search?fq=alternateIds_Ean:7750182002363')
+    && str_contains($pedidas[1], 'wong.pe') && str_contains($pedidas[3], 'openproductsfacts'));
+$deTienda = SugerenciaPublica::desdeTiendaEnLinea('[{"productName":"Gaseosa KOLA INGLESA Botella 500ml","brand":"FANTA",'
+    . '"categories":["/Bebidas/Gaseosas/Gaseosas Personales/","/Bebidas/"]}]');
+revisar('Sugerencia de una tienda en línea: nombre de góndola, marca y la ruta de su categoría en palabras',
+    $deTienda !== null && $deTienda['nombre'] === 'Gaseosa KOLA INGLESA Botella 500ml' && $deTienda['marca'] === 'FANTA'
+    && $deTienda['categorias'] === ['Bebidas', 'Gaseosas', 'Gaseosas Personales']
+    && SugerenciaPublica::desdeTiendaEnLinea('[]') === null && SugerenciaPublica::desdeTiendaEnLinea('<html>404</html>') === null
+    && SugerenciaPublica::desdeTiendaEnLinea('{"status":1}') === null);
 revisar('Sugerencia: un código que nadie conoce, una respuesta rota o algo que no es código: null',
     $publica->buscar('ABC') === null && SugerenciaPublica::desdeRespuesta('{"status":0}') === null
     && SugerenciaPublica::desdeRespuesta('<html>') === null
@@ -553,6 +562,7 @@ revisar('Sugerencia: elige la categoría del catálogo por el nombre y las categ
     && $adivinar('Sal Marina EMSAL') === 1 && $adivinar('Salsa de tomate Alacena') === 1 && $adivinar('Jabón Protex avena 110 g') === 8
     && $adivinar('Papas fritas Lay\'s') === 7 && $adivinar('Detergente Bolívar') === 5 && $adivinar('Sporade Tropical', ['energy drinks']) === 3
     && $adivinar('Pan De Molde Blanco Bimbo 590 g', ['plant based foods and beverages', 'breads', 'sliced breads']) === 6
+    && $adivinar('Detergente en polvo Opal Ultra 2.6 kg', ['Limpieza', 'Lavandería']) === 5
     && $adivinar('Producto XYZ') === null && SugerenciaPublica::categoria('Leche', [], [1 => 'Abarrotes']) === null);
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',

@@ -2,35 +2,39 @@
 declare(strict_types=1);
 
 /**
- * Datos reales de un codigo de barras que aun no esta en el catalogo, desde las bases publicas y gratuitas
- * Open Food Facts (alimentos y bebidas; ~2 900 productos del Peru) y Open Products Facts (limpieza, cuidado personal).
+ * Datos reales de un codigo de barras que aun no esta en el catalogo, en este orden:
+ * - Plaza Vea y Wong, tiendas peruanas en linea (busqueda publica por codigo): el nombre como en la gondola.
+ * - Open Food Facts (alimentos y bebidas; ~2 900 productos del Peru) y Open Products Facts (limpieza, cuidado personal).
+ * Las farmacias no estan: sus tiendas en linea no publican la busqueda por codigo.
  * Llena el formulario de Nuevo producto (nombre, marca y categoria); el administrador lo revisa y pone el precio.
  * Lo mismo hace la app al escanear un codigo nuevo (Sugerencia.kt y Categorias.kt): las palabras son las mismas.
  * Sin internet o si nadie lo conoce, devuelve null y se escribe a mano: nunca frena el registro.
  */
 final class SugerenciaPublica
 {
+    // Tiendas VTEX: /api/catalog_system/pub/products/search?fq=alternateIds_Ean={codigo}
+    private const TIENDAS = ['www.plazavea.com.pe', 'www.wong.pe'];
     private const BASES = ['world.openfoodfacts.org', 'world.openproductsfacts.org'];
 
     // Categoria del catalogo (sin tildes, en minusculas) => palabras que la delatan (castellano e ingles de Open Food Facts)
     private const PISTAS = [
-        'lacteos' => ['leche', 'yogur', 'yogurt', 'queso', 'mantequilla', 'manjar', 'dairies', 'dairy', 'milks', 'cheeses', 'yogurts', 'butters'],
+        'lacteos' => ['lacteo', 'leche', 'yogur', 'yogurt', 'queso', 'mantequilla', 'manjar', 'dairies', 'dairy', 'milks', 'cheeses', 'yogurts', 'butters'],
         'bebidas' => ['gaseosa', 'agua', 'jugo', 'nectar', 'refresco', 'cerveza', 'bebida', 'rehidratante', 'energizante',
             'beverages', 'sodas', 'waters', 'juices', 'nectars', 'beers', 'soft drinks', 'energy drinks'],
-        'desayuno' => ['pan', 'tostada', 'tortilla', 'cafe', 'avena', 'cereal', 'mermelada', 'infusion', 'manzanilla', 'anis', 'cocoa', 'chocolate en polvo',
+        'desayuno' => ['desayuno', 'pan', 'tostada', 'tortilla', 'cafe', 'avena', 'cereal', 'mermelada', 'infusion', 'manzanilla', 'anis', 'cocoa', 'chocolate en polvo',
             'coffees', 'breakfast', 'teas', 'herbal teas', 'oat', 'jams', 'cocoa and its products', 'breads', 'sliced breads'],
-        'snacks y golosinas' => ['galleta', 'chocolate', 'caramelo', 'chupetin', 'papas fritas', 'papitas', 'chifle', 'snack',
+        'snacks y golosinas' => ['golosina', 'piqueo', 'galleta', 'chocolate', 'caramelo', 'chupetin', 'papas fritas', 'papitas', 'chifle', 'snack',
             'chicle', 'gomitas', 'turron', 'biscuits', 'cookies', 'candies', 'confectioneries', 'chips', 'snacks', 'chocolates', 'crackers'],
-        'cuidado personal' => ['jabon', 'shampoo', 'champu', 'acondicionador', 'pasta dental', 'crema dental', 'cepillo dental',
+        'cuidado personal' => ['cuidado personal', 'higiene', 'farmacia', 'jabon', 'shampoo', 'champu', 'acondicionador', 'pasta dental', 'crema dental', 'cepillo dental',
             'desodorante', 'papel higienico', 'toalla higienica', 'panal', 'afeitar', 'colonia',
             'soaps', 'shampoos', 'toothpastes', 'deodorants', 'toilet paper', 'hygiene', 'body care'],
-        'embutidos y huevos' => ['jamonada', 'jamon', 'hot dog', 'salchicha', 'chorizo', 'mortadela', 'huevo', 'tocino',
+        'embutidos y huevos' => ['embutido', 'carne', 'jamonada', 'jamon', 'hot dog', 'salchicha', 'chorizo', 'mortadela', 'huevo', 'tocino',
             'sausages', 'hams', 'eggs', 'cold cuts', 'prepared meats'],
-        'limpieza' => ['detergente', 'lejia', 'lavavajilla', 'limpiador', 'desinfectante', 'suavizante', 'quitamanchas',
+        'limpieza' => ['limpieza', 'detergente', 'lejia', 'lavavajilla', 'limpiador', 'desinfectante', 'suavizante', 'quitamanchas',
             'esponja', 'escoba', 'ambientador', 'insecticida', 'cleaning', 'detergents', 'dishwashing', 'bleach', 'household'],
         'frutas y verduras' => ['fruta', 'verdura', 'papa', 'platano', 'cebolla', 'tomate', 'limon', 'manzana',
             'fresh fruits', 'fresh vegetables', 'fruits', 'vegetables'],
-        'abarrotes' => ['arroz', 'azucar', 'aceite', 'fideo', 'tallarin', 'spaghetti', 'harina', 'sal', 'atun', 'conserva',
+        'abarrotes' => ['abarrote', 'despensa', 'arroz', 'azucar', 'aceite', 'fideo', 'tallarin', 'spaghetti', 'harina', 'sal', 'atun', 'conserva',
             'menestra', 'lenteja', 'frejol', 'pallar', 'garbanzo', 'salsa', 'mayonesa', 'ketchup', 'vinagre', 'sillao', 'sazonador',
             'condimento', 'rices', 'pastas', 'vegetable oils', 'sugars', 'flours', 'canned', 'legumes', 'sauces', 'condiments', 'salts'],
     ];
@@ -52,6 +56,13 @@ final class SugerenciaPublica
         if (preg_match('/^[0-9]{8,14}$/', $codigo) !== 1) {
             return null;
         }
+        foreach (self::TIENDAS as $tienda) {
+            $cuerpo = ($this->descargar)('https://' . $tienda . '/api/catalog_system/pub/products/search?fq=alternateIds_Ean:' . $codigo);
+            $sugerencia = $cuerpo !== null ? self::desdeTiendaEnLinea($cuerpo) : null;
+            if ($sugerencia !== null) {
+                return $sugerencia;
+            }
+        }
         foreach (self::BASES as $base) {
             $cuerpo = ($this->descargar)('https://' . $base . '/api/v2/product/' . $codigo
                 . '.json?fields=product_name,product_name_es,brands,quantity,categories_tags');
@@ -61,6 +72,35 @@ final class SugerenciaPublica
             }
         }
         return null;
+    }
+
+    /**
+     * Lee la busqueda de una tienda en linea: [{"productName": ..., "brand": ..., "categories": ["/Bebidas/Gaseosas/"]}].
+     * La ruta de la categoria se parte en palabras ("Bebidas", "Gaseosas") para elegir la del catalogo.
+     * @return ?array{nombre: string, marca: string, categorias: string[]}
+     */
+    public static function desdeTiendaEnLinea(string $cuerpo): ?array
+    {
+        $lista = json_decode($cuerpo, true);
+        if (!is_array($lista) || !is_array($lista[0] ?? null)) {
+            return null;
+        }
+        $p = $lista[0];
+        $nombre = is_string($p['productName'] ?? null) ? trim((string) preg_replace('/\s+/u', ' ', $p['productName'])) : '';
+        if ($nombre === '') {
+            return null;
+        }
+        $marca = is_string($p['brand'] ?? null) ? trim($p['brand']) : '';
+        $categorias = [];
+        foreach (is_array($p['categories'] ?? null) ? $p['categories'] : [] as $ruta) {
+            foreach (is_string($ruta) ? explode('/', $ruta) : [] as $parte) {
+                if (trim($parte) !== '') {
+                    $categorias[] = trim($parte);
+                }
+            }
+        }
+        $nombre = mb_strtoupper(mb_substr($nombre, 0, 1)) . mb_substr($nombre, 1);
+        return ['nombre' => mb_substr($nombre, 0, 100), 'marca' => mb_substr($marca, 0, 50), 'categorias' => array_values(array_unique($categorias))];
     }
 
     /**

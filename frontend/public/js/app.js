@@ -1913,7 +1913,7 @@
     }
 
     // ---------- Nuevo producto: al escanear o escribir el codigo se completan nombre, marca y categoria ----------
-    // Los datos reales vienen de Open Food Facts por el servidor (?ruta=producto_sugerencia). Solo se llena lo vacio:
+    // Los datos reales vienen de Plaza Vea, Wong u Open Food Facts por el servidor (?ruta=producto_sugerencia). Solo se llena lo vacio:
     // lo que el administrador ya escribio no se toca. Sin JavaScript el formulario funciona igual, a mano.
     const formSugerencia = $('form[data-sugerencia]');
     if (formSugerencia) {
@@ -1950,7 +1950,7 @@
                     }
                     elegir(marca, datos.id_marca);
                     elegir(categoria, datos.id_categoria);
-                    avisar('Completado con datos de Open Food Facts' + (datos.id_marca === null && datos.marca ? ' (la marca «' + datos.marca + '» no está en la lista: créala en Categorías y marcas)' : '')
+                    avisar('Completado con datos de internet (Plaza Vea, Wong u Open Food Facts)' + (datos.id_marca === null && datos.marca ? ' (la marca «' + datos.marca + '» no está en la lista: créala en Categorías y marcas)' : '')
                         + '. Revísalo y pon el precio.');
                     $('#precio', formSugerencia)?.focus();
                 } else {
