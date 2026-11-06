@@ -5,11 +5,13 @@ require_once __DIR__ . '/ApiController.php';
 require_once __DIR__ . '/../../models/ConsultaMovilRepository.php';
 require_once __DIR__ . '/../../models/CatalogoRepository.php';
 require_once __DIR__ . '/../../models/servicios/ProductoServicio.php';
+require_once __DIR__ . '/../../models/CodigoProductoRepository.php';
 
 /**
  * Inventario de la app: buscar productos, leer un codigo de barras y ver el kardex.
  * El stock que se muestra es el de la tienda del usuario.
- * Si el codigo escaneado no existe, cualquier empleado puede registrarlo (crear()), con su stock inicial opcional.
+ * Si el codigo escaneado no existe, cualquier empleado puede registrarlo (crear()), con su stock inicial opcional,
+ * o ensenarselo a un producto que ya esta en el catalogo con otro codigo (vincularCodigo()).
  */
 class ProductoApiController extends ApiController
 {
@@ -19,7 +21,8 @@ class ProductoApiController extends ApiController
         ?Usuario $usuario,
         private ConsultaMovilRepository $consultas,
         private CatalogoRepository $catalogo,
-        private ProductoServicio $servicio
+        private ProductoServicio $servicio,
+        private CodigoProductoRepository $codigos
     ) {
         parent::__construct($usuario);
     }
@@ -60,7 +63,11 @@ class ProductoApiController extends ApiController
         if ($producto === null) {
             $this->noEncontrado('El producto no existe.');
         }
-        return $producto + ['movimientos' => $this->consultas->kardex($idTienda, $producto['id_producto'], 15, 0)];
+        return $producto + [
+            // Los otros codigos con los que el escaner tambien lo reconoce (migracion 023)
+            'otros_codigos' => array_column($this->codigos->codigosDe($producto['id_producto']), 'codigo'),
+            'movimientos'   => $this->consultas->kardex($idTienda, $producto['id_producto'], 15, 0),
+        ];
     }
 
     // GET /api/v1/movimientos?producto=12&pagina=1: kardex de la tienda del usuario
@@ -117,5 +124,33 @@ class ProductoApiController extends ApiController
             throw $ex;
         }
         return (array) $this->consultas->productoPorId($id, $usuario->getIdTienda());
+    }
+
+    /**
+     * POST /api/v1/productos/12/codigos {"codigo": "17751271011010"}: el codigo escaneado que no estaba en el catalogo
+     * es de este producto (empaque nuevo, pack, caja del distribuidor). Desde ahi el escaner lo reconoce en todas las tiendas.
+     * Lo hace quien puede registrar productos; queda con su nombre y su tienda, y el administrador lo puede quitar en la web.
+     * 409 YA_EXISTE si el codigo ya es de un producto (de este u otro).
+     */
+    public function vincularCodigo(string $id, array $datos): array
+    {
+        $usuario = $this->usuario();
+        if (!$usuario->puedeCrearProducto()) {
+            $this->prohibido('Tu usuario no puede cambiar el catálogo.');
+        }
+        $idProducto = $this->id($id);
+        try {
+            $this->servicio->vincularCodigo($usuario, $idProducto, $this->texto($datos, 'codigo'));
+        } catch (ReglaNegocioException $ex) {
+            if ($ex->getMessage() === ProductoServicio::CODIGO_OCUPADO) {
+                throw new ErrorApi(409, 'YA_EXISTE', 'Ese código ya es de un producto del catálogo.');
+            }
+            if ($ex->getMessage() === ProductoServicio::PRODUCTO_NO_EXISTE) {
+                $this->noEncontrado('El producto no existe.');
+            }
+            throw $ex;
+        }
+        return (array) $this->consultas->productoPorId($idProducto, $usuario->getIdTienda())
+            + ['otros_codigos' => array_column($this->codigos->codigosDe($idProducto), 'codigo')];
     }
 }

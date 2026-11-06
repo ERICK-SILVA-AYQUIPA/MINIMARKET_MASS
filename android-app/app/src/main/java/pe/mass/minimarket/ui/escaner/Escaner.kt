@@ -118,8 +118,9 @@ import java.util.concurrent.Executors
 
 /**
  * Lee codigos de barras de cada cuadro de la camara con ML Kit (sin tomar foto).
- * Formatos de productos: EAN-13, EAN-8, UPC-A, UPC-E y Code 128, y QR o Data Matrix con el codigo GS1
- * del producto adentro (los empaques nuevos). Que significa lo leido lo decide [Codigos.interpretar].
+ * Formatos de productos: EAN-13, EAN-8, UPC-A, UPC-E, Code 128, ITF-14 (cajas), Code 39, Code 93 y Codabar,
+ * y QR o Data Matrix con el codigo GS1 del producto adentro (los empaques nuevos).
+ * Que significa lo leido lo decide [Codigos.interpretar].
  *
  * La camara ve el mismo codigo muchas veces por segundo: se avisa una sola vez y no se vuelve a avisar
  * del mismo codigo mientras siga a la vista (y hasta [ESPERA_MISMO_CODIGO_MS] despues de que se fue).
@@ -135,6 +136,11 @@ class AnalizadorCodigos(private val alLeer: (String) -> Unit) : ImageAnalysis.An
                 Barcode.FORMAT_UPC_A,
                 Barcode.FORMAT_UPC_E,
                 Barcode.FORMAT_CODE_128,
+                // Cajas del distribuidor (ITF-14) y etiquetas de proveedor (Code 39, Code 93, Codabar)
+                Barcode.FORMAT_ITF,
+                Barcode.FORMAT_CODE_39,
+                Barcode.FORMAT_CODE_93,
+                Barcode.FORMAT_CODABAR,
                 Barcode.FORMAT_QR_CODE,
                 Barcode.FORMAT_DATA_MATRIX,
             )
@@ -154,7 +160,11 @@ class AnalizadorCodigos(private val alLeer: (String) -> Unit) : ImageAnalysis.An
         }
         lector.process(InputImage.fromMediaImage(imagen, cuadro.imageInfo.rotationDegrees))
             .addOnSuccessListener { codigos ->
-                val leidos = codigos.mapNotNull { it.rawValue?.trim()?.takeIf { v -> v.isNotEmpty() } }
+                val leidos = codigos.filter(::confiable).mapNotNull { c ->
+                    val v = c.rawValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+                    // Un UPC-E (empaque chico) va como su UPC-A, que es como suele estar en el catalogo
+                    if (c.format == Barcode.FORMAT_UPC_E) Codigos.upcEaUpcA(v) ?: v else v
+                }
                 // Si en el cuadro hay un QR de publicidad y el codigo de barras, gana el del producto
                 val valor = leidos.firstOrNull { Codigos.interpretar(it) is CodigoLeido.Producto } ?: leidos.firstOrNull()
                     ?: return@addOnSuccessListener
@@ -167,6 +177,21 @@ class AnalizadorCodigos(private val alLeer: (String) -> Unit) : ImageAnalysis.An
             .addOnFailureListener { Log.w("Escaner", "No se pudo leer el cuadro", it) }
             // Cada cuadro se cierra para que llegue el siguiente (STRATEGY_KEEP_ONLY_LATEST)
             .addOnCompleteListener { cuadro.close() }
+    }
+
+    /**
+     * ITF, Code 39, Code 93 y Codabar a veces salen leidos a medias sobre las barras de otro codigo:
+     * solo cuentan si traen un numero de producto (y el ITF, un ITF-14 con su digito de control bien).
+     * Asi no suena "no es un producto" mientras se apunta a un EAN.
+     */
+    private fun confiable(codigo: Barcode): Boolean {
+        val valor = codigo.rawValue?.trim() ?: return false
+        return when (codigo.format) {
+            Barcode.FORMAT_ITF -> valor.length == 14 && Codigos.digitoControlValido(valor)
+            Barcode.FORMAT_CODE_39, Barcode.FORMAT_CODE_93, Barcode.FORMAT_CODABAR ->
+                Codigos.interpretar(valor) is CodigoLeido.Producto
+            else -> true
+        }
     }
 
     /** Despues de "Escanear otro": el mismo codigo se puede volver a leer de inmediato. */
@@ -504,7 +529,8 @@ fun PanelEscaner(
         }
     }
     val enviarManual = {
-        val codigo = manual.trim()
+        // Escrito a mano puede llevar espacios o guiones ("775 1271-011013")
+        val codigo = Codigos.limpiar(manual)
         if (codigo.isNotEmpty()) {
             leer(codigo)
             manual = ""

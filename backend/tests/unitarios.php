@@ -33,6 +33,7 @@ require __DIR__ . '/../models/DevolucionVenta.php';
 require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
+require __DIR__ . '/../models/CodigoBarras.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require __DIR__ . '/../config/Migraciones.php';
@@ -488,6 +489,28 @@ revisar('El PDF empieza y termina bien y su tabla larga sigue en otra página', 
     && str_ends_with($documento, "%%EOF\n") && count($paginas[0]) >= 2 && str_contains($documento, "(P\xE1gina 1 de "));
 revisar('El PDF apunta bien a su tabla xref y escapa paréntesis; las tildes van en Windows-1252',
     substr($documento, (int) ($xref[1] ?? 0), 4) === 'xref' && str_contains($documento, '(Pan \\(franc' . "\xE9" . 's\\))'));
+
+echo "Códigos de barras del escáner (variantes del mismo producto)\n";
+revisar('Se limpian espacios, guiones y puntos', CodigoBarras::limpiar(' 775 1271-011013 ') === '7751271011013'
+    && CodigoBarras::limpiar('ABC-123') === 'ABC123');
+revisar('Válido: de 8 a 14 dígitos, como el CHECK de producto', CodigoBarras::esValido('12345670') && CodigoBarras::esValido('17751271011010')
+    && !CodigoBarras::esValido('1234567') && !CodigoBarras::esValido('123456789012345') && !CodigoBarras::esValido('ABC12345'));
+revisar('Dígito de control GS1 (EAN-13, UPC-A, EAN-8, GTIN-14)', CodigoBarras::digitoControlValido('7751271011013')
+    && CodigoBarras::digitoControlValido('012345678905') && CodigoBarras::digitoControlValido('96385074')
+    && CodigoBarras::digitoControlValido('17751271011010') && !CodigoBarras::digitoControlValido('7751271011014'));
+$variantesEan = CodigoBarras::variantes('7751271011013');
+revisar('EAN-13: la leída primero y la de 14 con un 0 (QR GS1)', $variantesEan === ['7751271011013', '07751271011013']);
+$variantesUpc = CodigoBarras::variantes('012345678905');
+revisar('UPC-A: también como EAN-13 y GTIN-14 con ceros adelante', $variantesUpc[0] === '012345678905'
+    && in_array('0012345678905', $variantesUpc, true) && in_array('00012345678905', $variantesUpc, true));
+revisar('GTIN-14 de un QR: también como el EAN-13 del empaque', in_array('7751271011013', CodigoBarras::variantes('07751271011013'), true));
+revisar('EAN-8: también con ceros a 12, 13 y 14 (GS1), pero no se adivina un UPC-E (eso lo hace la app)',
+    CodigoBarras::variantes('04252614') === ['04252614', '000004252614', '0000004252614', '00000004252614']);
+revisar('Escrito con espacios: se busca limpio', CodigoBarras::variantes('775 1271 011013')[0] === '7751271011013');
+revisar('Letras o un largo que no es de producto: ninguna variante', CodigoBarras::variantes('ABC-123') === []
+    && CodigoBarras::variantes('123') === [] && CodigoBarras::variantes('00000000') === ['00000000']);
+revisar('La caja ITF-14 de otro indicador no se toma por la unidad (se vincula aparte)',
+    !in_array('7751271011013', CodigoBarras::variantes('17751271011010'), true));
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());

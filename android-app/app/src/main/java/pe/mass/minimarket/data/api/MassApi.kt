@@ -41,6 +41,10 @@ interface MassApi {
     @POST("api/v1/productos")
     suspend fun crearProducto(@Body pedido: ProductoNuevoPedido): Response<RespuestaApi<Producto>>
 
+    // El codigo desconocido es de un producto que ya existe: 200, o 409 YA_EXISTE si ya es de otro producto
+    @POST("api/v1/productos/{id}/codigos")
+    suspend fun vincularCodigo(@Path("id") idProducto: Int, @Body pedido: VincularCodigoPedido): Response<RespuestaApi<Producto>>
+
     // Categorias, marcas y unidades del formulario de producto nuevo
     @GET("api/v1/catalogo")
     suspend fun opcionesCatalogo(): Response<RespuestaApi<OpcionesCatalogo>>

@@ -33,6 +33,7 @@ import pe.mass.minimarket.data.api.ProductoNuevoPedido
 import pe.mass.minimarket.data.api.RespuestaApi
 import pe.mass.minimarket.data.api.Salud
 import pe.mass.minimarket.data.api.Vacio
+import pe.mass.minimarket.data.api.VincularCodigoPedido
 import pe.mass.minimarket.data.api.VentaDetalle
 import pe.mass.minimarket.data.api.VentaPedido
 import retrofit2.Response
@@ -185,6 +186,10 @@ class Repositorio(private val config: Configuracion) {
     suspend fun opcionesCatalogo(): Resultado<OpcionesCatalogo> = llamar { opcionesCatalogo() }
 
     suspend fun crearProducto(pedido: ProductoNuevoPedido): Resultado<Producto> = llamar { crearProducto(pedido) }
+
+    /** Le ensena al catalogo otro codigo de un producto que ya existe: desde ahi el escaner lo reconoce en todas las tiendas. */
+    suspend fun vincularCodigo(idProducto: Int, codigo: String): Resultado<Producto> =
+        llamar { vincularCodigo(idProducto, VincularCodigoPedido(codigo)) }
 
     // Cliente aparte, SIN el token de la tienda: la consulta sale a internet, no a nuestro servidor
     private val clientePublico by lazy {

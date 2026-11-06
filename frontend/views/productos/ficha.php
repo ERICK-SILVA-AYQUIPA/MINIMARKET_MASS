@@ -11,6 +11,7 @@ declare(strict_types=1);
  * @var array{url: ?string, icono: string, tono: int, categoria: string} $foto
  * @var bool $puedeEditar       administrador: editar, descontinuar y cambiar la foto
  * @var bool $puedeFijarMinimo  administrador de esta tienda
+ * @var array<int, array{id: int, codigo: string, fecha: string, empleado: string, tienda: string}> $otrosCodigos
  * @var ?string $csrf
  */
 // Ejemplo de importe: 1 unidad, o 1.250 kg si es al peso
@@ -57,6 +58,27 @@ $decimales = $producto->esAlPeso() ? 3 : 0;
         <?php endif; ?>
     </dd>
     <dt>Código de barras</dt><dd><?= e($producto->getCodigoBarras() ?? '(no tiene: se vende al peso)') ?></dd>
+    <?php if ($otrosCodigos !== []): ?>
+        <dt>Otros códigos <span class="ayuda">el escáner también lo reconoce con estos</span></dt>
+        <dd>
+            <ul class="otros-codigos">
+                <?php foreach ($otrosCodigos as $otro): ?>
+                    <li>
+                        <span class="mono"><?= e($otro['codigo']) ?></span>
+                        <small class="sutil">· <?= e($otro['empleado']) ?>, <?= e($otro['tienda']) ?>, <?= e(date('d/m/Y', strtotime($otro['fecha']) ?: 0)) ?></small>
+                        <?php if ($puedeEditar): ?>
+                            <form class="en-linea" method="post" action="/?ruta=producto_codigo_quitar" data-confirmar="¿Quitar el código <?= e($otro['codigo']) ?>? El escáner ya no lo reconocerá como este producto." data-confirmar-boton="Sí, quitar">
+                                <?= campoCsrf($csrf) ?>
+                                <input type="hidden" name="id" value="<?= (int) $otro['id'] ?>">
+                                <input type="hidden" name="producto" value="<?= $producto->getIdProducto() ?>">
+                                <button class="enlace chico" type="submit">Quitar</button>
+                            </form>
+                        <?php endif; ?>
+                    </li>
+                <?php endforeach; ?>
+            </ul>
+        </dd>
+    <?php endif; ?>
     <dt>Se vende</dt><dd><?= $producto->esAlPeso() ? 'Al peso (kg con hasta 3 decimales)' : 'Por unidad (cantidades enteras)' ?></dd>
     <dt>Importe de ejemplo</dt>
     <dd><?= e(number_format($cantidadEjemplo, $producto->esAlPeso() ? 3 : 0)) ?> × <?= e(soles($producto->getPrecioVenta())) ?>

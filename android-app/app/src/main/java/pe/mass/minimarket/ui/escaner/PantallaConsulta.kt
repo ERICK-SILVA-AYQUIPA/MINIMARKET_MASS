@@ -215,6 +215,16 @@ fun PantallaConsulta(
                     vm.mostrar(p, Aviso("Producto registrado. Ya se puede vender y aparece en la web.", TipoAviso.OK))
                 }
             },
+            onVinculado = { p ->
+                registrar = false
+                confirmacion.exito()
+                prefs.recordar(p)
+                if (modo == ModoConsulta.INVENTARIO && onAbrirFicha != null) {
+                    onAbrirFicha(p.idProducto)
+                } else {
+                    vm.mostrar(p, Aviso("Código $codigoNuevo vinculado: el escáner ya lo reconoce como este producto.", TipoAviso.OK))
+                }
+            },
             onCerrar = { registrar = false },
         )
     }

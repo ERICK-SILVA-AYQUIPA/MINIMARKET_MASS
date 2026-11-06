@@ -271,7 +271,7 @@ class ProductoController extends Controller
     public function detalle(?string $codigo, ?string $id, ?string $tiendaPedida): void
     {
         $producto = null;
-        if ($codigo !== null && preg_match('/^[0-9]{8,14}$/', $codigo) === 1) {
+        if ($codigo !== null && CodigoBarras::esValido(CodigoBarras::limpiar($codigo))) {
             $producto = $this->repo->buscarPorCodigo($codigo);
         } elseif ($id !== null && ctype_digit($id)) {
             $producto = $this->repo->buscarPorId((int) $id);
@@ -302,6 +302,8 @@ class ProductoController extends Controller
             'marca'            => $this->catalogo->buscarMarca($producto->getIdMarca()),
             'unidad'           => $this->catalogo->buscarUnidad($producto->getIdUnidad()),
             'puedeEditar'      => $this->puedeEditarCatalogo(),
+            // Los otros codigos con los que el escaner tambien lo reconoce (migracion 023)
+            'otrosCodigos'     => $this->repo->otrosCodigos($producto->getIdProducto()),
             // El minimo se fija solo en la tienda propia del administrador
             'puedeFijarMinimo' => $this->usuario?->puedeAdministrarTienda($tienda->getIdTienda()) === true,
         ];
@@ -418,6 +420,24 @@ class ProductoController extends Controller
             return;
         }
         $this->redirigir('/?ruta=producto&id=' . $id, $estado === 'ACTIVO' ? 'Producto activado.' : 'Producto descontinuado: ya no se vende.');
+    }
+
+    // POST /?ruta=producto_codigo_quitar: el administrador quita un codigo que se vinculo mal desde la app
+    public function quitarCodigo(array $post): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador cambia el catálogo.');
+            return;
+        }
+        $idProducto = $this->leerId($this->campo($post, 'producto'));
+        try {
+            $idProducto = $this->servicio->quitarCodigo($this->usuario, $this->leerId($this->campo($post, 'id')));
+        } catch (ReglaNegocioException $ex) {
+            $this->sesion->avisar('error', $ex->getMessage());
+            header('Location: /?ruta=producto&id=' . $idProducto, true, 303);
+            return;
+        }
+        $this->redirigir('/?ruta=producto&id=' . $idProducto, 'Código quitado: el escáner ya no lo reconoce.');
     }
 
     /**

@@ -5,7 +5,11 @@ package pe.mass.minimarket.dominio
  * un QR o un Data Matrix puede traer ese numero dentro de un enlace o de un texto GS1.
  */
 sealed interface CodigoLeido {
-    /** Un numero de producto (EAN-8, EAN-13, UPC-A o GTIN-14) que se busca en el catalogo. */
+    /**
+     * Un numero de producto (EAN-8, UPC-A, EAN-13 o GTIN-14 / ITF-14; un UPC-E llega ya como su UPC-A)
+     * que se busca en el catalogo. El servidor lo encuentra aunque el catalogo lo tenga con otros ceros
+     * adelante, o como uno de los "otros codigos" del producto (CodigoBarras.php).
+     */
     data class Producto(val codigo: String) : CodigoLeido
 
     /** Un QR que no es de un producto: un enlace, una promocion, un pago, un texto. */
@@ -22,8 +26,11 @@ object Codigos {
     // Texto GS1 con parentesis: (01)07751271011010(17)270131...
     private val gs1Parentesis = Regex("""\(01\)([0-9]{14})""")
 
-    // Texto GS1 sin parentesis (Data Matrix, puede empezar con el caracter FNC1 o "]d2"): 0107751271011010...
-    private val gs1Plano = Regex("""^(?:\]d2|\]Q3|\u001D)?01([0-9]{14})""")
+    // Texto GS1 sin parentesis (Data Matrix, GS1-128 de las cajas; puede empezar con FNC1, "]d2" o "]C1"): 0107751271011010...
+    private val gs1Plano = Regex("""^(?:\]d2|\]Q3|\]C1|\u001D)?01([0-9]{14})""")
+
+    // Lo que se escribe a mano: "775 1271-011013"
+    private val separadores = Regex("""[\s.\-]+""")
 
     fun interpretar(valor: String): CodigoLeido {
         val texto = valor.trim()
@@ -43,8 +50,32 @@ object Codigos {
     }
 
     /**
+     * Quita espacios, guiones y puntos de un codigo ESCRITO A MANO ("775 1271-011013"), como CodigoBarras::limpiar()
+     * en el servidor. Lo que lee la camara no se limpia: un QR con "987 654 321" no es un producto.
+     */
+    fun limpiar(texto: String): String = texto.trim().replace(separadores, "")
+
+    /**
+     * UPC-E (8 digitos, empaques chicos) a su UPC-A de 12, que es como suele estar en el catalogo.
+     * Solo se usa cuando la camara dice que leyo un UPC-E: un EAN-8 tambien tiene 8 digitos y no se toca.
+     * null si no es un UPC-E valido (sistema 0 o 1 y su digito de control).
+     */
+    fun upcEaUpcA(upce: String): String? {
+        if (!Regex("^[01][0-9]{7}$").matches(upce)) return null
+        val d = upce.toCharArray()
+        val cuerpo = when (d[6]) {
+            '0', '1', '2' -> "${d[0]}${d[1]}${d[2]}${d[6]}0000${d[3]}${d[4]}${d[5]}"
+            '3' -> "${d[0]}${d[1]}${d[2]}${d[3]}00000${d[4]}${d[5]}"
+            '4' -> "${d[0]}${d[1]}${d[2]}${d[3]}${d[4]}00000${d[5]}"
+            else -> "${d[0]}${d[1]}${d[2]}${d[3]}${d[4]}${d[5]}0000${d[6]}"
+        }
+        val upca = cuerpo + d[7]
+        return if (digitoControlValido(upca)) upca else null
+    }
+
+    /**
      * Un GTIN-14 con ceros adelante se guarda como en el empaque: 07751271011010 -> 7751271011010 (EAN-13).
-     * El servidor tambien prueba UPC-A (12) y EAN-13 con 0 adelante, asi que basta con quitar un cero.
+     * El servidor prueba todas las formas con ceros adelante, asi que basta con quitar un cero.
      */
     private fun corto(gtin: String): String = if (gtin.length == 14 && gtin.startsWith("0")) gtin.substring(1) else gtin
 

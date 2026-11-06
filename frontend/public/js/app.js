@@ -25,6 +25,26 @@
         $('select', formTienda).addEventListener('change', () => formTienda.submit());
     }
 
+    // ---------- Codigos de barras: las mismas variantes que backend/models/CodigoBarras.php ----------
+
+    // Todas las formas del mismo codigo, la leida primero: "775 1271-011013", 07751271011013 (QR GS1)...
+    function variantesCodigo(texto) {
+        const codigo = String(texto).trim().replace(/[\s.\-]+/g, '');
+        if (!/^\d{8,14}$/.test(codigo)) {
+            return [codigo];
+        }
+        const variantes = [codigo];
+        const nucleo = codigo.replace(/^0+/, '');
+        if (nucleo !== '') {
+            [8, 12, 13, 14].forEach((largo) => {
+                if (nucleo.length <= largo) {
+                    variantes.push(nucleo.padStart(largo, '0'));
+                }
+            });
+        }
+        return Array.from(new Set(variantes));
+    }
+
     // ---------- Dinero y cantidades en enteros (centimos y milesimas), como el servidor ----------
 
     // "12.5" -> 1250 centimos; null si no es un monto valido
@@ -1087,7 +1107,10 @@
                 if (codigo === '') {
                     return;
                 }
-                const opcion = $('select option[data-codigo="' + CSS.escape(codigo) + '"]', formVenta);
+                // El codigo propio o uno de sus otros codigos, aunque venga con otros ceros adelante
+                const opcion = variantesCodigo(codigo)
+                    .map((v) => $('select option[data-codigos~="' + CSS.escape(v) + '"]', formVenta))
+                    .find((o) => o !== null) || null;
                 if (opcion === null) {
                     avisar('El código ' + codigo + ' no está en el catálogo (o el producto está descontinuado).', true);
                     return;

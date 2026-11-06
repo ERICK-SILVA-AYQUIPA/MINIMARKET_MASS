@@ -493,6 +493,47 @@ $ventaNueva = ['tipo_comprobante' => 'B', 'documento' => '', 'total_esperado' =>
 revisar('Y lo vende en el momento: 201', $luis->post('ventas', $ventaNueva, nuevaClave()) === 201, $luis->mensaje());
 revisar('...quedan 3', (float) stockApp($luis, (int) ($deCaja['id_producto'] ?? 0)) === 3.0);
 
+echo "El escáner reconoce más códigos: variantes y otros códigos del producto\n";
+// Un UPC-A nuevo (042100005264; la app lo manda asi tambien cuando lee su forma corta UPC-E). Se limpia por si la prueba corre otra vez.
+$db->exec("DELETE FROM producto_codigo WHERE codigo IN ('042100005264', '0042100005264', '00042100005264')");
+revisar('GTIN-14 de un QR (con un 0 adelante): encuentra el EAN-13 del catálogo',
+    $luis->get('productos/codigo/07750000000011') === 200 && ($luis->datos()['id_producto'] ?? 0) === 1);
+revisar('Escrito con espacios: lo encuentra igual', $luis->get('productos/codigo/' . rawurlencode('7750 0000 00011')) === 200
+    && ($luis->datos()['id_producto'] ?? 0) === 1);
+revisar('Código aún desconocido: 404', $carmen->get('productos/codigo/042100005264') === 404);
+revisar('Sin token no se vinculan códigos (401)', $anonimo->post('productos/2/codigos', ['codigo' => '042100005264']) === 401);
+revisar('Código con letras: 422', $carmen->post('productos/2/codigos', ['codigo' => 'ABC-123']) === 422);
+revisar('Producto que no existe: 404', $carmen->post('productos/999999/codigos', ['codigo' => '042100005264']) === 404);
+revisar('El código de OTRO producto (con otros ceros) no se vincula: 409 YA_EXISTE',
+    $carmen->post('productos/2/codigos', ['codigo' => '07750000000011']) === 409 && ($carmen->json['error']['codigo'] ?? '') === 'YA_EXISTE');
+revisar('El almacenero le enseña el código nuevo al arroz', $carmen->post('productos/2/codigos', ['codigo' => '0421 0000 5264']) === 200
+    && in_array('042100005264', $carmen->datos()['otros_codigos'] ?? [], true), $carmen->mensaje());
+revisar('Ahora el escáner lo reconoce', $carmen->get('productos/codigo/042100005264') === 200
+    && ($carmen->datos()['id_producto'] ?? 0) === 2);
+revisar('...y la forma EAN-13 con un 0 adelante también', $luis->get('productos/codigo/0042100005264') === 200
+    && ($luis->datos()['id_producto'] ?? 0) === 2);
+revisar('Vincularlo otra vez (otro celular): 409 YA_EXISTE', $rosa->post('productos/3/codigos', ['codigo' => '042100005264']) === 409);
+revisar('Registrar un producto nuevo con ese código: 409 YA_EXISTE', $rosa->post('productos', ['codigo' => '042100005264'] + $nuevo) === 409);
+revisar('La búsqueda por código también mira los otros códigos', $luis->get('productos?q=042100005264') === 200
+    && in_array(2, array_column($luis->datos()['productos'] ?? [], 'id_producto'), true));
+revisar('La ficha de la app lista sus otros códigos', $luis->get('productos/2') === 200
+    && in_array('042100005264', $luis->datos()['otros_codigos'] ?? [], true));
+// Miguel: CAJERO de otra sede (Mass de la tienda 3), ya con su sesion abierta
+$stockMiguel = stockApp($miguel, 2);
+revisar('En otra sede también lo reconoce, con el stock de SU tienda', $miguel->get('productos/codigo/00042100005264') === 200
+    && ($miguel->datos()['id_producto'] ?? 0) === 2 && ($miguel->datos()['stock'] ?? '') === $stockMiguel, $miguel->mensaje());
+$vinculo = $db->query("SELECT id_producto_codigo, id_empleado_registro, id_tienda_registro FROM producto_codigo WHERE codigo = '042100005264'")->fetch();
+revisar('Queda quién y desde qué sede lo vinculó, y en la auditoría', ($vinculo['id_empleado_registro'] ?? 0) === 3
+    && ($vinculo['id_tienda_registro'] ?? 0) === 1
+    && (int) $db->query("SELECT COUNT(*) FROM auditoria WHERE accion = 'CODIGO_VINCULADO' AND detalle LIKE '2 %042100005264'")->fetchColumn() >= 1);
+revisar('La ficha web por código (con otros ceros) abre el arroz y muestra el otro código', $web->get('ruta=producto&codigo=0042100005264') === 200
+    && str_contains($web->cuerpo, '042100005264') && str_contains($web->cuerpo, 'Otros códigos'));
+revisar('El cajero no quita códigos en la web (403)', $webLuis->post('producto_codigo_quitar',
+    ['id' => (string) ($vinculo['id_producto_codigo'] ?? 0), 'producto' => '2'], 'ruta=producto&id=2') === 403);
+revisar('El administrador quita el código mal vinculado (303)', $web->post('producto_codigo_quitar',
+    ['id' => (string) ($vinculo['id_producto_codigo'] ?? 0), 'producto' => '2'], 'ruta=producto&id=2') === 303);
+revisar('...y el escáner ya no lo reconoce', $carmen->get('productos/codigo/042100005264') === 404);
+
 echo "Cerrar sesión\n";
 revisar('Logout', $luis->post('auth/logout', []) === 200);
 revisar('El token ya no sirve (401)', $luis->get('productos') === 401);

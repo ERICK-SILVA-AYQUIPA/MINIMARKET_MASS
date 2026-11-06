@@ -1544,6 +1544,9 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
 .etiqueta.nuevo { background: var(--marca); color: var(--tinta); font-weight: 800; letter-spacing: var(--tracking-mayusculas); font-size: .68rem; }
 .pestana-cuenta.productos_nuevos { background: var(--azul-fondo); color: var(--azul); }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.otros-codigos { list-style: none; margin: 0; padding: 0; }
+.otros-codigos li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.otros-codigos form { display: inline; }
 .tarjetas > div.destacada::before { background: #d97706; }
 .tarjetas small a { color: inherit; font-weight: 600; }
 .tabla-nuevos tr.pendiente td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
