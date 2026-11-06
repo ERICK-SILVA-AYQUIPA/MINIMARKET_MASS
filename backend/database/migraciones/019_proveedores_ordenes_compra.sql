@@ -1,5 +1,5 @@
 /* =====================================================================
-   MINIMARKET MASS - migracion 016: proveedores y ordenes de compra
+   MINIMARKET MASS - migracion 019: proveedores y ordenes de compra
 
    - proveedor: el directorio de la cadena (RUC unico, razon social, contacto y plazo de entrega).
      Lo mantiene el administrador. Uno INACTIVO ya no recibe ordenes nuevas, pero su historia queda.

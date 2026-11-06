@@ -4,6 +4,9 @@ La parte de **SUNAT es una propuesta escrita, todavía sin implementar**. La del
 
 ## 1. Situación actual
 
+> Avance: el ticket ya sale rotulado como **ticket interno**, con razón social, RUC, op. gravada e IGV, y el
+> proveedor tipo Nubefact está preparado en `backend/models/facturacion/`. Ver [facturacion_electronica.md](facturacion_electronica.md).
+
 - La venta ya guarda todo lo que pide un comprobante: serie (`B001`, `F001`), correlativo, fecha, cliente (DNI o RUC), detalle con precio y los pagos (`venta`, `detalle_venta`, `pago_*`).
 - Las series ya tienen el formato de las series electrónicas: empiezan con **B** las boletas y con **F** las facturas, seguidas de 3 caracteres.
 - El ticket (`comprobante_imprimir`) es una **representación interna**: no tiene firma digital, hash ni código QR, y SUNAT no lo recibe. Por eso hoy **no vale como comprobante electrónico**.

@@ -6,7 +6,7 @@
 
    NO SE EDITA A MANO: lo arma backend/scripts/generar_instalador.php
    con los 12 scripts de backend/database/ (schema, datos, boleta, login, seguridad, ajustes, auditoria, ingresos, operaciones, catalogo, api_movil, caja_apertura)
-   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 016_proveedores_ordenes_compra.sql).
+   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 018_producto_origen.sql, 019_proveedores_ordenes_compra.sql).
    ======================================================== */
 
 -- >>> INICIO DE database/schema.sql <<<
@@ -2509,9 +2509,43 @@ UPDATE ingreso_mercaderia SET observacion = 'Surtido inicial del catálogo'
 INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('015_tildes_en_datos.sql', NOW(), 'd1d87afcc90d496a7f2946811016b53eb1095c25594d1632f98c114e3466b2f5');
 
 
--- >>> INICIO DE database/migraciones/016_proveedores_ordenes_compra.sql <<<
+-- >>> INICIO DE database/migraciones/018_producto_origen.sql <<<
 /* =====================================================================
-   MINIMARKET MASS - migracion 016: proveedores y ordenes de compra
+   MINIMARKET MASS - migracion 018: de donde salio cada producto del catalogo y quien lo registro
+
+   - origen: WEB (formulario del catalogo), APP (escaner de la app Android) o CSV (importacion).
+     NULL = producto de la base inicial (datos.sql / catalogo.sql), sin registro de quien lo creo.
+   - fecha_registro, id_empleado_registro, id_tienda_registro: cuando, quien y desde que sucursal.
+     Con esto la pantalla "Desde la app" (?ruta=productos_app) lista los productos que se escanearon y crearon
+     desde los celulares, sin tener que leer el texto de la auditoria.
+   - Los productos que ya se habian creado se completan con su fila PRODUCTO_CREADO de la auditoria:
+     el detalle empieza con el id y termina en " (app)" cuando vino del escaner. Los importados por CSV
+     no dejaban esa fila: quedan en NULL.
+   ===================================================================== */
+
+ALTER TABLE producto
+    ADD COLUMN origen               VARCHAR(3)         NULL AFTER id_unidad,
+    ADD COLUMN fecha_registro       DATETIME           NULL AFTER origen,
+    ADD COLUMN id_empleado_registro MEDIUMINT UNSIGNED NULL AFTER fecha_registro,
+    ADD COLUMN id_tienda_registro   SMALLINT UNSIGNED  NULL AFTER id_empleado_registro,
+    ADD CONSTRAINT ck_producto_origen CHECK (origen IS NULL OR origen IN ('WEB', 'APP', 'CSV')),
+    ADD CONSTRAINT fk_producto_empleado_registro FOREIGN KEY (id_empleado_registro) REFERENCES empleado (id_empleado),
+    ADD CONSTRAINT fk_producto_tienda_registro FOREIGN KEY (id_tienda_registro) REFERENCES tienda (id_tienda),
+    ADD INDEX ix_producto_origen (origen, fecha_registro);
+
+UPDATE producto p
+  JOIN auditoria a ON a.accion = 'PRODUCTO_CREADO' AND a.detalle LIKE CONCAT(p.id_producto, ' %')
+   SET p.origen = IF(a.detalle LIKE '% (app)', 'APP', 'WEB'),
+       p.fecha_registro = a.fecha_hora,
+       p.id_empleado_registro = a.id_empleado,
+       p.id_tienda_registro = a.id_tienda
+ WHERE p.origen IS NULL;
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('018_producto_origen.sql', NOW(), '33930f313addc137db70acad397853e35646bb6746330b9f193fa7f5b405d8e7');
+
+
+-- >>> INICIO DE database/migraciones/019_proveedores_ordenes_compra.sql <<<
+/* =====================================================================
+   MINIMARKET MASS - migracion 019: proveedores y ordenes de compra
 
    - proveedor: el directorio de la cadena (RUC unico, razon social, contacto y plazo de entrega).
      Lo mantiene el administrador. Uno INACTIVO ya no recibe ordenes nuevas, pero su historia queda.
@@ -2603,4 +2637,4 @@ SELECT i.ruc_emisor, i.razon_social, i.fecha_hora
  ORDER BY (SELECT MIN(i3.id_ingreso) FROM ingreso_mercaderia i3 WHERE i3.ruc_emisor = i.ruc_emisor);
 
 UPDATE ingreso_mercaderia i JOIN proveedor p ON p.ruc = i.ruc_emisor SET i.id_proveedor = p.id_proveedor;
-INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('016_proveedores_ordenes_compra.sql', NOW(), '78f3cf85d4bd1d4c37a9de99261e439d1087028463b2df8a624e8b02407fa3bf');
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('019_proveedores_ordenes_compra.sql', NOW(), 'dc7685a20a3ca092b4144f5ab8807dcd5dd9b5850d8237940e303e22b9dd6d3b');

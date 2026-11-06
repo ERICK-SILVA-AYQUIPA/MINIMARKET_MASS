@@ -56,6 +56,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`docs/despliegue.md`**: Instalación en el aula o en un servidor, respaldos, actualización y problemas comunes.
 - **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
 - **`backend/scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
+- **`docs/facturacion_electronica.md`**: Ticket interno (no se envía a SUNAT), razón social, RUC y desglose de IGV en el ticket, integración preparada con un OSE/PSE tipo Nubefact e impresión directa en ticketera térmica de 58 u 80 mm.
 - **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 - **`docs/equipo/`**: Nota de cada integrante (qué hizo, qué aprendió y cómo usó la IA), con su plantilla.
@@ -152,7 +153,7 @@ php backend/scripts/migrar.php
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/consultas.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 16 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`) y `proveedor`, `orden_compra` y `detalle_orden_compra` (migración `016_proveedores_ordenes_compra.sql`). En total son 43. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 16 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`) y `proveedor`, `orden_compra` y `detalle_orden_compra` (migración `019_proveedores_ordenes_compra.sql`). En total son 43. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 

@@ -11,6 +11,8 @@ declare(strict_types=1);
  * @var string $cliente
  * @var array<int, array{detalle: DetalleVenta, producto: ?Producto, unidad: string}> $lineas
  * @var PagoVenta[] $pagos
+ * @var DesgloseIgv $desglose
+ * @var bool $ticketInterno
  */
 ?>
 <dl class="datos">
@@ -41,11 +43,15 @@ declare(strict_types=1);
     <?php endforeach; ?>
     </tbody>
     <tfoot>
+        <tr><th scope="row" colspan="5">Op. gravada</th><td class="num"><?= e(soles($desglose->getGravada() / 100)) ?></td></tr>
+        <tr><th scope="row" colspan="5">IGV <?= (int) DesgloseIgv::TASA_PORCENTAJE ?>%</th><td class="num"><?= e(soles($desglose->getIgv() / 100)) ?></td></tr>
         <tr><th scope="row" colspan="5">TOTAL</th><td class="num"><?= e(soles($venta->getTotal())) ?></td></tr>
     </tfoot>
 </table>
 </div>
-<p class="sutil"><small>El diseño no guarda subtotal ni IGV aparte (boleta.sql), por eso solo se muestra el total.</small></p>
+<?php if ($ticketInterno): ?>
+<p class="sutil"><small>Ticket interno: esta venta no se envía a SUNAT y su ticket no es válido como comprobante de pago. El precio incluye IGV.</small></p>
+<?php endif; ?>
 
 <h3>Pagos</h3>
 <div class="tabla">

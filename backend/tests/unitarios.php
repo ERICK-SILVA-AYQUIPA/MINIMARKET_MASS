@@ -36,6 +36,10 @@ require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require __DIR__ . '/../config/Migraciones.php';
+require __DIR__ . '/../models/Tienda.php';
+require __DIR__ . '/../models/Emisor.php';
+require __DIR__ . '/../models/AnchoTicket.php';
+require __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 require_once __DIR__ . '/../models/exportar/LibroExcel.php';
 require_once __DIR__ . '/../models/exportar/DocumentoPdf.php';
 require_once __DIR__ . '/../controllers/ReporteController.php';
@@ -316,6 +320,83 @@ revisar('Órdenes: las emiten almacenero y administrador de SU tienda, no el caj
     && !$almaOc->puedeEmitirOrdenCompra(2) && !$cajeroOc->puedeEmitirOrdenCompra(1));
 revisar('Anular o cerrar una orden: solo el administrador de la tienda', $adminOc->puedeCancelarOrdenCompra(1) && !$adminOc->puedeCancelarOrdenCompra(2)
     && !$almaOc->puedeCancelarOrdenCompra(1));
+echo "\nTicket: IGV, emisor y ancho del papel\n";
+revisar('S/ 1.18 con IGV = 1.00 gravado + 0.18 de IGV', DesgloseIgv::valorSinIgv(118) === 100);
+$d = DesgloseIgv::deLineas([350, 1290, 99]);
+revisar('Gravada + IGV es siempre el total exacto', $d->getGravada() + $d->getIgv() === $d->getTotal() && $d->getTotal() === 1739);
+revisar('Se calcula línea por línea: 2.97 + 10.93 + 0.84 = 14.74 gravado', $d->getGravada() === 297 + 1093 + 84 && $d->getIgv() === 1739 - 1474);
+revisar('Un comprobante sin líneas da todo en cero', DesgloseIgv::deLineas([])->getTotal() === 0 && DesgloseIgv::deLineas([])->getIgv() === 0);
+rechazaDato('Una línea con importe negativo', fn() => DesgloseIgv::deLineas([100, -5]));
+$ningunaMenor = true;
+for ($c = 0; $c <= 5000; $c++) {
+    $sinIgv = DesgloseIgv::valorSinIgv($c);
+    $ningunaMenor = $ningunaMenor && $sinIgv === (int) round($c / 1.18) && $sinIgv <= $c;
+}
+revisar('valorSinIgv redondea como round(importe / 1.18) de 0 a S/ 50', $ningunaMenor);
+
+revisar('RUC con dígito verificador correcto', Emisor::rucValido('20600000005') && Emisor::rucValido('10123456781'));
+revisar('RUC con dígito verificador equivocado', !Emisor::rucValido('20600000004'));
+revisar('RUC corto, con letras o que no empieza con 10/15/16/17/20', !Emisor::rucValido('2060000000') && !Emisor::rucValido('2060000000A') && !Emisor::rucValido('30600000005'));
+revisar('Emisor sin razón social no está configurado', !(new Emisor('', '20600000005'))->estaConfigurado());
+revisar('Emisor con razón social y RUC válido está configurado', (new Emisor('MINIMARKET DE PRUEBA S.A.C.', '20600000005'))->estaConfigurado());
+putenv('EMPRESA_RAZON_SOCIAL=MINIMARKET DE PRUEBA S.A.C.');
+putenv('EMPRESA_RUC=206 0000 0005');
+putenv('EMPRESA_NOMBRE_COMERCIAL');
+$emisor = Emisor::desdeEntorno();
+revisar('El emisor sale de .env (RUC sin espacios, nombre comercial por defecto)', $emisor->getRuc() === '20600000005'
+    && $emisor->getRazonSocial() === 'MINIMARKET DE PRUEBA S.A.C.' && $emisor->getNombreComercial() === 'TIENDA MASS' && $emisor->estaConfigurado());
+putenv('EMPRESA_RAZON_SOCIAL');
+putenv('EMPRESA_RUC');
+
+revisar('La dirección de ejemplo de los datos de prueba no va al ticket', (new Tienda(1, 'Mass Cayma', 'Direccion de ejemplo, Cayma', null, 'ACTIVA', 1))->direccionPendiente());
+revisar('Una dirección real sí va al ticket', !(new Tienda(1, 'Mass Cayma', 'Av. Ejército 101, Cayma', null, 'ACTIVA', 1))->direccionPendiente());
+
+putenv('TICKET_ANCHO_MM=58');
+revisar('Ancho por defecto el de TICKET_ANCHO_MM (58 mm imprime 48 mm)', AnchoTicket::elegir(null)->getPapelMm() === 58 && AnchoTicket::elegir(null)->getImprimibleMm() === 48);
+revisar('La caja puede pedir 80 mm (imprime 72 mm)', AnchoTicket::elegir('80')->getPapelMm() === 80 && AnchoTicket::elegir('80')->getImprimibleMm() === 72);
+revisar('Un ancho que no existe usa el de .env', AnchoTicket::elegir('100')->getPapelMm() === 58 && AnchoTicket::elegir('58mm')->getPapelMm() === 58);
+putenv('TICKET_ANCHO_MM=33');
+revisar('Si .env tampoco trae un ancho válido, 80 mm', AnchoTicket::elegir('abc')->getPapelMm() === 80);
+putenv('TICKET_ANCHO_MM');
+
+echo "\nFacturación electrónica (OSE/PSE)\n";
+$ninguno = FacturacionElectronica::crear('ninguno');
+revisar('Sin proveedor el ticket es interno', $ninguno instanceof SinFacturacionElectronica && FacturacionElectronica::ticketEsInterno($ninguno));
+revisar('Un proveedor desconocido no se toma como válido', FacturacionElectronica::crear('otro') instanceof SinFacturacionElectronica);
+$listo = FacturacionElectronica::crear('nubefact', 'https://api.proveedor.test/ruta', str_repeat('t', 32));
+revisar('Con Nubefact configurado el ticket sigue interno hasta conectar el envío a la venta',
+    $listo->estaListo() && FacturacionElectronica::ticketEsInterno($listo));
+revisar('Nubefact sin token o con http no está listo', !FacturacionElectronica::crear('nubefact', 'https://x.test', '')->estaListo()
+    && !FacturacionElectronica::crear('nubefact', 'http://x.test', str_repeat('t', 32))->estaListo());
+
+$boleta = new ComprobanteParaEnviar(false, 'B001', 12, '2026-11-05 10:30:00', '1', '45678912', 'CLIENTE DE PRUEBA', [
+    ['codigo' => '7750001000017', 'descripcion' => 'Leche evaporada 400 g', 'alPeso' => false, 'milesimas' => 2000, 'precioCentimos' => 450, 'importeCentimos' => 900],
+    ['codigo' => '8', 'descripcion' => 'Papa amarilla', 'alPeso' => true, 'milesimas' => 1250, 'precioCentimos' => 380, 'importeCentimos' => 475],
+]);
+rechazaDato('Una factura sin RUC del cliente', fn() => new ComprobanteParaEnviar(true, 'F001', 1, '2026-11-05', '1', '45678912', 'X', $boleta->lineas));
+rechazaDato('Un comprobante sin líneas', fn() => new ComprobanteParaEnviar(false, 'B001', 1, '2026-11-05', '-', '-', 'CLIENTE VARIOS', []));
+$enviado = null;
+$nubefact = new NubefactProveedor('https://api.proveedor.test/ruta', str_repeat('t', 32),
+    function (string $url, array $cabeceras, string $cuerpo) use (&$enviado): array {
+        $enviado = ['url' => $url, 'cabeceras' => $cabeceras, 'pedido' => json_decode($cuerpo, true)];
+        return ['codigo' => 200, 'cuerpo' => '{"aceptada_por_sunat":true,"sunat_description":"La Boleta numero B001-12, ha sido aceptada","codigo_hash":"abc=","enlace_del_pdf":"https://pdf.test/1"}'];
+    });
+$pedido = $nubefact->armarPedido($boleta);
+revisar('El pedido es una boleta (tipo 2) con serie, número y fecha dd-mm-aaaa', $pedido['tipo_de_comprobante'] === 2 && $pedido['serie'] === 'B001'
+    && $pedido['numero'] === 12 && $pedido['fecha_de_emision'] === '05-11-2026');
+revisar('Totales del pedido = desglose del ticket (gravada 11.66, IGV 2.09, total 13.75)', $pedido['total_gravada'] === 11.66
+    && $pedido['total_igv'] === 2.09 && $pedido['total'] === 13.75 && $boleta->desglose()->getGravada() === 1166);
+revisar('Cada línea con su unidad SUNAT (NIU / KGM), subtotal e IGV', $pedido['items'][0]['unidad_de_medida'] === 'NIU' && $pedido['items'][1]['unidad_de_medida'] === 'KGM'
+    && $pedido['items'][1]['cantidad'] === 1.25 && $pedido['items'][0]['subtotal'] + $pedido['items'][0]['igv'] === 9.0);
+$respuesta = $nubefact->enviar($boleta);
+revisar('Envía por POST con el token en la cabecera y lee la respuesta', $respuesta->aceptado && $respuesta->hash === 'abc=' && $respuesta->enlacePdf === 'https://pdf.test/1'
+    && $enviado['url'] === 'https://api.proveedor.test/ruta' && in_array('Authorization: Token token="' . str_repeat('t', 32) . '"', $enviado['cabeceras'], true)
+    && $enviado['pedido']['total'] === 13.75);
+$rechaza = new NubefactProveedor('https://api.proveedor.test/ruta', str_repeat('t', 32), fn(): array => ['codigo' => 400, 'cuerpo' => '{"errors":"El numero ya existe"}']);
+revisar('Un rechazo del proveedor no cuenta como aceptado', !$rechaza->enviar($boleta)->aceptado);
+$caido = new NubefactProveedor('https://api.proveedor.test/ruta', str_repeat('t', 32), fn(): array => throw new RuntimeException('sin internet'));
+revisar('Sin internet no rompe nada: queda pendiente para reintentar', !$caido->enviar($boleta)->aceptado);
+revisar('Sin token no sale nada a internet', !(new NubefactProveedor('https://x.test', '', fn(): array => throw new LogicException('no debía enviar')))->enviar($boleta)->aceptado);
 echo "Reportes: mes anterior, Excel y PDF\n";
 revisar('El mes anterior de un día cualquiera es el mismo día', ReporteController::mesAnterior('2026-10-15') === '2026-09-15');
 revisar('Fin de mes con fin de mes: 31/10 -> 30/09 y 30/09 -> 31/08', ReporteController::mesAnterior('2026-10-31') === '2026-09-30'

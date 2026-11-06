@@ -31,6 +31,7 @@ require __DIR__ . '/../models/IntentoLoginRepository.php';
 require __DIR__ . '/../models/TokenApiRepository.php';
 require __DIR__ . '/../config/Migraciones.php';
 require __DIR__ . '/../models/Paginacion.php';
+require_once __DIR__ . '/../models/ProductoRepository.php';
 require __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require __DIR__ . '/../models/VentaRepository.php';
@@ -453,6 +454,21 @@ revisar('...con la marca nueva que escribió y siempre por unidad', valor($db,
     [$idEscaneado]) === 'Marca Escaneada Prueba/N');
 revisar('...y la auditoría dice quién y que fue desde la app', (int) valor($db,
     "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRODUCTO_CREADO' AND id_empleado = 3 AND detalle LIKE ?", ["$idEscaneado %(app)"]) === 1);
+revisar('...y el producto guarda que vino de la app, quién y desde qué sucursal', valor($db,
+    'SELECT CONCAT(origen, \'/\', id_empleado_registro, \'/\', id_tienda_registro, \'/\', fecha_registro IS NOT NULL) FROM producto WHERE id_producto = ?',
+    [$idEscaneado]) === 'APP/3/1/1'
+    && valor($db, 'SELECT CONCAT(origen, \'/\', id_empleado_registro) FROM producto WHERE id_producto = ?', [$idProducto]) === 'WEB/1');
+$productosRepo = new ProductoRepository($db);
+$desdeApp = $productosRepo->paginaDesdeApp(null, null, null, '', 50, 0);
+revisar('La pantalla "Desde la app" lo lista primero, con Carmen y su sucursal', (int) ($desdeApp[0]['id_producto'] ?? 0) === $idEscaneado
+    && $desdeApp[0]['empleado'] === valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 3")
+    && (int) $desdeApp[0]['id_tienda'] === 1 && $desdeApp[0]['stock'] === '0.000'
+    && !in_array($idProducto, array_map('intval', array_column($desdeApp, 'id_producto')), true));
+revisar('...y se filtra por sucursal, fecha y texto (% se busca como letra)',
+    $productosRepo->contarDesdeApp(2, null, null, '') === 0 && $productosRepo->contarDesdeApp(1, date('Y-m-d'), date('Y-m-d'), 'chifles inka') === 1
+    && $productosRepo->contarDesdeApp(null, null, date('Y-m-d', strtotime('-1 day')), '') === 0
+    && $productosRepo->contarDesdeApp(null, null, null, '%') === 0 && $productosRepo->contarDesdeApp(null, null, null, '7750000000141') === 1
+    && $productosRepo->resumenDesdeApp(null, null, null, '')['semana'] === $productosRepo->contarDesdeApp(null, null, null, ''));
 $otraMarca = (int) valor($db, 'SELECT COUNT(*) FROM marca');
 $catalogo->crearAlEscanear($rosa, ['codigo' => '7750000000158', 'nombre' => 'Chifles salados 80 g', 'marca_nombre' => 'marca escaneada prueba'] + $escaneado);
 revisar('Una marca escrita que ya existe (sin importar mayúsculas) no se repite', (int) valor($db, 'SELECT COUNT(*) FROM marca') === $otraMarca);

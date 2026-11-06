@@ -26,6 +26,12 @@ class Tienda
     public function getEstado(): string { return $this->estado; }
     public function getIdDistrito(): int { return $this->idDistrito; }
 
+    // La direccion de los datos de prueba ("Direccion de ejemplo, Cayma"): no se imprime en el ticket
+    public function direccionPendiente(): bool
+    {
+        return trim($this->direccion) === '' || preg_match('/^direcci[oó]n de ejemplo/iu', trim($this->direccion)) === 1;
+    }
+
     public function estaActiva(): bool
     {
         return $this->estado === 'ACTIVA';
