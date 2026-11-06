@@ -85,10 +85,4 @@ class CajaTurno
     {
         return $this->estaAbierto() && $this->enPausaDesde !== null;
     }
-
-    // Cerrado con una diferencia que espera al administrador o un nuevo conteo del cajero
-    public function estaPendiente(): bool
-    {
-        return in_array($this->estado, ['OBSERVADO', 'RECONTEO'], true);
-    }
 }

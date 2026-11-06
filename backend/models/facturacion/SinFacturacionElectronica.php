@@ -23,11 +23,6 @@ final class SinFacturacionElectronica implements ProveedorFacturacion
         return false;
     }
 
-    public function motivo(): string
-    {
-        return $this->motivo;
-    }
-
     public function enviar(ComprobanteParaEnviar $comprobante): RespuestaFacturacion
     {
         return new RespuestaFacturacion(false, $this->motivo);
