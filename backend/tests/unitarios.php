@@ -568,5 +568,72 @@ revisar('Sugerencia: elige la categoría del catálogo por el nombre y las categ
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());
 
+echo "Asistente (ciclo de herramientas de Claude, con un modelo falso: sin internet ni base)\n";
+require_once __DIR__ . '/../models/asistente/Asistente.php';
+$modeloFalso = new class implements ModeloLenguaje {
+    /** @var array<int, array<string, mixed>> */
+    public array $respuestas = [];
+    /** @var array<int, array<string, mixed>> */
+    public array $peticiones = [];
+    public function enviar(array $peticion): array
+    {
+        $this->peticiones[] = json_decode(json_encode($peticion), true);
+        $this->peticiones[count($this->peticiones) - 1]['_json'] = json_encode($peticion);
+        return array_shift($this->respuestas) ?? ['stop_reason' => 'end_turn', 'content' => []];
+    }
+};
+$herramientasFalsas = new class implements Herramientas {
+    /** @var array<int, array{0: string, 1: array<string, mixed>}> */
+    public array $llamadas = [];
+    public function definiciones(): array { return [['name' => 'buscar_productos', 'description' => 'x', 'input_schema' => ['type' => 'object']]]; }
+    public function ejecutar(string $nombre, array $entrada): array
+    {
+        $this->llamadas[] = [$nombre, $entrada];
+        return $nombre === 'productos_por_reponer' ? ['error' => 'sin permiso'] : ['productos' => [['producto' => 'Leche Gloria', 'precio' => 4.5]]];
+    }
+    public function contexto(): string { return 'Usuario: Rosa (administrador).'; }
+    public function enlaces(): array { return [['texto' => 'Ver Leche Gloria', 'url' => '/?ruta=producto&id=1']]; }
+};
+$modeloFalso->respuestas = [
+    ['stop_reason' => 'tool_use', 'content' => [
+        ['type' => 'thinking', 'thinking' => '', 'signature' => 'abc'],
+        ['type' => 'tool_use', 'id' => 'toolu_1', 'name' => 'buscar_productos', 'input' => ['texto' => 'leche gloria']],
+        ['type' => 'tool_use', 'id' => 'toolu_2', 'name' => 'productos_por_reponer', 'input' => []],
+    ]],
+    ['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => 'La leche Gloria cuesta S/ 4.50.']]],
+];
+$asistente = new Asistente($modeloFalso, $herramientasFalsas, 'claude-opus-5-5', new DateTimeImmutable('2026-11-06'));
+$r = $asistente->preguntar('  ¿cuánto cuesta la leche gloria?  ', [
+    ['rol' => 'assistant', 'texto' => 'se descarta: la API empieza con el usuario'],
+    ['rol' => 'user', 'texto' => 'hola'], ['rol' => 'assistant', 'texto' => 'Hola, ¿qué necesitas?'], ['rol' => 'user', 'texto' => 'sin respuesta: se quita'],
+]);
+revisar('Responde con el texto final de Claude', $r['respuesta'] === 'La leche Gloria cuesta S/ 4.50.' && $r['ok']);
+revisar('Devuelve los botones que dejaron las herramientas', $r['enlaces'] === [['texto' => 'Ver Leche Gloria', 'url' => '/?ruta=producto&id=1']]);
+revisar('Ejecuta cada herramienta pedida con su entrada', $herramientasFalsas->llamadas === [['buscar_productos', ['texto' => 'leche gloria']], ['productos_por_reponer', []]]);
+$segunda = $modeloFalso->peticiones[1] ?? [];
+$ultimo = end($segunda['messages']);
+revisar('Los resultados van juntos en UN mensaje del usuario, con el id de cada pedido', $ultimo['role'] === 'user' && count($ultimo['content']) === 2
+    && $ultimo['content'][0]['tool_use_id'] === 'toolu_1' && $ultimo['content'][1]['tool_use_id'] === 'toolu_2');
+revisar('Un error de la herramienta vuelve marcado is_error', ($ultimo['content'][1]['is_error'] ?? false) === true && !isset($ultimo['content'][0]['is_error']));
+revisar('El turno del asistente se devuelve tal cual (con su razonamiento)', $segunda['messages'][count($segunda['messages']) - 2]['content'][0]['type'] === 'thinking');
+revisar('Un input vacío vuelve como {} (no como [])', str_contains($segunda['_json'], '"input":{}') && !str_contains($segunda['_json'], '"input":[]'));
+$primera = $modeloFalso->peticiones[0];
+revisar('Historial: empieza el usuario, roles alternados y termina en la pregunta nueva',
+    array_column($primera['messages'], 'role') === ['user', 'assistant', 'user'] && $primera['messages'][2]['content'] === '¿cuánto cuesta la leche gloria?');
+revisar('El system lleva quién pregunta y la fecha de hoy', str_contains($primera['system'], 'Rosa (administrador)') && str_contains($primera['system'], '2026-11-06 (viernes)'));
+revisar('Con claude-opus-5-5 pide el respaldo ante un rechazo (fallbacks)', ($primera['fallbacks'] ?? null) === 'default' && $primera['model'] === 'claude-opus-5-5');
+
+$modeloFalso->peticiones = [];
+$modeloFalso->respuestas = [['stop_reason' => 'refusal', 'content' => []]];
+$r = (new Asistente($modeloFalso, $herramientasFalsas, 'claude-haiku-5-5'))->preguntar('algo');
+revisar('Si Claude declina, responde con un aviso amable (ok = false)', !$r['ok'] && str_contains($r['respuesta'], 'No puedo ayudarte'));
+revisar('Con otro modelo no manda fallbacks', !isset($modeloFalso->peticiones[0]['fallbacks']));
+$modeloFalso->peticiones = [];
+$r = (new Asistente($modeloFalso, $herramientasFalsas, 'claude-opus-5-5'))->preguntar('   ');
+revisar('Una pregunta vacía no llama a la API', !$r['ok'] && $modeloFalso->peticiones === []);
+$modeloFalso->respuestas = array_fill(0, 10, ['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 't', 'name' => 'buscar_productos', 'input' => ['texto' => 'x']]]]);
+$r = (new Asistente($modeloFalso, $herramientasFalsas, 'claude-opus-5-5'))->preguntar('bucle');
+revisar('Si Claude pide herramientas sin parar, corta a las 6 vueltas', !$r['ok'] && count($modeloFalso->peticiones) === 6);
+
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

@@ -24,6 +24,7 @@ require __DIR__ . '/../../backend/controllers/PanelController.php';
 require __DIR__ . '/../../backend/controllers/AuditoriaController.php';
 require __DIR__ . '/../../backend/controllers/PromocionController.php';
 require __DIR__ . '/../../backend/controllers/CompraController.php';
+require __DIR__ . '/../../backend/controllers/AsistenteController.php';
 
 $metodo = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -141,6 +142,9 @@ Controller::usarEstadoTurno(static function (int $idEmpleado) use ($cajas): stri
 });
 $promocionController = new PromocionController($tiendas, $sesion, $usuario, $promociones, $productos, $empleados, new PromocionServicio($db));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
+// El asistente usa Claude solo si el .env tiene ANTHROPIC_API_KEY; sus herramientas se arman con los permisos de quien pregunta
+$asistenteController = new AsistenteController($tiendas, $sesion, $usuario, ClienteClaude::desdeEntorno(),
+    static fn(Usuario $quien): Herramientas => new HerramientasAsistente($quien, $tiendas, $reportes, $panelRepositorio, new AsistenteRepository($db)));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
 $leer = static function (string $clave): ?string {
@@ -167,6 +171,7 @@ $rutasPost = [
     'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
     'promocion_crear', 'promocion_estado',
     'proveedor_guardar', 'proveedor_estado', 'orden_registrar', 'orden_cancelar',
+    'asistente_preguntar', 'asistente_borrar',
 ];
 
 // La pagina se arma en un bufer: si algo falla a mitad, se descarta y se muestra el error limpio
@@ -232,6 +237,10 @@ try {
                 'proveedor_estado'   => $compraController->estadoProveedor($_POST),
                 'orden_registrar'    => $compraController->registrarOrden($_POST),
                 'orden_cancelar'     => $compraController->cancelarOrden($_POST),
+                // app.js pide JSON (Accept: application/json); sin JavaScript vuelve a la pagina del chat
+                'asistente_preguntar' => $asistenteController->preguntar($_POST,
+                    str_contains(is_string($_SERVER['HTTP_ACCEPT'] ?? null) ? $_SERVER['HTTP_ACCEPT'] : '', 'application/json')),
+                'asistente_borrar'   => $asistenteController->borrar(),
             };
         }
     } elseif ($ruta === 'login' && $usuario === null) {
@@ -447,6 +456,10 @@ try {
 
             case 'auditoria':
                 $auditoriaController->lista($leer('accion'), $leer('pagina'));
+                break;
+
+            case 'asistente':
+                $asistenteController->chat();
                 break;
 
             case 'mi_clave':

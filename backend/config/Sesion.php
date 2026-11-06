@@ -149,4 +149,40 @@ final class Sesion
         unset($_SESSION['bienvenida']);
         return $hay;
     }
+    /**
+     * La conversacion con el asistente (solo texto, las ultimas preguntas): vive en la sesion,
+     * asi que se borra al salir y nadie mas la ve.
+     * @return array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>}>
+     */
+    public function conversacionAsistente(): array
+    {
+        $turnos = [];
+        foreach (is_array($_SESSION['asistente'] ?? null) ? $_SESSION['asistente'] : [] as $t) {
+            if (is_array($t) && is_string($t['rol'] ?? null) && is_string($t['texto'] ?? null)) {
+                $turnos[] = ['rol' => $t['rol'], 'texto' => $t['texto'], 'enlaces' => is_array($t['enlaces'] ?? null) ? $t['enlaces'] : []];
+            }
+        }
+        return $turnos;
+    }
+
+    /** @param array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>}> $turnos */
+    public function guardarConversacionAsistente(array $turnos, int $maximo): void
+    {
+        $_SESSION['asistente'] = array_slice(array_values($turnos), -$maximo);
+    }
+
+    // Cada pregunta al asistente cuesta: true si en los ultimos $segundos ya hizo $maximo (y no se cuenta esta)
+    public function asistenteSaturado(int $maximo, int $segundos): bool
+    {
+        $ahora = time();
+        $veces = array_values(array_filter(is_array($_SESSION['asistente_veces'] ?? null) ? $_SESSION['asistente_veces'] : [],
+            fn(mixed $t): bool => is_int($t) && $t > $ahora - $segundos));
+        if (count($veces) >= $maximo) {
+            $_SESSION['asistente_veces'] = $veces;
+            return true;
+        }
+        $veces[] = $ahora;
+        $_SESSION['asistente_veces'] = $veces;
+        return false;
+    }
 }
