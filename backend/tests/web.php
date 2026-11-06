@@ -258,8 +258,9 @@ $matriz = [
     'vencimientos&dias=7'  => [200, 403, 200],
     'reponer'              => [200, 403, 200],
     'productos_app'        => [200, 403, 200],
-    'productos_app&tienda=2&desde=2026-01-01&hasta=2026-02-30&q=%25' => [200, 403, 200],
-    'productos_app&tienda=x&pagina=-1' => [200, 403, 200],
+    'productos_app&tienda=1&desde=2026-01-01&hasta=2026-02-30&q=%25' => [200, 403, 200],
+    'productos_app&tienda=2&desde=2026-01-01' => [200, 403, 403],
+    'productos_app&tienda=x&pagina=-1' => [200, 403, 403],
     'reponer_csv'          => [200, 403, 200],
     'utilidad'             => [200, 403, 403],
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
@@ -302,7 +303,7 @@ revisar('El comprobante tiene el botón de imprimir en ticketera y muestra el IG
 revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=2') === 200 && $luis->tiene('>ANULADA<'));
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
-    && $carmen->get('ruta=kardex_csv&tienda=2&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
+    && $carmen->get('ruta=kardex_csv&tienda=1&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
 revisar('El almacenero y el administrador ven el formulario de ingreso', $carmen->get('ruta=ingresos') === 200
     && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && $rosa->tiene('ingreso_registrar'));
 revisar('Ingresos está en el menú del almacenero y del administrador, no del cajero', $carmen->get('ruta=inicio') === 200
@@ -673,12 +674,22 @@ revisar('El catálogo del cajero no tiene pestañas de tiendas ni el botón de s
     $miguel->get('ruta=productos') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
     && !$miguel->tiene('aria-label="Elegir tienda"') && !$miguel->tiene('Stock de las')
     && !$miguel->tiene('Mass Cayma') && !$miguel->tiene('Mass Cerro Colorado'));
-revisar('El cajero pide otra tienda en la URL y se queda en la suya',
-    $miguel->get('ruta=productos&tienda=1') === 200 && $miguel->tiene('por reponer en Mass Yanahuara') && !$miguel->tiene('Mass Cayma')
-    && $luis->get('ruta=producto&id=8&tienda=2') === 200 && !$luis->tiene('Mass Cerro Colorado'));
-revisar('Las ventas de otra tienda no se ven aunque se pidan en la URL',
-    $luis->get('ruta=ventas&tienda=2') === 200 && $luis->tiene('B001-') && !$luis->tiene('B002-')
-    && !$luis->tiene('aria-label="Elegir tienda"'));
+revisar('El cajero pide otra tienda en la URL: 403, sin datos de esa tienda',
+    $miguel->get('ruta=productos&tienda=1') === 403 && $miguel->tiene('Solo puedes ver los datos de tu tienda') && !$miguel->tiene('Mass Cayma')
+    && $luis->get('ruta=producto&id=8&tienda=2') === 403 && !$luis->tiene('Mass Cerro Colorado')
+    && $luis->get('ruta=stock_csv&tienda=3') === 403 && !str_contains($luis->cuerpo, 'Mass Yanahuara'));
+revisar('Con su propia tienda (o sin tienda) en la URL, todo sigue igual',
+    $miguel->get('ruta=productos&tienda=3') === 200 && $miguel->tiene('por reponer en Mass Yanahuara')
+    && $miguel->get('ruta=productos&tienda=') === 200 && $miguel->tiene('por reponer en Mass Yanahuara'));
+revisar('Las ventas de otra tienda no se ven: pedirlas es 403 y la lista solo trae su serie',
+    $luis->get('ruta=ventas&tienda=2') === 403
+    && $luis->get('ruta=ventas') === 200 && $luis->tiene('B001-') && !$luis->tiene('B002-') && !$luis->tiene('aria-label="Elegir tienda"'));
+revisar('La ficha de un cliente solo muestra al cajero las compras de su tienda (el administrador ve las de la cadena)',
+    $luis->get('ruta=cliente&id=2') === 200 && $luis->tiene('Mass Cayma') && !$luis->tiene('Mass Yanahuara') && !$luis->tiene('B003-')
+    && $rosa->get('ruta=cliente&id=2') === 200 && $rosa->tiene('Mass Cayma') && $rosa->tiene('Mass Yanahuara'));
+revisar('Productos añadidos desde la app: el almacenero solo ve su sucursal y no tiene el filtro de tiendas',
+    $carmen->get('ruta=productos_app') === 200 && !$carmen->tiene('<select name="tienda">')
+    && $rosa->get('ruta=productos_app') === 200 && $rosa->tiene('<select name="tienda">'));
 revisar('Un comprobante de otra tienda no existe para el cajero (página, ticket y panel): 404',
     $rosa->get('ruta=comprobante&serie=B002&numero=1') === 200
     && $luis->get('ruta=comprobante&serie=B002&numero=1') === 404
@@ -688,10 +699,10 @@ revisar('El stock del cajero solo tiene la columna de su tienda (pantalla y CSV)
     $luis->get('ruta=stock') === 200 && $luis->tiene('Mass Cayma') && !$luis->tiene('Mass Cerro Colorado') && !$luis->tiene('Mass Yanahuara')
     && $luis->get('ruta=stock_csv') === 200 && str_contains($luis->cuerpo, 'Mass Cayma') && !str_contains($luis->cuerpo, 'Mass Yanahuara'));
 revisar('El almacenero no abre el kardex, las mermas ni el conteo de otra tienda',
-    $carmen->get('ruta=kardex&tienda=2') === 200 && !$carmen->tiene('Mass Cerro Colorado') && !$carmen->tiene('aria-label="Elegir tienda"')
-    && $carmen->get('ruta=mermas&tienda=3') === 200 && !$carmen->tiene('Mass Yanahuara')
-    && $carmen->get('ruta=ajustes&tienda=2') === 200 && !$carmen->tiene('Mass Cerro Colorado')
-    && $carmen->get('ruta=traslados&tienda=2') === 200 && !$carmen->tiene('aria-label="Elegir tienda"'));
+    $carmen->get('ruta=kardex&tienda=2') === 403 && !$carmen->tiene('Mass Cerro Colorado')
+    && $carmen->get('ruta=kardex_csv&tienda=2') === 403 && $carmen->get('ruta=mermas&tienda=3') === 403
+    && $carmen->get('ruta=ajustes&tienda=2') === 403 && $carmen->get('ruta=traslados&tienda=2') === 403
+    && $carmen->get('ruta=kardex&tienda=1') === 200 && !$carmen->tiene('aria-label="Elegir tienda"'));
 revisar('El cajero no tiene Tiendas en el menú y la lista solo muestra la suya (sin el personal de otras)',
     $miguel->get('ruta=inicio') === 200 && !$miguel->tiene('ruta=tiendas"')
     && $miguel->get('ruta=tiendas') === 200 && $miguel->tiene('Mass Yanahuara') && !$miguel->tiene('Mass Cayma') && !$miguel->tiene('Caceres'));

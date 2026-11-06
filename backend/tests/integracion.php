@@ -980,6 +980,50 @@ $antesAuditoria = valor($db, 'SELECT COUNT(*) FROM auditoria');
 rechaza('Una acción rechazada no deja rastro en la auditoría', fn() => $catalogo->crearCategoria($rosa, 'Panadería'));
 revisar('...la auditoría sigue igual', valor($db, 'SELECT COUNT(*) FROM auditoria') === $antesAuditoria);
 
+echo "Cada cajero en su sede: la base lo exige (migración 021)\n";
+// Se prueba con SQL directo (sin pasar por los servicios) y dentro de una transacción que se deshace al final
+$porLaBase = static function (PDO $db, callable $sentencias): ?string {
+    $db->beginTransaction();
+    try {
+        $sentencias();
+        return null;
+    } catch (PDOException $ex) {
+        return $ex->getCode() === '45000' ? $ex->getMessage() : 'otro error: ' . $ex->getMessage();
+    } finally {
+        $db->rollBack();
+    }
+};
+$abrirTurnoSql = static fn(int $caja, int $empleado) => $db->prepare(
+    'INSERT INTO caja_turno (monto_inicial, id_caja, id_empleado) VALUES (0, ?, ?)')->execute([$caja, $empleado]);
+// Una caja nueva de Cerro Colorado (sin turno abierto) y un turno ABIERTO de Pedro en ella; devuelve el id del turno
+$turnoDePedro = static function () use ($db, $abrirTurnoSql): int {
+    $db->exec("INSERT INTO caja (numero_caja, estado, id_tienda) VALUES (99, 'ACTIVA', 2)");
+    $abrirTurnoSql((int) $db->lastInsertId(), 6);
+    return (int) $db->lastInsertId();
+};
+revisar('Cada cajero tiene su sede (empleado.id_tienda NOT NULL)', valor($db,
+    "SELECT COUNT(*) FROM empleado e JOIN rol r ON r.id_rol = e.id_rol WHERE r.nombre_rol = 'CAJERO' AND e.id_tienda IS NULL") === '0'
+    && valor($db, "SELECT IS_NULLABLE FROM information_schema.columns WHERE table_schema = DATABASE()
+                     AND table_name = 'empleado' AND column_name = 'id_tienda'") === 'NO');
+revisar('Luis (Cayma) no abre turno en una caja de Cerro Colorado', str_contains((string) $porLaBase($db,
+    fn() => $abrirTurnoSql(3, 2)), 'solo abre turnos en una caja de su sede'));
+revisar('Pedro (Cerro Colorado) sí abre turno en una caja de su sede', $porLaBase($db, fn() => $turnoDePedro()) === null);
+revisar('Un turno no se pasa a la caja de otra sede', str_contains((string) $porLaBase($db, function () use ($db, $turnoDePedro): void {
+    $db->prepare('UPDATE caja_turno SET id_caja = 1 WHERE id_caja_turno = ?')->execute([$turnoDePedro()]);
+}), 'solo abre turnos en una caja de su sede'));
+revisar('Una venta de un turno de Cerro Colorado no usa la serie B001 de Cayma', str_contains((string) $porLaBase($db,
+    function () use ($db, $turnoDePedro): void {
+        $db->prepare("INSERT INTO venta (numero_correlativo, total, estado, id_serie, id_caja_turno) VALUES (99999, 1, 'EMITIDA', 1, ?)")
+            ->execute([$turnoDePedro()]);
+    }), 'serie de otra sede'));
+revisar('Con un turno sin cerrar, el empleado no cambia de sede', str_contains((string) $porLaBase($db,
+    function () use ($db, $turnoDePedro): void {
+        $turnoDePedro();
+        $db->exec('UPDATE empleado SET id_tienda = 1 WHERE id_empleado = 6');
+    }), 'turno de caja sin cerrar'));
+revisar('Sin turnos pendientes sí se cambia de sede (y el historial no se toca)',
+    $porLaBase($db, fn() => $db->exec('UPDATE empleado SET id_tienda = 1 WHERE id_empleado = 6')) === null);
+
 echo "Reglas del diseño (consultas 20 a 31 de consultas.sql: 0 filas)\n";
 $sql = file_get_contents(__DIR__ . '/../database/consultas.sql');
 preg_match_all('/^-- (2[0-9]|3[01])\. .*?\n(SELECT.*?);/ms', $sql, $consultas, PREG_SET_ORDER);

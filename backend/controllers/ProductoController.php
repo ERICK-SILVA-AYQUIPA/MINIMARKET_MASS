@@ -81,8 +81,8 @@ class ProductoController extends Controller
     /**
      * GET /?ruta=productos_app&tienda=2&desde=2026-11-01&hasta=2026-11-05&q=leche&pagina=2
      * Productos que se registraron escaneando un codigo nuevo en la app Android: quien, cuando y desde que sucursal.
-     * La ven el almacenero y el administrador (los mismos que ven Por vencer y Reponer). El catalogo es de toda
-     * la cadena, asi que por defecto se ven todas las sucursales; &tienda= deja solo una.
+     * La ven el almacenero y el administrador (los mismos que ven Por vencer y Reponer). El administrador ve por
+     * defecto todas las sucursales y &tienda= deja solo una; el almacenero, solo la suya.
      */
     public function desdeApp(?string $tiendaPedida, ?string $desdePedido, ?string $hastaPedido, ?string $textoPedido, ?string $pagina): void
     {
@@ -90,16 +90,19 @@ class ProductoController extends Controller
             $this->prohibido('Los productos añadidos desde la app los ven el almacenero y el administrador.');
             return;
         }
-        $tiendas = $this->tiendas->todas();
-        $idTienda = $tiendaPedida !== null && ctype_digit($tiendaPedida) && $this->tiendas->buscarPorId((int) $tiendaPedida) !== null
-            ? (int) $tiendaPedida : null;
+        $tiendas = $this->tiendasVisibles();
+        // El administrador filtra la sucursal que quiera (o todas); el almacenero ve solo lo registrado desde la suya
+        $idTienda = $tiendaPedida !== null && ctype_digit($tiendaPedida) && isset($tiendas[(int) $tiendaPedida]) ? (int) $tiendaPedida : null;
+        if (!$this->usuario->puedeElegirTienda()) {
+            $idTienda = $this->usuario->getIdTienda();
+        }
         $desde = $this->leerFecha($desdePedido);
         $hasta = $this->leerFecha($hastaPedido);
         if ($desde !== null && $hasta !== null && $desde > $hasta) {
             [$desde, $hasta] = [$hasta, $desde];
         }
         $texto = mb_substr(trim((string) $textoPedido), 0, 60);
-        $hayFiltros = $idTienda !== null || $desde !== null || $hasta !== null || $texto !== '';
+        $hayFiltros = ($idTienda !== null && count($tiendas) > 1) || $desde !== null || $hasta !== null || $texto !== '';
 
         $resumen = $this->repo->resumenDesdeApp($idTienda, $desde, $hasta, $texto);
         $paginacion = new Paginacion($resumen['total'], $pagina, 50);

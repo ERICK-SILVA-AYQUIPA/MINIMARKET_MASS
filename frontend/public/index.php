@@ -228,6 +228,10 @@ try {
         header('Location: /?ruta=login', true, 303);
     } elseif ($debeCambiarClave && $ruta !== 'mi_clave') {
         header('Location: /?ruta=mi_clave', true, 303);
+    } elseif (!$usuario->puedeElegirTienda() && ($leer('tienda') ?? '') !== '' && $leer('tienda') !== (string) $usuario->getIdTienda()) {
+        // Solo el administrador cambia de sucursal. Al cajero y al almacenero, pedir otra tienda por la URL
+        // se les rechaza en cualquier pantalla (las de hoy y las que se agreguen); Controller::leerTienda es el respaldo.
+        $productoController->prohibido('Solo puedes ver los datos de tu tienda.');
     } else {
         switch ($ruta) {
             // La pagina avisa que el empleado sigue usando el teclado o el mouse (app.js): Sesion::idEmpleado()
