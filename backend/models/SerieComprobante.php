@@ -44,10 +44,4 @@ class SerieComprobante
     {
         return $this->serie . '-' . str_pad((string) $numeroCorrelativo, 8, '0', STR_PAD_LEFT);
     }
-
-    // Cada serie avanza de uno en uno
-    public function siguienteNumero(): int
-    {
-        return $this->ultimoNumero + 1;
-    }
 }
