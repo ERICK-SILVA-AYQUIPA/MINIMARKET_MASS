@@ -59,7 +59,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 | **Ventas** | Boletas y facturas por fecha y estado. Al tocar una se ve su detalle y pagos a la derecha; **Abrir comprobante completo** lleva a la página para imprimir o anular |
 | **Traslados**, **Mermas**, **Kardex**, **Tiendas** | Consulta (registrar depende del rol) |
 
-**Imprimir un comprobante**: tocar la venta y pulsar **Imprimir ticket** (o, en el comprobante completo, **Imprimir ticket / PDF**). Sale el ticket de 80 mm; con `Ctrl + P` se imprime en la ticketera o se elige **Guardar como PDF**. Si la venta está anulada, el ticket lo dice.
+**Imprimir un comprobante**: en el comprobante, **Imprimir en ticketera** imprime el ticket y vuelve al comprobante. **Ver ticket / PDF** lo abre para guardarlo en PDF; ahí se elige el papel de **58 mm** u **80 mm** (la caja lo recuerda). Mientras las ventas no se envíen a SUNAT, el ticket sale como **TICKET INTERNO, no válido como comprobante de pago**. Si la venta está anulada, el ticket lo dice. Para imprimir sin la ventana de impresión, ver `docs/facturacion_electronica.md`.
 
 ## 3. Cajero
 

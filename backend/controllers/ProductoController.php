@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
+require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
 require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/servicios/ProductoServicio.php';
@@ -75,6 +76,37 @@ class ProductoController extends Controller
         unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas);
 
         $this->vista('productos/lista', get_defined_vars());
+    }
+
+    /**
+     * GET /?ruta=productos_app&tienda=2&desde=2026-11-01&hasta=2026-11-05&q=leche&pagina=2
+     * Productos que se registraron escaneando un codigo nuevo en la app Android: quien, cuando y desde que sucursal.
+     * La ven el almacenero y el administrador (los mismos que ven Por vencer y Reponer). El catalogo es de toda
+     * la cadena, asi que por defecto se ven todas las sucursales; &tienda= deja solo una.
+     */
+    public function desdeApp(?string $tiendaPedida, ?string $desdePedido, ?string $hastaPedido, ?string $textoPedido, ?string $pagina): void
+    {
+        if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
+            $this->prohibido('Los productos añadidos desde la app los ven el almacenero y el administrador.');
+            return;
+        }
+        $tiendas = $this->tiendas->todas();
+        $idTienda = $tiendaPedida !== null && ctype_digit($tiendaPedida) && $this->tiendas->buscarPorId((int) $tiendaPedida) !== null
+            ? (int) $tiendaPedida : null;
+        $desde = $this->leerFecha($desdePedido);
+        $hasta = $this->leerFecha($hastaPedido);
+        if ($desde !== null && $hasta !== null && $desde > $hasta) {
+            [$desde, $hasta] = [$hasta, $desde];
+        }
+        $texto = mb_substr(trim((string) $textoPedido), 0, 60);
+        $hayFiltros = $idTienda !== null || $desde !== null || $hasta !== null || $texto !== '';
+
+        $resumen = $this->repo->resumenDesdeApp($idTienda, $desde, $hasta, $texto);
+        $paginacion = new Paginacion($resumen['total'], $pagina, 50);
+        $filas = $this->repo->paginaDesdeApp($idTienda, $desde, $hasta, $texto, $paginacion->getPorPagina(), $paginacion->offset());
+        $urlPagina = '/?' . http_build_query(['ruta' => 'productos_app', 'tienda' => $idTienda, 'desde' => $desde,
+            'hasta' => $hasta, 'q' => $texto !== '' ? $texto : null]);
+        $this->vista('productos/desde_app', get_defined_vars());
     }
 
     // GET /?ruta=producto&codigo=7750000000011  o  /?ruta=producto&id=8

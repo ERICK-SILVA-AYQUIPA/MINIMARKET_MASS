@@ -9,7 +9,7 @@ declare(strict_types=1);
  * 2. Escapado: todo lo que una vista imprime con <?= pasa por e() o es un numero o un texto fijo.
  * 3. SQL: ningun dato de afuera se pega al SQL; solo fragmentos fijos del codigo y enteros.
  * 4. Reglas generales: strict_types, sin propiedades public, sin $_GET/$_POST fuera de public/index.php.
- * 5. JavaScript: solo /app.js, sin scripts pegados ni onclick=, sin innerHTML ni eval, y la CSP en script-src 'self'.
+ * 5. JavaScript: solo /app.js (y /ticket.js en el ticket), sin scripts pegados ni onclick=, sin innerHTML ni eval, y la CSP en script-src 'self'.
  *
  * Si alguien agrega una vista o una consulta que no cumple, esta prueba falla y dice el archivo y la linea.
  */
@@ -236,13 +236,14 @@ foreach (array_merge(archivosPhp($raiz, 'backend/config'), archivosPhp($raiz, 'b
 revisar('Sin claves escritas en el código', $claves === [], $claves);
 
 echo "5. JavaScript\n";
-// Las vistas solo cargan frontend/public/js/app.js: nada de <script> pegado, onclick= ni enlaces javascript:
+// Las vistas solo cargan frontend/public/js/app.js (el ticket, js/ticket.js): nada de <script> pegado, onclick= ni enlaces javascript:
 $scriptsSueltos = [];
 foreach ($vistas as $archivo) {
     $texto = file_get_contents($raiz . '/' . $archivo);
     preg_match_all('/<script\b[^>]*>/i', $texto, $etiquetas, PREG_OFFSET_CAPTURE);
     foreach ($etiquetas[0] as [$etiqueta, $posicion]) {
-        if (preg_match('#^<script src="/js/app\.js(\?v=\d+)?" defer>$#', $etiqueta) !== 1) {
+        $permitido = $archivo === 'frontend/views/ventas/ticket.php' ? 'ticket' : 'app';
+        if (preg_match('#^<script src="/js/' . $permitido . '\.js(\?v=\d+)?" defer>$#', $etiqueta) !== 1) {
             $scriptsSueltos[] = $archivo . ':' . lineaDe($texto, $posicion) . '  ' . $etiqueta;
         }
     }
@@ -252,23 +253,25 @@ foreach ($vistas as $archivo) {
         }
     }
 }
-revisar('Las vistas solo cargan /js/app.js (sin scripts pegados, onclick= ni javascript:)', $scriptsSueltos === [], $scriptsSueltos);
+revisar('Las vistas solo cargan /js/app.js y el ticket /js/ticket.js (sin scripts pegados, onclick= ni javascript:)', $scriptsSueltos === [], $scriptsSueltos);
 
-// app.js nunca convierte datos en HTML ni ejecuta texto, y no llama a otros sitios
-$js = file_get_contents($raiz . '/frontend/public/js/app.js');
+// app.js y ticket.js nunca convierten datos en HTML ni ejecutan texto, y no llaman a otros sitios
 $peligrosos = [];
-foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function', 'setTimeout(\'', 'XMLHttpRequest', 'http://', 'https://'] as $patron) {
-    if (str_contains($js, $patron)) {
-        $peligrosos[] = 'frontend/public/js/app.js:' . lineaDe($js, strpos($js, $patron)) . '  ' . $patron;
+foreach (['app.js', 'ticket.js'] as $archivoJs) {
+    $js = file_get_contents($raiz . '/frontend/public/js/' . $archivoJs);
+    foreach (['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write', 'eval(', 'new Function', 'setTimeout(\'', 'XMLHttpRequest', 'http://', 'https://'] as $patron) {
+        if (str_contains($js, $patron)) {
+            $peligrosos[] = 'frontend/public/js/' . $archivoJs . ':' . lineaDe($js, strpos($js, $patron)) . '  ' . $patron;
+        }
+    }
+    // fetch solo a este mismo sitio y con una ruta escrita en el codigo ('/?ruta=salud', '/?ruta=venta_estado...')
+    if (preg_match_all('/fetch\(\s*(?!\'\/\?ruta=[a-z_]+[\'&])/', $js, $sueltos, PREG_OFFSET_CAPTURE) > 0) {
+        foreach ($sueltos[0] as [, $posicion]) {
+            $peligrosos[] = 'frontend/public/js/' . $archivoJs . ':' . lineaDe($js, $posicion) . '  fetch( a una dirección que no es /?ruta=...';
+        }
     }
 }
-// fetch solo a este mismo sitio y con una ruta escrita en el codigo ('/?ruta=salud', '/?ruta=venta_estado...')
-if (preg_match_all('/fetch\(\s*(?!\'\/\?ruta=[a-z_]+[\'&])/', $js, $sueltos, PREG_OFFSET_CAPTURE) > 0) {
-    foreach ($sueltos[0] as [, $posicion]) {
-        $peligrosos[] = 'frontend/public/js/app.js:' . lineaDe($js, $posicion) . '  fetch( a una dirección que no es /?ruta=...';
-    }
-}
-revisar('app.js escribe con textContent, sin eval ni llamadas a otros sitios (fetch solo a /?ruta=...)', $peligrosos === [], $peligrosos);
+revisar('app.js y ticket.js escriben con textContent, sin eval ni llamadas a otros sitios (fetch solo a /?ruta=...)', $peligrosos === [], $peligrosos);
 revisar('La CSP solo permite scripts de este sitio', preg_match("/script-src 'self';/", $index) === 1
     && preg_match("/script-src[^;]*('unsafe-inline'|'unsafe-eval'|https?:)/", $index) === 0);
 

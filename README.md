@@ -60,6 +60,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`VERSION`** y **`CHANGELOG.md`**: Versión que se entrega (sale en el pie de cada página) y lo que cambió en cada una.
 - **`docs/seguridad.md`**: Qué protege la aplicación (CSRF, escapado, SQL preparado, roles, sesión) y cómo se comprueba.
 - **`backend/scripts/`**: Respaldo y restauración de la base (`respaldo.ps1`, `restaurar.ps1` y sus versiones `.sh`), el respaldo diario automático (`programar_respaldo`) y la revisión antes de abrir la tienda (`verificar_instalacion.php`).
+- **`docs/facturacion_electronica.md`**: Ticket interno (no se envía a SUNAT), razón social, RUC y desglose de IGV en el ticket, integración preparada con un OSE/PSE tipo Nubefact e impresión directa en ticketera térmica de 58 u 80 mm.
 - **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 - **`docs/equipo/`**: Nota de cada integrante (qué hizo, qué aprendió y cómo usó la IA), con su plantilla.

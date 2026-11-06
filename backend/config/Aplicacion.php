@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Database.php';
+require_once __DIR__ . '/Entorno.php';
 
 /**
  * Version del sistema y contacto de soporte, para mostrarlos en el pie de cada pagina y en Ayuda.
@@ -33,7 +34,7 @@ final class Aplicacion
      */
     public static function soporte(): array
     {
-        Database::cargarEntorno();
+        Entorno::cargar();
         $nombre = self::texto('SOPORTE_NOMBRE', 60);
         $telefono = self::texto('SOPORTE_TELEFONO', 20);
         $correo = self::texto('SOPORTE_CORREO', 80);
