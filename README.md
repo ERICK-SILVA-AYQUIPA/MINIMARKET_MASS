@@ -64,6 +64,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`docs/propuesta_sunat_y_lector.md`**: Propuesta (sin implementar) para emitir boletas y facturas electrónicas ante SUNAT y vender con lector de código de barras.
 - **`deploy/`**: Configuración de Apache y Nginx con HTTPS para publicar el sistema en un servidor.
 - **`docs/equipo/`**: Nota de cada integrante (qué hizo, qué aprendió y cómo usó la IA), con su plantilla.
+- **`docs/equipo/estudio_3.md`**: El código repartido entre los 3 integrantes para estudiarlo: archivos de cada uno, orden de lectura, preguntas y una prueba práctica.
 - **`CONTRIBUTING.md`**: Reglas del equipo para ramas, commits y Pull Requests, y dónde va cada archivo.
 - **`.gitattributes`** y **`.editorconfig`**: Mismos saltos de línea y formato para Windows (Laragon) y Linux (CI).
 
