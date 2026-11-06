@@ -467,6 +467,18 @@ revisar('El kardex y la auditoría traen el detalle de cada fila', $rosa->get('r
 revisar('El CSV sale como texto CSV con BOM', $rosa->get('ruta=reporte_csv&tipo=productos') === 200
     && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'text/csv') && str_starts_with($rosa->cuerpo, "\xEF\xBB\xBF"));
 
+echo "Promociones y medios de pago\n";
+revisar('Nueva venta ofrece los 4 medios de pago: efectivo, débito, crédito y Sip', $luis->get('ruta=venta_nueva') === 200
+    && $luis->tiene('name="medio_pago" value="EFECTIVO"') && $luis->tiene('name="medio_pago" value="DEBITO"')
+    && $luis->tiene('name="medio_pago" value="CREDITO"') && $luis->tiene('name="medio_pago" value="SIP"')
+    && $luis->tiene('data-promociones=') && $luis->tiene('name="descuento_motivo"'));
+revisar('El administrador ve y crea promociones', $rosa->get('ruta=promociones') === 200 && $rosa->tiene('id="nueva-promocion"')
+    && $rosa->tiene('action="/?ruta=promocion_crear"'));
+revisar('El cajero las ve, sin el formulario', $luis->get('ruta=promociones') === 200 && !$luis->tiene('id="nueva-promocion"'));
+revisar('El almacenero no: 403', $carmen->get('ruta=promociones') === 403);
+revisar('Promoción sin nombre: 422 con el formulario abierto', $rosa->post('promocion_crear', ['tipo' => 'VENTA', 'porcentaje' => '5']) === 422
+    && $rosa->tiene('nueva-promocion'));
+
 echo "Formularios de otro rol (POST): 403 sin tocar la base\n";
 $prohibidos = [
     [$luis, 'Luis', 'producto_guardar', ['nombre' => 'X', 'precio' => '1']],
@@ -504,6 +516,9 @@ $prohibidos = [
     [$rosa, 'Rosa', 'venta_registrar', ['tipo' => 'B']],
     [$rosa, 'Rosa', 'traslado_registrar', ['destino' => '2']],
     [$luis, 'Luis', 'ingreso_registrar', ['tipo_documento' => 'FACTURA']],
+    [$luis, 'Luis', 'promocion_crear', ['nombre' => 'X', 'tipo' => 'VENTA', 'porcentaje' => '50']],
+    [$luis, 'Luis', 'promocion_estado', ['id_promocion' => '1', 'estado' => 'PAUSADA']],
+    [$carmen, 'Carmen', 'promocion_crear', ['nombre' => 'X', 'tipo' => 'VENTA', 'porcentaje' => '50']],
     [$luis, 'Luis', 'orden_registrar', ['proveedor' => '1']],
     [$luis, 'Luis', 'proveedor_guardar', ['ruc' => '20512345678', 'razon_social' => 'X']],
     [$carmen, 'Carmen', 'proveedor_guardar', ['ruc' => '20512345678', 'razon_social' => 'X']],

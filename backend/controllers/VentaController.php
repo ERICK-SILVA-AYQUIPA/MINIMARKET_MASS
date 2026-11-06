@@ -10,6 +10,7 @@ require_once __DIR__ . '/../models/CatalogoRepository.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
+require_once __DIR__ . '/../models/PromocionRepository.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
 require_once __DIR__ . '/../models/servicios/OperacionMovilServicio.php';
 require_once __DIR__ . '/../models/Emisor.php';
@@ -33,6 +34,7 @@ class VentaController extends Controller
         private CajaRepository $cajas,
         private VentaServicio $servicio,
         private CatalogoRepository $catalogo,
+        private PromocionRepository $promociones,
         private ?OperacionMovilServicio $operaciones = null,
         private FotoProducto $fotos = new FotoProducto()
     ) {
@@ -132,6 +134,12 @@ class VentaController extends Controller
         $detalles = array_column($lineas, 'detalle');
         $pagos = $this->ventas->pagosDeVenta($venta->getIdVenta());
 
+        // Descuentos (migracion 020): el de cada linea con el nombre de su promocion y el de toda la venta
+        $nombresPromocion = $this->promociones->nombres(array_filter(array_map(fn(DetalleVenta $d): ?int => $d->getIdPromocion(), $detalles)));
+        $descuentoVenta = $this->ventas->descuentoDeVenta($venta->getIdVenta());
+        $subtotal = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getImporte()), $detalles)) / 100;
+        $descuentoProductos = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getDescuento()), $detalles)) / 100;
+
         $anulacion = $this->ventas->anulacionDeVenta($venta->getIdVenta());
         $anuladaPor = $anulacion !== null ? $this->empleados->buscarPorId($anulacion->getIdEmpleado()) : null;
 
@@ -171,7 +179,8 @@ class VentaController extends Controller
 
         // Cabecera del ticket (.env) y op. gravada / IGV / total, linea por linea como lo pediria SUNAT
         $emisor = Emisor::desdeEntorno();
-        $desglose = DesgloseIgv::deLineas(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getImporte()), $detalles));
+        // Sobre lo cobrado de cada linea (importe menos sus descuentos): asi el total del desglose es el de la venta
+        $desglose = DesgloseIgv::deLineas(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getNeto()), $detalles));
         // Hasta que la venta se envie a un OSE/PSE, el ticket dice que es interno y no vale ante SUNAT
         $ticketInterno = FacturacionElectronica::ticketEsInterno(FacturacionElectronica::desdeEntorno());
 
@@ -209,10 +218,31 @@ class VentaController extends Controller
             }
         }
         asort($categorias);
+
+        // Promociones de hoy: el cartel de oferta en cada producto y las de toda la compra arriba del cobro
+        $ofertas = [];
+        $promocionesVenta = [];
+        $paraJs = [];
+        $alPesoPorId = [];
+        foreach ($productos as $fila) {
+            $alPesoPorId[$fila['producto']->getIdProducto()] = $fila['producto']->esAlPeso();
+        }
+        foreach ($this->promociones->vigentes($tienda->getIdTienda()) as $promo) {
+            $paraJs[] = ['tipo' => $promo->getTipo(), 'nombre' => $promo->getNombre(), 'producto' => $promo->getIdProducto(),
+                'porcentaje' => $promo->getPorcentaje(), 'precio' => $promo->getPrecio(), 'pack' => $promo->getCantidadPack(),
+                'minimo' => $promo->getMontoMinimo()];
+            if ($promo->esDeVenta()) {
+                $promocionesVenta[] = $promo;
+            } elseif (isset($alPesoPorId[(int) $promo->getIdProducto()])) {
+                $ofertas[(int) $promo->getIdProducto()][] = $promo->descripcion($alPesoPorId[(int) $promo->getIdProducto()]);
+            }
+        }
+        $topeDescuento = $this->usuario->topeDescuentoManual();
+        $datosPromociones = (string) json_encode(['promociones' => $paraJs, 'tope' => $topeDescuento]);
         // Clave unica de esta venta: si el envio se corta y se reenvia, el servidor no la registra dos veces.
         // Al volver con un error se conserva la misma (esa venta no se registro).
         $claveOperacion = $this->claveValida($this->campo($viejo, 'clave_operacion')) ?? bin2hex(random_bytes(16));
-        unset($nombresCategoria, $id, $c, $producto, $idCategoria);
+        unset($nombresCategoria, $id, $c, $producto, $idCategoria, $promo, $fila);
         $this->vista('ventas/nueva', get_defined_vars());
     }
 
@@ -230,6 +260,7 @@ class VentaController extends Controller
             $this->campo($post, 'documento'),
             $this->lineasDelFormulario($post),
             [
+                'medio'                => $this->campo($post, 'medio_pago'),
                 'tarjeta_monto'        => $this->campo($post, 'tarjeta_monto'),
                 'tarjeta_tipo'         => $this->campo($post, 'tarjeta_tipo'),
                 'tarjeta_marca'        => $this->campo($post, 'tarjeta_marca'),
@@ -239,7 +270,8 @@ class VentaController extends Controller
                 'sip_modalidad'        => $this->campo($post, 'sip_modalidad'),
                 'sip_operacion'        => $this->campo($post, 'sip_operacion'),
                 'efectivo_recibido'    => $this->campo($post, 'efectivo_recibido'),
-            ]
+            ],
+            $this->descuentoDelFormulario($post)
         );
         $clave = $this->claveValida($this->campo($post, 'clave_operacion'));
         $repetida = false;
@@ -273,6 +305,16 @@ class VentaController extends Controller
             $repetida ? 'Esta venta ya estaba registrada (se envió dos veces): no se cobró ni se descontó el stock otra vez.' : 'Venta registrada.',
             $repetida ? 'alerta' : 'ok'
         );
+    }
+
+    /** @return array{valor: string, unidad: string, motivo: string} */
+    private function descuentoDelFormulario(array $datos): array
+    {
+        return [
+            'valor'  => $this->campo($datos, 'descuento_valor'),
+            'unidad' => $this->campo($datos, 'descuento_unidad'),
+            'motivo' => $this->campo($datos, 'descuento_motivo'),
+        ];
     }
 
     /**

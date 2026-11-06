@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Servicio.php';
 require_once __DIR__ . '/../Usuario.php';
+require_once __DIR__ . '/../Descuentos.php';
+require_once __DIR__ . '/../PromocionRepository.php';
 
 /**
  * Registrar, anular y devolver ventas. Cada operacion es una sola transaccion:
@@ -19,12 +21,13 @@ class VentaServicio extends Servicio
      * @param string $tipo 'B' boleta o 'F' factura
      * @param ?string $documento DNI (8 digitos) o RUC (11) del cliente; vacio = CLIENTE VARIOS (solo boleta)
      * @param array<int, array{id_producto?: string, cantidad?: string}> $lineas
-     * @param array{tarjeta_monto?: string, tarjeta_tipo?: string, tarjeta_marca?: string, tarjeta_ultimos4?: string,
+     * @param array{medio?: string, tarjeta_monto?: string, tarjeta_tipo?: string, tarjeta_marca?: string, tarjeta_ultimos4?: string,
      *              tarjeta_autorizacion?: string, sip_monto?: string, sip_modalidad?: string, sip_operacion?: string,
-     *              efectivo_recibido?: string} $pago
+     *              efectivo_recibido?: string} $pago  medio: EFECTIVO, DEBITO, CREDITO o SIP (vacio = como antes, se combinan)
+     * @param array{valor?: string, unidad?: string, motivo?: string} $descuento  descuento manual del cajero a toda la venta
      * @return array{serie: string, numero: int}
      */
-    public function registrar(Usuario $cajero, string $tipo, ?string $documento, array $lineas, array $pago): array
+    public function registrar(Usuario $cajero, string $tipo, ?string $documento, array $lineas, array $pago, array $descuento = []): array
     {
         if (!$cajero->puedeVender()) {
             throw new ReglaNegocioException('Solo un cajero activo puede registrar ventas.');
@@ -33,7 +36,9 @@ class VentaServicio extends Servicio
             throw new ReglaNegocioException('Elige boleta o factura.');
         }
 
-        return $this->enTransaccion(function () use ($cajero, $tipo, $documento, $lineas, $pago): array {
+        $manual = $this->leerDescuentoManual($descuento);
+
+        return $this->enTransaccion(function () use ($cajero, $tipo, $documento, $lineas, $pago, $manual): array {
             // 1. Turno abierto del cajero, en una caja de su propia tienda
             $consulta = $this->db->prepare(
                 'SELECT ct.id_caja_turno, ct.en_pausa_desde, c.id_tienda, t.estado AS estado_tienda
@@ -63,14 +68,12 @@ class VentaServicio extends Servicio
             // 2. Cliente: la factura exige RUC
             $idCliente = $this->clientePara($tipo, $documento);
 
-            // 3. Lineas: precio actual del producto e importe = ROUND(cantidad * precio, 2)
+            // 3. Lineas: precio actual del producto e importe = ROUND(cantidad * precio, 2),
+            //    menos las promociones que rigen hoy en la tienda y el descuento manual (Descuentos::calcular)
             $productos = $this->leerLineas($lineas);
-            $totalCentimos = 0;
-            foreach ($productos as &$p) {
-                $p['importe'] = Cantidad::importe($p['milesimas'], $p['precio']);
-                $totalCentimos += $p['importe'];
-            }
-            unset($p);
+            $calculo = Descuentos::calcular($productos, (new PromocionRepository($this->db))->vigentes($idTienda), $manual,
+                $cajero->topeDescuentoManual());
+            $totalCentimos = $calculo['total'];
             if ($totalCentimos <= 0) {
                 throw new ReglaNegocioException('El total de la venta debe ser mayor que 0.');
             }
@@ -79,7 +82,7 @@ class VentaServicio extends Servicio
                 throw new ReglaNegocioException('El total pasa de S/ ' . Dinero::aTexto(Dinero::MAXIMO_CENTIMOS) . ': divide la venta.');
             }
 
-            // 4. Pagos: tarjeta y Sip por su monto; el efectivo cubre el resto
+            // 4. Pagos: tarjeta y Sip por su monto (todo el total si se eligio ese medio); el efectivo cubre el resto
             $pagos = $this->armarPagos($pago, $totalCentimos);
 
             // 5. Siguiente correlativo de la serie de la tienda (bloqueada hasta el commit)
@@ -116,16 +119,20 @@ class VentaServicio extends Servicio
             $idVenta = (int) $this->db->lastInsertId();
 
             $insertarDetalle = $this->db->prepare(
-                'INSERT INTO detalle_venta (cantidad, precio_unitario, importe, id_venta, id_producto)
-                 VALUES (:cantidad, :precio, :importe, :venta, :producto)'
+                'INSERT INTO detalle_venta (cantidad, precio_unitario, importe, descuento, descuento_general, id_promocion, id_venta, id_producto)
+                 VALUES (:cantidad, :precio, :importe, :descuento, :general, :promocion, :venta, :producto)'
             );
             foreach ($productos as $idProducto => $p) {
+                $c = $calculo['lineas'][$idProducto];
                 $insertarDetalle->execute([
-                    'cantidad' => Cantidad::aTexto($p['milesimas']),
-                    'precio'   => Dinero::aTexto($p['precio']),
-                    'importe'  => Dinero::aTexto($p['importe']),
-                    'venta'    => $idVenta,
-                    'producto' => $idProducto,
+                    'cantidad'  => Cantidad::aTexto($p['milesimas']),
+                    'precio'    => Dinero::aTexto($p['precio']),
+                    'importe'   => Dinero::aTexto($c['importe']),
+                    'descuento' => Dinero::aTexto($c['descuento']),
+                    'general'   => Dinero::aTexto($c['general']),
+                    'promocion' => $c['id_promocion'],
+                    'venta'     => $idVenta,
+                    'producto'  => $idProducto,
                 ]);
                 $this->moverStock($idTienda, $idProducto, -$p['milesimas'], TipoMovimiento::VENTA,
                     $cajero->getIdEmpleado(), ['id_venta' => $idVenta]);
@@ -140,8 +147,64 @@ class VentaServicio extends Servicio
             $this->db->prepare('UPDATE serie_comprobante SET ultimo_numero = :numero WHERE id_serie = :serie')
                 ->execute(['numero' => $numero, 'serie' => (int) $serie['id_serie']]);
 
+            // 9. Descuento a toda la venta (promocion VENTA o manual). El manual queda en la auditoria con su motivo.
+            $general = $calculo['general'];
+            if ($general !== null) {
+                $this->db->prepare(
+                    'INSERT INTO descuento_venta (id_venta, origen, id_promocion, porcentaje, monto, motivo, id_empleado)
+                     VALUES (:venta, :origen, :promocion, :porcentaje, :monto, :motivo, :empleado)'
+                )->execute([
+                    'venta' => $idVenta, 'origen' => $general['origen'], 'promocion' => $general['id_promocion'],
+                    'porcentaje' => $general['porcentaje'] === null ? null : Dinero::aTexto($general['porcentaje']),
+                    'monto' => Dinero::aTexto($general['monto']), 'motivo' => $general['motivo'], 'empleado' => $cajero->getIdEmpleado(),
+                ]);
+                if ($general['origen'] === 'MANUAL') {
+                    $this->auditar($cajero, 'DESCUENTO_MANUAL', sprintf('%s-%08d: S/ %s%s de S/ %s. %s', $serie['serie'], $numero,
+                        Dinero::aTexto($general['monto']),
+                        $general['porcentaje'] !== null ? ' (' . Promocion::porcentajeATexto($general['porcentaje']) . ')' : '',
+                        Dinero::aTexto($calculo['subtotal'] - $calculo['descuentoProductos']), $general['motivo']));
+                }
+            }
+
             return ['serie' => $serie['serie'], 'numero' => $numero];
         });
+    }
+
+    /**
+     * Lo que costaria la venta ahora, con las promociones de hoy y el descuento manual, sin guardar nada.
+     * Lo usan la vista previa del carrito (ruta venta_calcular) y la API de la app.
+     * @param array<int, array{id_producto?: string, cantidad?: string}> $lineas
+     * @param array{valor?: string, unidad?: string, motivo?: string} $descuento
+     * @return array<string, mixed> el resultado de Descuentos::calcular
+     */
+    public function cotizar(Usuario $cajero, array $lineas, array $descuento = []): array
+    {
+        $productos = $this->leerLineas($lineas);
+        return Descuentos::calcular($productos, (new PromocionRepository($this->db))->vigentes($cajero->getIdTienda()),
+            $this->leerDescuentoManual($descuento), $cajero->topeDescuentoManual());
+    }
+
+    /**
+     * El descuento manual del formulario: vacio = sin descuento.
+     * @param array{valor?: string, unidad?: string, motivo?: string} $descuento
+     * @return ?array{unidad: string, valor: int, motivo: string}
+     */
+    private function leerDescuentoManual(array $descuento): ?array
+    {
+        $valorTexto = trim((string) ($descuento['valor'] ?? ''));
+        if ($valorTexto === '' || preg_match('/^0+(\.0*)?$/', $valorTexto) === 1) {
+            return null;
+        }
+        $unidad = ($descuento['unidad'] ?? '') === 'MONTO' ? 'MONTO' : 'PORCENTAJE';
+        $valor = Dinero::deTexto($valorTexto);
+        if ($valor === null) {
+            throw new ReglaNegocioException('El descuento no es válido: usa un número con hasta 2 decimales.');
+        }
+        $motivo = trim((string) ($descuento['motivo'] ?? ''));
+        if ($motivo === '' || mb_strlen($motivo) > 150) {
+            throw new ReglaNegocioException('Escribe el motivo del descuento (máximo 150 caracteres).');
+        }
+        return ['unidad' => $unidad, 'valor' => $valor, 'motivo' => $motivo];
     }
 
     /**
@@ -264,16 +327,20 @@ class VentaServicio extends Servicio
             }
             $idTurno = (int) $turno['id_caja_turno'];
 
-            // Lo vendido de cada producto, menos lo que ya se devolvio antes
+            // Lo vendido de cada producto (y lo que se pago por el, con descuentos), menos lo que ya se devolvio antes
             $consulta = $this->db->prepare(
-                'SELECT dv.id_producto, p.nombre_producto, p.se_vende_por_peso, dv.precio_unitario,
-                        dv.cantidad - COALESCE((SELECT SUM(dd.cantidad) FROM detalle_devolucion dd
-                                                  JOIN devolucion_venta d ON d.id_devolucion = dd.id_devolucion
-                                                 WHERE d.id_venta = dv.id_venta AND dd.id_producto = dv.id_producto), 0) AS disponible
-                   FROM detalle_venta dv JOIN producto p ON p.id_producto = dv.id_producto
-                  WHERE dv.id_venta = :venta'
+                'SELECT dv.id_producto, p.nombre_producto, p.se_vende_por_peso, dv.precio_unitario, dv.cantidad,
+                        dv.importe - dv.descuento - dv.descuento_general AS pagado,
+                        dv.cantidad - COALESCE(dev.cantidad, 0) AS disponible, COALESCE(dev.importe, 0) AS ya_devuelto
+                   FROM detalle_venta dv
+                   JOIN producto p ON p.id_producto = dv.id_producto
+                   LEFT JOIN (SELECT dd.id_producto, SUM(dd.cantidad) AS cantidad, SUM(dd.importe) AS importe
+                                FROM detalle_devolucion dd JOIN devolucion_venta d ON d.id_devolucion = dd.id_devolucion
+                               WHERE d.id_venta = :venta1
+                               GROUP BY dd.id_producto) dev ON dev.id_producto = dv.id_producto
+                  WHERE dv.id_venta = :venta2'
             );
-            $consulta->execute(['venta' => $idVenta]);
+            $consulta->execute(['venta1' => $idVenta, 'venta2' => $idVenta]);
             $vendidos = [];
             foreach ($consulta->fetchAll() as $f) {
                 $vendidos[(int) $f['id_producto']] = $f;
@@ -303,7 +370,7 @@ class VentaServicio extends Servicio
                         $vendido['nombre_producto'], Cantidad::aTexto($disponible)));
                 }
                 $precio = (int) Dinero::deTexto($vendido['precio_unitario']);
-                $importe = Cantidad::importe($milesimas, $precio);
+                $importe = $this->importeADevolver($vendido, $milesimas, $disponible, $precio);
                 if ($importe <= 0) {
                     throw new ReglaNegocioException($vendido['nombre_producto'] . ': la cantidad es tan pequeña que no vale ni un céntimo.');
                 }
@@ -349,6 +416,30 @@ class VentaServicio extends Servicio
         });
     }
 
+    /**
+     * Lo que se le devuelve al cliente por $milesimas de una linea: lo que pago, no el precio de lista.
+     * - Linea sin descuento: cantidad x precio, como siempre.
+     * - Linea con descuento: la parte proporcional de lo pagado; si devuelve todo lo que queda, exactamente lo que falta.
+     * Nunca pasa de lo que falta devolver de la linea, aunque se devuelva en varias veces.
+     * @param array{cantidad: string, precio_unitario: string, pagado: string, ya_devuelto: string} $vendido
+     */
+    private function importeADevolver(array $vendido, int $milesimas, int $disponible, int $precio): int
+    {
+        $pagado = (int) Dinero::deTexto((string) $vendido['pagado']);
+        $queda = $pagado - (int) Dinero::deTexto((string) $vendido['ya_devuelto']);
+        $vendidas = Cantidad::deDecimal((string) $vendido['cantidad']);
+        $lista = Cantidad::importe($vendidas, $precio);
+        if ($pagado === $lista) {
+            $importe = Cantidad::importe($milesimas, $precio);
+        } elseif ($milesimas === $disponible) {
+            $importe = $queda;
+        } else {
+            $importe = intdiv($pagado * $milesimas * 2 + $vendidas, $vendidas * 2); // redondeo a la mitad hacia arriba
+        }
+        // Tampoco pasa de cantidad x precio de lista (CHECK ck_detalle_devolucion_importe)
+        return max(0, min($importe, $queda, Cantidad::importe($milesimas, $precio)));
+    }
+
     // Busca el cliente por DNI o RUC; si no existe lo crea. null = CLIENTE VARIOS.
     private function clientePara(string $tipo, ?string $documento): ?int
     {
@@ -389,6 +480,20 @@ class VentaServicio extends Servicio
     {
         $pagos = [];
         $cubierto = 0;
+
+        // Medio de pago elegido en Nueva venta: solo cuentan sus campos. Tarjeta o Sip sin monto = todo el total
+        // (si escribe un monto menor, el resto se paga en efectivo). Sin medio: tarjeta, Sip y efectivo se combinan.
+        $medio = (string) ($pago['medio'] ?? '');
+        if ($medio !== '') {
+            if (!in_array($medio, ['EFECTIVO', 'DEBITO', 'CREDITO', 'SIP'], true)) {
+                throw new ReglaNegocioException('Elige el medio de pago: efectivo, débito, crédito o Sip.');
+            }
+            $todo = Dinero::aTexto($totalCentimos);
+            $conTarjeta = $medio === 'DEBITO' || $medio === 'CREDITO';
+            $pago['tarjeta_tipo'] = $conTarjeta ? $medio : '';
+            $pago['tarjeta_monto'] = $conTarjeta ? (trim((string) ($pago['tarjeta_monto'] ?? '')) ?: $todo) : '';
+            $pago['sip_monto'] = $medio === 'SIP' ? (trim((string) ($pago['sip_monto'] ?? '')) ?: $todo) : '';
+        }
 
         $montoTarjeta = trim((string) ($pago['tarjeta_monto'] ?? ''));
         if ($montoTarjeta !== '') {

@@ -183,8 +183,9 @@ class CajaRepository
 
     /**
      * Lo vendido en un turno: ventas emitidas, anuladas y lo cobrado VALIDO por medio de pago (efectivo sin el vuelto,
-     * tarjeta y billetera Sip). Lo de una venta anulada no cuenta: sus pagos quedan ANULADOS.
-     * @return array{ventas: int, anuladas: int, efectivo: float, tarjeta: float, digital: float}
+     * tarjeta de debito, tarjeta de credito y billetera Sip). Lo de una venta anulada no cuenta: sus pagos quedan ANULADOS.
+     * tarjeta = debito + credito. Solo el efectivo entra a la gaveta: los otros se cuadran con sus vouchers.
+     * @return array{ventas: int, anuladas: int, efectivo: float, tarjeta: float, debito: float, credito: float, digital: float}
      */
     public function ventasDeTurno(int $idTurno): array
     {
@@ -193,15 +194,19 @@ class CajaRepository
                     (SELECT COUNT(*) FROM venta WHERE id_caja_turno = :t3 AND estado = \'ANULADA\') AS anuladas,
                     COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 1 THEN pv.monto_pagado END), 0) AS efectivo,
                     COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 2 THEN pv.monto_pagado END), 0) AS tarjeta,
+                    COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 2 AND ta.tipo_tarjeta = \'DEBITO\' THEN pv.monto_pagado END), 0) AS debito,
+                    COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 2 AND ta.tipo_tarjeta = \'CREDITO\' THEN pv.monto_pagado END), 0) AS credito,
                     COALESCE(SUM(CASE WHEN pv.id_metodo_pago = 3 THEN pv.monto_pagado END), 0) AS digital
                FROM venta v
                JOIN pago_venta pv ON pv.id_venta = v.id_venta AND pv.estado = \'VALIDO\'
+               LEFT JOIN tarjeta ta ON ta.id_pago = pv.id_pago
               WHERE v.id_caja_turno = :t2'
         );
         $consulta->execute(['t1' => $idTurno, 't2' => $idTurno, 't3' => $idTurno]);
         $f = $consulta->fetch() ?: [];
         return ['ventas' => (int) ($f['ventas'] ?? 0), 'anuladas' => (int) ($f['anuladas'] ?? 0), 'efectivo' => (float) ($f['efectivo'] ?? 0),
-            'tarjeta' => (float) ($f['tarjeta'] ?? 0), 'digital' => (float) ($f['digital'] ?? 0)];
+            'tarjeta' => (float) ($f['tarjeta'] ?? 0), 'debito' => (float) ($f['debito'] ?? 0), 'credito' => (float) ($f['credito'] ?? 0),
+            'digital' => (float) ($f['digital'] ?? 0)];
     }
 
     private function crear(array $f): CajaTurno

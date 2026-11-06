@@ -43,7 +43,7 @@ abstract class Servicio
      * Convierte las lineas del formulario en [id_producto => milesimas], validando cada producto.
      * Lineas vacias se ignoran; el mismo producto en dos lineas se suma.
      * @param array<int, array{id_producto?: string, cantidad?: string}> $lineas
-     * @return array<int, array{milesimas: int, precio: int, nombre: string}> ordenado por id_producto
+     * @return array<int, array{milesimas: int, precio: int, nombre: string, al_peso: bool}> ordenado por id_producto
      */
     protected function leerLineas(array $lineas): array
     {
@@ -89,6 +89,7 @@ abstract class Servicio
                     'milesimas' => $milesimas,
                     'precio'    => Dinero::deTexto($producto['precio_venta']),
                     'nombre'    => $producto['nombre_producto'],
+                    'al_peso'   => $alPeso,
                 ];
             }
         }

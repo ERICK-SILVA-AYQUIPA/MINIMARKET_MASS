@@ -96,7 +96,7 @@ Los scripts de `backend/database/` se ejecutan **una sola vez y en este orden** 
 
 Después de esos 12, se aplican las **migraciones** de `backend/database/migraciones/` (`013_clave_y_sesiones.sql`, ...) con `php backend/scripts/migrar.php`. Cada una se anota en la tabla `migracion_aplicada` con su huella SHA-256, así se sabe qué tiene cada base. Los 12 scripts ya no se cambian: **todo cambio nuevo de la base es una migración nueva** (sección 8).
 
-Al terminar hay **43 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
+Al terminar hay **45 tablas**. Si falta `api_movil.sql`, la página web funciona pero la app Android no puede entrar.
 
 - **Con Docker**: `docker compose up -d` corre los 12 y las migraciones (`docker/mysql/98_migraciones.sh`) solo cuando el volumen `mysql_datos` está vacío (la primera vez). Para volver a empezar en una PC de pruebas (**borra los datos**): `docker compose down -v` y `docker compose up -d`.
 - **Sin Docker**: se corren a mano, en el mismo orden, y después `migrar.php` (sección 5.2 en Laragon y sección 6.3 en un servidor). `instalar_laragon.sql` ya trae los 12 y las migraciones juntos: **no se edita a mano**, lo arma `php backend/scripts/generar_instalador.php` (las pruebas fallan si se olvida).
@@ -297,7 +297,7 @@ La base se crea con datos de ejemplo (las 3 tiendas de `datos.sql`, 9 empleados 
 sudo -u www-data php backend/scripts/verificar_instalacion.php
 ```
 
-Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 43 tablas, que no falte ninguna migración, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba, que haya un respaldo de las últimas 48 horas y que los respaldos se cifren y se copien fuera del servidor (`RESPALDO_CLAVE` y `RESPALDO_REMOTO`, sección 10). Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
+Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `display_errors` y el tamaño de subida (los del `php.ini` de consola, `/etc/php/8.3/cli/php.ini`), que las claves de `.env` no sean las de ejemplo, que `frontend/public/` no tenga `.env`, `.sql`, `.bak` ni `.log`, que la aplicación no entre como root, las 45 tablas, que no falte ninguna migración, `sp_boleta`, la hora de Lima, que ningún empleado activo siga con la clave de prueba, que haya un respaldo de las últimas 48 horas y que los respaldos se cifren y se copien fuera del servidor (`RESPALDO_CLAVE` y `RESPALDO_REMOTO`, sección 10). Termina con `0 fallas` cuando está listo. En el aula, con los datos de prueba, es normal que marque las claves de ejemplo y la clave de prueba.
 
 ## 10. Respaldo y restauración
 
@@ -309,7 +309,7 @@ Revisa la versión de PHP y sus extensiones, que PHP pueda guardar fotos, `displ
 | Restaurar | `powershell -ExecutionPolicy Bypass -File backend\scripts\restaurar.ps1 respaldos\ARCHIVO` | `sudo bash backend/scripts/restaurar.sh respaldos/ARCHIVO` |
 
 - En Linux van con `sudo` porque usan `docker exec`; el respaldo diario queda en el `crontab` de root y escribe en `respaldos/respaldo.log`. En Windows queda en el Programador de tareas como "Minimarket Mass - respaldo diario" y, si la PC estaba apagada a las 23:00, corre apenas se prenda.
-- El respaldo guarda todo en **un solo archivo**: la base (las 43 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`) y las **fotos de producto** de `frontend/public/img/productos/`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.tar.gz` (o `.tar.gz.gpg` si está cifrado), con la hora del servidor. Restaurar devuelve las dos cosas.
+- El respaldo guarda todo en **un solo archivo**: la base (las 45 tablas, los datos, la vista `vw_comprobante` y el procedimiento `sp_boleta`) y las **fotos de producto** de `frontend/public/img/productos/`. Queda en `respaldos/minimarket_mass_AAAA-MM-DD_HHMM.tar.gz` (o `.tar.gz.gpg` si está cifrado), con la hora del servidor. Restaurar devuelve las dos cosas.
 - Los respaldos antiguos `.sql` (de antes de este cambio, solo la base) se siguen pudiendo restaurar con los mismos scripts; en ese caso las fotos quedan como están.
 - Se hace con `--single-transaction`: se puede sacar con la tienda vendiendo.
 - El script revisa que el archivo termine bien; si no, lo borra y avisa.

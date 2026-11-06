@@ -773,6 +773,80 @@ $almaceneroSachaca = $empleados->buscarPorId($personal->crear($elena, 'Nora', 'V
 rechaza('Ni recibe un ingreso de mercadería', fn() => $inventario->registrarIngreso($almaceneroSachaca, ['numero' => 'G001-1'] + $documento,
     [['id_producto' => '2', 'cantidad' => '1', 'costo' => '1.00']]));
 
+echo "Descuentos, promociones y medios de pago\n";
+require_once __DIR__ . '/../models/servicios/PromocionServicio.php';
+$auditado = fn(string $accion, string $parte): bool => (int) valor($db,
+    'SELECT COUNT(*) FROM auditoria WHERE accion = ? AND detalle LIKE ?', [$accion, '%' . $parte . '%']) > 0;
+$promos = new PromocionServicio($db);
+$hoy = date('Y-m-d');
+$hasta = date('Y-m-d', strtotime('+7 days'));
+$promoBase = ['fecha_inicio' => $hoy, 'fecha_fin' => $hasta, 'alcance' => 'TIENDA'];
+rechaza('El cajero no crea promociones', fn() => $promos->crear($luis, ['nombre' => 'X', 'tipo' => 'PORCENTAJE', 'id_producto' => '7', 'porcentaje' => '10'] + $promoBase));
+rechaza('Precio de oferta mayor que el normal', fn() => $promos->crear($rosa, ['nombre' => 'X', 'tipo' => 'PRECIO', 'id_producto' => '7', 'precio' => '9.00'] + $promoBase));
+rechaza('Pack de algo que va al peso', fn() => $promos->crear($rosa, ['nombre' => 'X', 'tipo' => 'PACK', 'id_producto' => '8', 'cantidad_pack' => '3', 'precio' => '5'] + $promoBase));
+rechaza('Porcentaje de 95 %', fn() => $promos->crear($rosa, ['nombre' => 'X', 'tipo' => 'PORCENTAJE', 'id_producto' => '7', 'porcentaje' => '95'] + $promoBase));
+rechaza('Termina antes de empezar', fn() => $promos->crear($rosa, ['nombre' => 'X', 'tipo' => 'VENTA', 'porcentaje' => '5', 'fecha_inicio' => $hasta, 'fecha_fin' => $hoy]));
+$precioFideo = (int) Dinero::deTexto(valor($db, 'SELECT precio_venta FROM producto WHERE id_producto = 7'));
+$idPack = $promos->crear($rosa, ['nombre' => 'Fideos 3 x S/ 8', 'tipo' => 'PACK', 'id_producto' => '7', 'cantidad_pack' => '3', 'precio' => '8.00'] + $promoBase);
+$idPausada = $promos->crear($rosa, ['nombre' => 'Fideos 50 %', 'tipo' => 'PORCENTAJE', 'id_producto' => '7', 'porcentaje' => '50'] + $promoBase);
+$promos->cambiarEstado($rosa, $idPausada, 'PAUSADA');
+$idOtraTienda = $promos->crear($lucia, ['nombre' => 'Solo Yanahuara', 'tipo' => 'PORCENTAJE', 'id_producto' => '7', 'porcentaje' => '40'] + $promoBase);
+rechaza('El administrador de otra tienda no pausa una promoción ajena', fn() => $promos->cambiarEstado($lucia, $idPack, 'PAUSADA'));
+revisar('Crear y pausar promociones queda en la auditoría', $auditado('PROMOCION_CREADA', 'Fideos 3 x S/ 8') && $auditado('PROMOCION_PAUSADA', 'Fideos 50 %'));
+
+// Venta con el pack (4 fideos = 1 pack + 1 suelto) y 10 % a mano, pagada con débito por todo el total
+$subtotalPack = 4 * $precioFideo;
+$conPack = $subtotalPack - (3 * $precioFideo - 800);
+$manual = intdiv($conPack * 1000 + 5000, 10000);
+$r = $ventas->registrar($luis, 'B', '', [['id_producto' => '7', 'cantidad' => '4']], [
+    'medio' => 'DEBITO', 'tarjeta_marca' => 'Visa', 'tarjeta_ultimos4' => '4321', 'tarjeta_autorizacion' => 'PROMO1', 'tarjeta_tipo' => 'CREDITO',
+    'efectivo_recibido' => '500', 'sip_monto' => '1', 'sip_modalidad' => 'QR', 'sip_operacion' => 'NO-SE-USA',
+], ['valor' => '10', 'unidad' => 'PORCENTAJE', 'motivo' => 'Cliente frecuente']);
+$idVentaPromo = (int) valor($db, 'SELECT id_venta FROM venta WHERE id_serie = 1 AND numero_correlativo = ?', [$r['numero']]);
+revisar('Aplica el pack (no la pausada ni la de otra tienda) y el 10 % del cajero: total S/ ' . Dinero::aTexto($conPack - $manual),
+    valor($db, 'SELECT total FROM venta WHERE id_venta = ?', [$idVentaPromo]) === Dinero::aTexto($conPack - $manual)
+    && valor($db, 'SELECT id_promocion FROM detalle_venta WHERE id_venta = ?', [$idVentaPromo]) === (string) $idPack);
+revisar('Débito elegido: un solo pago TARJETA DEBITO por todo el total; Sip y efectivo escritos se ignoran',
+    valor($db, "SELECT CONCAT(COUNT(*), '/', MAX(t.tipo_tarjeta), '/', SUM(pv.monto_pagado)) FROM pago_venta pv LEFT JOIN tarjeta t ON t.id_pago = pv.id_pago WHERE pv.id_venta = ?", [$idVentaPromo])
+        === '1/DEBITO/' . Dinero::aTexto($conPack - $manual));
+$ventaPromo = (new VentaRepository($db))->buscarPorComprobante('B001', $r['numero']);
+$repoVentas = new VentaRepository($db);
+revisar('El detalle con sus descuentos cuadra con el total y los pagos', $ventaPromo->detalleCuadra($repoVentas->detallesDeVenta($idVentaPromo))
+    && $ventaPromo->pagosCuadran($repoVentas->pagosDeVenta($idVentaPromo)));
+revisar('El descuento a toda la venta queda con su motivo y en la auditoría', $repoVentas->descuentoDeVenta($idVentaPromo)['motivo'] === 'Cliente frecuente'
+    && $auditado('DESCUENTO_MANUAL', 'Cliente frecuente'));
+rechaza('El cajero no pasa su tope de 10 %', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '7', 'cantidad' => '1']], ['efectivo_recibido' => '50'],
+    ['valor' => '15', 'unidad' => 'PORCENTAJE', 'motivo' => 'Amigo']));
+rechaza('Descuento sin motivo', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '7', 'cantidad' => '1']], ['efectivo_recibido' => '50'],
+    ['valor' => '0.10', 'unidad' => 'MONTO', 'motivo' => '']));
+rechaza('Medio de pago inventado', fn() => $ventas->registrar($luis, 'B', '', [['id_producto' => '7', 'cantidad' => '1']], ['medio' => 'YAPE']));
+
+// Los 4 medios en el cuadre: crédito con parte en efectivo y Sip por todo
+$turnoLuis = (int) valor($db, "SELECT id_caja_turno FROM caja_turno WHERE id_empleado = 2 AND estado = 'ABIERTO'");
+$cajasRepo = new CajaRepository($db);
+$antesTurno = $cajasRepo->ventasDeTurno($turnoLuis);
+$gavetaAntes = (float) valor($db, 'SELECT COALESCE(SUM(pv.monto_pagado), 0) FROM pago_venta pv JOIN venta v ON v.id_venta = pv.id_venta WHERE v.id_caja_turno = ? AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1', [$turnoLuis]);
+$ventas->registrar($luis, 'B', '', [['id_producto' => '4', 'cantidad' => '2']], [
+    'medio' => 'CREDITO', 'tarjeta_monto' => '15', 'tarjeta_marca' => 'Mastercard', 'tarjeta_ultimos4' => '5555', 'tarjeta_autorizacion' => 'CRED1', 'efectivo_recibido' => '10']);
+$ventas->registrar($luis, 'B', '', [['id_producto' => '11', 'cantidad' => '1']], ['medio' => 'SIP', 'sip_modalidad' => 'QR', 'sip_operacion' => 'SIP-PROMO-01']);
+$despuesTurno = $cajasRepo->ventasDeTurno($turnoLuis);
+$suma = fn(string $k): string => number_format($despuesTurno[$k] - $antesTurno[$k], 2, '.', '');
+revisar('Cuadre del turno: débito, crédito y Sip por separado; tarjeta = débito + crédito',
+    $antesTurno['debito'] >= ($conPack - $manual) / 100 && $suma('debito') === '0.00' && $suma('credito') === '15.00' && $suma('digital') === '7.90'
+    && abs($despuesTurno['tarjeta'] - $despuesTurno['debito'] - $despuesTurno['credito']) < 0.001);
+revisar('Solo los 6.00 en efectivo de la venta con crédito entran a la gaveta', number_format((float) valor($db,
+    'SELECT COALESCE(SUM(pv.monto_pagado), 0) FROM pago_venta pv JOIN venta v ON v.id_venta = pv.id_venta WHERE v.id_caja_turno = ? AND pv.estado = \'VALIDO\' AND pv.id_metodo_pago = 1', [$turnoLuis]) - $gavetaAntes, 2, '.', '') === '6.00');
+
+// Devolución de una venta con descuento: se devuelve lo pagado, no el precio de lista
+$netoFideos = (int) Dinero::deTexto(valor($db, 'SELECT importe - descuento - descuento_general FROM detalle_venta WHERE id_venta = ?', [$idVentaPromo]));
+$d1 = $ventas->devolver($luis, $idVentaPromo, [['id_producto' => '7', 'cantidad' => '1']], 'Paquete roto');
+$d2 = $ventas->devolver($luis, $idVentaPromo, [['id_producto' => '7', 'cantidad' => '3']], 'No los quiso');
+revisar('Devuelve 1 y luego 3 fideos: entre las dos, exactamente lo pagado (S/ ' . Dinero::aTexto($netoFideos) . ')',
+    $d1 === intdiv($netoFideos * 2 + 4, 8) && $d1 + $d2 === $netoFideos && $d1 < $precioFideo);
+
+$reportes2 = new ReporteRepository($db);
+revisar('Los reportes cuentan lo cobrado, con descuentos', (new PromocionRepository($db))->deTienda(1)[0]['usos'] >= 0
+    && count((new PromocionRepository($db))->vigentes(1)) === 1 && count((new PromocionRepository($db))->vigentes(3)) === 1);
 echo "Proveedores y órdenes de compra\n";
 $compras = new CompraServicio($db);
 $comprasRepo = new CompraRepository($db);

@@ -51,7 +51,7 @@ El repositorio cuenta con una arquitectura modular en scripts SQL y documentaci�
 - **`backend/database/caja_apertura.sql`**: Apertura y cierre de caja por empleado: fondo fijo de cada caja, reglas de caja por tienda (`regla_caja`), arqueo por billetes y monedas (`arqueo_caja`, `arqueo_detalle`), esperado y diferencia guardados en cada turno, estados OBSERVADO y RECONTEO para la revisión del administrador, y una sola caja abierta por turno también en la base.
 - **`backend/database/login.sql`**: Agrega la columna `clave_hash` a `empleado` con el hash bcrypt de la clave de prueba, para el login de la aplicación.
 - **`final.docx`**: Informe de análisis y modelado en Word (5 diagramas UML: casos de uso, secuencia, actividades, componentes y despliegue).
-- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 40 tablas (26 del diseño y 14 de apoyo de la aplicación).
+- **`docs/diseno_bd.md`**: Especificación técnica completa, diccionario de datos y detalle de reglas de negocio para las 45 tablas (26 del diseño y 19 de apoyo de la aplicación).
 - **`docs/diagrama-er.png`**: Diagrama Entidad-Relación visual de alta resolución (sin colisiones en relaciones).
 - **`docs/manual_usuario.md`**: Manual de uso por rol (administrador, cajero y almacenero), con un resumen en una página. Dentro del sistema, la pantalla **Ayuda** muestra el manual corto del rol, la versión y el contacto de soporte.
 - **`docs/instalacion.md`**: Guía de instalación corta (Laragon, Docker o servidor con HTTPS) y cómo poner el contacto de soporte.
@@ -157,7 +157,7 @@ php backend/scripts/migrar.php
 mysql -u root -p -h 127.0.0.1 -P 3306 -e "source ./backend/database/consultas.sql"
 ```
 
-El diseño base son 26 tablas. La aplicación agrega 16 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`) y `proveedor`, `orden_compra` y `detalle_orden_compra` (migración `019_proveedores_ordenes_compra.sql`). En total son 43. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
+El diseño base son 26 tablas. La aplicación agrega 18 tablas de apoyo con migraciones: `intento_login` (`seguridad.sql`), `ajuste_inventario` (`ajustes.sql`), `auditoria` (`auditoria.sql`), `ingreso_mercaderia` y `detalle_ingreso` (`ingresos.sql`), `devolucion_venta`, `detalle_devolucion` y `movimiento_caja` (`operaciones.sql`), `api_token` y `api_operacion` (`api_movil.sql`), y `regla_caja`, `arqueo_caja` y `arqueo_detalle` (`caja_apertura.sql`), más `migracion_aplicada` (el registro de las migraciones de `backend/database/migraciones/`) y `proveedor`, `orden_compra` y `detalle_orden_compra` (migración `019_proveedores_ordenes_compra.sql`), y `promocion` y `descuento_venta` (migración `020_descuentos_promociones.sql`, que también agrega a `detalle_venta` el descuento de cada línea). En total son 45. Todo cambio nuevo de la base va como una migración numerada: ver `docs/despliegue.md`, sección 8. Ver `docs/diseno_bd.md`, sección 5.
 
 ---
 

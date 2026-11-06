@@ -42,6 +42,7 @@ if ($usuarioActual !== null) {
     if ($usuarioActual->puedeManejarCaja() || $usuarioActual->puedeVerArqueo($idTiendaActual)) { $ventasMenu['caja'] = ['Caja', 'caja']; }
     $ventasMenu['ventas'] = ['Ventas', 'ventas'];
     if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarTienda($idTiendaActual)) { $ventasMenu['clientes'] = ['Clientes', 'clientes']; }
+    if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarPromociones($idTiendaActual)) { $ventasMenu['promociones'] = ['Promociones', 'oferta']; }
 
     // Inventario en dos opciones; sus pantallas salen como pestañas arriba del contenido. [ruta => [texto, icono]]
     $productosPestanas = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];

@@ -155,7 +155,8 @@ class VentaRepository
     public function detallesDeVenta(int $idVenta): array
     {
         $consulta = $this->db->prepare(
-            'SELECT id_detalle_venta, cantidad, precio_unitario, importe, id_venta, id_producto
+            'SELECT id_detalle_venta, cantidad, precio_unitario, importe, id_venta, id_producto,
+                    descuento, descuento_general, id_promocion
                FROM detalle_venta
               WHERE id_venta = :venta
               ORDER BY id_detalle_venta'
@@ -167,8 +168,36 @@ class VentaRepository
             (float) $f['precio_unitario'],
             (float) $f['importe'],
             (int) $f['id_venta'],
-            (int) $f['id_producto']
+            (int) $f['id_producto'],
+            (float) $f['descuento'],
+            (float) $f['descuento_general'],
+            $f['id_promocion'] === null ? null : (int) $f['id_promocion']
         ), $consulta->fetchAll());
+    }
+
+    /**
+     * El descuento a toda la venta (migracion 020), con el nombre de su promocion o el motivo del cajero.
+     * @return ?array{origen: string, nombre: string, porcentaje: ?float, monto: float, motivo: ?string}
+     */
+    public function descuentoDeVenta(int $idVenta): ?array
+    {
+        $consulta = $this->db->prepare(
+            'SELECT dv.origen, dv.porcentaje, dv.monto, dv.motivo, p.nombre
+               FROM descuento_venta dv LEFT JOIN promocion p ON p.id_promocion = dv.id_promocion
+              WHERE dv.id_venta = :venta'
+        );
+        $consulta->execute(['venta' => $idVenta]);
+        $f = $consulta->fetch();
+        if ($f === false) {
+            return null;
+        }
+        return [
+            'origen'     => $f['origen'],
+            'nombre'     => $f['origen'] === 'MANUAL' ? 'Descuento' : (string) $f['nombre'],
+            'porcentaje' => $f['porcentaje'] === null ? null : (float) $f['porcentaje'],
+            'monto'      => (float) $f['monto'],
+            'motivo'     => $f['motivo'],
+        ];
     }
 
     /**

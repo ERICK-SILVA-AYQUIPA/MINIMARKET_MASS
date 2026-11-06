@@ -480,6 +480,95 @@
         const nombreDe = (opcion) => opcion.textContent.split('·')[0].trim();
         caja.hidden = false;
 
+        // Promociones del dia y tope del descuento manual: vienen en data-promociones (los manda la vista, ya escapados).
+        // Mismas reglas que Descuentos::calcular() del servidor, que al registrar vuelve a calcular todo.
+        let datosPromo = { promociones: [], tope: 0 };
+        try {
+            datosPromo = JSON.parse(formVenta.dataset.promociones || '{}');
+        } catch (e) {
+            // Sin datos: se muestra el total sin descuentos
+        }
+        const promociones = datosPromo.promociones || [];
+        const porcentajeDe = (cent, centesimas) => Math.floor((cent * centesimas + 5000) / 10000);
+        function descuentoLinea(promo, mil, precio, alPeso) {
+            const imp = importe(mil, precio);
+            let d = 0;
+            if (promo.tipo === 'PORCENTAJE') {
+                d = porcentajeDe(imp, promo.porcentaje);
+            } else if (promo.tipo === 'PRECIO') {
+                d = promo.precio < precio ? imp - importe(mil, promo.precio) : 0;
+            } else if (promo.tipo === 'PACK' && !alPeso && mil % 1000 === 0) {
+                const packs = Math.floor(mil / 1000 / promo.pack);
+                d = importe(packs * promo.pack * 1000, precio) - packs * promo.precio;
+            }
+            return Math.max(0, Math.min(d, imp));
+        }
+        function calcularDescuentos(pedido, avisos, listaDescuentos) {
+            let productos = 0;
+            let base = 0;
+            pedido.forEach((mil, id) => {
+                const opcion = $('select option[value="' + CSS.escape(id) + '"]', formVenta);
+                const precio = centimos(opcion.dataset.precio);
+                const imp = importe(mil, precio);
+                let mejor = null;
+                let d = 0;
+                promociones.forEach((promo) => {
+                    if (promo.tipo !== 'VENTA' && String(promo.producto) === id) {
+                        const x = descuentoLinea(promo, mil, precio, opcion.dataset.peso === '1');
+                        if (x > d) {
+                            d = x;
+                            mejor = promo;
+                        }
+                    }
+                });
+                if (d > 0) {
+                    listaDescuentos.push(nombreDe(opcion) + ' · ' + mejor.nombre + ': −' + soles(d));
+                }
+                productos += d;
+                base += imp - d;
+            });
+            // Un solo descuento a toda la compra: la mejor promocion VENTA o el del cajero, el mayor
+            let general = null;
+            promociones.forEach((promo) => {
+                if (promo.tipo === 'VENTA' && base >= promo.minimo) {
+                    const m = porcentajeDe(base, promo.porcentaje);
+                    if (m > 0 && (general === null || m > general.monto)) {
+                        general = { nombre: promo.nombre, monto: m };
+                    }
+                }
+            });
+            const valor = campo('descuento_valor');
+            const texto = valor ? valor.value.trim() : '';
+            if (texto !== '' && !/^0+(\.0*)?$/.test(texto)) {
+                const n = centimos(texto);
+                const enPorcentaje = campo('descuento_unidad').value !== 'MONTO';
+                const tope = porcentajeDe(base, datosPromo.tope);
+                const monto = n === null ? null : (enPorcentaje ? porcentajeDe(base, n) : n);
+                if (monto === null || monto <= 0) {
+                    avisos.push('El descuento no es válido.');
+                } else if ((enPorcentaje && n > datosPromo.tope) || monto > tope) {
+                    avisos.push('Puedes descontar hasta ' + soles(tope) + ' (' + (datosPromo.tope / 100) + ' %). Para más, pide una promoción.');
+                } else if (campo('descuento_motivo').value.trim() === '') {
+                    avisos.push('Escribe el motivo del descuento.');
+                } else if (general === null || monto > general.monto) {
+                    general = { nombre: 'Descuento del cajero', monto };
+                } else {
+                    avisos.push('La promoción de hoy descuenta más que tu descuento: se aplica la promoción.');
+                }
+            }
+            if (general !== null) {
+                listaDescuentos.push(general.nombre + ': −' + soles(general.monto));
+            }
+            return productos + (general ? general.monto : 0);
+        }
+
+        // Medio de pago elegido: muestra solo sus campos (sin JavaScript se ven todos)
+        const medioElegido = () => {
+            const marcado = formVenta.querySelector('input[name=medio_pago]:checked');
+            return marcado ? marcado.value : 'EFECTIVO';
+        };
+        const rotulosMedio = { EFECTIVO: 'Tarjeta o Sip', DEBITO: 'Con débito', CREDITO: 'Con crédito', SIP: 'Con Sip' };
+
         function calcular() {
             let total = 0;
             const avisos = [];
@@ -525,17 +614,34 @@
                 }
             });
 
-            const tarjeta = centimos(campo('tarjeta_monto').value || '0');
-            const sip = centimos(campo('sip_monto').value || '0');
+            // Promociones del dia y descuento manual
+            const subtotal = total;
+            const listaDescuentos = [];
+            const descuentos = pedidoPorProducto.size > 0 ? calcularDescuentos(pedidoPorProducto, avisos, listaDescuentos) : 0;
+            total -= descuentos;
+
+            const medio = medioElegido();
+            const conTarjeta = medio === 'DEBITO' || medio === 'CREDITO';
+            const montoMedio = (nombre) => {
+                const texto = campo(nombre).value.trim();
+                return texto === '' ? total : centimos(texto);
+            };
+            const tarjeta = conTarjeta ? montoMedio('tarjeta_monto') : 0;
+            const sip = medio === 'SIP' ? montoMedio('sip_monto') : 0;
             const efectivo = centimos(campo('efectivo_recibido').value || '0');
             const otros = (tarjeta || 0) + (sip || 0);
             const falta = Math.max(0, total - otros);
             const vuelto = efectivo === null ? 0 : Math.max(0, efectivo - falta);
+            $$('[data-pago]', formVenta).forEach((bloque) => {
+                const tipo = bloque.dataset.pago;
+                bloque.hidden = tipo === 'tarjeta' ? !conTarjeta : tipo === 'sip' ? medio !== 'SIP' : medio !== 'EFECTIVO' && falta <= 0;
+            });
+            $('[data-rotulo-otros]', caja).textContent = rotulosMedio[medio] || 'Tarjeta o Sip';
 
             if (tarjeta === null || sip === null || efectivo === null) {
                 avisos.push('Un monto de pago no es válido (usa hasta 2 decimales).');
             } else if (total > 0 && otros > total) {
-                avisos.push('Tarjeta y Sip suman más que el total.');
+                avisos.push((conTarjeta ? 'El monto con tarjeta' : 'El monto con Sip') + ' pasa el total.');
             } else if (total > 0 && efectivo < falta) {
                 avisos.push('Falta ' + soles(falta - efectivo) + ' en efectivo.');
             }
@@ -549,6 +655,16 @@
             }
 
             $('[data-total]', caja).textContent = soles(total);
+            $$('[data-fila-descuento]', caja).forEach((el) => { el.hidden = descuentos <= 0; });
+            $('[data-subtotal]', caja).textContent = soles(subtotal);
+            $('[data-descuentos]', caja).textContent = '−' + soles(descuentos);
+            const ulDescuentos = $('[data-lista-descuentos]', caja);
+            ulDescuentos.hidden = listaDescuentos.length === 0;
+            ulDescuentos.replaceChildren(...listaDescuentos.map((texto) => {
+                const li = document.createElement('li');
+                li.textContent = texto;
+                return li;
+            }));
             $('[data-otros]', caja).textContent = soles(otros);
             $('[data-falta]', caja).textContent = soles(falta);
             $('[data-vuelto]', caja).textContent = soles(vuelto);
@@ -1654,6 +1770,19 @@
         boton.hidden = false;
         boton.addEventListener('click', () => window.print());
     });
+
+    // ---------- Nueva promocion: solo los campos del tipo elegido (sin JavaScript se ven todos) ----------
+    const formPromo = $('form[data-promocion]');
+    if (formPromo) {
+        const tipoPromo = $('[data-promo-tipo]', formPromo);
+        const mostrarCamposPromo = () => {
+            $$('[data-promo-campo]', formPromo).forEach((bloque) => {
+                bloque.hidden = !bloque.dataset.promoCampo.split(' ').includes(tipoPromo.value);
+            });
+        };
+        tipoPromo.addEventListener('change', mostrarCamposPromo);
+        mostrarCamposPromo();
+    }
 
     // ---------- Cierre de sesion por inactividad (el servidor la cierra a los N minutos sin pedidos) ----------
     // Sin esto, una caja olvidada sigue mostrando ventas y montos aunque la sesion ya vencio.

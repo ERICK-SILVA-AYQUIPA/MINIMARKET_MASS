@@ -58,7 +58,17 @@ class VentaApiController extends ApiController
                 Dinero::aTexto($totalActual), Dinero::aTexto($esperado)
             ));
         }
-        $pago = $this->pago(is_array($datos['pago'] ?? null) ? $datos['pago'] : [], $totalActual);
+        // Tarjeta y Sip cobran el total con las promociones de hoy (la app manda el total de lista: el chequeo de arriba
+        // solo detecta cambios de precio). La respuesta trae el total cobrado y el descuento de cada linea.
+        $totalCobrar = $totalActual;
+        if ($totalActual !== null) {
+            try {
+                $totalCobrar = $this->servicio->cotizar($cajero, $lineas)['total'];
+            } catch (ReglaNegocioException) {
+                $totalCobrar = null; // el servicio dara el mensaje exacto al registrar
+            }
+        }
+        $pago = $this->pago(is_array($datos['pago'] ?? null) ? $datos['pago'] : [], $totalCobrar);
 
         return $this->operaciones->unaVez($cajero, $clave, 'VENTA', function () use ($cajero, $tipo, $documento, $lineas, $pago): array {
             $r = $this->servicio->registrar($cajero, $tipo, $documento, $lineas, $pago);

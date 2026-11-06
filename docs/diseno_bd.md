@@ -678,6 +678,19 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `api_movil.sql` | Tablas `api_token` y `api_operacion` | Sesiones de la app Android y respuestas guardadas para que un reintento no repita una venta o un ingreso |
 | `caja_apertura.sql` | Tablas `regla_caja`, `arqueo_caja` y `arqueo_detalle`; columnas `caja.fondo_fijo` y, en `caja_turno`, `monto_esperado`, `diferencia`, `en_pausa_desde`, `observacion`, `id_empleado_revisa`, `fecha_hora_revision` y dos columnas generadas únicas | Apertura y cierre de caja por empleado: fondo fijo, arqueo por billetes y monedas, diferencia guardada y revisión del administrador |
 | `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
+| `migraciones/020_descuentos_promociones.sql` | Tablas `promocion` y `descuento_venta`; columnas `detalle_venta.descuento`, `descuento_general` e `id_promocion`; el CHECK de `detalle_devolucion.importe` pasa a `importe <= ROUND(cantidad * precio_unitario, 2)` | Promociones (por producto con %, precio de oferta, pack, y % a toda la compra) y descuento manual del cajero. Lo cobrado de cada línea es `importe - descuento - descuento_general` y `venta.total` es su suma; una devolución paga lo cobrado |
+
+#### `promocion`
+La crea el administrador (de su tienda o de toda la cadena) y se aplica sola al vender mientras esté ACTIVA y dentro de sus fechas.
+- `id_promocion` (INT UNSIGNED, AUTO_INCREMENT, PK), `nombre` (VARCHAR(60))
+- `tipo` (VARCHAR(10), CHECK IN ('PORCENTAJE', 'PRECIO', 'PACK', 'VENTA')): cada tipo usa solo sus columnas (CHECK `ck_promocion_tipo`)
+- `id_producto` (FK, NULL solo en VENTA), `id_tienda` (FK, NULL = toda la cadena)
+- `porcentaje` (DECIMAL(5,2), de 0.01 a 90), `precio` (DECIMAL(10,2): por unidad o kg, o el pack entero), `cantidad_pack` (2 a 99), `monto_minimo` (DECIMAL(10,2))
+- `fecha_inicio`, `fecha_fin` (DATE, fin >= inicio), `estado` (ACTIVA o PAUSADA), `id_empleado` (quien la creó), `fecha_registro`
+
+#### `descuento_venta`
+El descuento a toda una venta (como máximo uno): una promoción VENTA o el manual del cajero (hasta 10 %, con motivo). Se reparte entre las líneas en `detalle_venta.descuento_general`.
+- `id_venta` (PK, FK), `origen` (PROMOCION o MANUAL), `id_promocion` (FK, solo PROMOCION), `porcentaje` (NULL si fue un monto), `monto` (> 0), `motivo` (solo MANUAL), `id_empleado`
 
 #### `ajuste_inventario`
 Cabecera de un conteo físico o corrección en una tienda; las diferencias por producto quedan en el kardex.

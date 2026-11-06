@@ -24,8 +24,3 @@ parameters:
 			count: 1
 			path: backend/models/servicios/VentaServicio.php
 
-		-
-			message: '#^Offset ''importe'' does not exist on array\{milesimas\: int, precio\: int, nombre\: string\}\.$#'
-			identifier: offsetAccess.notFound
-			count: 1
-			path: backend/models/servicios/VentaServicio.php

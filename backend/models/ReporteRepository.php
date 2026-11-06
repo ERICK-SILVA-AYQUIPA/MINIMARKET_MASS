@@ -69,7 +69,7 @@ class ReporteRepository
     {
         return $this->filas(
             'SELECT p.nombre_producto AS producto, u.abreviatura AS unidad,
-                    SUM(d.cantidad) AS cantidad, SUM(d.importe) AS importe '
+                    SUM(d.cantidad) AS cantidad, SUM(d.importe - d.descuento - d.descuento_general) AS importe '
             . $this->ventas('JOIN detalle_venta d ON d.id_venta = v.id_venta
                     JOIN producto p ON p.id_producto = d.id_producto
                     JOIN unidad_medida u ON u.id_unidad = p.id_unidad')
@@ -82,7 +82,7 @@ class ReporteRepository
     public function porCategoria(int|array $tiendas, string $desde, string $hasta): array
     {
         return $this->filas(
-            'SELECT c.nombre_categoria AS categoria, SUM(d.importe) AS importe '
+            'SELECT c.nombre_categoria AS categoria, SUM(d.importe - d.descuento - d.descuento_general) AS importe '
             . $this->ventas('JOIN detalle_venta d ON d.id_venta = v.id_venta
                     JOIN producto p ON p.id_producto = d.id_producto
                     JOIN categoria c ON c.id_categoria = p.id_categoria')
@@ -150,7 +150,7 @@ class ReporteRepository
                     vend.cantidad - COALESCE(dev.cantidad, 0) AS cantidad,
                     vend.importe - COALESCE(dev.importe, 0) AS ventas,
                     costo.unitario AS costo_unitario
-               FROM (SELECT d.id_producto, SUM(d.cantidad) AS cantidad, SUM(d.importe) AS importe
+               FROM (SELECT d.id_producto, SUM(d.cantidad) AS cantidad, SUM(d.importe - d.descuento - d.descuento_general) AS importe
                        FROM venta v
                        JOIN serie_comprobante s ON s.id_serie = v.id_serie
                        JOIN detalle_venta d ON d.id_venta = v.id_venta
