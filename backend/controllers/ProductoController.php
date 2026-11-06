@@ -31,9 +31,13 @@ class ProductoController extends Controller
     /**
      * GET /?ruta=productos&tienda=1  (con &ver=8 abre la ficha del producto en el panel lateral)
      * &vista=tabla muestra la tabla en vez de las tarjetas; &categoria=2 deja solo esa categoria.
+     * &buscar=leche (el buscador de la barra superior) deja escrito el texto en el buscador de la lista, que filtra al cargar.
      */
-    public function lista(?string $tiendaPedida, ?string $ver = null, ?string $vistaPedida = null, ?string $categoriaPedida = null): void
+    public function lista(?string $tiendaPedida, ?string $ver = null, ?string $vistaPedida = null, ?string $categoriaPedida = null,
+        ?string $buscarPedido = null): void
     {
+        // Solo se vuelve a mostrar en el campo (escapado en la vista); no entra a ninguna consulta
+        $buscado = mb_substr(trim($buscarPedido ?? ''), 0, 80);
         $tienda = $this->leerTienda($tiendaPedida);
         $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'productos';
@@ -83,7 +87,7 @@ class ProductoController extends Controller
             $elegido = $this->repo->buscarPorId((int) $ver);
             $ficha = $elegido !== null ? $this->datosFicha($elegido, $tienda) : null;
         }
-        unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas, $desdeNuevo);
+        unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas, $desdeNuevo, $buscarPedido);
 
         $this->vista('productos/lista', get_defined_vars());
     }

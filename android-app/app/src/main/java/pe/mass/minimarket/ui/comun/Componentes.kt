@@ -103,6 +103,7 @@ import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.dominio.soles
 import pe.mass.minimarket.dominio.textoCantidad
 import pe.mass.minimarket.ui.tema.Mass
+import pe.mass.minimarket.ui.tema.numeros
 
 /** El repositorio unico de la app (MassApp). */
 @Composable
@@ -324,8 +325,8 @@ fun Tarjeta(
     contenido: @Composable ColumnScope.() -> Unit,
 ) {
     val colores = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    // En modo claro un borde fino separa la tarjeta del fondo; en oscuro basta el cambio de tono
-    val borde = if (Mass.colores.oscuro) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    // Borde fino de baja opacidad en los dos modos, como las tarjetas de la web
+    val borde = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     if (onClick != null) {
         Card(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.medium, colors = colores, border = borde, content = contenido)
     } else {
@@ -391,6 +392,35 @@ fun EtiquetaStock(producto: Producto, modifier: Modifier = Modifier) {
     Pastilla(texto, fondo, tinta, modifier)
 }
 
+/**
+ * Barra fina del stock: llena segun lo que hay frente a tres veces el minimo de la tienda (sin minimo no aparece).
+ * Verde si esta bien, ambar si llego al minimo y coral si se agoto (los mismos avisos de la etiqueta).
+ */
+@Composable
+fun BarraStock(producto: Producto, modifier: Modifier = Modifier) {
+    val minimo = producto.stockMinimo.toDoubleOrNull() ?: 0.0
+    // Sin minimo no hay contra que medir: no se dibuja (una barra siempre llena engañaria)
+    if (!producto.activo || !producto.stockRegistrado || minimo <= 0.0) return
+    val c = Mass.colores
+    val stock = producto.stock.toDoubleOrNull() ?: 0.0
+    val tope = minimo * 3
+    val llenado = (stock / tope).coerceIn(0.0, 1.0).toFloat()
+    val color = when {
+        producto.agotado -> c.peligro
+        producto.stockBajo -> c.alerta
+        else -> c.exito
+    }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Box(Modifier.fillMaxWidth(llenado).fillMaxHeight().clip(RoundedCornerShape(50)).background(color))
+    }
+}
+
 @Composable
 fun FilaProducto(producto: Producto, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -401,6 +431,7 @@ fun FilaProducto(producto: Producto, onClick: () -> Unit, modifier: Modifier = M
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(producto.nombre, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            BarraStock(producto, Modifier.padding(vertical = 6.dp))
             Text(
                 listOfNotNull(producto.codigoBarras ?: "Sin código (al peso)", producto.categoria.ifBlank { null }).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
@@ -411,7 +442,7 @@ fun FilaProducto(producto: Producto, onClick: () -> Unit, modifier: Modifier = M
         }
         Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
-            Text(producto.precioVenta.soles(), style = MaterialTheme.typography.titleMedium)
+            Text(producto.precioVenta.soles(), style = MaterialTheme.typography.titleMedium.numeros())
             Spacer(Modifier.size(4.dp))
             EtiquetaStock(producto)
         }

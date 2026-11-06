@@ -20,7 +20,8 @@ Sobre los pagos: la app **registra** el método (efectivo, tarjeta o Sip) igual 
 
 ## Diseño y experiencia de uso
 
-- **Material 3 con la marca Mass** (amarillo y tinta de la web), **modo oscuro** y pantalla de borde a borde. El tema se elige en *Mi perfil → Apariencia* (automático, claro u oscuro).
+- **Material 3 con la marca Mass**: los mismos colores de la web (fondo `#0B0F17`, tarjetas `#161B26`, amarillo `#FFC400`, esmeralda, ámbar y coral para los estados), letras **Plus Jakarta Sans** y **JetBrains Mono** para precios y cantidades (en `res/font`, licencia OFL), **modo oscuro** y pantalla de borde a borde. El tema se elige en *Mi perfil → Apariencia* (automático, claro u oscuro).
+- **Inventario con barra de stock**: cada producto muestra una barra fina verde, ámbar o coral según lo que queda frente a su mínimo.
 - **Inicio según el rol**: saludo según la hora, la acción principal en grande (*Nueva venta* para el cajero con el estado de su turno, *Entrada de stock* para almacenero y administrador), indicadores de **agotados**, **por reponer** y **ventas de hoy** (cada uno abre su lista), accesos rápidos y **vistos hace poco**. Se actualiza deslizando hacia abajo.
 - **Agregar producto escaneando**: acceso directo del inicio. Si el código no existe, el formulario se abre solo; si ya existe, muestra su precio y stock.
 - **Escáner**: **linterna**, **acercar 2×** para códigos pequeños, **tocar para enfocar**, línea de lectura animada y destello al leer. Sonido y vibración distintos para "encontrado" y "no encontrado", y se pueden apagar en *Mi perfil*.

@@ -2,7 +2,7 @@
 <resources>
     <!-- Modo oscuro del sistema: la ventana ya arranca oscura, sin destello blanco al abrir la app -->
     <style name="Theme.MinimarketMass" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0E1318</item>
+        <item name="android:windowBackground">#0B0F17</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

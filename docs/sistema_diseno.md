@@ -8,7 +8,7 @@ como `p-4` o `shadow-xl`, sino con **variables CSS** que usan los mismos número
 |---|---|
 | `frontend/public/css/tokens.css` | **La única fuente** de colores, espacios, radios, sombras, vidrio, letras y curvas. Se carga antes que todo. |
 | `frontend/public/css/estilos.css` | Los componentes (botones, tablas, caja, venta…). Solo usa las variables de `tokens.css`: no lleva valores sueltos de espacio, radio ni curva. |
-| `frontend/public/fuentes/` | Inter, JetBrains Mono y Outfit, guardadas en el propio sitio (licencia OFL, ver `LICENCIA.txt`). |
+| `frontend/public/fuentes/` | Plus Jakarta Sans y JetBrains Mono, guardadas en el propio sitio (licencia OFL, ver `LICENCIA.txt`). |
 
 ## Equivalencias con Tailwind
 
@@ -21,10 +21,31 @@ como `p-4` o `shadow-xl`, sino con **variables CSS** que usan los mismos número
 | `border-slate-200`, `border-white/10` | `--borde` (`rgba(15,23,42,.08)`), `--borde-oscuro` (`rgba(255,255,255,.10)`) | bordes de baja opacidad |
 | `text-slate-500` | `--suave` (`#64748b`) | texto secundario |
 | `backdrop-blur` | `--vidrio`, `--vidrio-oscuro`, `--vidrio-desenfoque` | vidrio |
-| `font-sans`, `font-mono` | `--letra` (Inter), `--mono` (JetBrains Mono) | |
+| `font-sans`, `font-mono` | `--letra` (Plus Jakarta Sans), `--mono` (JetBrains Mono) | |
 
 Los nombres viejos `--e1`…`--e6`, `--radio`, `--radio-chico`, `--sombra` y `--sombra-alta` siguen
 funcionando (apuntan a los nuevos) para no romper estilos que alguien tenga en una rama abierta.
+
+## Tema oscuro de punto de venta
+
+Desde la versión con el rediseño, toda la página va en **oscuro**, como una caja registradora: fondo
+`#0B0F17` (`--fondo`), tarjetas, tablas y menú lateral `#161B26` (`--superficie`), encabezados y fotos
+`#1E2532` (`--superficie-2`) y el amarillo `#FFC400` (`--marca`) como único acento. `:root` declara
+`color-scheme: dark`, así las listas, calendarios y barras del navegador también salen oscuros.
+
+- **Tinta y texto sobre color.** `--tinta` (#F8FAFC) es el color de los títulos y del botón por defecto
+  (claro). Lo que va encima de un relleno usa su par: `--sobre-tinta` sobre la tinta y `--sobre-marca`
+  sobre el amarillo. Nunca `#fff` fijo.
+- **Estados.** `--verde`, `--rojo`, `--ambar`, `--azul` son claros (se leen sobre la tarjeta) con su
+  `-fondo` translúcido y su `-borde`. Para pastillas o botones llenos con letra blanca están los `-solido`.
+- **Imprimir.** `tokens.css` vuelve a la paleta clara dentro de `@media print`: el papel sale blanco.
+- **Barra superior** (solo computadora): buscador del catálogo (`?ruta=productos&buscar=…`, el texto
+  queda en el buscador de la lista y filtra al cargar) y, para quien maneja caja, el indicador del turno
+  (verde y latiendo si está abierto, ámbar en pausa, gris si no hay turno). Lleva a la Caja.
+- **Menú lateral** de 280 px: la marca con la tienda debajo, las secciones Principal, Ventas, Inventario y
+  Administración, y abajo quien entró con sus iniciales.
+- **Tarjetas de producto:** foto con el stock encima (verde, ámbar o rojo), categoría, nombre, marca, precio
+  en JetBrains Mono amarillo y el código de barras en una pastilla.
 
 ## Reglas
 
@@ -32,11 +53,10 @@ funcionando (apuntan a los nuevos) para no romper estilos que alguien tenga en u
 (botones, chips, campos) son múltiplos de 4. `--s-px` (1 px) y `--s-0_5` (2 px) solo existen para líneas
 finas y ajustes ópticos. Anchos de íconos, fotos y columnas no entran en la grilla.
 
-**Letras.** Inter para toda la interfaz; títulos con tracking reducido (`--tracking-titulo`, −0.02 em) y
+**Letras.** Plus Jakarta Sans para toda la interfaz y la marca; títulos con tracking reducido (`--tracking-titulo`, −0.02 em) y
 rótulos en MAYÚSCULAS con tracking aumentado (`--tracking-mayusculas`, 0.08 em). JetBrains Mono para los
 números: todo lo que antes pedía cifras tabulares (montos, totales, conteos, códigos, la columna `.num`
-de las tablas, el comprobante de cierre). Outfit queda solo para la marca (logo, «Minimarket Mass», la
-portada del login y la bienvenida).
+de las tablas, el comprobante de cierre).
 
 **Color.** Base neutra *slate* + **un solo acento**: el amarillo de la marca (`--marca`), en el botón
 principal, el activo del menú, el halo del foco y la guía «Cómo se usa». El menú lateral y las barras

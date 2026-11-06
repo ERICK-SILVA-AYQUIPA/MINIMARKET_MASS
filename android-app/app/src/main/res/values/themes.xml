@@ -3,7 +3,7 @@
     <!-- La ventana antes de que cargue Compose; los colores de la app estan en ui/tema/Tema.kt.
          Las barras del sistema son transparentes: la app dibuja de borde a borde (MainActivity). -->
     <style name="Theme.MinimarketMass" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">#F6F7F9</item>
+        <item name="android:windowBackground">#F1F5F9</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>

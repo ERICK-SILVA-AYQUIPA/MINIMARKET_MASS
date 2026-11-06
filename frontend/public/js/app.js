@@ -212,6 +212,11 @@
             filtro.texto = campo.value;
             filtro.aplicar();
         });
+        // Llego con texto (buscado desde la barra superior): filtra ya
+        if (campo.value.trim() !== '') {
+            filtro.texto = campo.value;
+            filtro.aplicar();
+        }
         campo.addEventListener('keydown', (evento) => {
             if (evento.key === 'Escape' && campo.value !== '') {
                 evento.stopPropagation();
@@ -1504,7 +1509,8 @@
         }
         // "/" lleva al buscador de la pagina
         if (evento.key === '/' && !escribiendo && drawer === null) {
-            const buscador = $('[data-buscador]:not([hidden]) input') || $('form.filtros input:not([type=hidden])');
+            const buscador = $('[data-buscador]:not([hidden]) input') || $('form.filtros input:not([type=hidden])')
+                || [$('[data-busqueda-global] input[type=search]')].find((campo) => campo && campo.offsetParent !== null);
             if (buscador) {
                 evento.preventDefault();
                 buscador.focus();
