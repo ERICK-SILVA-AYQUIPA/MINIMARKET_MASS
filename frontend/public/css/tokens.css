@@ -9,13 +9,15 @@
                                      rounded-xl → var(--radio-xl)   (12px)
                                      shadow-sm / shadow-xl → var(--sombra-sm) / var(--sombra-xl)
    Si algún día hay un archivo de Figma, sus variables se mapean a estos mismos nombres.
+   Tema oscuro de punto de venta (fondo #0B0F17, tarjetas #161B26, amarillo #FFC400). Al imprimir
+   se vuelve a la paleta clara (al final de este archivo): el papel va blanco y la tinta negra.
    ===================================================================== */
 
 /* ---------- Letras (guardadas en el propio sitio, licencia OFL: ver /fuentes/LICENCIA.txt) ---------- */
-/* Inter: toda la interfaz. JetBrains Mono: números (montos, códigos, conteos). Outfit: solo la marca. */
+/* Plus Jakarta Sans: toda la interfaz y la marca. JetBrains Mono: números (montos, códigos, conteos). */
 @font-face {
-    font-family: "Inter"; font-style: normal; font-weight: 100 900; font-display: swap;
-    src: url("/fuentes/inter.woff2") format("woff2");
+    font-family: "Plus Jakarta Sans"; font-style: normal; font-weight: 200 800; font-display: swap;
+    src: url("/fuentes/plus-jakarta-sans.woff2") format("woff2");
     unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
                    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
@@ -25,42 +27,46 @@
     unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
                    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-@font-face {
-    font-family: "Outfit"; font-style: normal; font-weight: 400 800; font-display: swap;
-    src: url("/fuentes/outfit.woff2") format("woff2");
-}
 
 :root {
-    /* ---------- Color: base neutra (slate) + un solo acento (el amarillo de la marca) ---------- */
-    --marca: #ffd200;            /* el acento: botón principal, activo del menú, resaltes */
-    --marca-fuerte: #f2c200;
-    --marca-suave: #fff6cc;
-    --tinta: #0f172a;            /* slate-900: títulos y botón oscuro */
-    --texto: #1e293b;            /* slate-800 */
-    --suave: #64748b;            /* slate-500: texto secundario (AA sobre blanco) */
-    --tenue: #94a3b8;            /* slate-400: rótulos sobre oscuro, pie */
-    --fondo: #f1f5f9;            /* slate-100 */
-    --superficie: #ffffff;
-    --superficie-2: #f8fafc;     /* slate-50 */
-    --lateral: #0f172a;          /* menú lateral oscuro de la marca */
-    --lateral-texto: #cbd5e1;    /* slate-300 */
-    --oscuro-1: #1e293b;         /* barras oscuras (turno, arqueo) */
-    --oscuro-2: #0b1120;
+    /* Tema oscuro de punto de venta: fondo casi negro, tarjetas un tono arriba y el amarillo de la marca
+       como único acento. Los controles del navegador (listas, calendario, barras) también van en oscuro. */
+    color-scheme: dark;
+
+    /* ---------- Color: base neutra (slate oscuro) + un solo acento (el amarillo de la marca) ---------- */
+    --marca: #ffc400;            /* el acento: botón principal, activo del menú, precios, resaltes */
+    --marca-fuerte: #e5b000;     /* al pasar el cursor */
+    --marca-suave: rgba(255, 196, 0, .12);
+    --sobre-marca: #0f172a;      /* texto sobre el amarillo */
+    --tinta: #f8fafc;            /* títulos y botón claro */
+    --tinta-hover: #e2e8f0;
+    --sobre-tinta: #0b0f17;      /* texto sobre un fondo de tinta (botón claro, chip elegido) */
+    --texto: #e2e8f0;
+    --suave: #94a3b8;            /* texto secundario (AA sobre las tarjetas) */
+    --tenue: #7b8aa0;            /* rótulos chicos, pie */
+    --fondo: #0b0f17;            /* fondo de la aplicación */
+    --superficie: #161b26;       /* tarjetas, paneles, tablas, menú lateral */
+    --superficie-2: #1e2532;     /* encabezados de tabla, fotos, filas al pasar el cursor */
+    --lateral: #161b26;          /* menú lateral */
+    --lateral-texto: #94a3b8;
+    --oscuro-1: #1e2532;         /* barras destacadas (turno, arqueo, total de la venta) */
+    --oscuro-2: #121722;
     --sobre-oscuro: #e2e8f0;
     --sobre-oscuro-suave: #94a3b8;
     /* Bordes de baja opacidad: se adaptan a cualquier fondo */
-    --borde: rgba(15, 23, 42, .08);          /* ≈ border-slate-200 */
-    --borde-fuerte: rgba(15, 23, 42, .18);   /* campos y chips */
-    --borde-oscuro: rgba(255, 255, 255, .10); /* ≈ border-white/10 sobre fondo oscuro */
-    /* Estados (no son acentos: solo dicen ok, error, alerta). Texto sobre su fondo con contraste AA */
-    --verde: #166534;   --verde-fondo: #dcfce7;
-    --rojo: #b42318;    --rojo-fondo: #fee4e2;
-    --ambar: #92400e;   --ambar-fondo: #fef3c7;
-    --azul: #1d4ed8;    --azul-fondo: #dbeafe;
-    --gris: #475569;    --gris-fondo: #e2e8f0;
+    --borde: rgba(255, 255, 255, .08);
+    --borde-fuerte: rgba(255, 255, 255, .16);   /* campos y chips */
+    --borde-oscuro: rgba(255, 255, 255, .10);
+    /* Estados (no son acentos: solo dicen ok, error, alerta). Texto claro sobre su fondo translúcido;
+       los -solido son para pastillas y botones llenos con letra blanca */
+    --verde: #34d399;   --verde-fondo: rgba(16, 185, 129, .12);  --verde-borde: rgba(16, 185, 129, .32);  --verde-solido: #059669;
+    --rojo: #f87171;    --rojo-fondo: rgba(239, 68, 68, .12);    --rojo-borde: rgba(239, 68, 68, .35);    --rojo-solido: #dc2626;
+    --ambar: #fbbf24;   --ambar-fondo: rgba(245, 158, 11, .12);  --ambar-borde: rgba(245, 158, 11, .35);  --ambar-solido: #d97706;
+    --azul: #60a5fa;    --azul-fondo: rgba(59, 130, 246, .14);   --azul-borde: rgba(59, 130, 246, .35);
+    --gris: #94a3b8;    --gris-fondo: rgba(255, 255, 255, .06);
     --enlace: var(--tinta);                /* enlaces: tinta subrayada, sin un segundo color */
-    --foco: var(--tinta);                  /* borde del campo con foco */
-    --anillo-foco: rgba(255, 196, 0, .45); /* halo del foco: el acento */
+    --foco: var(--marca);                  /* borde del campo con foco */
+    --anillo-foco: rgba(255, 196, 0, .30); /* halo del foco: el acento */
 
     /* ---------- Espacio: grilla de 4/8 pt (mismos números que Tailwind) ---------- */
     --s-0: 0;
@@ -79,33 +85,33 @@
     --radio-2xl: 16px;    /* rounded-2xl: tarjetas grandes */
     --radio-3xl: 24px;    /* rounded-3xl: bloques de entrada */
     --radio-full: 9999px; /* píldoras */
-    --radio: var(--radio-xl);
-    --radio-chico: var(--radio-lg);
+    --radio: var(--radio-2xl);    /* tarjetas y paneles */
+    --radio-chico: var(--radio-xl); /* botones y campos */
 
     /* ---------- Sombras: suaves, difusas y en capas ---------- */
-    --sombra-xs: 0 1px 2px rgba(15, 23, 42, .05);
-    --sombra-sm: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .06);
-    --sombra-md: 0 1px 2px rgba(15, 23, 42, .04), 0 4px 8px -2px rgba(15, 23, 42, .06), 0 8px 16px -4px rgba(15, 23, 42, .06);
-    --sombra-lg: 0 2px 4px rgba(15, 23, 42, .04), 0 8px 16px -4px rgba(15, 23, 42, .08), 0 16px 32px -8px rgba(15, 23, 42, .10);
-    --sombra-xl: 0 4px 8px rgba(15, 23, 42, .04), 0 16px 32px -8px rgba(15, 23, 42, .12), 0 32px 64px -16px rgba(15, 23, 42, .18);
-    --sombra: var(--sombra-sm);
+    --sombra-xs: 0 1px 2px rgba(0, 0, 0, .25);
+    --sombra-sm: 0 1px 2px rgba(0, 0, 0, .2), 0 1px 3px rgba(0, 0, 0, .25);
+    --sombra-md: 0 1px 2px rgba(0, 0, 0, .2), 0 4px 8px -2px rgba(0, 0, 0, .25), 0 8px 16px -4px rgba(0, 0, 0, .25);
+    --sombra-lg: 0 2px 4px rgba(0, 0, 0, .2), 0 8px 24px rgba(0, 0, 0, .2), 0 16px 32px -8px rgba(0, 0, 0, .3);
+    --sombra-xl: 0 4px 8px rgba(0, 0, 0, .2), 0 16px 32px -8px rgba(0, 0, 0, .35), 0 24px 48px rgba(0, 0, 0, .4);
+    --sombra: none;               /* las tarjetas se separan con su borde, no con sombra */
     --sombra-alta: var(--sombra-xl);
-    --brillo: 0 4px 12px rgba(255, 196, 0, .25), 0 12px 24px -8px rgba(255, 170, 0, .35); /* sombra del acento */
+    --brillo: 0 4px 12px rgba(255, 196, 0, .2); /* sombra del acento */
 
     /* ---------- Vidrio (glassmorphism) para lo que flota: modales, menús, barras ---------- */
-    --vidrio: rgba(255, 255, 255, .78);
-    --vidrio-denso: rgba(248, 250, 252, .9);  /* paneles laterales: más opaco, se lee mucho texto */
-    --vidrio-oscuro: rgba(15, 23, 42, .72);
-    --vidrio-borde: rgba(255, 255, 255, .55);
+    --vidrio: rgba(22, 27, 38, .9);
+    --vidrio-denso: rgba(22, 27, 38, .96);   /* paneles laterales: más opaco, se lee mucho texto */
+    --vidrio-oscuro: rgba(11, 15, 23, .8);
+    --vidrio-borde: rgba(255, 255, 255, .08);
     --vidrio-borde-oscuro: rgba(255, 255, 255, .10);
-    --vidrio-desenfoque: saturate(180%) blur(20px);
-    --velo: rgba(15, 23, 42, .40);            /* fondo detrás de un modal */
+    --vidrio-desenfoque: saturate(160%) blur(12px);
+    --velo: rgba(0, 0, 0, .6);                /* fondo detrás de un modal */
     --velo-desenfoque: blur(4px);
 
     /* ---------- Letras ---------- */
-    --letra: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --letra: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --titulos: var(--letra);
-    --letra-marca: "Outfit", var(--letra);
+    --letra-marca: var(--letra);
     --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
     --tracking-titulo: -.02em;      /* títulos: un poco más juntos */
     --tracking-mayusculas: .08em;   /* rótulos en MAYÚSCULAS: más separados */
@@ -125,7 +131,21 @@
     --escala-press: .97;
 
     /* ---------- Medidas fijas ---------- */
-    --ancho-lateral: 248px;
+    --ancho-lateral: 280px;
     --ancho-plegado: 72px;
     --alto-control: var(--s-10);
+}
+
+/* ---------- Al imprimir: paleta clara (papel blanco, tinta negra) ---------- */
+@media print {
+    :root {
+        color-scheme: light;
+        --marca: #ffd200; --marca-fuerte: #f2c200; --marca-suave: #fff6cc; --sobre-marca: #0f172a;
+        --tinta: #0f172a; --tinta-hover: #1e293b; --sobre-tinta: #ffffff; --texto: #1e293b; --suave: #64748b; --tenue: #94a3b8;
+        --fondo: #ffffff; --superficie: #ffffff; --superficie-2: #f8fafc; --lateral: #0f172a; --lateral-texto: #cbd5e1;
+        --oscuro-1: #f1f5f9; --oscuro-2: #e2e8f0; --sobre-oscuro: #0f172a; --sobre-oscuro-suave: #475569;
+        --borde: rgba(15, 23, 42, .12); --borde-fuerte: rgba(15, 23, 42, .25);
+        --verde: #166534; --verde-fondo: #dcfce7; --rojo: #b42318; --rojo-fondo: #fee4e2;
+        --ambar: #92400e; --ambar-fondo: #fef3c7; --azul: #1d4ed8; --azul-fondo: #dbeafe; --gris: #475569; --gris-fondo: #e2e8f0;
+    }
 }

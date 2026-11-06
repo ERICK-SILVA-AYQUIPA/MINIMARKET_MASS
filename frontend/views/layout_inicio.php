@@ -12,6 +12,8 @@ declare(strict_types=1);
  * @var ?bool $paginaEntrada  true solo en el login: fondo oscuro
  * @var ?string $modoMenu  '' (fijo), 'iconos' o 'auto': como ve el menu lateral este usuario
  * @var ?bool $bienvenida  true en la primera pagina despues de entrar: logo con barra de carga
+ * @var ?string $estadoTurno  'abierto', 'pausa' o 'cerrado' para quien maneja caja; null para los demas (la pone Controller::vista)
+ * @var ?string $buscado  lo que se busco desde la barra superior (solo el catalogo lo usa)
  */
 $usuarioActual ??= null;
 $csrf ??= null;
@@ -22,6 +24,8 @@ $nombreTiendaActual ??= '';
 $tiendasParaElegir ??= [];
 $paginaEntrada ??= false;
 $bienvenida ??= false;
+$estadoTurno ??= null;
+$buscado ??= '';
 // Modo del menu lateral ('' fijo, 'iconos' o 'auto'): va en <html data-menu> desde el servidor
 // para que el menu no aparezca abierto y luego se pliegue.
 $modoMenu ??= '';
@@ -32,6 +36,8 @@ require_once __DIR__ . '/parciales/funciones.php';
 
 // Menu agrupado: cada rol ve solo lo que puede usar. [ruta => [texto, icono]]
 $gruposMenu = [];
+$turnoIndicador = null;
+$iniciales = '';
 $pestanasActuales = [];
 $opcionActual = $rutaActual;
 $rutaMarcada = $rutaActual;
@@ -111,6 +117,15 @@ if ($usuarioActual !== null) {
     if ($barraInferior !== []) {
         $claseCuerpo = trim($claseCuerpo . ' con-barra-inferior');
     }
+    // Iniciales para el circulo de quien entro (primera letra del nombre y del apellido)
+    $iniciales = mb_strtoupper(mb_substr(trim($usuarioActual->getNombres()), 0, 1) . mb_substr(trim($usuarioActual->getApellidos()), 0, 1));
+    // Texto y clase del indicador de turno de la barra superior
+    $turnoIndicador = match ($estadoTurno) {
+        'abierto' => ['abierto', 'Turno activo'],
+        'pausa'   => ['pausa', 'Turno en pausa'],
+        'cerrado' => ['cerrado', 'Sin turno abierto'],
+        default   => null,
+    };
 }
 ?>
 <!DOCTYPE html>
@@ -118,14 +133,14 @@ if ($usuarioActual !== null) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#0b0f17">
     <title><?= e($titulo) ?> · Minimarket Mass</title>
-    <link rel="preload" href="/fuentes/inter.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fuentes/plus-jakarta-sans.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
-    <link rel="stylesheet" href="/css/tokens.css?v=1">
-    <link rel="stylesheet" href="/css/estilos.css?v=23">
-    <script src="/js/app.js?v=12" defer></script>
+    <link rel="stylesheet" href="/css/tokens.css?v=2">
+    <link rel="stylesheet" href="/css/estilos.css?v=24">
+    <script src="/js/app.js?v=13" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -146,7 +161,7 @@ if ($usuarioActual !== null) {
     <label class="menu-fondo" for="menu-casilla" aria-hidden="true"></label>
     <aside class="lateral" id="menu-lateral">
         <div class="lateral-cabeza">
-            <a class="marca" href="/?ruta=inicio"><span class="logo" aria-hidden="true">M</span><span class="texto-menu">Minimarket Mass</span></a>
+            <a class="marca" href="/?ruta=inicio"><span class="logo" aria-hidden="true">M</span><span class="texto-menu marca-textos">Minimarket Mass<span class="marca-tienda"><?= e($nombreTiendaActual) ?></span></span></a>
             <!-- Plegar el menu a solo iconos (lo activa app.js; sin JavaScript el menu queda fijo) -->
             <button type="button" class="menu-plegar" data-menu-plegar aria-controls="menu-lateral" hidden>
                 <?= icono('plegar') ?><span class="texto-menu">Ocultar menú</span>
@@ -165,11 +180,6 @@ if ($usuarioActual !== null) {
             </select>
             <button type="submit" class="boton-chico" data-elegir-tienda-boton>Cambiar</button>
         </form>
-        <?php else: ?>
-        <div class="tienda-actual">
-            <span class="sutil">Tienda</span>
-            <strong><?= e($nombreTiendaActual) ?></strong>
-        </div>
         <?php endif; ?>
         <nav aria-label="Menú principal">
             <?php foreach ($gruposMenu as $grupo => $opciones): ?>
@@ -185,9 +195,12 @@ if ($usuarioActual !== null) {
             <?php endforeach; ?>
         </nav>
         <div class="usuario">
-            <div class="usuario-datos">
-                <strong><?= e($usuarioActual->nombreCompleto()) ?></strong>
-                <?= e(ucfirst(strtolower($usuarioActual->getNombreRol()))) ?>
+            <div class="usuario-cabeza">
+                <span class="avatar" aria-hidden="true"><?= e($iniciales) ?></span>
+                <div class="usuario-datos">
+                    <strong><?= e($usuarioActual->nombreCompleto()) ?></strong>
+                    <?= e(ucfirst(strtolower($usuarioActual->getNombreRol()))) ?>
+                </div>
             </div>
             <fieldset class="modo-menu" data-modo-menu hidden>
                 <legend>Menú lateral</legend>
@@ -202,6 +215,19 @@ if ($usuarioActual !== null) {
         </div>
     </aside>
     <div class="cuerpo">
+        <!-- Barra superior (solo computadora): buscar en el catalogo y, para quien maneja caja, el estado de su turno -->
+        <header class="barra-superior">
+            <form class="busqueda-global" role="search" method="get" action="/" data-busqueda-global>
+                <input type="hidden" name="ruta" value="productos">
+                <?= icono('buscar') ?>
+                <input type="search" name="buscar" value="<?= e($buscado) ?>" maxlength="80" placeholder="Buscar por nombre, marca o código de barras..." aria-label="Buscar productos en el catálogo" autocomplete="off">
+            </form>
+            <?php if ($turnoIndicador !== null): ?>
+            <div class="barra-superior-derecha">
+                <a class="turno-indicador <?= e($turnoIndicador[0]) ?>" href="/?ruta=caja"><span class="punto-latido" aria-hidden="true"></span><?= e($turnoIndicador[1]) ?></a>
+            </div>
+            <?php endif; ?>
+        </header>
 <?php else: ?>
 <div class="app">
     <div class="cuerpo">

@@ -619,7 +619,7 @@ revisar('El selector vuelve a la misma opción del menu (Kardex -> Movimientos)'
 revisar('Desde la ficha de un producto vuelve a la lista de productos, no a la ficha',
     $jefa->get('ruta=producto&id=1') === 200 && $jefa->tiene('name="volver" value="productos"'));
 revisar('El cajero y el almacenero no tienen selector: ven solo su tienda',
-    $luis->get('ruta=inicio') === 200 && !$luis->tiene('tienda_elegir') && $luis->tiene('<strong>Mass Cayma</strong>')
+    $luis->get('ruta=inicio') === 200 && !$luis->tiene('tienda_elegir') && $luis->tiene('<span class="marca-tienda">Mass Cayma</span>')
     && $carmen->get('ruta=inicio') === 200 && !$carmen->tiene('tienda_elegir'));
 revisar('El cajero no puede cambiar de sucursal por POST: 403',
     $luis->post('tienda_elegir', ['tienda' => '2', 'volver' => 'inicio']) === 403);

@@ -40,6 +40,15 @@ abstract class Controller
         self::$alertasInventario = $calcular;
     }
 
+    // Estado del turno de caja de quien entro ('abierto', 'pausa' o 'cerrado'), para el indicador de la barra superior.
+    // Lo fija public/index.php; solo se consulta para quien maneja caja (los demas no ven el indicador)
+    private static ?Closure $estadoTurno = null;
+
+    public static function usarEstadoTurno(Closure $calcular): void
+    {
+        self::$estadoTurno = $calcular;
+    }
+
     public function __construct(
         protected TiendaRepository $tiendas,
         protected Sesion $sesion,
@@ -81,6 +90,8 @@ abstract class Controller
             ? ($this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda() ?? '') : '';
         // El administrador elige la sucursal en el menu lateral: todas las tiendas, con la actual marcada
         $tiendasParaElegir = $this->usuario?->puedeElegirTienda() === true ? $this->tiendas->todas() : [];
+        $estadoTurno = $this->usuario !== null && self::$estadoTurno !== null && $this->usuario->puedeManejarCaja()
+            ? (self::$estadoTurno)($this->usuario->getIdEmpleado()) : null;
         require __DIR__ . '/../../frontend/views/' . $__vista . '.php';
     }
 

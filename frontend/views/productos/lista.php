@@ -16,6 +16,7 @@ declare(strict_types=1);
  * @var array<int, true> $nuevos          ids registrados en los ultimos $diasNuevo dias: etiqueta NUEVO
  * @var int $diasNuevo
  * @var array{semana: int, pendientes: int} $avisoNuevos  para el aviso de arriba (pendientes: solo el administrador)
+ * @var string $buscado                   lo buscado desde la barra superior: queda escrito en el buscador
  */
 $titulo = 'Catálogo';
 require __DIR__ . '/../layout_inicio.php';
@@ -103,6 +104,7 @@ $totalProductos = array_sum($porCategoria);
 <?php
 $buscadorTabla = $contenedor;
 $buscadorTexto = 'Buscar por nombre, marca o código de barras';
+$buscadorValor = $buscado;
 require __DIR__ . '/../parciales/buscador.php';
 ?>
 <?php if ($vista === 'tarjetas'): ?>
@@ -118,17 +120,21 @@ require __DIR__ . '/../parciales/buscador.php';
         ?>
         <li id="fila-<?= $p->getIdProducto() ?>" data-categoria="<?= (int) $p->getIdCategoria() ?>">
             <a class="tarjeta-producto<?= $p->estaActivo() ? '' : ' inactivo' ?>" href="<?= e($enlace) ?>">
-                <?php if (isset($nuevos[$p->getIdProducto()])): ?><span class="etiqueta nuevo">NUEVO</span><?php endif; ?>
-                <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                <span class="tarjeta-imagen">
+                    <?php if (isset($nuevos[$p->getIdProducto()])): ?><span class="etiqueta nuevo">NUEVO</span><?php endif; ?>
+                    <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
+                    <span class="tarjeta-stock <?= e($claseStock) ?>"><?= e($p->estaActivo() ? $stockTexto : 'DESCONTINUADO') ?></span>
+                </span>
                 <span class="tarjeta-categoria"><?= e($foto['categoria']) ?></span>
                 <strong class="tarjeta-nombre"><?= e($p->getNombreProducto()) ?></strong>
-                <span class="tarjeta-marca"><?= e($fila['marca']) ?></span>
+                <?php if ($fila['marca'] !== ''): ?><span class="tarjeta-marca"><?= icono('oferta') ?><?= e($fila['marca']) ?></span><?php endif; ?>
                 <span class="tarjeta-pie">
-                    <span class="tarjeta-precio"><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small> /kg</small>' : '' ?></span>
-                    <span class="etiqueta <?= e($claseStock) ?>"><?= e($p->estaActivo() ? $stockTexto : 'DESCONTINUADO') ?></span>
+                    <span>
+                        <span class="tarjeta-precio"><?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? '<small> /kg</small>' : '' ?></span>
+                        <span class="tarjeta-codigo"><?= e($p->getCodigoBarras() ?? 'Al peso') ?></span>
+                    </span>
+                    <span class="tarjeta-ver" aria-hidden="true" title="Ver ficha"><?= icono('ver') ?></span>
                 </span>
-                <span class="visualmente-oculto"><?= e($p->getCodigoBarras() ?? '') ?></span>
-                <span class="tarjeta-ver" aria-hidden="true">Ver ficha</span>
             </a>
         </li>
     <?php endforeach; ?>
