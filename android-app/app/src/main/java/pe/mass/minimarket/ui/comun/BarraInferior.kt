@@ -1,5 +1,6 @@
 package pe.mass.minimarket.ui.comun
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import pe.mass.minimarket.data.api.Perfil
 import pe.mass.minimarket.ui.tema.Marca
+import pe.mass.minimarket.ui.tema.Mass
 import pe.mass.minimarket.ui.tema.Tinta
 
 /** Las pestañas de la barra de abajo. Inventario y Ventas solo aparecen si el rol tiene ese permiso. */
@@ -79,6 +81,7 @@ fun BarraInferior(
         Surface(
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             shadowElevation = 8.dp,
             modifier = Modifier.fillMaxWidth().height(66.dp),
         ) {
@@ -95,6 +98,8 @@ fun BarraInferior(
             color = Marca,
             contentColor = Tinta,
             shadowElevation = 6.dp,
+            // Anillo del color del fondo alrededor del boton, como si saliera de la barra
+            border = BorderStroke(4.dp, MaterialTheme.colorScheme.background),
             modifier = Modifier.size(60.dp).align(Alignment.TopCenter).offset(y = (-20).dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -106,7 +111,12 @@ fun BarraInferior(
 
 @Composable
 private fun ItemBarra(pestana: Pestana, activa: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val color = if (activa) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+    // La pestaña activa va en el amarillo de la marca (en modo claro, en tinta: el amarillo no se lee sobre blanco)
+    val color = when {
+        !activa -> MaterialTheme.colorScheme.onSurfaceVariant
+        Mass.colores.oscuro -> Marca
+        else -> MaterialTheme.colorScheme.onSurface
+    }
     Column(
         modifier
             .clip(RoundedCornerShape(16.dp))

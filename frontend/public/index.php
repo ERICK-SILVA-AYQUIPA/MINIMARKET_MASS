@@ -130,6 +130,15 @@ $panelController = new PanelController($tiendas, $sesion, $usuario, $panelReposi
 // Mas los productos recien agregados que el administrador aun no revisa (pestaña Recien agregados, de toda la cadena)
 Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda)
     + ['productos_nuevos' => $usuario?->puedeAdministrarCatalogo() === true ? $productos->contarNuevos(['estado' => 'pendientes']) : 0]);
+// El indicador de turno de la barra superior: el turno ABIERTO del cajero (o en pausa); si no tiene,
+// avisa si su ultimo cierre espera revision o un nuevo conteo
+Controller::usarEstadoTurno(static function (int $idEmpleado) use ($cajas): string {
+    $turno = $cajas->turnoAbiertoDe($idEmpleado);
+    if ($turno !== null) {
+        return $turno->estaEnPausa() ? 'pausa' : 'abierto';
+    }
+    return $cajas->turnoPendienteDe($idEmpleado) !== null ? 'revision' : 'cerrado';
+});
 $promocionController = new PromocionController($tiendas, $sesion, $usuario, $promociones, $productos, $empleados, new PromocionServicio($db));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
@@ -250,7 +259,7 @@ try {
                 break;
 
             case 'productos':
-                $productoController->lista($leer('tienda'), $leer('ver'), $leer('vista'), $leer('categoria'));
+                $productoController->lista($leer('tienda'), $leer('ver'), $leer('vista'), $leer('categoria'), $leer('buscar'));
                 break;
 
             case 'producto':

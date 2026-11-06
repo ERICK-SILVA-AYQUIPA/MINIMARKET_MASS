@@ -190,12 +190,12 @@ Lee cada archivo con esta guía al lado. Si alguna línea no la puedes contar co
 
 | Archivo | Qué hace |
 |---|---|
-| `tokens.css` | Los tokens del sistema de diseño, en un solo lugar: colores (base neutra y el amarillo como único acento), espacios de 4/8, radios, sombras, vidrio, letras (Inter, JetBrains Mono para números, Outfit para la marca) y curvas de animación. Ver `docs/sistema_diseno.md`. |
+| `tokens.css` | Los tokens del sistema de diseño, en un solo lugar: colores (base neutra y el amarillo como único acento), espacios de 4/8, radios, sombras, vidrio, letras (Plus Jakarta Sans, JetBrains Mono para números), tema oscuro y curvas de animación. Ver `docs/sistema_diseno.md`. |
 | `estilos.css` | Los componentes: botones, tablas, formularios, avisos, paneles laterales, caja, venta, versión de celular e impresión. Solo usa las variables de `tokens.css`. |
 | `app.js` | Mejoras con JavaScript, sin librerías: paneles con teclado (Esc, foco), menú de celular, buscador en vivo, total y vuelto en vivo en la venta (mismo redondeo que el servidor), avisos de stock, filtros por categoría, la cuadrícula y el lector de códigos de la venta, avisos flotantes, guías que recuerdan si se cerraron, confirmación propia antes de acciones que no se deshacen, mensajes de validación junto al campo, botón "Guardando…" para no enviar dos veces y el atajo `/`. Si no carga, todo funciona igual. |
 | `iconos.svg` | Los íconos del menú y los botones, y las ilustraciones de cada categoría (lácteos, bebidas, frutas…), dibujados con líneas. Se usan con `icono('nombre')`. |
 | `img/productos/` | Las fotos de producto que sube el administrador (`{id}.jpg`). No se suben a GitHub: solo va `.gitkeep`. |
-| `fuentes/outfit.woff2` | La letra Outfit de los títulos, guardada en el propio sitio (la CSP no deja cargar letras de otros sitios). Licencia libre OFL en `fuentes/LICENCIA.txt`. |
+| `fuentes/plus-jakarta-sans.woff2` | La letra Plus Jakarta Sans de toda la interfaz, guardada en el propio sitio (la CSP no deja cargar letras de otros sitios). Licencia libre OFL en `fuentes/LICENCIA.txt`. |
 | `index.php` | Punto de entrada. Envía cabeceras de seguridad, abre la sesión y busca al usuario. Los POST (login, venta, anular, traslado, merma, turno) exigen login y token CSRF. Abre la conexión a MySQL (si falla responde 503), crea los Repository, lee `?ruta=` (solo strings) y con un `switch` llama al método del controlador. Cualquier otra ruta da 404, y un error inesperado da 500 sin mostrar la traza. |
 | `poo_producto.php` | Prueba del paso 1: un producto por unidad, uno al peso y un stock por debajo del mínimo. |
 | `poo_roles.php` | Prueba del paso 2: tres empleados de Cayma. El mismo método `puedeAnularVenta()` responde distinto según la clase (polimorfismo). |

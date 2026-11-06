@@ -1,5 +1,6 @@
 package pe.mass.minimarket.ui.inicio
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -106,6 +107,7 @@ import pe.mass.minimarket.ui.inventario.Filtro
 import pe.mass.minimarket.ui.tema.Marca
 import pe.mass.minimarket.ui.tema.Mass
 import pe.mass.minimarket.ui.tema.Tinta
+import pe.mass.minimarket.ui.tema.numeros
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -406,11 +408,12 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
         Box(
             Modifier
                 .fillMaxWidth()
-                .background(Brush.linearGradient(listOf(Marca, Color(0xFFFFC300))))
+                // Del amarillo de la marca al ambar, como el banner de la web
+                .background(Brush.linearGradient(listOf(Marca, Color(0xFFF59E0B))))
                 // Circulo claro de adorno en la esquina de abajo
                 .drawBehind {
                     drawCircle(
-                        color = Color.White.copy(alpha = 0.35f),
+                        color = Color.White.copy(alpha = 0.12f),
                         radius = 85.dp.toPx(),
                         center = Offset(size.width - 45.dp.toPx(), size.height - 35.dp.toPx()),
                     )
@@ -419,11 +422,11 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Surface(shape = CircleShape, color = Tinta, contentColor = Marca, modifier = Modifier.size(52.dp)) {
+                    Surface(shape = MaterialTheme.shapes.medium, color = Tinta, contentColor = Marca, modifier = Modifier.size(52.dp)) {
                         Box(contentAlignment = Alignment.Center) { Icon(opcion.icono, contentDescription = null, modifier = Modifier.size(28.dp)) }
                     }
                     Spacer(Modifier.weight(1f))
-                    Surface(shape = CircleShape, color = Tinta, contentColor = Color.White) {
+                    Surface(shape = MaterialTheme.shapes.small, color = Tinta, contentColor = Marca) {
                         Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(opcion.accion, style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.width(6.dp))
@@ -445,24 +448,36 @@ private fun TarjetaPrincipal(opcion: Opcion, detalle: String, onClick: () -> Uni
 private fun Resumen(estado: EstadoInicio, onIr: (String) -> Unit) {
     val c = Mass.colores
     val datos = buildList {
-        estado.agotados?.let { add(Triple(Indicador("Agotados", it, Icons.Filled.RemoveShoppingCart), c.peligroFondo to c.peligro, Rutas.inventario(Filtro.AGOTADOS))) }
-        estado.bajos?.let { add(Triple(Indicador("Por reponer", it, Icons.AutoMirrored.Filled.TrendingDown), c.alertaFondo to c.alerta, Rutas.inventario(Filtro.BAJO))) }
-        estado.ventasHoy?.let { add(Triple(Indicador("Ventas hoy", it, Icons.AutoMirrored.Filled.ReceiptLong), c.exitoFondo to c.exito, Rutas.HISTORIAL)) }
+        estado.agotados?.let { add(Triple(Indicador("Agotados", it, Icons.Filled.RemoveShoppingCart), c.peligro, Rutas.inventario(Filtro.AGOTADOS))) }
+        estado.bajos?.let { add(Triple(Indicador("Por reponer", it, Icons.AutoMirrored.Filled.TrendingDown), c.alerta, Rutas.inventario(Filtro.BAJO))) }
+        estado.ventasHoy?.let { add(Triple(Indicador("Ventas hoy", it, Icons.AutoMirrored.Filled.ReceiptLong), c.exito, Rutas.HISTORIAL)) }
     }
     if (datos.isEmpty()) return
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        datos.forEach { (ind, colores, ruta) ->
+    // Tarjeta con borde fino: punto e icono de su color arriba, el numero en JetBrains Mono y el nombre debajo
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        datos.forEach { (ind, color, ruta) ->
             Surface(
                 onClick = { onIr(ruta) },
                 shape = MaterialTheme.shapes.medium,
-                color = colores.first,
-                contentColor = colores.second,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.weight(1f),
             ) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Icon(ind.icono, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Text(ind.valor.toString(), style = MaterialTheme.typography.headlineSmall)
-                    Text(ind.titulo, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+                        Spacer(Modifier.weight(1f))
+                        Icon(ind.icono, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.size(2.dp))
+                    Text(ind.valor.toString(), style = MaterialTheme.typography.headlineSmall.numeros(), color = color)
+                    Text(
+                        ind.titulo,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
