@@ -68,6 +68,251 @@ class ReporteController extends Controller
         $this->vista('reportes/utilidad', get_defined_vars());
     }
 
+    /**
+     * GET /?ruta=estadisticas&desde=...&hasta=...[&alcance=cadena]
+     * Que se vende y que no: los productos que mas venden, los que casi no salen, los que no se vendieron
+     * nada (con su stock parado) y dos mapas de calor: dia de la semana x hora, y producto x dia de la semana.
+     */
+    public function estadisticas(?string $desdePedido, ?string $hastaPedido, ?string $alcancePedido = null): void
+    {
+        if (!$this->puedeVer()) {
+            $this->prohibido('Las estadísticas son para el administrador de la tienda.');
+            return;
+        }
+        [$desde, $hasta, $error] = $this->rango($desdePedido, $hastaPedido);
+        [$ids, $nombreAlcance, $esCadena] = $this->alcance($alcancePedido);
+        $tienda = $this->tiendas->buscarPorId($this->usuario->getIdTienda());
+        $puedeVerCadena = $this->usuario->puedeAbrirTiendas();
+        $atajos = $this->atajos();
+
+        $productos = self::unirVentasConCatalogo(
+            $this->reportes->catalogoConStock($ids),
+            $this->reportes->ventasPorProducto($ids, $desde, $hasta)
+        );
+        $vendidos = array_values(array_filter($productos, fn(array $p): bool => $p['importe'] > 0));
+        $masVendidos = array_slice($vendidos, 0, 10);
+        $menosVendidos = array_slice(array_reverse($vendidos), 0, 10);
+        // Lo que no se vendio nada: primero lo que mas plata tiene parada en el estante
+        $sinVentas = array_values(array_filter($productos, fn(array $p): bool => $p['importe'] <= 0));
+        usort($sinVentas, fn(array $a, array $b): int => [$b['valorStock'], $a['producto']] <=> [$a['valorStock'], $b['producto']]);
+
+        $totalVendido = round(array_sum(array_column($vendidos, 'importe')), 2);
+        $top = (int) max(1, ceil(count($vendidos) * 0.2));
+        $resumen = [
+            'catalogo'     => count($productos),
+            'conVentas'    => count($vendidos),
+            'sinVentas'    => count($sinVentas),
+            'total'        => $totalVendido,
+            'valorParado'  => round(array_sum(array_column($sinVentas, 'valorStock')), 2),
+            'top'          => $vendidos === [] ? 0 : $top,
+            // Regla 80/20: cuanto del total hace el 20 % de productos que mas vende
+            'porcentajeTop' => $totalVendido > 0 ? round(array_sum(array_column(array_slice($vendidos, 0, $top), 'importe')) / $totalVendido * 100, 1) : null,
+        ];
+
+        $calorHoras = self::mapaCalorHoras($this->reportes->porDiaSemanaYHora($ids, $desde, $hasta));
+        $calorProductos = self::mapaCalorProductos($masVendidos, $this->reportes->productoPorDiaSemana($ids, $desde, $hasta));
+
+        $opiniones = self::opiniones($calorHoras, $resumen, $masVendidos, $menosVendidos, $sinVentas, $calorProductos);
+
+        $this->vista('reportes/estadisticas', compact(
+            'desde', 'hasta', 'error', 'esCadena', 'nombreAlcance', 'tienda', 'puedeVerCadena', 'atajos',
+            'masVendidos', 'menosVendidos', 'sinVentas', 'resumen', 'calorHoras', 'calorProductos', 'opiniones'
+        ));
+    }
+
+    /**
+     * Junta el catalogo de las tiendas con lo vendido: un producto sin ventas queda con 0.
+     * Ordenado de lo que mas vende a lo que menos (por importe), y por nombre si empatan.
+     * @param array<int, array<string, mixed>> $catalogo filas de ReporteRepository::catalogoConStock
+     * @param array<int, array<string, mixed>> $ventas filas de ReporteRepository::ventasPorProducto
+     * @return array<int, array{id: int, producto: string, unidad: string, categoria: string, alPeso: bool, cantidad: float, importe: float, comprobantes: int, stock: float, valorStock: float, ultima: ?string}>
+     */
+    public static function unirVentasConCatalogo(array $catalogo, array $ventas): array
+    {
+        $vendido = array_column($ventas, null, 'id_producto');
+        $filas = [];
+        foreach ($catalogo as $c) {
+            $v = $vendido[$c['id_producto']] ?? null;
+            $stock = (float) $c['stock'];
+            $filas[] = [
+                'id'           => (int) $c['id_producto'],
+                'producto'     => (string) $c['producto'],
+                'unidad'       => (string) $c['unidad'],
+                'categoria'    => (string) $c['categoria'],
+                'alPeso'       => ($c['se_vende_por_peso'] ?? 'N') === 'S',
+                'cantidad'     => (float) ($v['cantidad'] ?? 0),
+                'importe'      => round((float) ($v['importe'] ?? 0), 2),
+                'comprobantes' => (int) ($v['comprobantes'] ?? 0),
+                'stock'        => $stock,
+                'valorStock'   => round($stock * (float) $c['precio'], 2),
+                'ultima'       => $c['ultima'] === null ? null : substr((string) $c['ultima'], 0, 10),
+            ];
+        }
+        usort($filas, fn(array $a, array $b): int => [$b['importe'], $a['producto']] <=> [$a['importe'], $b['producto']]);
+        return $filas;
+    }
+
+    /**
+     * Mapa de calor dia de la semana x hora. Las horas van de la primera a la ultima con ventas (minimo 8:00 a 20:00).
+     * Cada casilla trae su total, sus comprobantes y su intensidad (0 a 1, respecto de la casilla mas alta).
+     * @param array<int, array<string, mixed>> $filas filas de ReporteRepository::porDiaSemanaYHora
+     * @return array{horas: int[], dias: array<int, array{nombre: string, casillas: array<int, array{total: float, comprobantes: int, nivel: float}>, total: float}>, maximo: float, pico: ?array{dia: string, hora: int, total: float}}
+     */
+    public static function mapaCalorHoras(array $filas): array
+    {
+        $valor = [];
+        foreach ($filas as $f) {
+            $valor[(int) $f['dia']][(int) $f['hora']] = ['total' => (float) $f['total'], 'comprobantes' => (int) $f['comprobantes']];
+        }
+        $horasConVenta = array_map(fn(array $f): int => (int) $f['hora'], $filas);
+        $primera = min([8, ...$horasConVenta]);
+        $ultima = max([20, ...$horasConVenta]);
+        $maximo = $filas === [] ? 0.0 : max(array_map(fn(array $f): float => (float) $f['total'], $filas));
+        $dias = [];
+        $pico = null;
+        foreach (self::DIAS_SEMANA as $n => $nombre) {
+            $casillas = [];
+            foreach (range($primera, $ultima) as $h) {
+                $c = $valor[$n][$h] ?? ['total' => 0.0, 'comprobantes' => 0];
+                $casillas[$h] = [...$c, 'nivel' => $maximo > 0 ? round($c['total'] / $maximo, 3) : 0.0];
+                if ($c['total'] > 0 && ($pico === null || $c['total'] > $pico['total'])) {
+                    $pico = ['dia' => $nombre, 'hora' => $h, 'total' => $c['total']];
+                }
+            }
+            $dias[$n] = ['nombre' => $nombre, 'casillas' => $casillas, 'total' => round(array_sum(array_column($casillas, 'total')), 2)];
+        }
+        return ['horas' => range($primera, $ultima), 'dias' => $dias, 'maximo' => $maximo, 'pico' => $pico];
+    }
+
+    /**
+     * Mapa de calor producto x dia de la semana, para los productos que mas venden.
+     * La intensidad es respecto de la casilla mas alta de toda la tabla.
+     * @param array<int, array<string, mixed>> $productos los mas vendidos (con 'id' y 'producto')
+     * @param array<int, array<string, mixed>> $filas filas de ReporteRepository::productoPorDiaSemana
+     * @return array{filas: array<int, array{producto: string, casillas: array<int, array{importe: float, nivel: float}>}>, maximo: float}
+     */
+    public static function mapaCalorProductos(array $productos, array $filas): array
+    {
+        $valor = [];
+        foreach ($filas as $f) {
+            $valor[(int) $f['id_producto']][(int) $f['dia']] = (float) $f['importe'];
+        }
+        $ids = array_map(fn(array $p): int => (int) $p['id'], $productos);
+        $maximo = 0.0;
+        foreach ($ids as $id) {
+            $maximo = max($maximo, ...array_values($valor[$id] ?? [0.0]));
+        }
+        $tabla = [];
+        foreach ($productos as $p) {
+            $casillas = [];
+            foreach (array_keys(self::DIAS_SEMANA) as $n) {
+                $importe = round($valor[(int) $p['id']][$n] ?? 0.0, 2);
+                $casillas[$n] = ['importe' => $importe, 'nivel' => $maximo > 0 ? round($importe / $maximo, 3) : 0.0];
+            }
+            $tabla[] = ['producto' => (string) $p['producto'], 'casillas' => $casillas];
+        }
+        return ['filas' => $tabla, 'maximo' => $maximo];
+    }
+
+    /**
+     * Lo que dicen los numeros, en frases cortas: hora pico, mejor y peor dia, horas muertas,
+     * la regla 80/20, lo que no se vende y el mejor dia de cada producto estrella. Cada opinion trae
+     * un tipo (ok, alerta, info) para su color y una sugerencia de que hacer.
+     * @param array<string, mixed> $calorHoras resultado de mapaCalorHoras
+     * @param array<string, mixed> $resumen
+     * @param array<int, array<string, mixed>> $masVendidos
+     * @param array<int, array<string, mixed>> $menosVendidos
+     * @param array<int, array<string, mixed>> $sinVentas
+     * @param array<string, mixed> $calorProductos resultado de mapaCalorProductos
+     * @return array<int, array{tipo: string, titulo: string, texto: string}>
+     */
+    public static function opiniones(array $calorHoras, array $resumen, array $masVendidos, array $menosVendidos, array $sinVentas, array $calorProductos): array
+    {
+        $o = [];
+        if ($calorHoras['pico'] === null) {
+            return [['tipo' => 'info', 'titulo' => 'Sin ventas en estas fechas', 'texto' => 'Elige otras fechas o «Todas las tiendas» para ver el mapa de calor.']];
+        }
+        $pico = $calorHoras['pico'];
+        $o[] = ['tipo' => 'ok', 'titulo' => 'Hora pico: ' . mb_strtolower($pico['dia']) . ' a las ' . sprintf('%02d:00', $pico['hora']),
+            'texto' => 'Es la casilla más caliente del mapa (' . self::soles($pico['total']) . '). Ten las dos cajas abiertas y los estantes llenos antes de esa hora.'];
+
+        // Mejor y peor dia (de los que tuvieron ventas)
+        $dias = array_filter($calorHoras['dias'], fn(array $d): bool => $d['total'] > 0);
+        uasort($dias, fn(array $a, array $b): int => $b['total'] <=> $a['total']);
+        if (count($dias) >= 2) {
+            $mejor = reset($dias);
+            $peor = end($dias);
+            $veces = $peor['total'] > 0 ? round($mejor['total'] / $peor['total'], 1) : null;
+            $o[] = ['tipo' => 'info', 'titulo' => 'El ' . mb_strtolower($mejor['nombre']) . ' es el mejor día y el ' . mb_strtolower($peor['nombre']) . ' el más flojo',
+                'texto' => self::soles($mejor['total']) . ' contra ' . self::soles($peor['total'])
+                    . ($veces !== null && $veces >= 1.5 ? ' (' . number_format($veces, 1) . ' veces más)' : '')
+                    . '. Una promoción el ' . mb_strtolower($peor['nombre']) . ' puede atraer clientes ese día.'];
+        }
+        $sinVentaDias = array_diff_key($calorHoras['dias'], $dias);
+        if ($sinVentaDias !== [] && count($sinVentaDias) < 7) {
+            $o[] = ['tipo' => 'alerta', 'titulo' => 'Días sin ninguna venta: ' . mb_strtolower(implode(', ', array_column($sinVentaDias, 'nombre'))),
+                'texto' => 'Puede que la tienda no abra esos días o que falten datos: revisa si las cajas se abrieron.'];
+        }
+
+        // Mañana, tarde o noche: donde se concentra la plata
+        $franjas = ['la mañana (antes de las 12)' => 0.0, 'la tarde (12 a 18)' => 0.0, 'la noche (desde las 18)' => 0.0];
+        $porHora = array_fill_keys($calorHoras['horas'], 0.0);
+        foreach ($calorHoras['dias'] as $d) {
+            foreach ($d['casillas'] as $h => $c) {
+                $porHora[$h] += $c['total'];
+                $franjas[array_keys($franjas)[$h < 12 ? 0 : ($h < 18 ? 1 : 2)]] += $c['total'];
+            }
+        }
+        $totalHoras = array_sum($franjas);
+        arsort($franjas);
+        $franja = (string) array_key_first($franjas);
+        $o[] = ['tipo' => 'info', 'titulo' => 'Se vende más en ' . $franja,
+            'texto' => 'Ahí cae el ' . number_format($franjas[$franja] / $totalHoras * 100, 0) . ' % de lo vendido. Pon a tu mejor cajero en ese turno.'];
+
+        // Horas muertas: dentro del horario con ventas, las que menos venden en toda la semana
+        $conVenta = array_keys(array_filter($porHora, fn(float $t): bool => $t > 0));
+        $dentro = array_filter($porHora, fn(int $h): bool => $h >= min($conVenta) && $h <= max($conVenta), ARRAY_FILTER_USE_KEY);
+        asort($dentro);
+        $flojas = array_slice($dentro, 0, 2, true);
+        if (count($dentro) >= 4 && max($flojas) < max($porHora) * 0.25) {
+            ksort($flojas);
+            $o[] = ['tipo' => 'info', 'titulo' => 'Horas tranquilas: ' . implode(' y ', array_map(fn(int $h): string => sprintf('%02d:00', $h), array_keys($flojas))),
+                'texto' => 'Casi no hay ventas a esa hora: buen momento para reponer estantes, recibir mercadería o hacer el conteo.'];
+        }
+
+        // Regla 80/20
+        if ($resumen['porcentajeTop'] !== null && $resumen['conVentas'] >= 5) {
+            $o[] = ['tipo' => 'ok', 'titulo' => $resumen['top'] . ' productos hacen el ' . number_format($resumen['porcentajeTop'], 0) . ' % de las ventas',
+                'texto' => 'Son el 20 % que más vende (arriba, en «Lo que más se vende»). Que nunca les falte stock.'];
+        }
+        if ($masVendidos !== []) {
+            $estrella = $calorProductos['filas'][0] ?? null;
+            $mejorDia = null;
+            if ($estrella !== null) {
+                $casillas = array_column($estrella['casillas'], 'importe');
+                $mejorDia = self::DIAS_SEMANA[array_search(max($casillas), $casillas, true) + 1];
+            }
+            $o[] = ['tipo' => 'ok', 'titulo' => 'El producto estrella es ' . $masVendidos[0]['producto'],
+                'texto' => self::soles($masVendidos[0]['importe']) . ' en ' . $masVendidos[0]['comprobantes'] . ' ventas'
+                    . ($mejorDia !== null ? ', sobre todo el ' . mb_strtolower($mejorDia) : '') . '. Ponlo a la vista y cerca de la caja.'];
+        }
+
+        // Lo que no se vende
+        if ($sinVentas !== []) {
+            $parado = $sinVentas[0];
+            $o[] = ['tipo' => 'alerta', 'titulo' => count($sinVentas) . ' productos no se vendieron nada',
+                'texto' => 'Tienen ' . self::soles($resumen['valorParado']) . ' parados en el estante (a precio de venta). El que más: '
+                    . $parado['producto'] . ' (' . self::soles($parado['valorStock']) . '). Haz una promoción o deja de pedirlos.'];
+        }
+        if (count($menosVendidos) >= 3 && $resumen['conVentas'] >= 10) {
+            $o[] = ['tipo' => 'alerta', 'titulo' => 'Casi no salen: ' . implode(', ', array_column(array_slice($menosVendidos, 0, 3), 'producto')),
+                'texto' => 'Se vendieron muy poco. Revisa su precio, su lugar en el estante o si conviene seguir comprándolos.'];
+        }
+        return $o;
+    }
+
+    private const DIAS_SEMANA = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+
     // GET /?ruta=reporte_csv&tipo=productos&desde=...&hasta=...[&alcance=cadena]
     public function csv(?string $tipo, ?string $desdePedido, ?string $hastaPedido, ?string $alcancePedido = null): void
     {

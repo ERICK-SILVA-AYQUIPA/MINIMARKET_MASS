@@ -1711,3 +1711,27 @@ button.asistente-chip:hover { background: var(--marca-suave); border-color: var(
 .con-barra-inferior .asistente-flotante { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 600px) { .asistente-flotante span { display: none; } .asistente-flotante { padding: var(--s-3); } }
 @media print { .asistente-flotante { display: none; } }
+
+/* Estadísticas (?ruta=estadisticas): opiniones escritas y mapas de calor.
+   Cada casilla trae --nivel (0 a 1) y su color va del fondo de la tabla al amarillo de la marca. */
+.opiniones { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.opiniones li { display: flex; gap: var(--s-2); align-items: flex-start; padding: var(--s-3); border: 1px solid var(--borde); border-left: 4px solid var(--azul); border-radius: var(--radio-lg); background: var(--superficie-2); }
+.opiniones li.ok { border-left-color: var(--verde); }
+.opiniones li.alerta { border-left-color: var(--ambar); }
+.opiniones li > .icono { flex: none; margin-top: 2px; color: var(--azul); }
+.opiniones li.ok > .icono { color: var(--verde); }
+.opiniones li.alerta > .icono { color: var(--ambar); }
+.opiniones li div { display: grid; gap: var(--s-0_5); }
+.opiniones li span { color: var(--suave); font-size: .88rem; }
+.calor table { border-collapse: separate; border-spacing: 3px; }
+.calor th, .calor td { padding: 6px 4px; border: 0; }
+.calor tbody th { white-space: nowrap; text-align: left; font-weight: 600; }
+.calor-productos tbody th { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+.calor-casilla { min-width: 2.6rem; text-align: center; border-radius: 4px; font-family: var(--mono); font-size: .72rem; font-variant-numeric: tabular-nums;
+    background: color-mix(in srgb, var(--marca) calc(var(--nivel, 0) * 100%), var(--superficie-2)); color: var(--texto); }
+.calor-casilla.vacia { color: var(--tenue); }
+.calor-casilla.fuerte { color: var(--sobre-marca); font-weight: 700; }
+.calor-casilla:hover { outline: 2px solid var(--tinta); outline-offset: -2px; }
+.calor tbody tr:hover { background: none; }
+.calor-leyenda { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); font-size: .8rem; color: var(--suave); }
+.calor-leyenda i { width: 160px; height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--superficie-2), var(--marca)); }

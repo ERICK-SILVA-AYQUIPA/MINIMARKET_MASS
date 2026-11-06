@@ -635,5 +635,36 @@ $modeloFalso->respuestas = array_fill(0, 10, ['stop_reason' => 'tool_use', 'cont
 $r = (new Asistente($modeloFalso, $herramientasFalsas, 'claude-opus-5-5'))->preguntar('bucle');
 revisar('Si Claude pide herramientas sin parar, corta a las 6 vueltas', !$r['ok'] && count($modeloFalso->peticiones) === 6);
 
+echo PHP_EOL . "Estadísticas: mapa de calor y opiniones" . PHP_EOL;
+require_once __DIR__ . '/../controllers/ReporteController.php';
+$calor = ReporteController::mapaCalorHoras([
+    ['dia' => 6, 'hora' => 19, 'comprobantes' => 8, 'total' => '400.00'],
+    ['dia' => 1, 'hora' => 9, 'comprobantes' => 2, 'total' => '100.00'],
+    ['dia' => 3, 'hora' => 7, 'comprobantes' => 1, 'total' => '20.00'],
+]);
+revisar('El mapa de calor va de la primera hora con ventas (7) a las 20, con los 7 días', $calor['horas'][0] === 7 && end($calor['horas']) === 20
+    && count($calor['dias']) === 7);
+revisar('La casilla más alta tiene nivel 1 y las demás son proporcionales; sin ventas es 0', $calor['dias'][6]['casillas'][19]['nivel'] === 1.0
+    && $calor['dias'][1]['casillas'][9]['nivel'] === 0.25 && $calor['dias'][2]['casillas'][12]['nivel'] === 0.0);
+revisar('La hora pico es el sábado a las 19', $calor['pico'] === ['dia' => 'Sábado', 'hora' => 19, 'total' => 400.0]);
+$productosEst = ReporteController::unirVentasConCatalogo(
+    [['id_producto' => 1, 'producto' => 'Leche', 'unidad' => 'und', 'categoria' => 'Lácteos', 'precio' => '4.50', 'se_vende_por_peso' => 'N', 'stock' => '10', 'ultima' => null],
+     ['id_producto' => 2, 'producto' => 'Arroz', 'unidad' => 'kg', 'categoria' => 'Abarrotes', 'precio' => '3.80', 'se_vende_por_peso' => 'S', 'stock' => '25.5', 'ultima' => '2026-10-01 10:00:00']],
+    [['id_producto' => 2, 'cantidad' => '12.000', 'importe' => '45.60', 'comprobantes' => 6, 'ultima' => '2026-10-01 10:00:00']]
+);
+revisar('Un producto del catálogo sin ventas queda con 0 y con su stock valorizado', $productosEst[0]['producto'] === 'Arroz'
+    && $productosEst[1]['importe'] === 0.0 && $productosEst[1]['valorStock'] === 45.0 && $productosEst[0]['ultima'] === '2026-10-01');
+$calorProd = ReporteController::mapaCalorProductos([$productosEst[0]], [['id_producto' => 2, 'dia' => 6, 'importe' => '30'], ['id_producto' => 2, 'dia' => 1, 'importe' => '15.6']]);
+revisar('El mapa producto x día marca el sábado como el más fuerte', $calorProd['filas'][0]['casillas'][6]['nivel'] === 1.0 && $calorProd['filas'][0]['casillas'][1]['nivel'] === 0.52);
+$opiniones = ReporteController::opiniones($calor, ['conVentas' => 1, 'top' => 1, 'porcentajeTop' => 100.0, 'valorParado' => 45.0],
+    [$productosEst[0]], [$productosEst[0]], [$productosEst[1]], $calorProd);
+$titulos = implode(' | ', array_column($opiniones, 'titulo'));
+revisar('Las opiniones dicen la hora pico, el mejor y peor día, la franja, el producto estrella y lo que no se vende',
+    str_contains($titulos, 'Hora pico: sábado a las 19:00') && str_contains($titulos, 'El sábado es el mejor día y el miércoles el más flojo')
+    && str_contains($titulos, 'Se vende más en la noche') && str_contains($titulos, 'El producto estrella es Arroz')
+    && str_contains($titulos, '1 productos no se vendieron nada'));
+$vacias = ReporteController::opiniones(ReporteController::mapaCalorHoras([]), ['conVentas' => 0, 'top' => 0, 'porcentajeTop' => null, 'valorParado' => 0.0], [], [], [], ['filas' => [], 'maximo' => 0.0]);
+revisar('Sin ventas, una sola opinión que pide otras fechas', count($vacias) === 1 && $vacias[0]['titulo'] === 'Sin ventas en estas fechas');
+
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);
