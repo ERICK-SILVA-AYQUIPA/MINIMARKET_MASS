@@ -124,6 +124,28 @@ foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../datab
 }
 revisar('Correr la migración 015 otra vez no cambia nada', $cambiadas === 0);
 
+echo "Segundo cajero por sede (migración 024)\n";
+$segundos = $db->query(
+    "SELECT e.dni, e.id_tienda, r.nombre_rol, e.estado, e.debe_cambiar_clave, e.clave_hash
+       FROM empleado e JOIN rol r ON r.id_rol = e.id_rol
+      WHERE e.dni IN ('70000101', '70000102', '70000103') ORDER BY e.dni")->fetchAll();
+revisar('Diego, Elena y Raúl son cajeros activos de Cayma, Cerro Colorado y Yanahuara',
+    array_map(static fn(array $f): string => $f['dni'] . '/' . $f['id_tienda'] . '/' . $f['nombre_rol'] . '/' . $f['estado'], $segundos)
+        === ['70000101/1/CAJERO/ACTIVO', '70000102/2/CAJERO/ACTIVO', '70000103/3/CAJERO/ACTIVO']);
+revisar('...con la clave de prueba solo como hash y obligados a cambiarla al entrar',
+    count($segundos) === 3 && array_reduce($segundos, static fn(bool $ok, array $f): bool => $ok
+        && $f['debe_cambiar_clave'] === 'S' && password_verify('Mass2026!', (string) $f['clave_hash']), true));
+revisar('Cada sede tiene tantos cajeros activos como cajas',
+    valor($db, "SELECT COUNT(*) FROM tienda t
+                 WHERE (SELECT COUNT(*) FROM caja c WHERE c.id_tienda = t.id_tienda AND c.estado = 'ACTIVA')
+                    <> (SELECT COUNT(*) FROM empleado e JOIN rol r ON r.id_rol = e.id_rol
+                         WHERE e.id_tienda = t.id_tienda AND r.nombre_rol = 'CAJERO' AND e.estado = 'ACTIVO')") === '0');
+$cambiadas = 0;
+foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../database/migraciones/024_cajero_caja_2_por_sede.sql')) as $sentencia) {
+    $cambiadas += (int) $db->exec($sentencia);
+}
+revisar('Correr la migración 024 otra vez no agrega ni cambia a nadie', $cambiadas === 0);
+
 echo "Sucursal elegida por el administrador\n";
 $rosaEnCerro = $rosa->enTienda(2);
 revisar('Solo el administrador activo puede elegir sucursal',

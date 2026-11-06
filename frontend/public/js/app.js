@@ -1133,8 +1133,10 @@
         // clave_operacion: si el envio llego al servidor, reenviarla devuelve el mismo comprobante (no cobra dos veces).
         // Al volver a Nueva venta se pregunta al servidor si la venta enviada se registro (?ruta=venta_estado).
         const campoClave = $('[data-clave-operacion]', formVenta);
-        const CAMPOS_BORRADOR = ['documento', 'efectivo_recibido', 'tarjeta_monto', 'tarjeta_tipo', 'tarjeta_marca',
-            'tarjeta_ultimos4', 'tarjeta_autorizacion', 'sip_monto', 'sip_modalidad', 'sip_operacion'];
+        // medio_pago son radios (EFECTIVO, DEBITO, CREDITO, SIP): namedItem da su RadioNodeList, que tambien tiene .value
+        const CAMPOS_BORRADOR = ['documento', 'medio_pago', 'efectivo_recibido', 'tarjeta_monto', 'tarjeta_marca',
+            'tarjeta_ultimos4', 'tarjeta_autorizacion', 'sip_monto', 'sip_modalidad', 'sip_operacion',
+            'descuento_valor', 'descuento_unidad', 'descuento_motivo'];
         const HORAS_BORRADOR = 12;
 
         function leidoDelFormulario() {
@@ -1143,7 +1145,10 @@
                 .filter(([id]) => id !== '');
             const campos = { tipo: campo('tipo').value };
             CAMPOS_BORRADOR.forEach((nombre) => {
-                campos[nombre] = campo(nombre).value;
+                const elemento = campo(nombre);
+                if (elemento !== null) {
+                    campos[nombre] = elemento.value;
+                }
             });
             return { clave: campoClave.value, guardado: Date.now(), enviado: false, lineas: filas, campos };
         }
@@ -1183,15 +1188,16 @@
                 campo('tipo').value = campos.tipo;
             }
             CAMPOS_BORRADOR.forEach((nombre) => {
-                if (typeof campos[nombre] === 'string' && campos[nombre] !== '') {
-                    campo(nombre).value = campos[nombre];
+                const elemento = campo(nombre);
+                if (elemento !== null && typeof campos[nombre] === 'string' && campos[nombre] !== '') {
+                    elemento.value = campos[nombre];
                 }
             });
-            ['tarjeta_monto', 'sip_monto'].forEach((nombre) => {
-                if (campo(nombre).value !== '') {
-                    campo(nombre).closest('details').open = true;
-                }
-            });
+            // El descuento que se le dijo al cliente vuelve a la vista, con su bloque abierto
+            const bloqueDescuento = $('[data-descuento]', formVenta);
+            if (bloqueDescuento !== null && typeof campos.descuento_valor === 'string' && campos.descuento_valor !== '') {
+                bloqueDescuento.open = true;
+            }
             campoClave.value = borrador.clave;
             calcular();
             pintarCarrito();

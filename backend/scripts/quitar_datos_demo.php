@@ -16,8 +16,8 @@ declare(strict_types=1);
  * El administrador recibe una clave temporal que se muestra UNA vez: al entrar se le pide cambiarla.
  * Despues: Tienda -> editar (nombre y direccion reales), Catalogo -> Importar CSV y Personal.
  *
- * Solo corre sobre una base que nadie ha usado: los 9 empleados de ejemplo y todos con la clave
- * de prueba sin cambiar. Si alguien ya cambio su clave (la tienda ya trabaja), no borra nada.
+ * Solo corre sobre una base que nadie ha usado: solo los empleados de ejemplo (9 de datos.sql y los 3 cajeros
+ * de la migracion 024) y todos con la clave de prueba sin cambiar. Si alguien ya cambio su clave (la tienda ya trabaja), no borra nada.
  */
 if (PHP_SAPI !== 'cli') {
     exit('Solo desde la consola.');
@@ -44,11 +44,17 @@ try {
     exit(1);
 }
 
-// La base tiene que ser la de ejemplo, sin usar: 9 empleados y ninguno cambio la clave de prueba
+// La base tiene que ser la de ejemplo, sin usar: solo empleados de ejemplo (los 9 de datos.sql, y los cajeros de
+// la migracion 024 si ya corrio) y ninguno cambio la clave de prueba
+const DNI_DE_EJEMPLO = ['70000001', '70000002', '70000003', '70000004', '70000005', '70000006', '70000007',
+    '70000008', '70000009', '70000101', '70000102', '70000103'];
+$marcas = implode(',', array_fill(0, count(DNI_DE_EJEMPLO), '?'));
+$ajenos = $db->prepare("SELECT COUNT(*) FROM empleado WHERE dni NOT IN ($marcas)");
+$ajenos->execute(DNI_DE_EJEMPLO);
 $empleados = (int) $db->query('SELECT COUNT(*) FROM empleado')->fetchColumn();
 $sinCambiar = (int) $db->query("SELECT COUNT(*) FROM empleado WHERE debe_cambiar_clave = 'S'")->fetchColumn();
 $admin = $db->query("SELECT id_rol, id_tienda FROM empleado WHERE id_empleado = 1")->fetch();
-if ($empleados !== 9 || $sinCambiar !== 9 || $admin === false || (int) $admin['id_rol'] !== 1 || (int) $admin['id_tienda'] !== 1) {
+if ((int) $ajenos->fetchColumn() !== 0 || $empleados < 9 || $sinCambiar !== $empleados || $admin === false || (int) $admin['id_rol'] !== 1 || (int) $admin['id_tienda'] !== 1) {
     fwrite(STDERR, "[ERROR] Esta base no es la de ejemplo recien instalada (ya hay empleados nuevos o claves cambiadas).\n"
         . "        No se borra nada. Para una tienda que ya trabaja, los datos se corrigen desde la pagina web.\n");
     exit(1);

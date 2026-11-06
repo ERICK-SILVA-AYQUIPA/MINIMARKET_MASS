@@ -680,6 +680,7 @@ El diseño base de 26 tablas no se toca. La aplicación PHP agrega lo siguiente 
 | `catalogo.sql` | Solo datos: 4 categorías, 55 marcas y 82 productos más (ids 13 a 94), con stock en las 3 tiendas por los ingresos 4, 5 y 6 y su entrada en el kardex | Un catálogo de ejemplo parecido al de un minimarket real |
 | `migraciones/020_descuentos_promociones.sql` | Tablas `promocion` y `descuento_venta`; columnas `detalle_venta.descuento`, `descuento_general` e `id_promocion`; el CHECK de `detalle_devolucion.importe` pasa a `importe <= ROUND(cantidad * precio_unitario, 2)` | Promociones (por producto con %, precio de oferta, pack, y % a toda la compra) y descuento manual del cajero. Lo cobrado de cada línea es `importe - descuento - descuento_general` y `venta.total` es su suma; una devolución paga lo cobrado |
 | `migraciones/023_producto_codigo_alterno.sql` | Tabla `producto_codigo` | Otros códigos de barras de un producto (empaque nuevo, pack, caja ITF-14): el escáner también lo reconoce con ellos |
+| `migraciones/024_cajero_caja_2_por_sede.sql` | Filas de `empleado` (sin cambios de estructura) | Un segundo cajero de ejemplo por sede para la caja 2 (DNI 70000101 a 70000103), solo en la base de ejemplo y sin repetir un DNI que ya exista |
 
 #### `producto_codigo`
 Otros códigos con los que el escáner reconoce un producto. Los vincula cualquier empleado desde la app al escanear un código desconocido; el administrador los quita en la ficha web.
