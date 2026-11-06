@@ -26,10 +26,17 @@ $porPeso = $producto?->esAlPeso() ?? ($valor('por_peso', 'N') === 'S');
     </div>
 </div>
 
-<form class="formulario panel" method="post" action="/?ruta=producto_guardar">
+<form class="formulario panel" method="post" action="/?ruta=producto_guardar"<?= $producto === null ? ' data-sugerencia' : '' ?>>
     <?php if ($error !== null): ?><div class="aviso error" role="alert"><?= e($error) ?></div><?php endif; ?>
     <?= campoCsrf($csrf) ?>
     <input type="hidden" name="id" value="<?= $producto?->getIdProducto() ?? '' ?>">
+
+    <label for="codigo">Código de barras <span class="ayuda"><?= $producto === null ? 'Escanéalo o escríbelo: si es un producto conocido, el nombre, la marca y la categoría se completan solos. Si no trae código, déjalo vacío: se le da uno interno para su etiqueta QR' : '8 a 14 dígitos; vacío solo si se vende al peso' ?></span></label>
+    <input id="codigo" name="codigo" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14"<?= $producto === null ? ' autofocus' : '' ?>
+           value="<?= e($valor('codigo', $producto?->getCodigoBarras() ?? '')) ?>">
+    <?php if ($producto === null): ?>
+        <p class="ayuda" data-sugerencia-estado aria-live="polite" hidden></p>
+    <?php endif; ?>
 
     <label for="nombre">Nombre</label>
     <input id="nombre" name="nombre" maxlength="100" size="50" required value="<?= e($valor('nombre', $producto?->getNombreProducto() ?? '')) ?>">
@@ -37,16 +44,13 @@ $porPeso = $producto?->esAlPeso() ?? ($valor('por_peso', 'N') === 'S');
     <label for="por_peso">Se vende</label>
     <?php if ($producto === null): ?>
         <select id="por_peso" name="por_peso">
-            <option value="N" <?= $porPeso ? '' : 'selected' ?>>Por unidad (necesita código de barras)</option>
+            <option value="N" <?= $porPeso ? '' : 'selected' ?>>Por unidad</option>
             <option value="S" <?= $porPeso ? 'selected' : '' ?>>Al peso, en kg</option>
         </select>
     <?php else: ?>
         <p id="por_peso"><strong><?= $porPeso ? 'Al peso, en kg' : 'Por unidad' ?></strong> <span class="ayuda">No se cambia: el stock y las ventas pasadas dependen de esto.</span></p>
     <?php endif; ?>
 
-    <label for="codigo">Código de barras <span class="ayuda">8 a 14 dígitos; vacío solo si se vende al peso</span></label>
-    <input id="codigo" name="codigo" inputmode="numeric" pattern="[0-9]{8,14}" maxlength="14"
-           value="<?= e($valor('codigo', $producto?->getCodigoBarras() ?? '')) ?>">
 
     <label for="precio">Precio de venta (S/)</label>
     <input id="precio" name="precio" inputmode="decimal" size="10" required

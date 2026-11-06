@@ -54,6 +54,17 @@ final class CodigoBarras
     }
 
     /**
+     * Codigo interno de un producto que no trae codigo de barras (EAN-13 que empieza con 20: GS1 reserva 20 a 29
+     * para uso dentro de la tienda, asi nunca choca con el de un producto de fabrica). 20 + id con ceros + control:
+     * el producto 125 -> 2000000001258. Va en su etiqueta QR y la app lo reconoce como cualquier codigo.
+     */
+    public static function interno(int $idProducto): string
+    {
+        $cuerpo = '20' . str_pad((string) $idProducto, 10, '0', STR_PAD_LEFT);
+        return $cuerpo . self::digitoControl($cuerpo);
+    }
+
+    /**
      * Todas las formas en que el catalogo puede tener el producto de este codigo, la leida (limpia) primero.
      * Vacio si no es un codigo de producto (letras, menos de 8 o mas de 14 digitos).
      * @return string[]

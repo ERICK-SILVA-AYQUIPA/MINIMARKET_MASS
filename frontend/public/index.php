@@ -267,6 +267,14 @@ try {
                 $productoController->detalle($leer('codigo'), $leer('id'), $leer('tienda'));
                 break;
 
+            case 'producto_sugerencia':
+                $productoController->sugerencia($leer('codigo'));
+                break;
+
+            case 'etiquetas':
+                $productoController->etiquetas($leer('categoria'), $leer('id'), $leer('copias'));
+                break;
+
             case 'stock':
                 $productoController->stockTiendas();
                 break;

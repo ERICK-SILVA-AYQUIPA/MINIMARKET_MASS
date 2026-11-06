@@ -2,6 +2,8 @@ package pe.mass.minimarket.data
 
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -212,13 +214,23 @@ class Repositorio(private val config: Configuracion) {
     }
 
     /**
-     * Nombre y marca de un codigo que no esta en el catalogo, segun Open Food Facts (base publica y gratuita).
-     * Solo ayuda a llenar el formulario: sin internet o si no lo conoce, devuelve null y se escribe a mano.
+     * Nombre, marca y categorias de un codigo que no esta en el catalogo, segun las bases publicas y gratuitas
+     * Open Food Facts (alimentos y bebidas, ~2 900 productos del Peru) y Open Products Facts (limpieza, cuidado personal).
+     * Se preguntan a la vez; gana la de alimentos si las dos lo conocen.
+     * Solo ayuda a llenar el formulario: sin internet o si nadie lo conoce, devuelve null y se escribe a mano.
      */
-    suspend fun sugerenciaPublica(codigo: String): Sugerencia? = withContext(Dispatchers.IO) {
-        if (!Regex("^[0-9]{8,14}$").matches(codigo)) return@withContext null
+    suspend fun sugerenciaPublica(codigo: String): Sugerencia? {
+        if (!Regex("^[0-9]{8,14}$").matches(codigo)) return null
+        return coroutineScope {
+            val alimentos = async { consultarBase("world.openfoodfacts.org", codigo) }
+            val productos = async { consultarBase("world.openproductsfacts.org", codigo) }
+            alimentos.await() ?: productos.await()
+        }
+    }
+
+    private suspend fun consultarBase(servidor: String, codigo: String): Sugerencia? = withContext(Dispatchers.IO) {
         val pedido = Request.Builder()
-            .url("https://world.openfoodfacts.org/api/v2/product/$codigo.json?fields=product_name,product_name_es,brands,quantity")
+            .url("https://$servidor/api/v2/product/$codigo.json?fields=product_name,product_name_es,brands,quantity,categories_tags")
             .header("User-Agent", "MassTienda-Android/${BuildConfig.VERSION_NAME}")
             .build()
         runCatching {

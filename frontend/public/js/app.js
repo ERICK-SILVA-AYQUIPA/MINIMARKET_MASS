@@ -1912,5 +1912,63 @@
         }, 1000);
     }
 
+    // ---------- Nuevo producto: al escanear o escribir el codigo se completan nombre, marca y categoria ----------
+    // Los datos reales vienen de Open Food Facts por el servidor (?ruta=producto_sugerencia). Solo se llena lo vacio:
+    // lo que el administrador ya escribio no se toca. Sin JavaScript el formulario funciona igual, a mano.
+    const formSugerencia = $('form[data-sugerencia]');
+    if (formSugerencia) {
+        const campoCodigo = $('#codigo', formSugerencia);
+        const estado = $('[data-sugerencia-estado]', formSugerencia);
+        const nombre = $('#nombre', formSugerencia);
+        const marca = $('#marca', formSugerencia);
+        const categoria = $('#categoria', formSugerencia);
+        let ultimo = '';
+        const avisar = (texto) => {
+            estado.textContent = texto;
+            estado.hidden = texto === '';
+        };
+        const elegir = (lista, valor) => {
+            if (lista && valor !== null && valor !== undefined && lista.value === '' && $('option[value="' + Number(valor) + '"]', lista)) {
+                lista.value = String(Number(valor));
+            }
+        };
+        const consultar = async () => {
+            const codigo = campoCodigo.value.replace(/[\s.\-]+/g, '');
+            if (!/^[0-9]{8,14}$/.test(codigo) || codigo === ultimo) {
+                return;
+            }
+            ultimo = codigo;
+            avisar('Buscando el producto…');
+            try {
+                const respuesta = await fetch('/?ruta=producto_sugerencia&codigo=' + encodeURIComponent(codigo), { cache: 'no-store' });
+                const datos = await respuesta.json();
+                if (datos.existe) {
+                    avisar('Este código ya es de «' + datos.existe.nombre + '». No hace falta crearlo otra vez.');
+                } else if (datos.encontrado) {
+                    if (nombre.value.trim() === '') {
+                        nombre.value = datos.nombre;
+                    }
+                    elegir(marca, datos.id_marca);
+                    elegir(categoria, datos.id_categoria);
+                    avisar('Completado con datos de Open Food Facts' + (datos.id_marca === null && datos.marca ? ' (la marca «' + datos.marca + '» no está en la lista: créala en Categorías y marcas)' : '')
+                        + '. Revísalo y pon el precio.');
+                    $('#precio', formSugerencia)?.focus();
+                } else {
+                    avisar('No se encontró en internet: escribe el nombre a mano.');
+                }
+            } catch (error) {
+                avisar('');
+            }
+        };
+        campoCodigo.addEventListener('change', consultar);
+        // El lector USB escribe el codigo y da Enter: se busca en vez de enviar el formulario a medio llenar
+        campoCodigo.addEventListener('keydown', (evento) => {
+            if (evento.key === 'Enter') {
+                evento.preventDefault();
+                consultar();
+            }
+        });
+    }
+
     enfocarDrawer();
 }());

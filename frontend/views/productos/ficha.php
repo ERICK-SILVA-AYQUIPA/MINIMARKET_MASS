@@ -58,6 +58,13 @@ $decimales = $producto->esAlPeso() ? 3 : 0;
         <?php endif; ?>
     </dd>
     <dt>Código de barras</dt><dd><?= e($producto->getCodigoBarras() ?? '(no tiene: se vende al peso)') ?></dd>
+    <?php if ($producto->getCodigoBarras() !== null): ?>
+        <dt>Etiqueta QR <span class="ayuda">la app lo reconoce al escanearla</span></dt>
+        <dd class="ficha-qr">
+            <?= qr($producto->getCodigoBarras(), 'QR de ' . $producto->getNombreProducto()) ?>
+            <a class="boton secundario chico" href="/?ruta=etiquetas&amp;id=<?= $producto->getIdProducto() ?>" target="_blank" rel="noopener"><?= icono('imprimir') ?>Imprimir etiqueta</a>
+        </dd>
+    <?php endif; ?>
     <?php if ($otrosCodigos !== []): ?>
         <dt>Otros códigos <span class="ayuda">el escáner también lo reconoce con estos</span></dt>
         <dd>

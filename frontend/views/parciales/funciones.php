@@ -5,11 +5,18 @@ declare(strict_types=1);
  * Funciones que usan todas las vistas. Se cargan una sola vez (require_once).
  */
 require_once __DIR__ . '/../../../backend/models/Cantidad.php';
+require_once __DIR__ . '/../../../backend/models/CodigoQr.php';
 
 // Escapa todo lo que se imprime en el HTML
 function e(string $texto): string
 {
     return htmlspecialchars($texto, ENT_QUOTES, 'UTF-8');
+}
+
+// El QR de una etiqueta como <svg>: solo trae rectangulos y el titulo pasa por htmlspecialchars (CodigoQr::svg)
+function qr(string $texto, string $titulo = ''): string
+{
+    return CodigoQr::svg($texto, $titulo);
 }
 
 function soles(float $monto): string

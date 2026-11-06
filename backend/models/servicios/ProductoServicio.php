@@ -31,9 +31,20 @@ class ProductoServicio extends Servicio
     {
         $this->exigirAdministrador($admin);
         $porPeso = ($datos['por_peso'] ?? '') === 'S' ? 'S' : 'N';
-        $campos = $this->leerDatos($datos, $porPeso);
+        $campos = $this->leerDatos($datos, $porPeso, true);
 
-        return $this->enTransaccion(fn(): int => $this->insertarProducto($admin, $campos, $porPeso, 'WEB'));
+        return $this->enTransaccion(function () use ($admin, $campos, $porPeso): int {
+            $id = $this->insertarProducto($admin, $campos, $porPeso, 'WEB');
+            // Por unidad y sin codigo (pan, un producto a granel embolsado en la tienda): se le da uno interno
+            // para que tenga su etiqueta QR y la app lo reconozca
+            if ($campos['codigo'] === null && $porPeso !== 'S') {
+                $codigo = CodigoBarras::interno($id);
+                $this->exigirCodigoLibre($codigo, $id);
+                $this->db->prepare('UPDATE producto SET codigo_barras = :codigo WHERE id_producto = :id')
+                    ->execute(['codigo' => $codigo, 'id' => $id]);
+            }
+            return $id;
+        });
     }
 
     /**
@@ -517,9 +528,10 @@ class ProductoServicio extends Servicio
 
     /**
      * Valida los campos del formulario y los deja listos para el SQL.
+     * @param bool $codigoInterno true al crear desde la web: un producto por unidad puede venir sin codigo
      * @return array{nombre: string, codigo: ?string, precio: string, categoria: int, marca: int, unidad: int}
      */
-    private function leerDatos(array $datos, string $porPeso): array
+    private function leerDatos(array $datos, string $porPeso, bool $codigoInterno = false): array
     {
         $nombre = $this->textoObligatorio($datos['nombre'] ?? '', 100, 'Nombre del producto');
 
@@ -529,7 +541,8 @@ class ProductoServicio extends Servicio
         if ($codigo !== null && preg_match('/^[0-9]{8,14}$/', $codigo) !== 1) {
             throw new ReglaNegocioException('El código de barras debe tener de 8 a 14 dígitos.');
         }
-        if ($codigo === null && $porPeso !== 'S') {
+        // Al crearlo desde la web, sin codigo se le da uno interno (crear); al editar o importar sigue siendo obligatorio
+        if ($codigo === null && $porPeso !== 'S' && !$codigoInterno) {
             throw new ReglaNegocioException('Un producto por unidad necesita código de barras.');
         }
 

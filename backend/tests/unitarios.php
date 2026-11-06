@@ -34,6 +34,8 @@ require __DIR__ . '/../models/Vencimiento.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require __DIR__ . '/../models/CodigoBarras.php';
+require __DIR__ . '/../models/CodigoQr.php';
+require __DIR__ . '/../models/SugerenciaPublica.php';
 require __DIR__ . '/../../frontend/views/parciales/funciones.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require __DIR__ . '/../config/Migraciones.php';
@@ -511,6 +513,46 @@ revisar('Letras o un largo que no es de producto: ninguna variante', CodigoBarra
     && CodigoBarras::variantes('123') === [] && CodigoBarras::variantes('00000000') === ['00000000']);
 revisar('La caja ITF-14 de otro indicador no se toma por la unidad (se vincula aparte)',
     !in_array('7751271011013', CodigoBarras::variantes('17751271011010'), true));
+
+// Etiquetas QR: el mismo QR que arma la libreria de referencia (qrcode de npm, nivel M); jsQR lo lee de vuelta
+$qrLeche = array_map(static fn(array $f): string => implode('', array_map(static fn(bool $b): string => $b ? '1' : '0', $f)),
+    CodigoQr::matriz('7750000000011'));
+revisar('QR de la etiqueta: el código de la leche da el QR de la librería de referencia (21×21, nivel M)',
+    $qrLeche === ['111111101101001111111','100000101010001000001','101110101110101011101','101110100110001011101','101110101111101011101','100000100100001000001','111111101010101111111','000000000110000000000','100111111111010010111','011001011000101101110','011111110111101100001','101000011110100011111','101010110101100110001','000000001011011111100','111111101010110111110','100000101011101010111','101110101111110100010','101110101000000101100','101110100111111111111','100000100110111000111','111111101010101111000']);
+revisar('QR: crece de versión con el texto y rechaza vacío o demasiado largo', count(CodigoQr::matriz(str_repeat('9', 14))) === 21
+    && count(CodigoQr::matriz(str_repeat('a', 20))) === 25 && count(CodigoQr::matriz(str_repeat('a', 62))) === 33
+    && $noValida(fn() => CodigoQr::matriz('')) && $noValida(fn() => CodigoQr::matriz(str_repeat('a', 63))));
+$svgQr = CodigoQr::svg('7750000000011', 'Leche <b>"Gloria"</b>');
+revisar('QR en SVG: con margen blanco y el título escapado', str_contains($svgQr, 'viewBox="0 0 29 29"')
+    && str_contains($svgQr, '<title>Leche &lt;b&gt;&quot;Gloria&quot;&lt;/b&gt;</title>') && !str_contains($svgQr, '<b>'));
+revisar('Código interno de un producto sin código: EAN-13 que empieza con 20 y con su dígito de control',
+    CodigoBarras::interno(125) === '2000000001258' && CodigoBarras::digitoControlValido(CodigoBarras::interno(97))
+    && CodigoBarras::interno(1) !== CodigoBarras::interno(10));
+
+// Nuevo producto: nombre, marca y categoria reales desde Open Food Facts (aqui con una respuesta fija, sin internet)
+$fanta = '{"code":"7750182002363","status":1,"product":{"product_name":"Gaseosa Fanta Kola Inglesa x 500ml","brands":"Fanta, Coca-Cola",'
+    . '"quantity":"500ml","categories_tags":["en:beverages","en:carbonated-drinks","en:sodas"]}}';
+$pedidas = [];
+$publica = new SugerenciaPublica(static function (string $url) use (&$pedidas, $fanta): ?string {
+    $pedidas[] = $url;
+    return str_contains($url, 'openfoodfacts') ? null : $fanta;
+});
+$sugerida = $publica->buscar('7750182002363');
+revisar('Sugerencia: si Open Food Facts no lo tiene, pregunta a Open Products Facts; nombre y marca como en el empaque',
+    $sugerida !== null && $sugerida['nombre'] === 'Gaseosa Fanta Kola Inglesa x 500ml' && $sugerida['marca'] === 'Fanta'
+    && $sugerida['categorias'] === ['beverages', 'carbonated drinks', 'sodas'] && count($pedidas) === 2);
+revisar('Sugerencia: un código que nadie conoce, una respuesta rota o algo que no es código: null',
+    $publica->buscar('ABC') === null && SugerenciaPublica::desdeRespuesta('{"status":0}') === null
+    && SugerenciaPublica::desdeRespuesta('<html>') === null
+    && SugerenciaPublica::desdeRespuesta('{"status":1,"product":{"product_name":"agua san Luis","brands":"San Luis"}}')['nombre'] === 'Agua san Luis');
+$categoriasCatalogo = [1 => 'Abarrotes', 2 => 'Lácteos', 3 => 'Bebidas', 4 => 'Frutas y verduras', 5 => 'Limpieza', 6 => 'Desayuno',
+    7 => 'Snacks y golosinas', 8 => 'Cuidado personal', 9 => 'Embutidos y huevos'];
+$adivinar = static fn(string $n, array $c = []): ?int => SugerenciaPublica::categoria($n, $c, $categoriasCatalogo);
+revisar('Sugerencia: elige la categoría del catálogo por el nombre y las categorías de internet',
+    $adivinar('Leche evaporada Gloria entera 400 g') === 2 && $adivinar('Gaseosa Fanta Kola Inglesa x 500ml') === 3
+    && $adivinar('Sal Marina EMSAL') === 1 && $adivinar('Salsa de tomate Alacena') === 1 && $adivinar('Jabón Protex avena 110 g') === 8
+    && $adivinar('Papas fritas Lay\'s') === 7 && $adivinar('Detergente Bolívar') === 5 && $adivinar('Sporade Tropical', ['energy drinks']) === 3
+    && $adivinar('Producto XYZ') === null && SugerenciaPublica::categoria('Leche', [], [1 => 'Abarrotes']) === null);
 
 revisar('instalar_laragon.sql está al día (php backend/scripts/generar_instalador.php)',
     str_replace("\r", '', (string) file_get_contents(__DIR__ . '/../database/instalar_laragon.sql')) === Migraciones::instalador());
