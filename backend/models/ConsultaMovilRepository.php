@@ -313,7 +313,7 @@ class ConsultaMovilRepository
             'cantidad'        => $f['cantidad'],
             'precio_unitario' => $f['precio_unitario'],
             'importe'         => $f['importe'],
-            'descuento'       => $f['descuento'],   // promociones y descuento general (migracion 017)
+            'descuento'       => $f['descuento'],   // promociones y descuento general (migracion 020)
         ], $consulta->fetchAll());
     }
 

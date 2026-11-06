@@ -5,7 +5,7 @@ require_once __DIR__ . '/Dinero.php';
 
 /**
  * Una fila de la tabla `detalle_venta`: producto, cantidad, precio al vender e importe.
- * Con la migracion 017 tambien sus descuentos: lo cobrado de la linea es importe - descuento - descuentoGeneral.
+ * Con la migracion 020 tambien sus descuentos: lo cobrado de la linea es importe - descuento - descuentoGeneral.
  */
 class DetalleVenta
 {

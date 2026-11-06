@@ -12,6 +12,10 @@ require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/PromocionRepository.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
+require_once __DIR__ . '/../models/Emisor.php';
+require_once __DIR__ . '/../models/DesgloseIgv.php';
+require_once __DIR__ . '/../models/AnchoTicket.php';
+require_once __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 
 /**
  * C: ventas por tienda, comprobante (boleta o factura), registrar una venta, anularla o devolver parte.
@@ -80,8 +84,8 @@ class VentaController extends Controller
         $this->vista('ventas/lista', get_defined_vars());
     }
 
-    // GET /?ruta=comprobante&serie=B001&numero=1  (con $ticket: el formato de 80 mm para imprimir o PDF)
-    public function comprobante(?string $serieTexto, ?string $numeroTexto, bool $ticket = false): void
+    // GET /?ruta=comprobante&serie=B001&numero=1  (con $ticket: el ticket de 58 u 80 mm para la ticketera termica o PDF)
+    public function comprobante(?string $serieTexto, ?string $numeroTexto, bool $ticket = false, ?string $ancho = null): void
     {
         // Validar antes de buscar: serie B o F + 3 digitos, correlativo de 1 a 8 digitos
         if ($serieTexto === null || preg_match('/^[BF][0-9]{3}$/', $serieTexto) !== 1
@@ -96,7 +100,11 @@ class VentaController extends Controller
             return;
         }
 
-        $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', $this->datosComprobante($venta));
+        $datos = $this->datosComprobante($venta);
+        if ($ticket) {
+            $datos['ancho'] = AnchoTicket::elegir($ancho);
+        }
+        $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', $datos);
     }
 
     /**
@@ -124,7 +132,7 @@ class VentaController extends Controller
         $detalles = array_column($lineas, 'detalle');
         $pagos = $this->ventas->pagosDeVenta($venta->getIdVenta());
 
-        // Descuentos (migracion 017): el de cada linea con el nombre de su promocion y el de toda la venta
+        // Descuentos (migracion 020): el de cada linea con el nombre de su promocion y el de toda la venta
         $nombresPromocion = $this->promociones->nombres(array_filter(array_map(fn(DetalleVenta $d): ?int => $d->getIdPromocion(), $detalles)));
         $descuentoVenta = $this->ventas->descuentoDeVenta($venta->getIdVenta());
         $subtotal = array_sum(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getImporte()), $detalles)) / 100;
@@ -166,6 +174,13 @@ class VentaController extends Controller
             && $this->usuario?->puedeAnularVenta($tienda->getIdTienda()) === true;
         $detalleCuadra = $venta->detalleCuadra($detalles);
         $pagosCuadran = $venta->pagosCuadran($pagos);
+
+        // Cabecera del ticket (.env) y op. gravada / IGV / total, linea por linea como lo pediria SUNAT
+        $emisor = Emisor::desdeEntorno();
+        // Sobre lo cobrado de cada linea (importe menos sus descuentos): asi el total del desglose es el de la venta
+        $desglose = DesgloseIgv::deLineas(array_map(fn(DetalleVenta $d): int => Dinero::centimos($d->getNeto()), $detalles));
+        // Hasta que la venta se envie a un OSE/PSE, el ticket dice que es interno y no vale ante SUNAT
+        $ticketInterno = FacturacionElectronica::ticketEsInterno(FacturacionElectronica::desdeEntorno());
 
         unset($producto, $detalle, $turno);
         return get_defined_vars();

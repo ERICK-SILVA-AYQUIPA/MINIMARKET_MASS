@@ -15,6 +15,8 @@ declare(strict_types=1);
  * @var ?array{origen: string, nombre: string, porcentaje: ?float, monto: float, motivo: ?string} $descuentoVenta
  * @var float $subtotal  suma de importes (cantidad x precio de lista)
  * @var float $descuentoProductos  suma de los descuentos de las promociones de producto
+ * @var DesgloseIgv $desglose
+ * @var bool $ticketInterno
  */
 $hayDescuentos = $descuentoVenta !== null || array_filter($lineas, fn(array $l): bool => $l['detalle']->getDescuento() > 0) !== [];
 ?>
@@ -62,11 +64,15 @@ $hayDescuentos = $descuentoVenta !== null || array_filter($lineas, fn(array $l):
                 <tr class="fila-descuento"><th scope="row" colspan="5"><?= e($descuentoVenta['nombre'] . ($descuentoVenta['porcentaje'] !== null ? ' (' . rtrim(rtrim(number_format($descuentoVenta['porcentaje'], 2, '.', ''), '0'), '.') . ' %)' : '') . ($descuentoVenta['motivo'] !== null ? ': ' . $descuentoVenta['motivo'] : '')) ?></th><td class="num">−<?= e(soles($descuentoVenta['monto'])) ?></td></tr>
             <?php endif; ?>
         <?php endif; ?>
+        <tr><th scope="row" colspan="5">Op. gravada</th><td class="num"><?= e(soles($desglose->getGravada() / 100)) ?></td></tr>
+        <tr><th scope="row" colspan="5">IGV <?= (int) DesgloseIgv::TASA_PORCENTAJE ?>%</th><td class="num"><?= e(soles($desglose->getIgv() / 100)) ?></td></tr>
         <tr><th scope="row" colspan="5">TOTAL</th><td class="num"><?= e(soles($venta->getTotal())) ?></td></tr>
     </tfoot>
 </table>
 </div>
-<p class="sutil"><small>El diseño no guarda subtotal ni IGV aparte (boleta.sql), por eso solo se muestra el total.</small></p>
+<?php if ($ticketInterno): ?>
+<p class="sutil"><small>Ticket interno: esta venta no se envía a SUNAT y su ticket no es válido como comprobante de pago. El precio incluye IGV.</small></p>
+<?php endif; ?>
 
 <h3>Pagos</h3>
 <div class="tabla">

@@ -48,7 +48,8 @@ if ($usuarioActual !== null) {
     $productosPestanas = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];
     $movimientosPestanas = [];
     if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
-        $productosPestanas += ['vencimientos' => ['Por vencer', 'vence'], 'reponer' => ['Reponer', 'alerta']];
+        $productosPestanas += ['vencimientos' => ['Por vencer', 'vence'], 'reponer' => ['Reponer', 'alerta'],
+            'productos_app' => ['Desde la app', 'codigo']];
         $movimientosPestanas['ingresos'] = ['Ingresos', 'ingresos'];
     }
     $movimientosPestanas += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];

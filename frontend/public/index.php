@@ -223,6 +223,10 @@ try {
                 $productoController->stockTiendas();
                 break;
 
+            case 'productos_app':
+                $productoController->desdeApp($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('q'), $leer('pagina'));
+                break;
+
             case 'stock_csv':
                 $productoController->stockCsv();
                 break;
@@ -236,7 +240,7 @@ try {
                 break;
 
             case 'comprobante_imprimir':
-                $ventaController->comprobante($leer('serie'), $leer('numero'), true);
+                $ventaController->comprobante($leer('serie'), $leer('numero'), true, $leer('ancho'));
                 break;
 
             case 'venta_nueva':

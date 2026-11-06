@@ -12,6 +12,8 @@ if (PHP_SAPI !== 'cli') {
 }
 require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../config/Migraciones.php';
+require __DIR__ . '/../models/Emisor.php';
+require __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 date_default_timezone_set('America/Lima');
 
 $raiz = dirname(__DIR__, 2);
@@ -114,6 +116,20 @@ revisar($porCambiar === 0, 'Todos los empleados activos ya eligieron su clave',
 revisar($conClaveDePrueba === [], 'Nadie usa la clave de prueba',
     count($conClaveDePrueba) . ' empleados activos siguen con la clave de prueba (' . implode(', ', array_slice($conClaveDePrueba, 0, 5))
     . (count($conClaveDePrueba) > 5 ? '…' : '') . '): que la cambien en "Mi clave"');
+
+echo "Ticket y comprobantes\n";
+$emisor = Emisor::desdeEntorno();
+revisar($emisor->estaConfigurado(), 'Razón social y RUC de la empresa en el ticket',
+    $emisor->getRuc() !== '' && !Emisor::rucValido($emisor->getRuc())
+        ? 'EMPRESA_RUC no es un RUC válido (11 dígitos con su dígito verificador): corrígelo en .env'
+        : 'Faltan EMPRESA_RAZON_SOCIAL y EMPRESA_RUC en .env: el ticket sale sin RUC', 'AVISO');
+$sinDireccion = $db->query("SELECT nombre_tienda FROM tienda WHERE estado = 'ACTIVA' AND (TRIM(direccion) = '' OR direccion LIKE 'Direccion de ejemplo%' OR direccion LIKE 'Dirección de ejemplo%')")->fetchAll(PDO::FETCH_COLUMN);
+revisar($sinDireccion === [], 'Cada tienda tiene su dirección real',
+    'Tiendas con la dirección de ejemplo (no sale en el ticket): ' . implode(', ', $sinDireccion) . '. Corrígela en Tiendas → Editar', 'AVISO');
+$proveedor = FacturacionElectronica::desdeEntorno();
+revisar(!FacturacionElectronica::ticketEsInterno($proveedor), 'Las ventas se envían a SUNAT por ' . $proveedor->nombre(),
+    'Los tickets salen como TICKET INTERNO, no válidos ante SUNAT. Proveedor: ' . $proveedor->nombre()
+    . ' (docs/facturacion_electronica.md; confirmarlo con un contador)', 'AVISO');
 
 echo "Respaldos\n";
 // .tar.gz(.gpg) = base + fotos (respaldo.sh / respaldo.ps1); .sql = respaldos antiguos, solo la base

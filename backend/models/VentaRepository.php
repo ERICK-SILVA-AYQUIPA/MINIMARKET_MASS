@@ -176,7 +176,7 @@ class VentaRepository
     }
 
     /**
-     * El descuento a toda la venta (migracion 017), con el nombre de su promocion o el motivo del cajero.
+     * El descuento a toda la venta (migracion 020), con el nombre de su promocion o el motivo del cajero.
      * @return ?array{origen: string, nombre: string, porcentaje: ?float, monto: float, motivo: ?string}
      */
     public function descuentoDeVenta(int $idVenta): ?array

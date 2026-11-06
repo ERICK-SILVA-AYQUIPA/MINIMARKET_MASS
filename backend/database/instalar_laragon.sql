@@ -6,7 +6,7 @@
 
    NO SE EDITA A MANO: lo arma backend/scripts/generar_instalador.php
    con los 12 scripts de backend/database/ (schema, datos, boleta, login, seguridad, ajustes, auditoria, ingresos, operaciones, catalogo, api_movil, caja_apertura)
-   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 017_descuentos_promociones.sql).
+   y las migraciones de backend/database/migraciones/ (013_clave_y_sesiones.sql, 014_movimiento_caja_categoria.sql, 015_tildes_en_datos.sql, 018_producto_origen.sql, 020_descuentos_promociones.sql).
    ======================================================== */
 
 -- >>> INICIO DE database/schema.sql <<<
@@ -2509,9 +2509,43 @@ UPDATE ingreso_mercaderia SET observacion = 'Surtido inicial del catálogo'
 INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('015_tildes_en_datos.sql', NOW(), 'd1d87afcc90d496a7f2946811016b53eb1095c25594d1632f98c114e3466b2f5');
 
 
--- >>> INICIO DE database/migraciones/017_descuentos_promociones.sql <<<
+-- >>> INICIO DE database/migraciones/018_producto_origen.sql <<<
 /* =====================================================================
-   MINIMARKET MASS - migracion 017: descuentos y promociones
+   MINIMARKET MASS - migracion 018: de donde salio cada producto del catalogo y quien lo registro
+
+   - origen: WEB (formulario del catalogo), APP (escaner de la app Android) o CSV (importacion).
+     NULL = producto de la base inicial (datos.sql / catalogo.sql), sin registro de quien lo creo.
+   - fecha_registro, id_empleado_registro, id_tienda_registro: cuando, quien y desde que sucursal.
+     Con esto la pantalla "Desde la app" (?ruta=productos_app) lista los productos que se escanearon y crearon
+     desde los celulares, sin tener que leer el texto de la auditoria.
+   - Los productos que ya se habian creado se completan con su fila PRODUCTO_CREADO de la auditoria:
+     el detalle empieza con el id y termina en " (app)" cuando vino del escaner. Los importados por CSV
+     no dejaban esa fila: quedan en NULL.
+   ===================================================================== */
+
+ALTER TABLE producto
+    ADD COLUMN origen               VARCHAR(3)         NULL AFTER id_unidad,
+    ADD COLUMN fecha_registro       DATETIME           NULL AFTER origen,
+    ADD COLUMN id_empleado_registro MEDIUMINT UNSIGNED NULL AFTER fecha_registro,
+    ADD COLUMN id_tienda_registro   SMALLINT UNSIGNED  NULL AFTER id_empleado_registro,
+    ADD CONSTRAINT ck_producto_origen CHECK (origen IS NULL OR origen IN ('WEB', 'APP', 'CSV')),
+    ADD CONSTRAINT fk_producto_empleado_registro FOREIGN KEY (id_empleado_registro) REFERENCES empleado (id_empleado),
+    ADD CONSTRAINT fk_producto_tienda_registro FOREIGN KEY (id_tienda_registro) REFERENCES tienda (id_tienda),
+    ADD INDEX ix_producto_origen (origen, fecha_registro);
+
+UPDATE producto p
+  JOIN auditoria a ON a.accion = 'PRODUCTO_CREADO' AND a.detalle LIKE CONCAT(p.id_producto, ' %')
+   SET p.origen = IF(a.detalle LIKE '% (app)', 'APP', 'WEB'),
+       p.fecha_registro = a.fecha_hora,
+       p.id_empleado_registro = a.id_empleado,
+       p.id_tienda_registro = a.id_tienda
+ WHERE p.origen IS NULL;
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('018_producto_origen.sql', NOW(), '33930f313addc137db70acad397853e35646bb6746330b9f193fa7f5b405d8e7');
+
+
+-- >>> INICIO DE database/migraciones/020_descuentos_promociones.sql <<<
+/* =====================================================================
+   MINIMARKET MASS - migracion 020: descuentos y promociones
 
    - promocion: la crea el ADMINISTRADOR (de su tienda o de toda la cadena) y se aplica sola al vender.
        PORCENTAJE  un producto con X % de descuento                    (ej.: Leche Gloria -15 %)
@@ -2593,4 +2627,4 @@ CREATE TABLE descuento_venta (
 ALTER TABLE detalle_devolucion
     DROP CHECK ck_detalle_devolucion_importe,
     ADD CONSTRAINT ck_detalle_devolucion_importe CHECK (importe > 0 AND importe <= ROUND(cantidad * precio_unitario, 2));
-INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('017_descuentos_promociones.sql', NOW(), 'f1d4cd117ca04c0b3c0bd77f2bad4d0345bb46b9ee553734f09f8915b47b7657');
+INSERT INTO migracion_aplicada (nombre, fecha, checksum) VALUES ('020_descuentos_promociones.sql', NOW(), 'e05bdaca81706febbd7ca9fedfcbe16d91e3f26783fa862fa3d85e30b8f00ffb');

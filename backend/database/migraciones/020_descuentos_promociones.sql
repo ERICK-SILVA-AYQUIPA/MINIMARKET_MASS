@@ -1,5 +1,5 @@
 /* =====================================================================
-   MINIMARKET MASS - migracion 017: descuentos y promociones
+   MINIMARKET MASS - migracion 020: descuentos y promociones
 
    - promocion: la crea el ADMINISTRADOR (de su tienda o de toda la cadena) y se aplica sola al vender.
        PORCENTAJE  un producto con X % de descuento                    (ej.: Leche Gloria -15 %)

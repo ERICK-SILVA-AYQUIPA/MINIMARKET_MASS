@@ -31,7 +31,8 @@ require __DIR__ . '/../layout_inicio.php';
         <p class="sutil">Total <?= e(soles($venta->getTotal())) ?> · <?= e(fecha($venta->getFechaHora())) ?></p>
     </div>
     <div class="acciones">
-        <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>"><?= icono('imprimir') ?>Imprimir ticket / PDF</a>
+        <a class="boton" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>&amp;auto=1"><?= icono('imprimir') ?>Imprimir en ticketera</a>
+        <a class="boton secundario" href="/?ruta=comprobante_imprimir&amp;serie=<?= e($serie->getSerie()) ?>&amp;numero=<?= $venta->getNumeroCorrelativo() ?>"><?= icono('ver') ?>Ver ticket / PDF</a>
     </div>
 </div>
 
