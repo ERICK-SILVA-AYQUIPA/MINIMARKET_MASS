@@ -67,6 +67,9 @@ interface MassApi {
         @Query("pagina") pagina: Int,
     ): Response<RespuestaApi<PaginaVentas>>
 
+    @POST("api/v1/ventas/cotizacion")
+    suspend fun cotizarVenta(@Body pedido: CotizacionPedido): Response<RespuestaApi<Cotizacion>>
+
     @POST("api/v1/ventas")
     suspend fun registrarVenta(
         @Header("Idempotency-Key") clave: String,

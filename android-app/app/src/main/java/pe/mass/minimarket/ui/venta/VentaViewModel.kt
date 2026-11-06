@@ -2,13 +2,20 @@ package pe.mass.minimarket.ui.venta
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pe.mass.minimarket.data.Repositorio
 import pe.mass.minimarket.data.Resultado
+import pe.mass.minimarket.data.api.Cotizacion
 import pe.mass.minimarket.data.api.EstadoCaja
+import pe.mass.minimarket.data.api.LineaPedido
 import pe.mass.minimarket.data.api.PagoPedido
 import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.data.api.VentaDetalle
@@ -92,7 +99,24 @@ data class EstadoVenta(
     val codigoNuevo: String? = null,
     // Ultimo producto quitado del carrito, para "Deshacer"
     val quitado: Quitado? = null,
-)
+    // Total con las promociones de hoy que calculo el servidor, y para que lineas del carrito
+    val cotizacion: Cotizacion? = null,
+    val cotizadoPara: List<LineaPedido>? = null,
+) {
+    /** La cotizacion solo vale si es de este mismo carrito (si cambio, todavia no llega la nueva). */
+    private val cotizacionVigente: Cotizacion?
+        get() = cotizacion?.takeIf { cotizadoPara == carrito.lineasPedido() }
+
+    /** Lo que se cobra: el total con promociones; sin respuesta del servidor, el total de lista. */
+    val totalCobrar: BigDecimal get() = cotizacionVigente?.total?.aDecimal() ?: carrito.total
+
+    /** Lo que ahorran las promociones de hoy en este carrito (0 si no hay). */
+    val descuento: BigDecimal get() = cotizacionVigente?.descuento?.aDecimal() ?: BigDecimal.ZERO
+
+    /** "Leche Gloria · Semana del lacteo: -S/ 1.35", uno por descuento. */
+    val textosDescuento: List<String>
+        get() = cotizacionVigente?.descuentos.orEmpty().map { "${it.texto}: −${it.monto.soles()}" }
+}
 
 data class Quitado(val item: ItemCarrito, val posicion: Int)
 
@@ -107,6 +131,19 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
 
     init {
         cargarCaja()
+        observarCarrito()
+    }
+
+    /** Cada vez que cambia el carrito, el servidor calcula el total con las promociones de hoy. */
+    @OptIn(FlowPreview::class)
+    private fun observarCarrito() {
+        viewModelScope.launch {
+            _estado.map { it.carrito.lineasPedido() }.distinctUntilChanged().debounce(300).collectLatest { lineas ->
+                if (lineas.isEmpty()) return@collectLatest
+                val r = repo.cotizarVenta(lineas)
+                if (r is Resultado.Ok) _estado.update { it.copy(cotizacion = r.datos, cotizadoPara = lineas) }
+            }
+        }
     }
 
     fun cargarCaja() {
@@ -222,7 +259,7 @@ class VentaViewModel(private val repo: Repositorio) : ViewModel() {
     fun cobrar() {
         val e = _estado.value
         if (e.cobrando || e.carrito.vacio) return
-        e.cobro.problema(e.carrito.total)?.let { msg ->
+        e.cobro.problema(e.totalCobrar)?.let { msg ->
             _estado.update { it.copy(aviso = Aviso(msg, TipoAviso.ALERTA)) }
             return
         }

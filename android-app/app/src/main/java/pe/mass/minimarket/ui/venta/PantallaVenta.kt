@@ -431,16 +431,21 @@ private fun BarraTotal(estado: EstadoVenta, onCobrar: () -> Unit, onReintentar: 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Total", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("${estado.carrito.unidades} producto(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        if (estado.descuento.signum() > 0) "${estado.carrito.unidades} producto(s) · ahorra ${estado.descuento.soles()}"
+                        else "${estado.carrito.unidades} producto(s)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                Text(estado.carrito.total.soles(), style = MaterialTheme.typography.headlineMedium)
+                Text(estado.totalCobrar.soles(), style = MaterialTheme.typography.headlineMedium)
             }
             if (estado.pendiente) {
                 BotonGrande("Reintentar envío", onClick = onReintentar, ocupado = estado.cobrando)
                 OutlinedButton(onClick = onDescartar, modifier = Modifier.fillMaxWidth()) { Text("Revisar en el historial") }
             } else {
                 BotonGrande(
-                    if (estado.carrito.vacio) "Cobrar" else "Cobrar ${estado.carrito.total.soles()}",
+                    if (estado.carrito.vacio) "Cobrar" else "Cobrar ${estado.totalCobrar.soles()}",
                     onClick = onCobrar,
                     icono = Icons.Filled.Payments,
                     habilitado = !estado.carrito.vacio,
@@ -499,7 +504,7 @@ private fun <T> Segmentos(opciones: List<Pair<T, String>>, elegido: T, onElegir:
 @Composable
 private fun HojaCobro(estado: EstadoVenta, vm: VentaViewModel, onCerrar: () -> Unit, onCobrar: () -> Unit) {
     val c = estado.cobro
-    val total = estado.carrito.total
+    val total = estado.totalCobrar
     val problema = c.problema(total)
     val hoja = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -512,6 +517,19 @@ private fun HojaCobro(estado: EstadoVenta, vm: VentaViewModel, onCerrar: () -> U
                 Text("Total a cobrar", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(total.soles(), style = MaterialTheme.typography.displayMedium)
                 Text("${estado.carrito.unidades} producto(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // Promociones de hoy: subtotal de lista y cada descuento, como en el ticket
+            if (estado.descuento.signum() > 0) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "Subtotal ${estado.carrito.total.soles()} · Promociones −${estado.descuento.soles()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Mass.colores.exito,
+                    )
+                    estado.textosDescuento.forEach { texto ->
+                        Text(texto, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
             if (estado.carrito.sinStockSuficiente.isNotEmpty()) {
                 TarjetaAviso(

@@ -137,6 +137,7 @@ $rutas = [
     ['GET',  '#^v1/caja$#',                     true,  fn(array $p): array => $ventas->caja()],
     ['POST', '#^v1/caja/turno$#',               true,  fn(array $p): array => $ventas->abrirTurno($datos)],
     ['GET',  '#^v1/ventas$#',                   true,  fn(array $p): array => $ventas->lista($leer('desde'), $leer('hasta'), $leer('estado'), $leer('comprobante'), $leer('pagina'))],
+    ['POST', '#^v1/ventas/cotizacion$#',        true,  fn(array $p): array => $ventas->cotizar($datos)],
     ['POST', '#^v1/ventas$#',                   true,  fn(array $p): array => $ventas->registrar($datos, $clave)],
     ['GET',  '#^v1/ventas/([0-9]{1,9})$#',      true,  fn(array $p): array => $ventas->detalle($p[1])],
     ['POST', '#^v1/ventas/([0-9]{1,9})/anular$#', true, fn(array $p): array => $ventas->anular($p[1], $datos)],

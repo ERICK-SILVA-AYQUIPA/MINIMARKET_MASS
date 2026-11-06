@@ -18,9 +18,12 @@ import pe.mass.minimarket.dominio.Sugerencia
 import pe.mass.minimarket.dominio.Sugerencias
 import pe.mass.minimarket.data.api.AbrirTurnoPedido
 import pe.mass.minimarket.data.api.AnularPedido
+import pe.mass.minimarket.data.api.Cotizacion
+import pe.mass.minimarket.data.api.CotizacionPedido
 import pe.mass.minimarket.data.api.EstadoCaja
 import pe.mass.minimarket.data.api.Ingreso
 import pe.mass.minimarket.data.api.IngresoPedido
+import pe.mass.minimarket.data.api.LineaPedido
 import pe.mass.minimarket.data.api.LoginPedido
 import pe.mass.minimarket.data.api.MassApi
 import pe.mass.minimarket.data.api.OpcionesCatalogo
@@ -225,6 +228,10 @@ class Repositorio(private val config: Configuracion) {
 
     suspend fun registrarVenta(clave: String, pedido: VentaPedido): Resultado<VentaDetalle> =
         llamar { registrarVenta(clave, pedido) }
+
+    /** El total del carrito con las promociones de hoy (el servidor lo calcula igual que al registrar). */
+    suspend fun cotizarVenta(lineas: List<LineaPedido>): Resultado<Cotizacion> =
+        llamar { cotizarVenta(CotizacionPedido(lineas)) }
 
     suspend fun ventas(desde: String?, hasta: String?, estado: String?, comprobante: String?, pagina: Int): Resultado<PaginaVentas> =
         llamar { ventas(desde, hasta, estado, comprobante?.takeIf { it.isNotBlank() }, pagina) }
