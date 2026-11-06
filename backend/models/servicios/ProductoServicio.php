@@ -24,7 +24,7 @@ class ProductoServicio extends Servicio
         $porPeso = ($datos['por_peso'] ?? '') === 'S' ? 'S' : 'N';
         $campos = $this->leerDatos($datos, $porPeso);
 
-        return $this->enTransaccion(fn(): int => $this->insertarProducto($admin, $campos, $porPeso, ''));
+        return $this->enTransaccion(fn(): int => $this->insertarProducto($admin, $campos, $porPeso, 'WEB'));
     }
 
     /**
@@ -59,7 +59,7 @@ class ProductoServicio extends Servicio
                 }
             }
             $campos = $this->leerDatos($datos, 'N');
-            $id = $this->insertarProducto($usuario, $campos, 'N', ' (app)');
+            $id = $this->insertarProducto($usuario, $campos, 'N', 'APP');
 
             if ($stockInicial > 0) {
                 $this->db->prepare(
@@ -76,15 +76,21 @@ class ProductoServicio extends Servicio
         });
     }
 
-    // Crea un producto ACTIVO y su fila de stock (en 0) en cada tienda. Va dentro de una transaccion.
+    /**
+     * Crea un producto ACTIVO y su fila de stock (en 0) en cada tienda. Va dentro de una transaccion.
+     * $origen: WEB (formulario) o APP (escaner); queda en el producto con quien, cuando y desde que tienda (migracion 018).
+     */
     private function insertarProducto(Usuario $usuario, array $campos, string $porPeso, string $origen): int
     {
         try {
             $this->db->prepare(
                 'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
-                                       id_categoria, id_marca, id_unidad)
-                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad)'
-            )->execute($campos + ['peso' => $porPeso]);
+                                       id_categoria, id_marca, id_unidad,
+                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro)
+                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad,
+                         :origen, NOW(), :empleado, :tienda)'
+            )->execute($campos + ['peso' => $porPeso, 'origen' => $origen,
+                'empleado' => $usuario->getIdEmpleado(), 'tienda' => $usuario->getIdTienda()]);
         } catch (PDOException $ex) {
             throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
         }
@@ -95,7 +101,8 @@ class ProductoServicio extends Servicio
             'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo)
              SELECT id_tienda, :producto, 0, 0 FROM tienda'
         )->execute(['producto' => $id]);
-        $this->auditar($usuario, 'PRODUCTO_CREADO', sprintf('%d %s a S/ %s%s', $id, $campos['nombre'], $campos['precio'], $origen));
+        $this->auditar($usuario, 'PRODUCTO_CREADO', sprintf('%d %s a S/ %s%s', $id, $campos['nombre'], $campos['precio'],
+            $origen === 'APP' ? ' (app)' : ''));
         return $id;
     }
 
@@ -310,9 +317,10 @@ class ProductoServicio extends Servicio
 
         if ($actual === false) {
             $this->db->prepare(
-                'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado, id_categoria, id_marca, id_unidad)
-                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad)'
-            )->execute($campos + ['peso' => $alPeso]);
+                'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado, id_categoria, id_marca, id_unidad,
+                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro)
+                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad, \'CSV\', NOW(), :empleado, :tienda)'
+            )->execute($campos + ['peso' => $alPeso, 'empleado' => $admin->getIdEmpleado(), 'tienda' => $admin->getIdTienda()]);
             $this->db->prepare(
                 'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) SELECT id_tienda, :producto, 0, 0 FROM tienda'
             )->execute(['producto' => (int) $this->db->lastInsertId()]);
