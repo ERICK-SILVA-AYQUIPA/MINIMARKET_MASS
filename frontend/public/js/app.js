@@ -127,7 +127,8 @@
             ultimo.focus();
         } else if (!evento.shiftKey && document.activeElement === ultimo) {
             evento.preventDefault();
-            primero.focus();
+            ventanaPago.scrollTop = 0;   // el total a cobrar queda a la vista arriba
+            primero.focus({ preventScroll: true });
         }
     }
 
@@ -663,12 +664,14 @@
             });
             $('[data-rotulo-otros]', caja).textContent = rotulosMedio[medio] || 'Tarjeta o Sip';
 
+            // Avisos del pago: con la ventana de pago se ven solo ahi (en el carrito todavia no se ha cobrado)
+            const avisosPago = [];
             if (tarjeta === null || sip === null || efectivo === null) {
-                avisos.push('Un monto de pago no es válido (usa hasta 2 decimales).');
+                avisosPago.push('Un monto de pago no es válido (usa hasta 2 decimales).');
             } else if (total > 0 && otros > total) {
-                avisos.push((conTarjeta ? 'El monto con tarjeta' : 'El monto con Sip') + ' pasa el total.');
+                avisosPago.push((conTarjeta ? 'El monto con tarjeta' : 'El monto con Sip') + ' pasa el total.');
             } else if (total > 0 && efectivo < falta) {
-                avisos.push('Falta ' + soles(falta - efectivo) + ' en efectivo.');
+                avisosPago.push('Falta ' + soles(falta - efectivo) + ' en efectivo.');
             }
 
             const tipo = formVenta.querySelector('input[name=tipo]:checked');
@@ -693,17 +696,44 @@
             $('[data-otros]', caja).textContent = soles(otros);
             $('[data-falta]', caja).textContent = soles(falta);
             $('[data-vuelto]', caja).textContent = soles(vuelto);
+            const conVentanaPago = $('[data-ventana-pago]', formVenta)?.closest('dialog') != null;
+            const avisosCarrito = conVentanaPago ? avisos : avisos.concat(avisosPago);
             const lista = $('[data-avisos]', caja);
+            lista.replaceChildren(...avisosCarrito.map((texto) => {
+                const li = document.createElement('li');
+                li.textContent = texto;
+                return li;
+            }));
+            caja.classList.toggle('con-avisos', avisosCarrito.length > 0);
+            pintarVentanaPago(total, vuelto, medio, falta, avisosPago.concat(avisos));
+            pintarCliente(tipo ? tipo.value : 'B', documento);
+            pintarEfectivoRapido(falta);
+            totalVivo = total;
+            actualizarCarrito();
+        }
+
+        // La ventana de pago repite lo importante: el total, el vuelto y lo que falta corregir antes de registrar
+        function pintarVentanaPago(total, vuelto, medio, falta, avisos) {
+            const ventana = $('[data-ventana-pago]', formVenta);
+            if (ventana === null) {
+                return;
+            }
+            $('[data-pago-total]', ventana).textContent = soles(total);
+            $('[data-pago-vuelto]', ventana).textContent = soles(vuelto);
+            const cajaVuelto = $('[data-pago-vuelto-caja]', ventana);
+            cajaVuelto.hidden = ventana.closest('dialog') === null || (medio !== 'EFECTIVO' && falta <= 0);
+            cajaVuelto.classList.toggle('con-vuelto', vuelto > 0);
+            const lista = $('[data-pago-avisos]', ventana);
+            lista.hidden = avisos.length === 0;
             lista.replaceChildren(...avisos.map((texto) => {
                 const li = document.createElement('li');
                 li.textContent = texto;
                 return li;
             }));
-            caja.classList.toggle('con-avisos', avisos.length > 0);
-            pintarCliente(tipo ? tipo.value : 'B', documento);
-            pintarEfectivoRapido(falta);
-            totalVivo = total;
-            actualizarCarrito();
+            const monto = $('[data-abrir-pago-monto]', formVenta);
+            if (monto !== null) {
+                monto.textContent = total > 0 ? soles(total) : '';
+            }
         }
 
         // Quien recibe el comprobante, al momento: CLIENTE VARIOS, DNI o RUC (el servidor vuelve a validar)
@@ -790,19 +820,72 @@
         if (cobroFijo !== null) {
             $('[data-cobro-fijo-ir]', cobroFijo).addEventListener('click', (evento) => {
                 evento.preventDefault();
-                const cobro = $('#cobro', formVenta);
-                const suave = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-                cobro.scrollIntoView({ behavior: suave ? 'smooth' : 'auto', block: 'start' });
-                campo('efectivo_recibido').focus({ preventScroll: true });
+                abrirPago();
             });
         }
 
-        // F9 registra la venta desde cualquier campo, como en una caja registradora (requestSubmit pasa por la validacion)
+        // ---------- Ventana flotante de pago ----------
+        // "Cobrar" (o F9) abre encima de la pantalla el comprobante, el medio de pago, el efectivo y el vuelto.
+        // Los campos siguen dentro del <form> (el <dialog> se crea ahi mismo), asi que se envian igual que antes.
+        const ventanaPago = $('[data-ventana-pago]', formVenta);
+        const cajaAbrirPago = $('[data-abrir-pago-caja]', formVenta);
+        let dialogoPago = null;
+        if (ventanaPago !== null && cajaAbrirPago !== null && typeof HTMLDialogElement === 'function') {
+            dialogoPago = document.createElement('dialog');
+            dialogoPago.className = 'ventana-pago-dialogo';
+            dialogoPago.setAttribute('aria-labelledby', 'ventana-pago-titulo');
+            ventanaPago.before(dialogoPago);
+            dialogoPago.appendChild(ventanaPago);
+            $$('[data-solo-js]', ventanaPago).forEach((el) => { el.hidden = false; });
+            cajaAbrirPago.hidden = false;
+            // Tocar fuera de la ventana (en el velo) la cierra; el carrito sigue como estaba
+            dialogoPago.addEventListener('click', (evento) => {
+                if (evento.target === dialogoPago) {
+                    dialogoPago.close();
+                }
+            });
+            dialogoPago.addEventListener('close', () => {
+                if (formVenta.dataset.enviando !== '1') {
+                    $('[data-abrir-pago]', cajaAbrirPago).focus({ preventScroll: true });
+                }
+            });
+            $('[data-cerrar-pago]', ventanaPago).addEventListener('click', () => dialogoPago.close());
+            $('[data-abrir-pago]', cajaAbrirPago).addEventListener('click', () => abrirPago());
+        }
+        const pagoAbierto = () => dialogoPago !== null && dialogoPago.open;
+
+        function abrirPago() {
+            if (totalVivo <= 0) {
+                avisar('Agrega al menos un producto antes de cobrar.', true);
+                return;
+            }
+            if (dialogoPago === null) {
+                // Navegador sin <dialog>: se baja al cobro como antes
+                $('#cobro', formVenta).scrollIntoView({ block: 'start' });
+                campo('efectivo_recibido').focus({ preventScroll: true });
+                return;
+            }
+            if (!dialogoPago.open) {
+                dialogoPago.showModal();
+            }
+            // El cursor va al campo que toca llenar segun el medio de pago
+            const medio = medioElegido();
+            const primero = medio === 'SIP' ? campo('sip_operacion')
+                : medio === 'DEBITO' || medio === 'CREDITO' ? campo('tarjeta_marca') : campo('efectivo_recibido');
+            ventanaPago.scrollTop = 0;   // el total a cobrar queda a la vista arriba
+            primero.focus({ preventScroll: true });
+        }
+
+        // F9 abre la ventana de pago; con la ventana abierta, F9 registra la venta (requestSubmit pasa por la validacion)
         document.addEventListener('keydown', (evento) => {
             if (evento.key === 'F9' && drawerAbierto() === null) {
                 evento.preventDefault();
                 if (totalVivo <= 0) {
                     avisar('Agrega al menos un producto antes de cobrar.', true);
+                    return;
+                }
+                if (dialogoPago !== null && !pagoAbierto()) {
+                    abrirPago();
                     return;
                 }
                 formVenta.requestSubmit($('button[type=submit]', formVenta));
@@ -1297,6 +1380,9 @@
                 if (conexion.caida()) {
                     evento.preventDefault();
                     guardarBorrador();
+                    if (pagoAbierto()) {
+                        dialogoPago.close();   // que el aviso no quede tapado por la ventana de pago
+                    }
                     avisar('Sin conexión con el servidor: la venta NO se envió. Queda guardada; regístrala cuando vuelva la conexión.', true);
                     return;
                 }
@@ -1497,8 +1583,8 @@
         const drawer = drawerAbierto();
 
         if (evento.key === 'Escape') {
-            if (dialogo !== null && dialogo.open) {
-                return; // el <dialog> se cierra solo
+            if ((dialogo !== null && dialogo.open) || $('dialog[open]') !== null) {
+                return; // el <dialog> (confirmacion o ventana de pago) se cierra solo
             }
             if (drawer !== null) {
                 evento.preventDefault();
