@@ -27,7 +27,7 @@ class TiendaController extends Controller
     public function lista(): void
     {
         $filas = [];
-        foreach ($this->tiendas->todas() as $idTienda => $tienda) {
+        foreach ($this->tiendasVisibles() as $idTienda => $tienda) {
             $filas[] = [
                 'tienda'    => $tienda,
                 'distrito'  => $this->tiendas->nombreDistrito($tienda->getIdDistrito()) ?? '-',

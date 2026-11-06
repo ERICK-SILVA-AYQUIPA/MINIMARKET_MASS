@@ -40,6 +40,7 @@ require __DIR__ . '/../parciales/guia.php';
 
 <form class="filtros" method="get" action="/">
     <input type="hidden" name="ruta" value="productos_app">
+    <?php if (count($tiendas) > 1): ?>
     <label>Sucursal
         <select name="tienda">
             <option value="">Todas</option>
@@ -48,6 +49,7 @@ require __DIR__ . '/../parciales/guia.php';
             <?php endforeach; ?>
         </select>
     </label>
+    <?php endif; ?>
     <label>Desde <input type="date" name="desde" value="<?= e($desde ?? '') ?>"></label>
     <label>Hasta <input type="date" name="hasta" value="<?= e($hasta ?? '') ?>"></label>
     <label>Producto <input type="search" name="q" value="<?= e($texto) ?>" placeholder="Nombre o código" maxlength="60"></label>

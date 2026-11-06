@@ -108,12 +108,14 @@ class VentaRepository
     }
 
     /** @return Venta[] compras de un cliente en todas las tiendas, la mas reciente primero */
-    public function ventasDeCliente(int $idCliente): array
+    public function ventasDeCliente(int $idCliente, ?int $idTienda = null): array
     {
         $consulta = $this->db->prepare(
-            'SELECT ' . self::COLUMNAS_VENTA . ' FROM venta v WHERE v.id_cliente = :cliente ORDER BY v.fecha_hora DESC, v.id_venta DESC'
+            'SELECT ' . self::COLUMNAS_VENTA . ' FROM venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie
+              WHERE v.id_cliente = :cliente AND (:todas = 1 OR s.id_tienda = :tienda)
+              ORDER BY v.fecha_hora DESC, v.id_venta DESC'
         );
-        $consulta->execute(['cliente' => $idCliente]);
+        $consulta->execute(['cliente' => $idCliente, 'todas' => $idTienda === null ? 1 : 0, 'tienda' => $idTienda ?? 0]);
         return array_map(fn(array $fila): Venta => $this->crearVenta($fila), $consulta->fetchAll());
     }
 

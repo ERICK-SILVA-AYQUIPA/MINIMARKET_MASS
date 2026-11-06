@@ -34,7 +34,7 @@ class ClienteController extends Controller
         // Solo digitos: el inicio de un DNI o de un RUC
         $documento = $documento !== null && preg_match('/^[0-9]{1,11}$/', $documento) === 1 ? $documento : null;
         $paginacion = new Paginacion($this->clientes->contar($documento), $pagina);
-        $filas = $this->clientes->buscar($documento, $paginacion->getPorPagina(), $paginacion->offset());
+        $filas = $this->clientes->buscar($documento, $paginacion->getPorPagina(), $paginacion->offset(), $this->tiendaRestringida());
         $urlPagina = '/?' . http_build_query(['ruta' => 'clientes', 'documento' => $documento]);
 
         // Ficha del cliente en el panel lateral (&ver=ID); si no existe, solo se muestra la lista
@@ -63,14 +63,18 @@ class ClienteController extends Controller
     }
 
     /**
-     * Lo que muestra la ficha de un cliente: sus datos y sus compras en todas las tiendas.
+     * Lo que muestra la ficha de un cliente: sus datos y sus compras (en toda la cadena o, para el cajero, en su sucursal).
      * @return array{cliente: Cliente, compras: array<int, array{venta: Venta, serie: SerieComprobante, tienda: ?Tienda}>}
      */
     private function datosFicha(Cliente $cliente): array
     {
         $compras = [];
-        foreach ($this->ventas->ventasDeCliente($cliente->getIdCliente()) as $venta) {
+        // El administrador ve las compras del cliente en toda la cadena; el cajero, solo las de su sucursal
+        foreach ($this->ventas->ventasDeCliente($cliente->getIdCliente(), $this->tiendaRestringida()) as $venta) {
             $serie = $this->ventas->buscarSerie($venta->getIdSerie());
+            if ($serie === null) {
+                continue;
+            }
             $compras[] = ['venta' => $venta, 'serie' => $serie, 'tienda' => $this->tiendas->buscarPorId($serie->getIdTienda())];
         }
         return ['cliente' => $cliente, 'compras' => $compras];

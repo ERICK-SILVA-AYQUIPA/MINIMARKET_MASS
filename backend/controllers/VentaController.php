@@ -45,7 +45,7 @@ class VentaController extends Controller
     public function lista(?string $tiendaPedida, ?string $desde, ?string $hasta, ?string $estado, ?string $pagina, ?string $ver = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'ventas';
 
         // Lo que no es valido se ignora (se muestra sin ese filtro)
@@ -80,7 +80,7 @@ class VentaController extends Controller
         $detalleVenta = null;
         if ($ver !== null && preg_match('/^([BF][0-9]{3})-([0-9]{1,8})$/', $ver, $partes) === 1) {
             $elegida = $this->ventas->buscarPorComprobante($partes[1], (int) $partes[2]);
-            $detalleVenta = $elegida !== null ? $this->datosComprobante($elegida) : null;
+            $detalleVenta = $elegida !== null && $this->esDeTiendaVisible($elegida) ? $this->datosComprobante($elegida) : null;
         }
         unset($venta, $serie, $turno, $cajero, $elegida, $partes);
         $this->vista('ventas/lista', get_defined_vars());
@@ -97,7 +97,8 @@ class VentaController extends Controller
         }
 
         $venta = $this->ventas->buscarPorComprobante($serieTexto, (int) $numeroTexto);
-        if ($venta === null) {
+        // El cajero solo abre los comprobantes de su sucursal (como si los de otra no existieran)
+        if ($venta === null || !$this->esDeTiendaVisible($venta)) {
             $this->noEncontrado('No existe un comprobante con esa serie y correlativo.');
             return;
         }
@@ -107,6 +108,13 @@ class VentaController extends Controller
             $datos['ancho'] = AnchoTicket::elegir($ancho);
         }
         $this->vista($ticket ? 'ventas/ticket' : 'ventas/comprobante', $datos);
+    }
+
+    // La venta es de una sucursal que este usuario puede ver (la suya; el administrador, todas)
+    private function esDeTiendaVisible(Venta $venta): bool
+    {
+        $serie = $this->ventas->buscarSerie($venta->getIdSerie());
+        return $serie !== null && $this->puedeVerTienda($serie->getIdTienda());
     }
 
     /**

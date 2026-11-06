@@ -74,7 +74,8 @@ if ($usuarioActual !== null) {
         $adminMenu += ['reportes' => ['Reportes', 'reportes'], 'utilidad' => ['Utilidad', 'utilidad'], 'empleados' => ['Personal', 'personal'], 'auditoria' => ['Auditoría', 'auditoria']];
     }
     if ($usuarioActual->puedeAdministrarCatalogo()) { $adminMenu['catalogo'] = ['Categorías y marcas', 'categorias']; }
-    $adminMenu['tiendas'] = ['Tiendas', 'tiendas'];
+    // La lista de tiendas de la cadena (con su personal) es del administrador; los demas solo trabajan en la suya
+    if ($usuarioActual->puedeElegirTienda()) { $adminMenu['tiendas'] = ['Tiendas', 'tiendas']; }
 
     // La ficha, el formulario y la importacion de productos marcan la pestaña Catálogo
     $rutaMarcada = in_array($rutaActual, ['producto', 'producto_form', 'catalogo_importar'], true) ? 'productos' : $rutaActual;

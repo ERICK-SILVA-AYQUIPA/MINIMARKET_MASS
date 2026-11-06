@@ -21,9 +21,10 @@ class ClienteRepository
     /**
      * Una pagina de clientes con cuantas compras EMITIDAS tienen y cuanto suman.
      * Con $documento, solo los que tienen un DNI o RUC que empieza con esos digitos.
+     * Con $idTienda, las compras y el total cuentan solo las ventas de esa sucursal (el cliente es de la cadena).
      * @return array<int, array{cliente: Cliente, compras: int, total: float}>
      */
-    public function buscar(?string $documento, int $limite, int $offset): array
+    public function buscar(?string $documento, int $limite, int $offset, ?int $idTienda = null): array
     {
         [$donde, $parametros] = $this->donde($documento);
         // LIMIT y OFFSET son enteros calculados en PHP
@@ -31,13 +32,14 @@ class ClienteRepository
             "SELECT c.id_cliente, c.dni, c.ruc,
                     COUNT(v.id_venta) AS compras, COALESCE(SUM(v.total), 0) AS total
                FROM cliente c
-               LEFT JOIN venta v ON v.id_cliente = c.id_cliente AND v.estado = 'EMITIDA'
+               LEFT JOIN (venta v JOIN serie_comprobante s ON s.id_serie = v.id_serie)
+                      ON v.id_cliente = c.id_cliente AND v.estado = 'EMITIDA' AND (:todas = 1 OR s.id_tienda = :tienda)
               WHERE $donde
               GROUP BY c.id_cliente, c.dni, c.ruc
               ORDER BY total DESC, c.id_cliente
               LIMIT " . (int) $limite . ' OFFSET ' . (int) $offset
         );
-        $consulta->execute($parametros);
+        $consulta->execute($parametros + ['todas' => $idTienda === null ? 1 : 0, 'tienda' => $idTienda ?? 0]);
         return array_map(fn(array $f): array => [
             'cliente' => new Cliente((int) $f['id_cliente'], $f['dni'], $f['ruc']),
             'compras' => (int) $f['compras'],

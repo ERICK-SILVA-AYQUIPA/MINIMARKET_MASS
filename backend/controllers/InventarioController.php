@@ -36,7 +36,7 @@ class InventarioController extends Controller
     public function kardex(?string $tiendaPedida, ?string $productoPedido, ?string $pagina): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'kardex';
         $productos = $this->productosPorId();
         $idProducto = $productoPedido !== null && ctype_digit($productoPedido) && isset($productos[(int) $productoPedido])
@@ -292,7 +292,7 @@ class InventarioController extends Controller
     public function mermas(?string $tiendaPedida, array $viejo = [], ?string $error = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'mermas';
         $productos = $this->productosPorId();
         $nombresEmpleado = $this->nombresEmpleado();
@@ -333,7 +333,7 @@ class InventarioController extends Controller
     public function ajustes(?string $tiendaPedida, array $viejo = [], ?string $error = null): void
     {
         $tienda = $this->leerTienda($tiendaPedida);
-        $tiendas = $this->tiendas->todas();
+        $tiendas = $this->tiendasVisibles();
         $rutaSelector = 'ajustes';
         $productos = $this->productosPorId();
         $nombresEmpleado = $this->nombresEmpleado();
