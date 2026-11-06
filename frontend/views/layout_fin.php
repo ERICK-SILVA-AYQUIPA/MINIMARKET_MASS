@@ -11,6 +11,10 @@ $soportePie = Aplicacion::soporte();
 </footer>
     </div>
 </div>
+<?php if (($asistenteDisponible ?? false) && ($rutaActual ?? '') !== 'asistente'): ?>
+<!-- El asistente desde cualquier pantalla (solo con ANTHROPIC_API_KEY en el .env) -->
+<a class="asistente-flotante" href="/?ruta=asistente" title="Pregúntale al asistente"><?= icono('asistente') ?><span>Asistente</span></a>
+<?php endif; ?>
 <?php $barraInferior ??= []; ?>
 <?php if ($barraInferior !== []): ?>
 <!-- Barra de abajo del celular (estilos.css la oculta en la computadora). Vender va al centro, en amarillo. -->

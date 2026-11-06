@@ -53,6 +53,12 @@ final class Aplicacion
         return $soporte['telefono'] !== null || $soporte['correo'] !== null;
     }
 
+    // El asistente (Claude) aparece en el menu y como boton flotante solo si el .env tiene ANTHROPIC_API_KEY
+    public static function asistenteDisponible(): bool
+    {
+        return trim(Entorno::leer('ANTHROPIC_API_KEY')) !== '';
+    }
+
     // Enlace tel: con solo digitos (y el + del codigo de pais)
     public static function enlaceTelefono(string $telefono): string
     {

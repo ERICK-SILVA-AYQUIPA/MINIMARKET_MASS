@@ -1672,3 +1672,42 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
     .tabla-nuevos .acciones-fila { white-space: normal; padding-top: var(--s-2); }
     .barra-lote button { width: 100%; }
 }
+
+/* ---------- Asistente (views/asistente/chat.php): conversacion en burbujas y caja para preguntar ---------- */
+.asistente { display: flex; flex-direction: column; gap: var(--s-4); }
+.asistente-mensajes { display: flex; flex-direction: column; gap: var(--s-3); max-height: min(60vh, 640px); overflow-y: auto; padding-right: var(--s-1); }
+.asistente-burbuja { max-width: min(680px, 88%); padding: var(--s-3) var(--s-4); border-radius: var(--radio-xl); border: 1px solid var(--borde); }
+.asistente-burbuja p { margin: 0; white-space: pre-line; line-height: 1.5; overflow-wrap: anywhere; }
+.asistente-ia { align-self: flex-start; background: var(--gris-fondo); border-bottom-left-radius: var(--radio-base); }
+.asistente-tu { align-self: flex-end; background: var(--marca-suave); border-color: rgba(255, 196, 0, .3); border-bottom-right-radius: var(--radio-base); }
+.asistente-quien { display: inline-flex; align-items: center; gap: var(--s-1); font-size: .75rem; font-weight: 700; color: var(--marca);
+    text-transform: uppercase; letter-spacing: var(--tracking-mayusculas); margin-bottom: var(--s-1); }
+.asistente-quien .icono { width: 14px; height: 14px; }
+.asistente-enlaces { display: flex; flex-wrap: wrap; gap: var(--s-2); margin-top: var(--s-3); }
+.asistente-enlaces .boton-chico { padding: var(--s-1) var(--s-3); font-size: .85rem; }
+.asistente-pensando p::after { content: "…"; animation: asistente-puntos 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
+@keyframes asistente-puntos { from { width: 0; } to { width: 1.2em; } }
+.asistente-sugerencias { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.asistente-sugerencias form { margin: 0; }
+button.asistente-chip { background: transparent; color: var(--texto); border: 1px solid var(--borde-fuerte); border-radius: var(--radio-full);
+    padding: var(--s-1) var(--s-3); font-size: .85rem; font-weight: 500; box-shadow: none; }
+button.asistente-chip:hover { background: var(--marca-suave); border-color: var(--marca); color: var(--tinta); box-shadow: none; }
+.asistente-escribir { display: flex; gap: var(--s-2); align-items: flex-end; margin: 0; }
+.asistente-escribir textarea { flex: 1; min-height: 44px; max-height: 160px; resize: none; }
+.asistente-micro.escuchando { border-color: var(--rojo-borde); background: var(--rojo-fondo); color: var(--rojo); animation: asistente-latido 1.2s ease-in-out infinite; }
+@keyframes asistente-latido { 50% { box-shadow: 0 0 0 6px var(--rojo-fondo); } }
+.asistente-nota { margin: 0; font-size: .8rem; }
+@media (max-width: 600px) {
+    .asistente-burbuja { max-width: 94%; }
+    .asistente-escribir { flex-wrap: wrap; }
+    .asistente-escribir textarea { flex-basis: 100%; min-height: 72px; }
+    .asistente-escribir [data-asistente-enviar] { flex: 1; }
+}
+/* Boton flotante para abrir el asistente desde cualquier pantalla (solo si esta configurado) */
+.asistente-flotante { position: fixed; right: var(--s-5, 20px); bottom: var(--s-5, 20px); z-index: 40; display: inline-flex; align-items: center; gap: var(--s-2);
+    padding: var(--s-3) var(--s-4); border-radius: var(--radio-full); background: var(--marca); color: var(--sobre-marca); font-weight: 700;
+    text-decoration: none; box-shadow: var(--brillo), var(--sombra-lg); }
+.asistente-flotante:hover { background: var(--marca-fuerte); color: var(--sobre-marca); }
+.con-barra-inferior .asistente-flotante { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+@media (max-width: 600px) { .asistente-flotante span { display: none; } .asistente-flotante { padding: var(--s-3); } }
+@media print { .asistente-flotante { display: none; } }

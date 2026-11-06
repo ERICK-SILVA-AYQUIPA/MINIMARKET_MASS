@@ -41,6 +41,7 @@ require __DIR__ . '/../models/PanelRepository.php';
 require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
+require_once __DIR__ . '/../models/asistente/HerramientasAsistente.php';
 
 $db = Database::conexion();
 
@@ -90,6 +91,43 @@ function valor(PDO $db, string $sql, array $parametros = []): string
 $stock = fn(int $tienda, int $producto): string => valor($db,
     'SELECT cantidad_actual FROM stock WHERE id_tienda = ? AND id_producto = ?', [$tienda, $producto]);
 $ventasTotales = fn(): string => valor($db, 'SELECT COUNT(*) FROM venta');
+
+echo "Asistente: herramientas con los permisos de cada rol (sin llamar a Claude)\n";
+$herramientasDe = fn(Usuario $u): HerramientasAsistente => new HerramientasAsistente($u, new TiendaRepository($db), new ReporteRepository($db),
+    new PanelRepository($db), new AsistenteRepository($db));
+$nombres = fn(HerramientasAsistente $h): array => array_column($h->definiciones(), 'name');
+$hRosa = $herramientasDe($rosa);
+$hLuis = $herramientasDe($luis);
+$hCarmen = $herramientasDe($carmen);
+revisar('Al administrador se le ofrecen los reportes de ventas', array_intersect(['resumen_ventas', 'detalle_ventas'], $nombres($hRosa)) === ['resumen_ventas', 'detalle_ventas']);
+revisar('Al cajero no: solo productos, por reponer y abrir pantallas', $nombres($hLuis) === ['buscar_productos', 'productos_por_reponer', 'abrir_pagina']);
+revisar('Aunque el cajero pida el resumen, PHP lo rechaza', isset($hLuis->ejecutar('resumen_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
+$resumen = $hRosa->ejecutar('resumen_ventas', ['desde' => '2026-10-31', 'hasta' => '2026-10-01']);
+revisar('Resumen de octubre de Cayma (fechas al revés se ordenan) con comprobantes y total',
+    !isset($resumen['error']) && $resumen['desde'] === '2026-10-01' && $resumen['comprobantes'] > 0 && $resumen['total'] > 0);
+revisar('...y deja el botón al reporte', in_array('/?ruta=reportes&desde=2026-10-01&hasta=2026-10-31', array_column($hRosa->enlaces(), 'url'), true));
+revisar('Una fecha que no existe se rechaza', isset($hRosa->ejecutar('resumen_ventas', ['desde' => '2026-02-30', 'hasta' => '2026-03-01'])['error']));
+revisar('Un rango de más de un año se rechaza', isset($hRosa->ejecutar('detalle_ventas', ['desde' => '2024-01-01', 'hasta' => '2026-01-01', 'tipo' => 'por_dia'])['error']));
+$cadena = $hRosa->ejecutar('resumen_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31', 'alcance' => 'cadena']);
+revisar('La cadena completa: solo quien abre tiendas, con el total de cada una', $rosa->puedeAbrirTiendas()
+    ? !isset($cadena['error']) && is_array($cadena['por_tienda']) && $cadena['comprobantes'] >= $resumen['comprobantes']
+    : isset($cadena['error']));
+$top = $hRosa->ejecutar('detalle_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31', 'tipo' => 'mas_vendidos']);
+revisar('Los más vendidos traen producto e importe', !isset($top['error']) && $top['filas'] !== [] && isset($top['filas'][0]['producto'], $top['filas'][0]['importe']));
+revisar('Un tipo de detalle inventado se rechaza', isset($hRosa->ejecutar('detalle_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31', 'tipo' => 'DROP'])['error']));
+$leche = $hLuis->ejecutar('buscar_productos', ['texto' => 'leche GLORIA']);
+revisar('Buscar "leche GLORIA" (palabras sueltas, sin importar mayúsculas) encuentra la leche a S/ 4.50',
+    $leche['encontrados'] >= 1 && $leche['productos'][0]['producto'] === 'Leche evaporada Gloria entera 400 g' && $leche['productos'][0]['precio'] === 4.5);
+revisar('El cajero ve el stock solo de su tienda', array_column($leche['productos'][0]['stock'], 'tienda') === ['Mass Cayma']);
+$lecheRosa = $hRosa->ejecutar('buscar_productos', ['texto' => '7750000000011']);
+revisar('El administrador busca por código y ve el stock de las tiendas', $lecheRosa['encontrados'] === 1 && count($lecheRosa['productos'][0]['stock']) >= 2);
+revisar('Un % o _ en la búsqueda no es comodín', $hLuis->ejecutar('buscar_productos', ['texto' => '%'])['encontrados'] === 0);
+$reponer = $hCarmen->ejecutar('productos_por_reponer', []);
+revisar('Por reponer: total y lista de la tienda', is_int($reponer['total']) && count($reponer['mostrados']) === min($reponer['total'], 30));
+revisar('Abrir Nueva venta: el cajero sí (botón), el almacenero no', !isset($hLuis->ejecutar('abrir_pagina', ['pagina' => 'nueva_venta'])['error'])
+    && in_array('/?ruta=venta_nueva', array_column($hLuis->enlaces(), 'url'), true)
+    && isset($hCarmen->ejecutar('abrir_pagina', ['pagina' => 'nueva_venta'])['error']));
+revisar('Una herramienta inventada responde error', isset($hLuis->ejecutar('borrar_todo', [])['error']));
 
 echo "Tildes y utf8mb4\n";
 revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',

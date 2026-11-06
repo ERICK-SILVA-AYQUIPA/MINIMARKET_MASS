@@ -93,8 +93,11 @@ if ($usuarioActual !== null) {
         }
     }
 
+    // El asistente solo sale si el .env tiene la clave de Claude (sin clave el menu queda igual que antes)
+    require_once __DIR__ . '/../../backend/config/Aplicacion.php';
+    $asistenteDisponible = Aplicacion::asistenteDisponible();
     $gruposMenu = [
-        ''               => ['inicio' => ['Inicio', 'inicio']],
+        ''               => ['inicio' => ['Inicio', 'inicio']] + ($asistenteDisponible ? ['asistente' => ['Asistente', 'asistente']] : []),
         'Ventas'         => $ventasMenu,
         'Inventario'     => $inventarioMenu,
         'Administración' => $adminMenu,
@@ -140,8 +143,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=2">
-    <link rel="stylesheet" href="/css/estilos.css?v=25">
-    <script src="/js/app.js?v=15" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=26">
+    <script src="/js/app.js?v=16" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

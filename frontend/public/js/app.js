@@ -1970,5 +1970,149 @@
         });
     }
 
+    // ---------- Asistente (views/asistente/chat.php): pregunta sin recargar y dicta con el microfono ----------
+    // La respuesta llega como texto (textContent, nunca HTML) y los botones solo van a direcciones /?ruta= de este sitio.
+    const asistente = $('[data-asistente]');
+    const formAsistente = asistente ? $('[data-asistente-form]', asistente) : null;
+    if (asistente && formAsistente) {
+        const lista = $('[data-asistente-mensajes]', asistente);
+        const campo = $('textarea', formAsistente);
+        const enviar = $('[data-asistente-enviar]', formAsistente);
+        const micro = $('[data-asistente-micro]', formAsistente);
+        const bajar = () => { lista.scrollTop = lista.scrollHeight; };
+        bajar();
+
+        const burbuja = (rol, texto, enlaces) => {
+            const caja = document.createElement('div');
+            caja.className = 'asistente-burbuja ' + (rol === 'user' ? 'asistente-tu' : 'asistente-ia');
+            if (rol !== 'user') {
+                const quien = document.createElement('span');
+                quien.className = 'asistente-quien';
+                // El icono se copia del saludo que ya dibujo el servidor
+                const icono = $('.asistente-quien .icono', lista);
+                if (icono) {
+                    quien.appendChild(icono.cloneNode(true));
+                }
+                quien.append('Asistente');
+                caja.appendChild(quien);
+            }
+            const parrafo = document.createElement('p');
+            parrafo.textContent = texto;
+            caja.appendChild(parrafo);
+            const validos = (enlaces || []).filter((e) => e && typeof e.url === 'string' && e.url.startsWith('/?ruta='));
+            if (validos.length > 0) {
+                const fila = document.createElement('div');
+                fila.className = 'asistente-enlaces';
+                validos.forEach((e) => {
+                    const a = document.createElement('a');
+                    a.className = 'boton secundario boton-chico';
+                    a.href = e.url;
+                    a.textContent = String(e.texto || 'Abrir');
+                    fila.appendChild(a);
+                });
+                caja.appendChild(fila);
+            }
+            lista.appendChild(caja);
+            bajar();
+            return caja;
+        };
+
+        let ocupado = false;
+        const preguntar = async (texto) => {
+            texto = String(texto || '').trim();
+            if (texto === '' || ocupado) {
+                return;
+            }
+            ocupado = true;
+            enviar.disabled = true;
+            burbuja('user', texto, []);
+            const pensando = burbuja('assistant', 'Pensando', []);
+            pensando.classList.add('asistente-pensando');
+            campo.value = '';
+            const datos = new FormData();
+            datos.append('csrf', $('input[name="csrf"]', formAsistente).value);
+            datos.append('pregunta', texto);
+            let mensaje = 'No pude enviar la pregunta. Revisa la conexión e inténtalo otra vez.';
+            let enlaces = [];
+            try {
+                const respuesta = await fetch('/?ruta=asistente_preguntar', {
+                    method: 'POST', body: datos, headers: { Accept: 'application/json' }, credentials: 'same-origin',
+                });
+                const json = await respuesta.json();
+                mensaje = String(json.respuesta || 'Sin respuesta.');
+                enlaces = Array.isArray(json.enlaces) ? json.enlaces : [];
+            } catch (error) {
+                // se queda el aviso de arriba
+            }
+            lista.removeChild(pensando);
+            burbuja('assistant', mensaje, enlaces);
+            ocupado = false;
+            enviar.disabled = false;
+            campo.focus();
+        };
+
+        formAsistente.addEventListener('submit', (evento) => {
+            evento.preventDefault();
+            preguntar(campo.value);
+        });
+        // Enter envia; Shift+Enter hace un salto de linea
+        campo.addEventListener('keydown', (evento) => {
+            if (evento.key === 'Enter' && !evento.shiftKey) {
+                evento.preventDefault();
+                preguntar(campo.value);
+            }
+        });
+        $$('[data-asistente-sugerencia]', asistente).forEach((boton) => {
+            boton.addEventListener('click', (evento) => {
+                evento.preventDefault();
+                preguntar(boton.textContent);
+            });
+        });
+
+        // Dictado por voz: el reconocimiento del navegador (Chrome, Edge, Safari) en español de Peru
+        const Reconocedor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (micro && Reconocedor) {
+            micro.hidden = false;
+            let oyendo = null;
+            micro.addEventListener('click', () => {
+                if (oyendo) {
+                    oyendo.stop();
+                    return;
+                }
+                const reconocedor = new Reconocedor();
+                reconocedor.lang = 'es-PE';
+                reconocedor.interimResults = true;
+                reconocedor.maxAlternatives = 1;
+                let final = '';
+                reconocedor.onresult = (evento) => {
+                    let parcial = '';
+                    for (let i = evento.resultIndex; i < evento.results.length; i++) {
+                        if (evento.results[i].isFinal) {
+                            final += evento.results[i][0].transcript;
+                        } else {
+                            parcial += evento.results[i][0].transcript;
+                        }
+                    }
+                    campo.value = (final + parcial).trim();
+                };
+                reconocedor.onend = () => {
+                    oyendo = null;
+                    micro.classList.remove('escuchando');
+                    micro.setAttribute('aria-label', 'Dictar la pregunta');
+                    if (final.trim() !== '') {
+                        preguntar(final);
+                    }
+                };
+                reconocedor.onerror = () => {
+                    campo.placeholder = 'No se pudo usar el micrófono: revisa el permiso del navegador o escribe la pregunta.';
+                };
+                oyendo = reconocedor;
+                micro.classList.add('escuchando');
+                micro.setAttribute('aria-label', 'Dejar de escuchar');
+                reconocedor.start();
+            });
+        }
+    }
+
     enfocarDrawer();
 }());

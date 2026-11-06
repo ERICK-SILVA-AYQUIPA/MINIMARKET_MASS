@@ -5,6 +5,12 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Asistente inteligente** (menú *Asistente* y botón amarillo abajo a la derecha): cualquier empleado pregunta en
+  español, escribiendo o con el micrófono, y responde con datos del sistema: cuánto se vendió (hoy, ayer, el mes), los
+  más vendidos, por cajero o método de pago, precio y stock de un producto, qué falta reponer. Si se le pide *hacer*
+  algo (vender, recibir mercadería) da el botón a esa pantalla: no cambia datos. Respeta los permisos de cada rol (el
+  cajero no ve reportes ni otra tienda). Usa Claude (Anthropic) desde el servidor: se activa con `ANTHROPIC_API_KEY`
+  en el `.env`; sin clave el menú queda igual que antes. Ver `docs/asistente.md`.
 - **Personal: dirección, DNI y teléfono** (migración `026_datos_de_contacto.sql`): al registrar o editar a un
   empleado (Personal → *Editar*) el administrador pone su dirección y su teléfono, y ahora también corrige su DNI
   (es con lo que entra; su clave no cambia). La lista de Personal muestra el teléfono.

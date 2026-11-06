@@ -81,6 +81,20 @@ final class Navegador
         return $this->pedir('/?ruta=' . $ruta, http_build_query($datos));
     }
 
+    /** POST como lo envia app.js (fetch con Accept: application/json): la respuesta es JSON */
+    public function postJson(string $ruta, array $datos): int
+    {
+        $datos['csrf'] ??= $this->token();
+        $this->aceptarJson = true;
+        try {
+            return $this->pedir('/?ruta=' . $ruta, http_build_query($datos));
+        } finally {
+            $this->aceptarJson = false;
+        }
+    }
+
+    private bool $aceptarJson = false;
+
     /** POST multipart con un archivo (como el formulario de importar catalogo) */
     public function subir(string $ruta, array $datos, string $campo, string $archivo, string $nombre): int
     {
@@ -124,6 +138,7 @@ final class Navegador
             CURLOPT_COOKIEJAR      => $this->cookies,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_TIMEOUT        => 20,
+            CURLOPT_HTTPHEADER     => $this->aceptarJson ? ['Accept: application/json'] : [],
         ]);
         if ($post !== null) {
             curl_setopt($c, CURLOPT_POSTFIELDS, $post);
@@ -749,6 +764,20 @@ revisar('El administrador sí ve las pestañas, el stock de todas y la lista de 
     && $rosa->get('ruta=productos&tienda=3') === 200 && $rosa->tiene('por reponer en Mass Yanahuara')
     && $rosa->get('ruta=stock') === 200 && $rosa->tiene('Mass Yanahuara')
     && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=tiendas"'));
+
+echo "Asistente (sin ANTHROPIC_API_KEY en el .env de las pruebas)\n";
+revisar('La página del asistente abre y dice que falta la clave', $rosa->get('ruta=asistente') === 200 && $rosa->tiene('aún no está configurado')
+    && !$rosa->tiene('data-asistente-form'));
+revisar('Sin clave el menú no ofrece el asistente ni el botón flotante', $luis->get('ruta=inicio') === 200
+    && !$luis->tiene('ruta=asistente"') && !$luis->tiene('asistente-flotante'));
+revisar('Preguntar sin clave responde JSON con el aviso (sin llamar a internet)', $luis->postJson('asistente_preguntar', ['pregunta' => '¿cuánto vendimos?']) === 200
+    && str_starts_with($luis->cabeceras['content-type'] ?? '', 'application/json')
+    && ($r = json_decode($luis->cuerpo, true)) !== null && $r['ok'] === false && str_contains($r['respuesta'], 'ANTHROPIC_API_KEY'));
+revisar('Sin JavaScript vuelve al chat con el aviso', $luis->post('asistente_preguntar', ['pregunta' => 'hola']) === 303
+    && str_contains($luis->cabeceras['location'] ?? '', 'ruta=asistente') && $luis->get('ruta=asistente') === 200 && $luis->tiene('ANTHROPIC_API_KEY'));
+revisar('Preguntar sin el token CSRF: 403', $luis->postJson('asistente_preguntar', ['pregunta' => 'hola', 'csrf' => 'x']) === 403);
+revisar('Preguntar por GET no existe (es POST)', $luis->get('ruta=asistente_preguntar') === 404);
+revisar('Borrar la conversación', $luis->post('asistente_borrar', []) === 303);
 
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);
