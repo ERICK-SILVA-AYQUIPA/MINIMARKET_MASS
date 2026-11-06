@@ -99,6 +99,8 @@ echo "2. Escapado de lo que se imprime\n";
 $seguras = [
     '/^e\(.*\)$/s',
     '/^campoCsrf\(\$csrf\)$/',
+    // qr(): un <svg> de rectangulos; el titulo lo escapa CodigoQr::svg con htmlspecialchars
+    '/^qr\(\$\w+(\[\'\w+\'\]|->get\w+\(\))?(, .*)?\)$/',
     // icono('nombre') con un nombre fijo; icono() escapa el nombre con e()
     "/^icono\\('[a-z]+'\\)$/",
     '/^\(int\) /',

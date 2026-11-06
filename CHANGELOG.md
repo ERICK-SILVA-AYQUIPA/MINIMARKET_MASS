@@ -5,6 +5,18 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Etiquetas QR para reconocer cada producto** (Catálogo → *Etiquetas QR*, o *Imprimir etiqueta* en la ficha):
+  hoja A4 de 3 etiquetas por fila con el QR, el nombre y el precio, de todo el catálogo, de una categoría o de un
+  producto (con copias). El QR lleva el código del producto: la app (Nueva venta, Entrada de stock, Consultar) lo
+  reconoce al instante aunque el empaque traiga otro código, ninguno o uno que la cámara no lee. El QR se arma en el
+  servidor sin librerías ni internet (`CodigoQr.php`); las 84 etiquetas de la base de ejemplo se leyeron y la API
+  de la app reconoció las 84.
+- **Producto sin código de barras**: al crearlo en la web por unidad con el código vacío, recibe uno interno
+  (EAN-13 que empieza con 20, rango de GS1 para uso dentro de la tienda) para tener su etiqueta QR.
+- **Nuevo producto se completa solo**: en la web, al escanear o escribir el código se llenan el nombre real, la marca
+  y la categoría (Open Food Facts y Open Products Facts, por el servidor); si el código ya es de un producto, avisa
+  cuál. En la app, al escanear un código nuevo, además del nombre y la marca ahora se elige la categoría y se consulta
+  también Open Products Facts (limpieza y cuidado personal). Sin internet se escribe a mano, como antes.
 - **Solo para la demo: la misma clave para los 12 empleados de ejemplo** (migración `025_clave_demo_para_todos.sql`):
   todos vuelven a entrar con `Mass2026!` (en la base solo el hash bcrypt) y ya no se les pide cambiarla en el primer
   ingreso. A quien ya la había cambiado se le cierran las sesiones abiertas. Solo cambia la base de ejemplo; en una

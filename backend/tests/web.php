@@ -306,6 +306,19 @@ revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_i
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
     && $carmen->get('ruta=kardex_csv&tienda=1&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
+revisar('Etiquetas QR: la hoja de todo el catálogo trae un QR con el código, nombre y precio de cada producto (sin los al peso)',
+    $luis->get('ruta=etiquetas') === 200 && $luis->tiene('<svg') && $luis->tiene('7750000000011') && $luis->tiene('S/ 4.50')
+    && $luis->tiene('Sin QR (se venden al peso') && $luis->tiene('size: A4'));
+revisar('Etiquetas QR de una categoría o de un producto con copias; un producto que no existe: 404',
+    $rosa->get('ruta=etiquetas&categoria=2') === 200 && $rosa->tiene('7750000000011') && !$rosa->tiene('7750000000028')
+    && $rosa->get('ruta=etiquetas&id=1&copias=3') === 200 && substr_count($rosa->cuerpo, '<svg') === 3
+    && $rosa->get('ruta=etiquetas&id=99999') === 404);
+revisar('La ficha muestra el QR del producto y el enlace para imprimir su etiqueta', $rosa->get('ruta=producto&id=1') === 200
+    && $rosa->tiene('ficha-qr') && $rosa->tiene('ruta=etiquetas&amp;id=1'));
+revisar('Nuevo producto: un código que ya existe avisa de cuál es; solo el administrador consulta',
+    $rosa->get('ruta=producto_sugerencia&codigo=7750000000011') === 200 && str_contains($rosa->cuerpo, '"existe"')
+    && $rosa->get('ruta=producto_sugerencia&codigo=abc') === 200 && str_contains($rosa->cuerpo, '"encontrado":false')
+    && $luis->get('ruta=producto_sugerencia&codigo=7750000000011') === 403);
 revisar('El almacenero y el administrador ven el formulario de ingreso', $carmen->get('ruta=ingresos') === 200
     && $carmen->tiene('ingreso_registrar') && $rosa->get('ruta=ingresos') === 200 && $rosa->tiene('ingreso_registrar'));
 revisar('Ingresos está en el menú del almacenero y del administrador, no del cajero', $carmen->get('ruta=inicio') === 200

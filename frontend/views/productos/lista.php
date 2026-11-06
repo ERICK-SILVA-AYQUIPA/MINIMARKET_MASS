@@ -31,6 +31,7 @@ $porReponer = count(array_filter($filas, static fn (array $f): bool => $f['stock
         <?php if (count($tiendas) > 1): ?>
             <a class="boton secundario" href="/?ruta=stock"><?= icono('stock') ?>Stock de las <?= count($tiendas) ?> tiendas</a>
         <?php endif; ?>
+        <a class="boton secundario" href="/?ruta=etiquetas<?= e($categoriaElegida !== null ? '&categoria=' . $categoriaElegida : '') ?>" target="_blank" rel="noopener"><?= icono('qr') ?>Etiquetas QR</a>
         <?php if ($puedeEditar): ?>
             <a class="boton secundario" href="/?ruta=catalogo"><?= icono('categorias') ?>Categorías y marcas</a>
             <a class="boton secundario" href="/?ruta=catalogo_importar"><?= icono('descarga') ?>Importar CSV</a>

@@ -476,7 +476,6 @@ $idProducto = $catalogo->crear($rosa, $producto);
 revisar("Rosa crea el producto $idProducto con stock 0 en las 3 tiendas",
     valor($db, 'SELECT COUNT(*) FROM stock WHERE id_producto = ? AND cantidad_actual = 0', [$idProducto]) === '3');
 rechaza('Código de barras repetido', fn() => $catalogo->crear($rosa, ['codigo' => '7750000000011'] + $producto));
-rechaza('Producto por unidad sin código', fn() => $catalogo->crear($rosa, ['codigo' => ''] + $producto));
 rechaza('Producto al peso que no usa kg', fn() => $catalogo->crear($rosa, ['por_peso' => 'S', 'codigo' => ''] + $producto));
 rechaza('Precio 0', fn() => $catalogo->crear($rosa, ['precio' => '0', 'codigo' => '7750000000110'] + $producto));
 rechaza('Un cajero no cambia el catálogo', fn() => $catalogo->crear($luis, ['codigo' => '7750000000127'] + $producto));
@@ -525,6 +524,13 @@ revisar('Rosa marca el producto de Carmen como revisado; los ya revisados y los 
 $otraMarca = (int) valor($db, 'SELECT COUNT(*) FROM marca');
 $catalogo->crearAlEscanear($rosa, ['codigo' => '7750000000158', 'nombre' => 'Chifles salados 80 g', 'marca_nombre' => 'marca escaneada prueba'] + $escaneado);
 revisar('Una marca escrita que ya existe (sin importar mayúsculas) no se repite', (int) valor($db, 'SELECT COUNT(*) FROM marca') === $otraMarca);
+// Por unidad y sin codigo desde la web: se le da uno interno (20 + id + control) para su etiqueta QR
+$sinCodigo = $catalogo->crear($rosa, ['codigo' => '', 'nombre' => 'Pan de yema de la casa (unidad)'] + $producto);
+revisar("Un producto por unidad sin código recibe el código interno " . CodigoBarras::interno($sinCodigo) . ' y se encuentra con él',
+    valor($db, 'SELECT codigo_barras FROM producto WHERE id_producto = ?', [$sinCodigo]) === CodigoBarras::interno($sinCodigo)
+    && CodigoBarras::digitoControlValido(CodigoBarras::interno($sinCodigo))
+    && $productosRepo->buscarPorCodigo(CodigoBarras::interno($sinCodigo))?->getIdProducto() === $sinCodigo);
+rechaza('Al editarlo, el código sigue siendo obligatorio', fn() => $catalogo->editar($rosa, $sinCodigo, ['codigo' => ''] + $producto));
 rechaza('Al escanear, el código es obligatorio', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => ''] + $escaneado));
 rechaza('Al escanear, un código que ya existe', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000011'] + $escaneado));
 rechaza('Al escanear, no se usa la unidad kg', fn() => $catalogo->crearAlEscanear($carmen, ['codigo' => '7750000000165',

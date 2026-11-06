@@ -1,16 +1,19 @@
 package pe.mass.minimarket.dominio
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
- * Lo que dice una base publica (Open Food Facts) de un codigo de barras que no esta en nuestro catalogo.
- * Es solo una ayuda para escribir el nombre: el trabajador lo revisa y pone el precio.
+ * Lo que dice una base publica (Open Food Facts, Open Products Facts) de un codigo de barras que no esta en nuestro
+ * catalogo. Es una ayuda para llenar el formulario: el trabajador lo revisa y pone el precio.
+ * @param categorias las categorias de esa base, en ingles y sin prefijo ("sodas", "milks"): con ellas y el nombre
+ *                   se elige la categoria de nuestro catalogo ([Categorias.adivinar])
  */
-data class Sugerencia(val nombre: String, val marca: String)
+data class Sugerencia(val nombre: String, val marca: String, val categorias: List<String> = emptyList())
 
 object Sugerencias {
 
@@ -18,6 +21,7 @@ object Sugerencias {
 
     /**
      * Lee la respuesta de https://world.openfoodfacts.org/api/v2/product/{codigo}.json
+     * (Open Products Facts, la de limpieza y cuidado personal, responde igual).
      * Devuelve null si el producto no esta o no trae nombre.
      */
     fun desdeOpenFoodFacts(cuerpo: String): Sugerencia? {
@@ -34,7 +38,12 @@ object Sugerencias {
         var nombre = nombreBase
         if (marca.isNotEmpty() && !nombre.contains(marca, ignoreCase = true)) nombre = "$nombre $marca"
         if (cantidad.isNotEmpty() && !nombre.contains(cantidad, ignoreCase = true)) nombre = "$nombre $cantidad"
-        return Sugerencia(nombre.limpio().take(100), marca.limpio().take(50))
+        // "en:carbonated-drinks" -> "carbonated drinks"
+        val categorias = (producto["categories_tags"] as? JsonArray).orEmpty().mapNotNull {
+            runCatching { it.jsonPrimitive.contentOrNull }.getOrNull()?.substringAfter(':')?.replace('-', ' ')
+        }
+        // Algunos nombres vienen en minusculas ("agua san Luis")
+        return Sugerencia(nombre.limpio().replaceFirstChar { it.uppercaseChar() }.take(100), marca.limpio().take(50), categorias)
     }
 
     private fun JsonObject.texto(clave: String): String? =

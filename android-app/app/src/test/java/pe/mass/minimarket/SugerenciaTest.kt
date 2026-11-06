@@ -36,4 +36,12 @@ class SugerenciaTest {
         assertEquals(100, s?.nombre?.length)
         assertEquals(50, s?.marca?.length)
     }
+
+    @Test
+    fun traeLasCategoriasYPoneMayusculaAlInicio() {
+        val cuerpo = """{"status":1,"product":{"product_name":"agua san Luis","brands":"San Luis","categories_tags":["en:beverages","en:waters","es:aguas-de-mesa"]}}"""
+        val s = Sugerencias.desdeOpenFoodFacts(cuerpo)
+        assertEquals("Agua san Luis", s?.nombre)
+        assertEquals(listOf("beverages", "waters", "aguas de mesa"), s?.categorias)
+    }
 }

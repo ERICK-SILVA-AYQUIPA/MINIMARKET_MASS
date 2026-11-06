@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Controller.php';
 require_once __DIR__ . '/../models/CatalogoCsv.php';
+require_once __DIR__ . '/../models/SugerenciaPublica.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/ProductoRepository.php';
@@ -394,7 +395,7 @@ class ProductoController extends Controller
         try {
             if ($id === '') {
                 $id = (string) $this->servicio->crear($this->usuario, $datos);
-                $mensaje = 'Producto creado con stock 0 en todas las tiendas.';
+                $mensaje = 'Producto creado con stock 0 en todas las tiendas. Imprime su etiqueta QR desde su ficha.';
             } else {
                 $this->servicio->editar($this->usuario, $this->leerId($id), $datos);
                 $mensaje = 'Producto actualizado.';
@@ -617,6 +618,105 @@ class ProductoController extends Controller
             return;
         }
         $this->importar($resultado, null, $soloRevisar);
+    }
+
+    /**
+     * GET /?ruta=producto_sugerencia&codigo=7750182002363  (JSON, para el formulario de Nuevo producto)
+     * Si el codigo ya es de un producto, cual es (no se crea dos veces). Si no, nombre, marca y categoria reales
+     * desde Open Food Facts, con la marca y la categoria ya elegidas si estan en nuestro catalogo.
+     */
+    public function sugerencia(?string $codigoPedido, ?SugerenciaPublica $publica = null): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        if (!$this->puedeEditarCatalogo()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Solo un administrador cambia el catálogo.']);
+            return;
+        }
+        $codigo = CodigoBarras::limpiar((string) $codigoPedido);
+        if (!CodigoBarras::esValido($codigo)) {
+            echo json_encode(['encontrado' => false]);
+            return;
+        }
+        $existente = $this->repo->buscarPorCodigo($codigo);
+        if ($existente !== null) {
+            echo json_encode(['existe' => ['id' => $existente->getIdProducto(), 'nombre' => $existente->getNombreProducto()]],
+                JSON_UNESCAPED_UNICODE);
+            return;
+        }
+        $datos = ($publica ?? new SugerenciaPublica())->buscar($codigo);
+        if ($datos === null) {
+            echo json_encode(['encontrado' => false]);
+            return;
+        }
+        $categorias = [];
+        foreach ($this->catalogo->categorias() as $id => $c) {
+            $categorias[$id] = $c->getNombreCategoria();
+        }
+        $idMarca = null;
+        foreach ($this->catalogo->marcas() as $id => $m) {
+            if ($datos['marca'] !== '' && mb_strtolower($m->getNombreMarca()) === mb_strtolower($datos['marca'])) {
+                $idMarca = $id;
+                break;
+            }
+        }
+        echo json_encode([
+            'encontrado' => true,
+            'nombre'     => $datos['nombre'],
+            'marca'      => $datos['marca'],
+            'id_marca'   => $idMarca,
+            'id_categoria' => SugerenciaPublica::categoria($datos['nombre'], $datos['categorias'], $categorias),
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * GET /?ruta=etiquetas  (&categoria=2 solo esa categoria, &id=8 solo ese producto, &copias=3 cada una repetida)
+     * Hoja A4 de etiquetas con el QR de cada producto, su nombre y su precio, para pegar en el estante o en el producto.
+     * El QR lleva el codigo de barras del producto: la app lo reconoce al instante aunque el empaque traiga otro codigo.
+     * Solo productos activos con codigo; los que se venden al peso no tienen (se pesan en la balanza).
+     */
+    public function etiquetas(?string $categoriaPedida, ?string $idPedido, ?string $copiasPedidas): void
+    {
+        $categorias = [];
+        foreach ($this->catalogo->categorias() as $id => $c) {
+            $categorias[$id] = $c->getNombreCategoria();
+        }
+        $categoriaElegida = $categoriaPedida !== null && ctype_digit($categoriaPedida) && isset($categorias[(int) $categoriaPedida])
+            ? (int) $categoriaPedida : null;
+        $idElegido = $idPedido !== null && preg_match('/^[1-9][0-9]{0,9}$/', $idPedido) === 1 ? (int) $idPedido : null;
+        $copias = $copiasPedidas !== null && preg_match('/^[1-9][0-9]?$/', $copiasPedidas) === 1 ? min(30, (int) $copiasPedidas) : 1;
+
+        if ($idElegido !== null) {
+            $producto = $this->repo->buscarPorId($idElegido);
+            if ($producto === null) {
+                $this->noEncontrado('El producto no existe.');
+                return;
+            }
+            $productos = [$producto];
+        } else {
+            $productos = array_filter($this->repo->todos(), static fn(Producto $p): bool =>
+                $p->estaActivo() && ($categoriaElegida === null || $p->getIdCategoria() === $categoriaElegida));
+        }
+
+        $etiquetas = [];
+        $sinCodigo = [];
+        foreach ($productos as $p) {
+            $codigo = $p->getCodigoBarras();
+            if ($codigo === null || $codigo === '') {
+                $sinCodigo[] = $p->getNombreProducto();
+                continue;
+            }
+            $etiquetas[] = [
+                'nombre' => $p->getNombreProducto(),
+                'precio' => $p->getPrecioVenta(),
+                'codigo' => $codigo,
+            ];
+        }
+        $titulo = $idElegido !== null && isset($productos[0]) ? $productos[0]->getNombreProducto()
+            : ($categoriaElegida !== null ? $categorias[$categoriaElegida] : 'Todo el catálogo');
+        require_once __DIR__ . '/../../frontend/views/parciales/funciones.php';
+        require __DIR__ . '/../../frontend/views/productos/etiquetas.php';
     }
 
     private function puedeEditarCatalogo(): bool

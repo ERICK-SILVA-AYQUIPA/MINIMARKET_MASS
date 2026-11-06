@@ -43,12 +43,14 @@ import pe.mass.minimarket.data.api.OpcionCatalogo
 import pe.mass.minimarket.data.api.OpcionesCatalogo
 import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.data.api.ProductoNuevoPedido
+import pe.mass.minimarket.dominio.Categorias
 import pe.mass.minimarket.dominio.Validar
 import pe.mass.minimarket.dominio.soles
 
 /**
  * Producto nuevo con el codigo recien escaneado (cualquier empleado: en la venta, la entrada o la consulta).
- * Si Open Food Facts conoce el codigo, el nombre y la marca vienen escritos; el trabajador los revisa y pone el precio.
+ * Si Open Food Facts (o Open Products Facts) conoce el codigo, el nombre, la marca y la categoria vienen puestos;
+ * el trabajador los revisa y pone el precio.
  * El servidor lo crea con stock 0 en todas las tiendas, mas lo que se anote en "cuantos hay" en la tienda de quien lo registra.
  * @param stock que se pregunta de "cuantos hay": en la venta es obligatorio (sin stock no se cobra);
  *              en la entrada de mercaderia no se pregunta, porque la cantidad va en la linea del documento
@@ -95,7 +97,13 @@ fun DialogoProductoNuevo(
         }
         sugerencia.await()?.let { s ->
             if (nombre.isBlank()) nombre = s.nombre
-            if (marca.isBlank()) marca = s.marca
+            if (marca.isBlank()) {
+                // Si la marca ya esta en el catalogo, se escribe como alli ("GLORIA" -> "Gloria"): no se crea otra
+                marca = opciones?.marcas?.firstOrNull { it.nombre.equals(s.marca, ignoreCase = true) }?.nombre ?: s.marca
+            }
+            if (categoria == null) {
+                categoria = Categorias.adivinar(s.nombre, s.categorias, opciones?.categorias.orEmpty()) { it.nombre }
+            }
             sugerido = true
         }
         cargando = false
@@ -168,7 +176,7 @@ fun DialogoProductoNuevo(
                     Text("Ya existe con otro código: vincular", modifier = Modifier.weight(1f))
                 }
                 if (sugerido) {
-                    Text("Nombre sugerido por Open Food Facts: revísalo antes de guardar.",
+                    Text("Nombre, marca y categoría completados desde Open Food Facts: revísalos y pon el precio.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 error?.let { TarjetaAviso(Aviso(it, TipoAviso.ERROR)) }
