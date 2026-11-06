@@ -77,20 +77,63 @@ class ProductoServicio extends Servicio
     }
 
     /**
+     * El administrador da por revisados productos recien agregados (migracion 022): nombre, categoria, precio y foto
+     * estan bien. Solo cuentan los que estaban pendientes; los ya revisados o de la base inicial se ignoran.
+     * Devuelve cuantos se marcaron. Queda en la auditoria con sus ids.
+     * @param int[] $ids
+     */
+    public function marcarRevisados(Usuario $admin, array $ids): int
+    {
+        $this->exigirAdministrador($admin);
+        $ids = array_values(array_unique(array_filter($ids, static fn(int $id): bool => $id > 0)));
+        if ($ids === []) {
+            throw new ReglaNegocioException('Elige al menos un producto para marcarlo como revisado.');
+        }
+        if (count($ids) > 200) {
+            throw new ReglaNegocioException('Marca hasta 200 productos a la vez.');
+        }
+
+        return $this->enTransaccion(function () use ($admin, $ids): int {
+            $consulta = $this->db->prepare(
+                'UPDATE producto SET fecha_revision = NOW(), id_empleado_revision = :revisor
+                  WHERE id_producto = :id AND origen IS NOT NULL AND fecha_revision IS NULL'
+            );
+            // Solo se anotan en la auditoria los que de verdad estaban por revisar
+            $revisados = [];
+            foreach ($ids as $id) {
+                $consulta->execute(['revisor' => $admin->getIdEmpleado(), 'id' => $id]);
+                if ($consulta->rowCount() > 0) {
+                    $revisados[] = $id;
+                }
+            }
+            $marcados = count($revisados);
+            if ($marcados > 0) {
+                $this->auditar($admin, 'PRODUCTO_REVISADO', sprintf('%d producto(s) nuevo(s) revisado(s): %s',
+                    $marcados, implode(', ', $revisados)));
+            }
+            return $marcados;
+        });
+    }
+
+    /**
      * Crea un producto ACTIVO y su fila de stock (en 0) en cada tienda. Va dentro de una transaccion.
      * $origen: WEB (formulario) o APP (escaner); queda en el producto con quien, cuando y desde que tienda (migracion 018).
      */
     private function insertarProducto(Usuario $usuario, array $campos, string $porPeso, string $origen): int
     {
+        $revisor = $usuario->puedeAdministrarCatalogo() ? $usuario->getIdEmpleado() : null;
         try {
             $this->db->prepare(
                 'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
                                        id_categoria, id_marca, id_unidad,
-                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro)
+                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro,
+                                       fecha_revision, id_empleado_revision)
                  VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad,
-                         :origen, NOW(), :empleado, :tienda)'
+                         :origen, NOW(), :empleado, :tienda, IF(:revisor IS NULL, NULL, NOW()), :revisor2)'
             )->execute($campos + ['peso' => $porPeso, 'origen' => $origen,
-                'empleado' => $usuario->getIdEmpleado(), 'tienda' => $usuario->getIdTienda()]);
+                'empleado' => $usuario->getIdEmpleado(), 'tienda' => $usuario->getIdTienda(),
+                // Lo que registra el administrador ya nace revisado; lo de un cajero o almacenero queda por revisar (migracion 022)
+                'revisor' => $revisor, 'revisor2' => $revisor]);
         } catch (PDOException $ex) {
             throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
         }
@@ -318,9 +361,11 @@ class ProductoServicio extends Servicio
         if ($actual === false) {
             $this->db->prepare(
                 'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado, id_categoria, id_marca, id_unidad,
-                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro)
-                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad, \'CSV\', NOW(), :empleado, :tienda)'
-            )->execute($campos + ['peso' => $alPeso, 'empleado' => $admin->getIdEmpleado(), 'tienda' => $admin->getIdTienda()]);
+                                       origen, fecha_registro, id_empleado_registro, id_tienda_registro, fecha_revision, id_empleado_revision)
+                 VALUES (:nombre, :codigo, :precio, :peso, \'ACTIVO\', :categoria, :marca, :unidad, \'CSV\', NOW(), :empleado, :tienda,
+                         NOW(), :revisor)'
+            )->execute($campos + ['peso' => $alPeso, 'empleado' => $admin->getIdEmpleado(), 'tienda' => $admin->getIdTienda(),
+                'revisor' => $admin->getIdEmpleado()]);
             $this->db->prepare(
                 'INSERT INTO stock (id_tienda, id_producto, cantidad_actual, stock_minimo) SELECT id_tienda, :producto, 0, 0 FROM tienda'
             )->execute(['producto' => (int) $this->db->lastInsertId()]);

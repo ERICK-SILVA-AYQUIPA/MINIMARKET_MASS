@@ -127,7 +127,9 @@ $clienteController = new ClienteController($tiendas, $sesion, $usuario, $cliente
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 $panelController = new PanelController($tiendas, $sesion, $usuario, $panelRepositorio, $reportes, $inventario, $cajas,
     $productos, $catalogo, $ingresos, $compras);
-Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda));
+// Mas los productos recien agregados que el administrador aun no revisa (pestaña Recien agregados, de toda la cadena)
+Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda)
+    + ['productos_nuevos' => $usuario?->puedeAdministrarCatalogo() === true ? $productos->contarNuevos(['estado' => 'pendientes']) : 0]);
 $promocionController = new PromocionController($tiendas, $sesion, $usuario, $promociones, $productos, $empleados, new PromocionServicio($db));
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 
@@ -151,7 +153,7 @@ $rutasPost = [
     'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
     'venta_devolver', 'caja_movimiento', 'catalogo_subir',
     'turno_recontar', 'turno_pausa', 'turno_revisar', 'arqueo_sorpresa', 'regla_caja_guardar',
-    'producto_guardar', 'producto_estado', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
+    'producto_guardar', 'producto_estado', 'productos_revisar', 'producto_foto', 'stock_minimo', 'categoria_crear', 'marca_crear',
     'empleado_crear', 'empleado_guardar', 'empleado_clave', 'cliente_documento',
     'ajuste_registrar', 'tienda_guardar', 'tienda_elegir', 'tienda_abrir', 'caja_crear', 'caja_estado', 'distrito_crear',
     'promocion_crear', 'promocion_estado',
@@ -196,6 +198,7 @@ try {
                 'producto_guardar'   => $productoController->guardar($_POST),
                 'producto_foto'      => $productoController->cambiarFoto($_POST, is_array($_FILES['foto'] ?? null) ? $_FILES['foto'] : null),
                 'producto_estado'    => $productoController->cambiarEstado($_POST),
+                'productos_revisar'  => $productoController->marcarRevisados($_POST),
                 'stock_minimo'       => $productoController->fijarMinimo($_POST),
                 'categoria_crear'    => $productoController->crearCategoria($_POST),
                 'marca_crear'        => $productoController->crearMarca($_POST),
@@ -258,8 +261,12 @@ try {
                 $productoController->stockTiendas();
                 break;
 
+            case 'productos_nuevos':
+                $productoController->recienAgregados($_GET);
+                break;
+
             case 'productos_app':
-                $productoController->desdeApp($leer('tienda'), $leer('desde'), $leer('hasta'), $leer('q'), $leer('pagina'));
+                $productoController->desdeApp($_GET);
                 break;
 
             case 'stock_csv':

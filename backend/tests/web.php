@@ -257,10 +257,12 @@ $matriz = [
     'vencimientos'         => [200, 403, 200],
     'vencimientos&dias=7'  => [200, 403, 200],
     'reponer'              => [200, 403, 200],
-    'productos_app'        => [200, 403, 200],
-    'productos_app&tienda=1&desde=2026-01-01&hasta=2026-02-30&q=%25' => [200, 403, 200],
-    'productos_app&tienda=2&desde=2026-01-01' => [200, 403, 403],
-    'productos_app&tienda=x&pagina=-1' => [200, 403, 403],
+    'productos_app'        => [301, 301, 301],
+    'productos_nuevos'     => [200, 200, 200],
+    'productos_nuevos&tienda=1&desde=2026-01-01&hasta=2026-02-30&q=%25' => [200, 200, 200],
+    'productos_nuevos&tienda=2&periodo=todo&origen=APP&estado=pendientes' => [200, 403, 403],
+    'productos_nuevos&tienda=x&pagina=-1&periodo=%3Cx%3E&origen=X&estado=x' => [200, 403, 403],
+    'productos_nuevos&q[]=x&origen[]=APP&periodo=hoy' => [200, 200, 200],
     'reponer_csv'          => [200, 403, 200],
     'utilidad'             => [200, 403, 403],
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
@@ -448,10 +450,20 @@ revisar('La ficha de un producto marca Productos y la pestaña Catálogo', $rosa
 revisar('Productos avisa con números lo que vence y lo que hay que reponer; el cajero no los ve', $carmen->get('ruta=stock') === 200
     && $carmen->tiene('class="menu-cuenta"') && $carmen->tiene('class="pestana-cuenta reponer"') && $carmen->tiene('class="pestanas-rotulo"')
     && $luis->get('ruta=stock') === 200 && !$luis->tiene('menu-cuenta') && !$luis->tiene('pestana-cuenta'));
-revisar('"Desde la app" es una pestaña de Productos para el almacenero y el administrador, no para el cajero',
-    $carmen->get('ruta=productos_app') === 200 && $carmen->tiene('<a href="/?ruta=productos_app" aria-current="page">')
-    && ($carmen->tiene('href="#app-') || $carmen->tiene('Todavía nadie registró productos desde la app'))
-    && $rosa->get('ruta=stock') === 200 && $rosa->tiene('ruta=productos_app"') && $luis->get('ruta=stock') === 200 && !$luis->tiene('ruta=productos_app'));
+revisar('"Recién agregados" es una pestaña de Productos para los tres roles',
+    $carmen->get('ruta=productos_nuevos') === 200 && $carmen->tiene('<a href="/?ruta=productos_nuevos" aria-current="page">')
+    && ($carmen->tiene('href="#nuevo-') || $carmen->tiene('Todavía no se agregaron productos nuevos'))
+    && $rosa->get('ruta=stock') === 200 && $rosa->tiene('ruta=productos_nuevos"') && $luis->get('ruta=stock') === 200 && $luis->tiene('ruta=productos_nuevos"'));
+revisar('La pestaña de antes ("Desde la app") lleva a Recién agregados con el origen App y sin copiar texto raro',
+    $carmen->get('ruta=productos_app&desde=2026-01-01&q=%3Cx%3E&pagina=2') === 301
+    && str_starts_with($carmen->cabeceras['location'] ?? '', '/?ruta=productos_nuevos&origen=APP&periodo=todo&desde=2026-01-01&q=%3Cx%3E'));
+revisar('Solo el administrador tiene los botones para marcar como revisado',
+    $rosa->get('ruta=productos_nuevos&periodo=todo') === 200 && $rosa->tiene('Marcar seleccionados') === $rosa->tiene('<span class="etiqueta alerta">Por revisar</span>')
+    && $rosa->post('productos_revisar', ['ids' => ['x'], 'periodo' => '7']) === 303
+    && str_starts_with($rosa->cabeceras['location'] ?? '', '/?ruta=productos_nuevos&periodo=7')
+    && $luis->get('ruta=productos_nuevos&periodo=todo') === 200 && !$luis->tiene('ruta=productos_revisar') && !$luis->tiene('Completar datos'));
+revisar('Recién agregados no repite en la página lo que se busca sin escaparlo', $rosa->get('ruta=productos_nuevos&q=%3Cscript%3E') === 200
+    && !$rosa->tiene('<script>') && $rosa->tiene('&lt;script&gt;'));
 revisar('La auditoría está en el menú del administrador', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=auditoria"'));
 revisar('Las pantallas cargan solo /js/app.js y el ticket solo /js/ticket.js', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('<script src="/js/app.js')
     && substr_count($rosa->cuerpo, '<script') === 1 && $luis->get('ruta=comprobante_imprimir&serie=B001&numero=1') === 200
@@ -484,6 +496,7 @@ echo "Formularios de otro rol (POST): 403 sin tocar la base\n";
 $prohibidos = [
     [$luis, 'Luis', 'producto_guardar', ['nombre' => 'X', 'precio' => '1']],
     [$luis, 'Luis', 'producto_estado', ['id' => '1', 'estado' => 'DESCONTINUADO']],
+    [$luis, 'Luis', 'productos_revisar', ['ids' => ['1']]],
     [$luis, 'Luis', 'stock_minimo', ['id' => '1', 'minimo' => '5']],
     [$luis, 'Luis', 'categoria_crear', ['nombre' => 'Prueba']],
     [$luis, 'Luis', 'marca_crear', ['nombre' => 'Prueba']],
@@ -501,6 +514,7 @@ $prohibidos = [
     [$luis, 'Luis', 'caja_estado', ['id' => '1', 'estado' => 'INACTIVA']],
     [$luis, 'Luis', 'distrito_crear', ['nombre' => 'Prueba']],
     [$carmen, 'Carmen', 'venta_registrar', ['tipo' => 'B']],
+    [$carmen, 'Carmen', 'productos_revisar', ['ids' => ['1']]],
     [$carmen, 'Carmen', 'turno_abrir', ['caja' => '1', 'monto_inicial' => '100']],
     [$carmen, 'Carmen', 'turno_cerrar', ['monto_cierre' => '100']],
     [$carmen, 'Carmen', 'turno_pausa', ['accion' => 'pausar']],
@@ -689,9 +703,11 @@ revisar('Las ventas de otra tienda no se ven: pedirlas es 403 y la lista solo tr
 revisar('La ficha de un cliente solo muestra al cajero las compras de su tienda (el administrador ve las de la cadena)',
     $luis->get('ruta=cliente&id=2') === 200 && $luis->tiene('Mass Cayma') && !$luis->tiene('Mass Yanahuara') && !$luis->tiene('B003-')
     && $rosa->get('ruta=cliente&id=2') === 200 && $rosa->tiene('Mass Cayma') && $rosa->tiene('Mass Yanahuara'));
-revisar('Productos añadidos desde la app: el almacenero solo ve su sucursal y no tiene el filtro de tiendas',
-    $carmen->get('ruta=productos_app') === 200 && !$carmen->tiene('<select name="tienda">')
-    && $rosa->get('ruta=productos_app') === 200 && $rosa->tiene('<select name="tienda">'));
+revisar('Recién agregados: el cajero y el almacenero solo ven su sucursal y no tienen el filtro de tiendas',
+    $carmen->get('ruta=productos_nuevos') === 200 && !$carmen->tiene('<select name="tienda">')
+    && $luis->get('ruta=productos_nuevos&periodo=todo') === 200 && !$luis->tiene('<select name="tienda">')
+    && $miguel->get('ruta=productos_nuevos&tienda=1') === 403
+    && $rosa->get('ruta=productos_nuevos') === 200 && $rosa->tiene('<select name="tienda">'));
 revisar('Un comprobante de otra tienda no existe para el cajero (página, ticket y panel): 404',
     $rosa->get('ruta=comprobante&serie=B002&numero=1') === 200
     && $luis->get('ruta=comprobante&serie=B002&numero=1') === 404

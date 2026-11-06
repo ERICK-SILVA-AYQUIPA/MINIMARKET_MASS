@@ -71,41 +71,53 @@ class ProductoRepository
     }
 
     /**
-     * Cuantos productos se registraron desde la app (origen APP, migracion 018) con estos filtros.
-     * $idTienda: la sucursal desde la que se registraron (null = todas). $desde/$hasta: AAAA-MM-DD ya validadas.
+     * Pestaña "Recien agregados" (?ruta=productos_nuevos): productos nuevos de cualquier origen (migraciones 018 y 022).
+     * Filtros ya validados por el controlador:
+     *   tienda  ?int     sucursal desde la que se registro (null = todas)
+     *   desde   ?string  AAAA-MM-DD    hasta ?string AAAA-MM-DD
+     *   texto   string   nombre o codigo de barras
+     *   origen  ?string  APP, WEB o CSV (null = todos)
+     *   estado  ?string  'pendientes' (sin revisar) o 'revisados' (null = todos)
+     * @param array{tienda?: ?int, desde?: ?string, hasta?: ?string, texto?: string, origen?: ?string, estado?: ?string} $filtros
      */
-    public function contarDesdeApp(?int $idTienda, ?string $desde, ?string $hasta, string $texto): int
+    public function contarNuevos(array $filtros): int
     {
-        [$donde, $parametros] = $this->dondeDesdeApp($idTienda, $desde, $hasta, $texto);
+        [$donde, $parametros] = $this->dondeNuevos($filtros);
         $consulta = $this->db->prepare('SELECT COUNT(*) FROM producto p WHERE ' . $donde);
         $consulta->execute($parametros);
         return (int) $consulta->fetchColumn();
     }
 
     /**
-     * Una pagina de los productos registrados desde la app, lo mas reciente primero: quien, desde que
-     * sucursal, cuando, y el stock que tiene hoy en esa sucursal. Filas simples: es una lista para leer.
-     * @return array<int, array{id_producto: int, nombre_producto: string, codigo_barras: ?string, precio_venta: string,
-     *   estado: string, fecha_registro: string, categoria: string, marca: string, unidad: string, empleado: string,
-     *   rol: string, id_tienda: int, tienda: string, stock: ?string}>
+     * Una pagina de productos recien agregados, lo mas reciente primero: origen, quien, desde que sucursal, cuando,
+     * quien lo reviso, el stock inicial que declaro (app) y el stock y minimo de hoy en esa sucursal.
+     * @param array{tienda?: ?int, desde?: ?string, hasta?: ?string, texto?: string, origen?: ?string, estado?: ?string} $filtros
+     * @return array<int, array<string, mixed>>
      */
-    public function paginaDesdeApp(?int $idTienda, ?string $desde, ?string $hasta, string $texto, int $limite, int $offset): array
+    public function paginaNuevos(array $filtros, int $limite, int $offset): array
     {
-        [$donde, $parametros] = $this->dondeDesdeApp($idTienda, $desde, $hasta, $texto);
+        [$donde, $parametros] = $this->dondeNuevos($filtros);
         // LIMIT y OFFSET son enteros calculados en PHP
         $consulta = $this->db->prepare(
-            "SELECT p.id_producto, p.nombre_producto, p.codigo_barras, p.precio_venta, p.estado, p.fecha_registro,
+            "SELECT p.id_producto, p.nombre_producto, p.codigo_barras, p.precio_venta, p.estado, p.se_vende_por_peso,
+                    p.origen, p.fecha_registro, p.fecha_revision, p.id_categoria, p.id_marca,
                     c.nombre_categoria AS categoria, m.nombre_marca AS marca, u.abreviatura AS unidad,
                     CONCAT(e.nombres, ' ', e.apellidos) AS empleado, r.nombre_rol AS rol,
-                    t.id_tienda, t.nombre_tienda AS tienda, s.cantidad_actual AS stock
+                    CONCAT(er.nombres, ' ', er.apellidos) AS revisor,
+                    t.id_tienda, t.nombre_tienda AS tienda, s.cantidad_actual AS stock, s.stock_minimo,
+                    (SELECT ms.cantidad FROM movimiento_stock ms
+                      WHERE ms.id_producto = p.id_producto AND ms.id_tienda = p.id_tienda_registro
+                        AND ms.observacion = 'Stock inicial (app)'
+                      ORDER BY ms.id_movimiento LIMIT 1) AS stock_inicial
                FROM producto p
-               JOIN categoria c     ON c.id_categoria = p.id_categoria
-               JOIN marca m         ON m.id_marca = p.id_marca
-               JOIN unidad_medida u ON u.id_unidad = p.id_unidad
-               JOIN empleado e      ON e.id_empleado = p.id_empleado_registro
-               JOIN rol r           ON r.id_rol = e.id_rol
-               JOIN tienda t        ON t.id_tienda = p.id_tienda_registro
-               LEFT JOIN stock s    ON s.id_producto = p.id_producto AND s.id_tienda = p.id_tienda_registro
+               JOIN categoria c       ON c.id_categoria = p.id_categoria
+               JOIN marca m           ON m.id_marca = p.id_marca
+               JOIN unidad_medida u   ON u.id_unidad = p.id_unidad
+               JOIN empleado e        ON e.id_empleado = p.id_empleado_registro
+               JOIN rol r             ON r.id_rol = e.id_rol
+               JOIN tienda t          ON t.id_tienda = p.id_tienda_registro
+               LEFT JOIN empleado er  ON er.id_empleado = p.id_empleado_revision
+               LEFT JOIN stock s      ON s.id_producto = p.id_producto AND s.id_tienda = p.id_tienda_registro
               WHERE " . $donde . '
               ORDER BY p.fecha_registro DESC, p.id_producto DESC
               LIMIT ' . max(1, min($limite, 200)) . ' OFFSET ' . max(0, $offset)
@@ -115,40 +127,71 @@ class ProductoRepository
     }
 
     /**
-     * Resumen para las tarjetas de arriba (con los mismos filtros): total, de los ultimos 7 dias y cuantas personas.
-     * @return array{total: int, semana: int, personas: int}
+     * Las tarjetas de arriba, con los mismos filtros: total, de hoy, de los ultimos 7 dias, desde la app y por revisar.
+     * @param array{tienda?: ?int, desde?: ?string, hasta?: ?string, texto?: string, origen?: ?string, estado?: ?string} $filtros
+     * @return array{total: int, hoy: int, semana: int, app: int, pendientes: int}
      */
-    public function resumenDesdeApp(?int $idTienda, ?string $desde, ?string $hasta, string $texto): array
+    public function resumenNuevos(array $filtros): array
     {
-        [$donde, $parametros] = $this->dondeDesdeApp($idTienda, $desde, $hasta, $texto);
+        [$donde, $parametros] = $this->dondeNuevos($filtros);
         $consulta = $this->db->prepare(
-            'SELECT COUNT(*) AS total,
+            "SELECT COUNT(*) AS total,
+                    COALESCE(SUM(p.fecha_registro >= CURDATE()), 0) AS hoy,
                     COALESCE(SUM(p.fecha_registro >= CURDATE() - INTERVAL 6 DAY), 0) AS semana,
-                    COUNT(DISTINCT p.id_empleado_registro) AS personas
-               FROM producto p WHERE ' . $donde
+                    COALESCE(SUM(p.origen = 'APP'), 0) AS app,
+                    COALESCE(SUM(p.fecha_revision IS NULL), 0) AS pendientes
+               FROM producto p WHERE " . $donde
         );
         $consulta->execute($parametros);
         $fila = $consulta->fetch();
-        return ['total' => (int) $fila['total'], 'semana' => (int) $fila['semana'], 'personas' => (int) $fila['personas']];
+        return ['total' => (int) $fila['total'], 'hoy' => (int) $fila['hoy'], 'semana' => (int) $fila['semana'],
+            'app' => (int) $fila['app'], 'pendientes' => (int) $fila['pendientes']];
     }
 
-    /** @return array{0: string, 1: array<string, int|string>} */
-    private function dondeDesdeApp(?int $idTienda, ?string $desde, ?string $hasta, string $texto): array
+    /**
+     * Ids de los productos registrados desde $desde (AAAA-MM-DD, de cualquier sucursal): la etiqueta NUEVO del catalogo.
+     * @return array<int, true>
+     */
+    public function idsNuevos(string $desde): array
     {
-        $donde = ["p.origen = 'APP'"];
+        $consulta = $this->db->prepare(
+            'SELECT id_producto FROM producto WHERE origen IS NOT NULL AND fecha_registro >= :desde'
+        );
+        $consulta->execute(['desde' => $desde . ' 00:00:00']);
+        return array_fill_keys(array_map('intval', $consulta->fetchAll(PDO::FETCH_COLUMN)), true);
+    }
+
+    /**
+     * @param array{tienda?: ?int, desde?: ?string, hasta?: ?string, texto?: string, origen?: ?string, estado?: ?string} $f
+     * @return array{0: string, 1: array<string, int|string>}
+     */
+    private function dondeNuevos(array $f): array
+    {
+        // Productos de la base inicial (origen NULL) no son nuevos: no tienen quien ni cuando
+        $donde = ['p.origen IS NOT NULL', 'p.fecha_registro IS NOT NULL'];
         $parametros = [];
-        if ($idTienda !== null) {
+        if (($f['tienda'] ?? null) !== null) {
             $donde[] = 'p.id_tienda_registro = :tienda';
-            $parametros['tienda'] = $idTienda;
+            $parametros['tienda'] = $f['tienda'];
         }
-        if ($desde !== null) {
+        if (in_array($f['origen'] ?? null, ['APP', 'WEB', 'CSV'], true)) {
+            $donde[] = 'p.origen = :origen';
+            $parametros['origen'] = $f['origen'];
+        }
+        if (($f['estado'] ?? null) === 'pendientes') {
+            $donde[] = 'p.fecha_revision IS NULL';
+        } elseif (($f['estado'] ?? null) === 'revisados') {
+            $donde[] = 'p.fecha_revision IS NOT NULL';
+        }
+        if (($f['desde'] ?? null) !== null) {
             $donde[] = 'p.fecha_registro >= :desde';
-            $parametros['desde'] = $desde . ' 00:00:00';
+            $parametros['desde'] = $f['desde'] . ' 00:00:00';
         }
-        if ($hasta !== null) {
+        if (($f['hasta'] ?? null) !== null) {
             $donde[] = 'p.fecha_registro < :hasta + INTERVAL 1 DAY';
-            $parametros['hasta'] = $hasta;
+            $parametros['hasta'] = $f['hasta'];
         }
+        $texto = $f['texto'] ?? '';
         if ($texto !== '') {
             // Nombre o codigo de barras; % y _ se buscan como letras
             $donde[] = '(p.nombre_producto LIKE :texto OR p.codigo_barras LIKE :texto2)';

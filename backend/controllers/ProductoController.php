@@ -67,47 +67,204 @@ class ProductoController extends Controller
             ];
         }
 
+        // Lo recien agregado: etiqueta NUEVO en cada producto y un aviso arriba con enlace a la pestaña Recien agregados.
+        // El aviso cuenta solo lo registrado desde la sede de quien mira (el administrador, toda la cadena)
+        $desdeNuevo = (new DateTimeImmutable('today'))->modify('-' . (self::DIAS_NUEVO - 1) . ' days')->format('Y-m-d');
+        $nuevos = $this->repo->idsNuevos($desdeNuevo);
+        $diasNuevo = self::DIAS_NUEVO;
+        $avisoNuevos = [
+            'semana'     => $this->repo->contarNuevos(['tienda' => $this->tiendaRestringida(), 'desde' => $desdeNuevo]),
+            'pendientes' => $puedeEditar ? $this->repo->contarNuevos(['estado' => 'pendientes']) : 0,
+        ];
+
         // Ficha en el panel lateral; si el id no existe, solo se muestra la lista
         $ficha = null;
         if ($ver !== null && preg_match('/^[1-9][0-9]{0,9}$/', $ver) === 1) {
             $elegido = $this->repo->buscarPorId((int) $ver);
             $ficha = $elegido !== null ? $this->datosFicha($elegido, $tienda) : null;
         }
-        unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas);
+        unset($producto, $elegido, $id, $c, $m, $idCategoria, $marcas, $desdeNuevo);
 
         $this->vista('productos/lista', get_defined_vars());
     }
 
+    // Cuantos dias un producto lleva la etiqueta NUEVO en el catalogo
+    public const DIAS_NUEVO = 7;
+
+    // Periodos rapidos de Recien agregados: valor de &periodo= => [texto, dias hacia atras (null = todo)]
+    public const PERIODOS = ['hoy' => ['Hoy', 1], '7' => ['7 días', 7], '30' => ['30 días', 30], '90' => ['90 días', 90], 'todo' => ['Todo', null]];
+
+    // Origenes de un producto nuevo (migracion 018)
+    public const ORIGENES = ['APP' => 'App (escáner)', 'WEB' => 'Formulario web', 'CSV' => 'Importación CSV'];
+
     /**
-     * GET /?ruta=productos_app&tienda=2&desde=2026-11-01&hasta=2026-11-05&q=leche&pagina=2
-     * Productos que se registraron escaneando un codigo nuevo en la app Android: quien, cuando y desde que sucursal.
-     * La ven el almacenero y el administrador (los mismos que ven Por vencer y Reponer). El administrador ve por
-     * defecto todas las sucursales y &tienda= deja solo una; el almacenero, solo la suya.
+     * GET /?ruta=productos_nuevos&periodo=7&origen=APP&estado=pendientes&tienda=2&desde=&hasta=&q=leche&pagina=2
+     * Los productos recien agregados al catalogo: desde la app (al escanear un codigo nuevo), el formulario web o un CSV.
+     * Origen, quien, cuando, desde que sucursal, stock inicial y de hoy, y lo que falta completar (foto, marca, minimo).
+     * La ven todos los roles. El administrador ve todas las sucursales (&tienda= deja una) y los marca como revisados;
+     * el cajero y el almacenero solo ven lo registrado desde su sede.
+     * @param array<string, mixed> $consulta los parametros del GET (solo se leen textos)
      */
-    public function desdeApp(?string $tiendaPedida, ?string $desdePedido, ?string $hastaPedido, ?string $textoPedido, ?string $pagina): void
+    public function recienAgregados(array $consulta): void
     {
-        if ($this->usuario === null || !$this->usuario->puedeVerIngresos($this->usuario->getIdTienda())) {
-            $this->prohibido('Los productos añadidos desde la app los ven el almacenero y el administrador.');
+        if ($this->usuario === null) {
+            $this->prohibido('Entra con tu usuario para ver los productos nuevos.');
             return;
         }
         $tiendas = $this->tiendasVisibles();
-        // El administrador filtra la sucursal que quiera (o todas); el almacenero ve solo lo registrado desde la suya
-        $idTienda = $tiendaPedida !== null && ctype_digit($tiendaPedida) && isset($tiendas[(int) $tiendaPedida]) ? (int) $tiendaPedida : null;
+        $f = $this->leerFiltrosNuevos($consulta, $tiendas);
+        $puedeRevisar = $this->puedeEditarCatalogo();
+
+        $resumen = $this->repo->resumenNuevos($f['filtros']);
+        $paginacion = new Paginacion($resumen['total'], $f['pagina'], 30);
+        $filas = [];
+        foreach ($this->repo->paginaNuevos($f['filtros'], $paginacion->getPorPagina(), $paginacion->offset()) as $fila) {
+            $idProducto = (int) $fila['id_producto'];
+            $fila['foto'] = $this->fotos->datos($idProducto, (string) $fila['categoria']);
+            $fila['faltantes'] = self::faltantes($fila);
+            $filas[] = $fila;
+        }
+        $periodo = $f['periodo'];
+        $desde = $f['filtros']['desde'];
+        $hasta = $f['filtros']['hasta'];
+        $idTienda = $f['filtros']['tienda'];
+        $origen = $f['filtros']['origen'];
+        $estado = $f['filtros']['estado'];
+        $texto = $f['filtros']['texto'];
+        $hayFiltros = $f['hayFiltros'];
+        $consultaActual = $f['consulta'];
+        $urlPagina = '/?' . http_build_query(['ruta' => 'productos_nuevos'] + $consultaActual);
+        $periodos = self::PERIODOS;
+        $origenes = self::ORIGENES;
+        $diasNuevo = self::DIAS_NUEVO;
+        unset($fila, $idProducto, $f, $consulta);
+        $this->vista('productos/nuevos', get_defined_vars());
+    }
+
+    // GET /?ruta=productos_app (la pestaña "Desde la app" de antes): ahora es Recien agregados con el origen App
+    public function desdeApp(array $consulta): void
+    {
+        $destino = ['ruta' => 'productos_nuevos', 'origen' => 'APP', 'periodo' => 'todo'];
+        foreach (['tienda', 'desde', 'hasta', 'q'] as $clave) {
+            $valor = $this->campo($consulta, $clave);
+            if ($valor !== '') {
+                $destino[$clave] = mb_substr($valor, 0, 60);
+            }
+        }
+        header('Location: /?' . http_build_query($destino), true, 301);
+    }
+
+    /**
+     * POST /?ruta=productos_revisar con ids[] (y los filtros de la lista, para volver a ella).
+     * El administrador da por revisados los productos recien agregados elegidos.
+     */
+    public function marcarRevisados(array $post): void
+    {
+        if (!$this->puedeEditarCatalogo()) {
+            $this->prohibido('Solo un administrador revisa los productos nuevos del catálogo.');
+            return;
+        }
+        $filtros = $this->leerFiltrosNuevos($post, $this->tiendasVisibles());
+        $volver = '/?' . http_build_query(['ruta' => 'productos_nuevos'] + $filtros['consulta']
+            + ($filtros['pagina'] !== null && $filtros['filtros']['estado'] !== 'pendientes' ? ['pagina' => $filtros['pagina']] : []));
+        $ids = [];
+        foreach (is_array($post['ids'] ?? null) ? $post['ids'] : [] as $valor) {
+            $id = is_string($valor) ? $this->leerId($valor) : 0;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+        try {
+            $marcados = $this->servicio->marcarRevisados($this->usuario, $ids);
+        } catch (ReglaNegocioException $ex) {
+            $this->sesion->avisar('error', $ex->getMessage());
+            header('Location: ' . $volver, true, 303);
+            return;
+        }
+        $this->redirigir($volver, match (true) {
+            $marcados === 0 => 'Esos productos ya estaban revisados.',
+            $marcados === 1 => 'Producto marcado como revisado.',
+            default         => $marcados . ' productos marcados como revisados.',
+        }, $marcados === 0 ? 'alerta' : 'ok');
+    }
+
+    /**
+     * Lee y valida los filtros de Recien agregados (del GET, o de los campos ocultos del POST para volver a la lista).
+     * consulta: los mismos filtros ya limpios, para armar enlaces; nunca se copia el texto pedido tal cual.
+     * @param array<string, mixed> $fuente
+     * @param array<int, Tienda> $tiendas
+     * @return array{filtros: array{tienda: ?int, desde: ?string, hasta: ?string, texto: string, origen: ?string, estado: ?string},
+     *   periodo: string, pagina: ?string, hayFiltros: bool, consulta: array<string, string|int>}
+     */
+    private function leerFiltrosNuevos(array $fuente, array $tiendas): array
+    {
+        $tiendaPedida = $this->campo($fuente, 'tienda');
+        // El administrador filtra la sucursal que quiera (o todas); el cajero y el almacenero ven solo la suya
+        $idTienda = ctype_digit($tiendaPedida) && isset($tiendas[(int) $tiendaPedida]) ? (int) $tiendaPedida : null;
         $idTienda = $this->tiendaRestringida() ?? $idTienda;
-        $desde = $this->leerFecha($desdePedido);
-        $hasta = $this->leerFecha($hastaPedido);
+
+        $desde = $this->leerFecha($this->campo($fuente, 'desde'));
+        $hasta = $this->leerFecha($this->campo($fuente, 'hasta'));
         if ($desde !== null && $hasta !== null && $desde > $hasta) {
             [$desde, $hasta] = [$hasta, $desde];
         }
-        $texto = mb_substr(trim((string) $textoPedido), 0, 60);
-        $hayFiltros = ($idTienda !== null && count($tiendas) > 1) || $desde !== null || $hasta !== null || $texto !== '';
+        // Con fechas propias manda el rango; si no, el periodo rapido. Por defecto todo, lo mas reciente primero:
+        // asi el numero de la pestaña (por revisar, de cualquier fecha) coincide con lo que se ve al abrirla
+        $periodo = $this->campo($fuente, 'periodo');
+        if ($desde !== null || $hasta !== null) {
+            $periodo = 'rango';
+        } else {
+            $periodo = isset(self::PERIODOS[$periodo]) ? $periodo : 'todo';
+            $dias = self::PERIODOS[$periodo][1];
+            $desde = $dias === null ? null : (new DateTimeImmutable('today'))->modify('-' . ($dias - 1) . ' days')->format('Y-m-d');
+        }
+        $origen = $this->campo($fuente, 'origen');
+        $origen = isset(self::ORIGENES[$origen]) ? $origen : null;
+        $estado = $this->campo($fuente, 'estado');
+        $estado = in_array($estado, ['pendientes', 'revisados'], true) ? $estado : null;
+        $texto = mb_substr(trim($this->campo($fuente, 'q')), 0, 60);
+        $pagina = $this->campo($fuente, 'pagina');
 
-        $resumen = $this->repo->resumenDesdeApp($idTienda, $desde, $hasta, $texto);
-        $paginacion = new Paginacion($resumen['total'], $pagina, 50);
-        $filas = $this->repo->paginaDesdeApp($idTienda, $desde, $hasta, $texto, $paginacion->getPorPagina(), $paginacion->offset());
-        $urlPagina = '/?' . http_build_query(['ruta' => 'productos_app', 'tienda' => $idTienda, 'desde' => $desde,
-            'hasta' => $hasta, 'q' => $texto !== '' ? $texto : null]);
-        $this->vista('productos/desde_app', get_defined_vars());
+        $consulta = array_filter([
+            'periodo' => $periodo === 'rango' ? null : $periodo,
+            'desde'   => $periodo === 'rango' ? $desde : null,
+            'hasta'   => $periodo === 'rango' ? $hasta : null,
+            'tienda'  => $this->tiendaRestringida() === null ? $idTienda : null,
+            'origen'  => $origen,
+            'estado'  => $estado,
+            'q'       => $texto !== '' ? $texto : null,
+        ], static fn($v): bool => $v !== null);
+
+        return [
+            'filtros'    => ['tienda' => $idTienda, 'desde' => $desde, 'hasta' => $hasta, 'texto' => $texto, 'origen' => $origen, 'estado' => $estado],
+            'periodo'    => $periodo,
+            'pagina'     => ctype_digit($pagina) ? $pagina : null,
+            'hayFiltros' => $periodo !== 'todo' || ($idTienda !== null && count($tiendas) > 1) || $origen !== null || $estado !== null || $texto !== '',
+            'consulta'   => $consulta,
+        ];
+    }
+
+    /**
+     * Lo que le falta a un producto nuevo para quedar completo en su sucursal: foto, marca, stock minimo o stock.
+     * @param array<string, mixed> $fila una fila de ProductoRepository::paginaNuevos con su 'foto'
+     * @return array<string, string> clave => texto
+     */
+    private static function faltantes(array $fila): array
+    {
+        $faltan = [];
+        if ($fila['foto']['url'] === null) {
+            $faltan['foto'] = 'Sin foto';
+        }
+        if (mb_strtolower((string) $fila['marca']) === 'sin marca') {
+            $faltan['marca'] = 'Sin marca';
+        }
+        if ($fila['stock_minimo'] !== null && (float) $fila['stock_minimo'] <= 0) {
+            $faltan['minimo'] = 'Sin stock mínimo';
+        }
+        if ($fila['stock'] !== null && (float) $fila['stock'] <= 0) {
+            $faltan['stock'] = 'Sin stock';
+        }
+        return $faltan;
     }
 
     // GET /?ruta=producto&codigo=7750000000011  o  /?ruta=producto&id=8

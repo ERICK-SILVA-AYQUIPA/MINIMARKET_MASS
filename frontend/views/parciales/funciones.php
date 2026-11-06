@@ -26,6 +26,28 @@ function fecha(?string $valor): string
     return $m[3] . '/' . $m[2] . '/' . $m[1] . (isset($m[4]) ? ' ' . $m[4] : '');
 }
 
+// Fecha de MySQL -> cuanto paso, para listas de lo reciente: "hace 5 min", "hace 3 h", "ayer 14:20", "hace 4 días";
+// mas de una semana: la fecha. $ahora se pasa en las pruebas.
+function hace(?string $valor, ?DateTimeImmutable $ahora = null): string
+{
+    if ($valor === null || preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $valor) !== 1) {
+        return fecha($valor);
+    }
+    $ahora ??= new DateTimeImmutable();
+    $momento = new DateTimeImmutable($valor);
+    $segundos = $ahora->getTimestamp() - $momento->getTimestamp();
+    $dias = (int) $momento->setTime(0, 0)->diff($ahora->setTime(0, 0))->format('%r%a');
+    return match (true) {
+        $segundos < 0      => fecha($valor),
+        $segundos < 60     => 'hace un momento',
+        $segundos < 3600   => 'hace ' . intdiv($segundos, 60) . ' min',
+        $dias === 0        => 'hace ' . intdiv($segundos, 3600) . ' h',
+        $dias === 1        => 'ayer ' . $momento->format('H:i'),
+        $dias < 7          => 'hace ' . $dias . ' días',
+        default            => fecha($valor),
+    };
+}
+
 // Milesimas -> texto: "1.250" si se vende por kg, "12" si es por unidad
 function cantidad(int $milesimas, bool $alPeso): string
 {

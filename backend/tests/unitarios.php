@@ -198,6 +198,12 @@ revisar('Solo encabezado: avisa que no hay productos', CatalogoCsv::leer("codigo
 echo "Fechas en pantalla\n";
 revisar('Fecha y hora de MySQL se muestran como dd/mm/aaaa hh:mm', fecha('2026-10-19 08:05:00') === '19/10/2026 08:05');
 revisar('Fecha sola y vacía', fecha('2026-02-03') === '03/02/2026' && fecha(null) === '—' && fecha('Sigue abierto') === 'Sigue abierto');
+$ahoraPrueba = new DateTimeImmutable('2026-11-05 10:30:00');
+revisar('Hace cuánto: minutos, horas, ayer, días y, pasada una semana, la fecha',
+    hace('2026-11-05 10:29:40', $ahoraPrueba) === 'hace un momento' && hace('2026-11-05 10:05:00', $ahoraPrueba) === 'hace 25 min'
+    && hace('2026-11-05 07:10:00', $ahoraPrueba) === 'hace 3 h' && hace('2026-11-04 22:15:00', $ahoraPrueba) === 'ayer 22:15'
+    && hace('2026-11-01 09:00:00', $ahoraPrueba) === 'hace 4 días' && hace('2026-10-20 09:00:00', $ahoraPrueba) === '20/10/2026 09:00'
+    && hace('2026-11-06 09:00:00', $ahoraPrueba) === '06/11/2026 09:00' && hace(null, $ahoraPrueba) === '—');
 
 echo "Fotos de producto\n";
 revisar('Cada categoría tiene su icono y color', FotoProducto::icono('Lacteos') === 'lacteo' && FotoProducto::icono('Lácteos') === 'lacteo'

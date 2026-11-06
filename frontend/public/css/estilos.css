@@ -1539,3 +1539,40 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
 /* Reportes: dos columnas como maximo, para que cada grafico y su tabla tengan ancho */
 .rejilla-reportes { grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); }
 .grafico .barra small:empty { visibility: hidden; }
+
+/* Recién agregados (?ruta=productos_nuevos) y la etiqueta NUEVO del catálogo */
+.etiqueta.nuevo { background: var(--marca); color: var(--tinta); font-weight: 800; letter-spacing: var(--tracking-mayusculas); font-size: .68rem; }
+.pestana-cuenta.productos_nuevos { background: var(--azul-fondo); color: var(--azul); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tarjetas > div.destacada::before { background: #d97706; }
+.tarjetas small a { color: inherit; font-weight: 600; }
+.tabla-nuevos tr.pendiente td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+.tabla-nuevos td { vertical-align: top; }
+.tabla-nuevos .con-foto { align-items: flex-start; }
+.tabla-nuevos input[type="checkbox"] { width: 18px; height: 18px; margin-top: var(--s-3); accent-color: var(--tinta); }
+.faltantes { color: var(--ambar); font-weight: 600; }
+.acciones-fila form { display: inline; margin: 0; }
+.barra-lote {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3); margin: 0 0 var(--s-3);
+    padding: var(--s-2) var(--s-3); border: 1px solid #f5d68a; border-radius: var(--radio-chico); background: var(--ambar-fondo); color: var(--ambar);
+}
+.barra-lote span { display: inline-flex; align-items: center; gap: var(--s-2); font-size: .9rem; }
+.tarjeta-producto .etiqueta.nuevo { position: absolute; top: var(--s-2); left: var(--s-2); z-index: 1; box-shadow: var(--sombra-sm); }
+.aviso-nuevos { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3); }
+.aviso-nuevos > span:first-child { flex: 1 1 260px; }
+.aviso-nuevos .acciones { flex: none; }
+@media (max-width: 700px) {
+    /* En el celular cada producto nuevo es una tarjeta, sin desplazar la tabla de lado */
+    .tabla-nuevos thead { display: none; }
+    .tabla-nuevos, .tabla-nuevos tbody, .tabla-nuevos tr, .tabla-nuevos td { display: block; width: 100%; }
+    .tabla-nuevos tr { position: relative; padding: var(--s-3); border-bottom: 1px solid var(--borde); }
+    .tabla-nuevos td { border: 0; padding: var(--s-1) 0; text-align: left; }
+    .tabla-nuevos td.num { text-align: left; }
+    .tabla-nuevos td[data-etiqueta]::before { content: attr(data-etiqueta) ": "; color: var(--suave); font-size: .85rem; }
+    .tabla-nuevos td:has(> input[type="checkbox"]) { position: absolute; top: var(--s-3); right: var(--s-3); width: auto; padding: 0; }
+    .tabla-nuevos td:empty { display: none; }
+    .tabla-nuevos tr.pendiente td:first-child { box-shadow: none; }
+    .tabla-nuevos tr.pendiente { box-shadow: inset 3px 0 0 #f59e0b; }
+    .tabla-nuevos .acciones-fila { white-space: normal; padding-top: var(--s-2); }
+    .barra-lote button { width: 100%; }
+}
