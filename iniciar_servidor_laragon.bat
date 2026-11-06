@@ -64,9 +64,21 @@ start http://localhost:8000
 echo.
 echo ====================================================
 echo   Servidor iniciado en http://localhost:8000
+echo.
+echo   App Android (celular en el MISMO Wi-Fi que esta PC):
+echo   en la pantalla de inicio de la app, Servidor, escribe una de estas direcciones:
+for /f "tokens=2 delims=:" %%A in ('ipconfig ^| findstr /C:"IPv4"') do (
+    set "IP=%%A"
+    echo      http://!IP: =!:8000/
+)
+echo   Si el celular no llega, permite el puerto 8000 en el Firewall de Windows
+echo   (la primera vez Windows pregunta: marca "Redes privadas" y Permitir).
+echo.
 echo   Presiona Ctrl + C para detener el servidor.
 echo ====================================================
 echo.
-"%PHP_CMD%" -S localhost:8000 -t frontend\public
+:: 0.0.0.0 = escucha tambien en la red del local: con "localhost" solo esta PC (y el emulador) llegaba,
+:: y en el celular el escaner decia que el servidor tardaba demasiado
+"%PHP_CMD%" -S 0.0.0.0:8000 -t frontend\public
 
 pause

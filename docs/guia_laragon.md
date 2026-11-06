@@ -54,7 +54,9 @@ Este archivo se encarga de:
 2. Instalar `backend/database/instalar_laragon.sql` si la base `minimarket_mass` no existe o no tiene la tabla `producto` (si ya hiciste el paso 2, no la toca).
 3. Aplicar las migraciones nuevas de `backend/database/migraciones/` con `backend/scripts/migrar.php`: así tu base recibe los cambios del equipo sin borrar tus datos.
 4. Abrir tu navegador en **`http://localhost:8000`**.
-5. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`frontend/public`).
+5. Iniciar el servidor local de PHP apuntando a la carpeta correcta (`frontend/public`), en `0.0.0.0:8000` para que también llegue el celular, y mostrar la dirección que se escribe en la app (por ejemplo `http://192.168.1.50:8000/`).
+
+**App Android en un celular:** el celular debe estar en el mismo Wi-Fi que la PC y en la app se escribe la dirección que muestra la ventana del servidor (no `localhost`). La primera vez Windows pregunta si permite a PHP usar la red: marca *Redes privadas* y **Permitir**. Si la app dice *No se pudo conectar con el servidor*, abre `http://<esa IP>:8000/api/v1/salud` en el navegador del celular: si no carga, es la IP, el Wi-Fi o el firewall, no la app.
 
 Laragon es solo para las PCs del equipo. Para publicar el sistema en un servidor con HTTPS, ver `docs/despliegue.md`.
 
