@@ -1,6 +1,17 @@
 # Manual de usuario
 
-Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI** y su clave, y ve solo el menú de su rol. Para instalar el sistema, ver `docs/despliegue.md`.
+Guía para quien usa el sistema en la tienda. Cada empleado entra con su **DNI** y su clave, y ve solo el menú de su rol. Para instalar el sistema, ver `docs/instalacion.md` (corta) o `docs/despliegue.md` (completa).
+
+## En una página
+
+Lo mismo sale dentro del sistema en **Ayuda** (pie de cada página), solo con lo del rol de quien entró.
+
+| Rol | Lo de todos los días |
+|---|---|
+| **Cajero** | **Caja** → abrir turno con el efectivo inicial · **Nueva venta** → escanear o tocar productos → boleta o factura → efectivo (o tarjeta / Sip) → **Registrar venta** (`F9`) · **Imprimir ticket** en el comprobante · **Caja** → movimientos de efectivo · **Caja** → contar y **Cerrar turno** |
+| **Almacenero** | **Ingresos** → registrar lo que llega con su documento, costo y vencimiento · **Reponer** → qué pedir · **Por vencer** · **Traslados**, **Mermas** y **Conteo** · todo queda en el **Kardex** |
+| **Administrador** | **Caja** → revisar turnos y diferencias · **Ventas** → anular con motivo · **Reportes** y **Utilidad** · **Catálogo** y precios · **Personal** · **Auditoría** |
+| **Todos** | **Mi clave** para cambiarla · **Ayuda** para el soporte y qué hacer sin internet · si sale la franja roja *Sin conexión*, no cerrar la página (sección 7) |
 
 ## 1. Entrar y salir
 
@@ -35,6 +46,7 @@ La clave de los 9 es `Mass2026!`. Fuera del aula, cada uno debe cambiarla en **M
 - **Teclado**: `Esc` cierra un panel lateral o el menú del celular. En **Nueva venta**, `F9` registra la venta.
 - **Celular**: quien maneja la caja tiene abajo una barra con **Inicio**, **Caja**, **Vender** (el botón amarillo del centro), **Ventas** y **Menú**. En **Nueva venta**, mientras se eligen productos, una barra oscura muestra el total y **Cobrar** baja directo al carrito y al cobro.
 - **Confirmación**: anular una venta, descontinuar un producto, cerrar el turno, desactivar una caja, y registrar una merma, un traslado, un ingreso o un conteo piden confirmar antes de guardar.
+- **Pie de página**: la versión del sistema (por ejemplo `v1.0.0`), a quién llamar si algo falla y el enlace a **Ayuda**.
 - Si falta un dato o tiene mal formato, el mensaje sale debajo del campo. Mientras se guarda, el botón dice **Guardando…** para no registrar dos veces lo mismo.
 
 ## 2. Lo que ven todos
@@ -107,3 +119,20 @@ El administrador maneja **su tienda**. El catálogo y los precios son de toda la
 | Error en rojo dentro del formulario | Falta un dato o no cumple una regla. No se guardó nada; corregir y volver a enviar |
 | **El formulario venció** (403) | La página estuvo abierta mucho tiempo. Recargar y volver a enviar |
 | **La base de datos no está disponible** (503) | MySQL está apagado. Avisar a quien administra el sistema |
+| **Sin conexión con el servidor** (franja roja arriba) | Se cortó el internet o el servidor no responde. No cerrar la página: ver la sección 7 |
+| **Esta venta ya estaba registrada** (amarillo) | La venta se envió dos veces (por ejemplo, después de un corte). Se registró una sola vez: no cobrar otra vez |
+
+## 7. Si se cae el internet
+
+1. **Franja roja *Sin conexión con el servidor***: no cerrar la página. La venta que se está armando queda guardada en ese navegador y **Registrar venta** no la envía hasta que vuelva la conexión (sale *Conexión recuperada* en verde).
+2. **Se pulsó Registrar y el navegador mostró un error**: **no cobrar otra vez**. Al volver la conexión, entrar a **Nueva venta**: dice si la venta quedó registrada (con su número y **Ver comprobante**) o la devuelve armada para registrarla. Enviarla de nuevo nunca la duplica.
+3. **Se cerró el navegador o se fue la luz**: entrar otra vez, en la misma PC y con el mismo usuario, a **Nueva venta**: la venta aparece armada con un aviso amarillo (hasta 12 horas). Si ya no se quiere, **Vaciar**.
+4. **El sistema no vuelve y hay clientes**: solo efectivo, anotar cada venta en la hoja de contingencia y, al volver, registrarlas en **Nueva venta** anotando el número de comprobante en la hoja.
+
+El plan completo (qué funciona sin internet, la hoja de contingencia para imprimir y cómo preparar la tienda) está en `docs/plan_sin_internet.md`.
+
+## 8. Versión y soporte
+
+- La versión sale en el pie de cada página y en **Ayuda**. Los cambios de cada versión están en `CHANGELOG.md`.
+- El contacto de soporte (nombre, teléfono, correo y horario) también sale en el pie y en **Ayuda**. Lo configura quien instala el sistema en el `.env` (`docs/instalacion.md`).
+- Al pedir ayuda, tener a la mano: la pantalla donde se estaba, qué se hizo, el mensaje que salió, el número de comprobante (si hay) y la versión.

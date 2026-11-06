@@ -1,5 +1,14 @@
 </main>
-<footer class="pie">Minimarket Mass · Arequipa · Sistema de ventas e inventario multitienda</footer>
+<?php
+require_once __DIR__ . '/../../backend/config/Aplicacion.php';
+$soportePie = Aplicacion::soporte();
+?>
+<!-- Version y a quien llamar: salen de VERSION y del .env (SOPORTE_*), ver backend/config/Aplicacion.php -->
+<footer class="pie">
+    <span>Minimarket Mass <span class="pie-version">v<?= e(Aplicacion::version()) ?></span></span>
+    <span>Soporte: <?= e($soportePie['nombre']) ?><?php if ($soportePie['telefono'] !== null): ?> · <a href="<?= e(Aplicacion::enlaceTelefono($soportePie['telefono'])) ?>"><?= e($soportePie['telefono']) ?></a><?php endif; ?><?php if ($soportePie['correo'] !== null): ?> · <a href="mailto:<?= e($soportePie['correo']) ?>"><?= e($soportePie['correo']) ?></a><?php endif; ?></span>
+    <?php if (($usuarioActual ?? null) !== null): ?><a href="/?ruta=ayuda">Ayuda</a><?php endif; ?>
+</footer>
     </div>
 </div>
 <?php $barraInferior ??= []; ?>

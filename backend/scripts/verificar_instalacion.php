@@ -12,6 +12,7 @@ if (PHP_SAPI !== 'cli') {
 }
 require __DIR__ . '/../config/Database.php';
 require __DIR__ . '/../config/Migraciones.php';
+require __DIR__ . '/../config/Aplicacion.php';
 require __DIR__ . '/../models/Emisor.php';
 require __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 date_default_timezone_set('America/Lima');
@@ -142,6 +143,12 @@ revisar(trim((string) getenv('RESPALDO_REMOTO')) !== '', 'Los respaldos se copia
     'Los respaldos solo quedan en este disco: configura RESPALDO_REMOTO en .env (docs/despliegue.md, sección 10)', 'AVISO');
 revisar(strlen((string) getenv('RESPALDO_CLAVE')) >= 12, 'Los respaldos se cifran (RESPALDO_CLAVE)',
     'Los respaldos no se cifran: pon una RESPALDO_CLAVE de 12 caracteres o más en .env', 'AVISO');
+
+echo "Entrega\n";
+revisar(Aplicacion::version() !== 'sin versión', 'Versión ' . Aplicacion::version() . ' (archivo VERSION)',
+    'El archivo VERSION falta o no tiene el formato 1.2.3: el pie de página no mostrará la versión', 'AVISO');
+revisar(Aplicacion::soporteConfigurado(), 'Contacto de soporte: ' . Aplicacion::soporte()['nombre'],
+    'Nadie a quien llamar: pon SOPORTE_NOMBRE y SOPORTE_TELEFONO o SOPORTE_CORREO en .env (sale en el pie y en Ayuda)', 'AVISO');
 
 echo PHP_EOL . "$fallas fallas, $avisos avisos" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

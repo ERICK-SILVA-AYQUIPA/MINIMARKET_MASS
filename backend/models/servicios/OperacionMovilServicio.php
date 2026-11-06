@@ -6,6 +6,8 @@ require_once __DIR__ . '/../Usuario.php';
 
 /**
  * Una venta o un ingreso de la app se registra una sola vez aunque el celular reintente.
+ * La pantalla Nueva venta de la web usa lo mismo: cada formulario lleva su clave (campo clave_operacion), asi
+ * un reenvio despues de un corte de red devuelve el mismo comprobante en vez de cobrar dos veces.
  *
  * La app manda una clave unica (Idempotency-Key) por operacion. En UNA transaccion se guarda la clave,
  * se hace la operacion (VentaServicio o InventarioServicio se unen a esta transaccion) y se guarda la
@@ -53,6 +55,18 @@ class OperacionMovilServicio extends Servicio
             throw $ex;
         }
         return ['respuesta' => $respuesta, 'repetida' => false];
+    }
+
+    /**
+     * Lo que se respondio la primera vez con esa clave, o null si con esa clave no se registro nada
+     * (la pantalla de venta lo pregunta al volver la conexion: "?se registro mi venta?").
+     */
+    public function respuestaDe(Usuario $usuario, string $clave, string $tipo): ?array
+    {
+        if (preg_match('/^[A-Za-z0-9-]{8,64}$/', $clave) !== 1) {
+            return null;
+        }
+        return $this->respuestaGuardada($usuario, $clave, $tipo);
     }
 
     private function respuestaGuardada(Usuario $usuario, string $clave, string $tipo): ?array

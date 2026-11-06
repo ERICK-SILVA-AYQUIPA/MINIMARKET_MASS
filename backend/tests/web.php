@@ -578,6 +578,33 @@ revisar('Salir y volver a entrar empieza otra vez en su propia tienda',
     $jefa->post('salir', []) === 303 && $jefa->entrar('70000001') === 303
     && $jefa->get('ruta=inicio') === 200 && $jefa->tiene('<option value="1" selected>'));
 
+echo "Versión, soporte y sin internet\n";
+$version = trim((string) file_get_contents(__DIR__ . '/../../VERSION'));
+revisar('El login muestra la versión en el pie', $anonimo->get('ruta=login') === 200 && $anonimo->tiene('v' . $version) && $anonimo->tiene('Soporte:'));
+revisar('Sin sesión no hay enlace a Ayuda', !$anonimo->tiene('ruta=ayuda'));
+revisar('Ayuda sin sesión lleva al login', $anonimo->get('ruta=ayuda') === 303);
+revisar('?ruta=salud responde JSON sin login, con la versión y la base arriba', $anonimo->get('ruta=salud') === 200
+    && str_starts_with($anonimo->cabeceras['content-type'] ?? '', 'application/json')
+    && (json_decode($anonimo->cuerpo, true)['version'] ?? '') === $version && (json_decode($anonimo->cuerpo, true)['base'] ?? '') === 'ok'
+    && !isset($anonimo->cabeceras['set-cookie']));
+foreach ([[$luis, 'Luis (cajero)', 'Empezar el día'], [$carmen, 'Carmen (almacenero)', 'Recibir mercadería'], [$rosa, 'Rosa (administradora)', 'Revisar cajas']] as [$quien, $nombre, $suManual]) {
+    revisar("Ayuda de $nombre: versión, soporte, sin internet y su manual", $quien->get('ruta=ayuda') === 200
+        && $quien->tiene('versión <strong>' . $version) && $quien->tiene('Si se cae el internet') && $quien->tiene($suManual));
+}
+revisar('El cajero no ve el manual del administrador', $luis->get('ruta=ayuda') === 200 && !$luis->tiene('Revisar cajas'));
+revisar('Cada página lleva el enlace a Ayuda en el pie', $carmen->get('ruta=productos') === 200 && $carmen->tiene('href="/?ruta=ayuda"'));
+revisar('Nueva venta trae una clave única para no registrar dos veces', $luis->get('ruta=venta_nueva') === 200
+    && preg_match('/name="clave_operacion" value="([0-9a-f]{32})"/', $luis->cuerpo, $claveA) === 1
+    && $luis->get('ruta=venta_nueva') === 200 && preg_match('/name="clave_operacion" value="([0-9a-f]{32})"/', $luis->cuerpo, $claveB) === 1
+    && $claveA[1] !== $claveB[1]);
+revisar('Venta con error: vuelve con la misma clave', $luis->post('venta_registrar', ['tipo' => 'B', 'clave_operacion' => str_repeat('a', 32)]) === 422
+    && $luis->tiene('value="' . str_repeat('a', 32) . '"'));
+revisar('venta_estado de una clave que no se usó: no registrada', $luis->get('ruta=venta_estado&clave=' . str_repeat('b', 32)) === 200
+    && json_decode($luis->cuerpo, true) === ['registrada' => false]);
+revisar('venta_estado con una clave rara: no registrada (no rompe)', $luis->get('ruta=venta_estado&clave=%27%20OR%201=1') === 200
+    && json_decode($luis->cuerpo, true) === ['registrada' => false]);
+revisar('venta_estado es solo del cajero (403)', $carmen->get('ruta=venta_estado&clave=' . str_repeat('b', 32)) === 403);
+
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);
 

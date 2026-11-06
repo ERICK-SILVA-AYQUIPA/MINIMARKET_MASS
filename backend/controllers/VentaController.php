@@ -11,6 +11,7 @@ require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/CajaRepository.php';
 require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/VentaServicio.php';
+require_once __DIR__ . '/../models/servicios/OperacionMovilServicio.php';
 require_once __DIR__ . '/../models/Emisor.php';
 require_once __DIR__ . '/../models/DesgloseIgv.php';
 require_once __DIR__ . '/../models/AnchoTicket.php';
@@ -32,6 +33,7 @@ class VentaController extends Controller
         private CajaRepository $cajas,
         private VentaServicio $servicio,
         private CatalogoRepository $catalogo,
+        private ?OperacionMovilServicio $operaciones = null,
         private FotoProducto $fotos = new FotoProducto()
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
@@ -207,6 +209,9 @@ class VentaController extends Controller
             }
         }
         asort($categorias);
+        // Clave unica de esta venta: si el envio se corta y se reenvia, el servidor no la registra dos veces.
+        // Al volver con un error se conserva la misma (esa venta no se registro).
+        $claveOperacion = $this->claveValida($this->campo($viejo, 'clave_operacion')) ?? bin2hex(random_bytes(16));
         unset($nombresCategoria, $id, $c, $producto, $idCategoria);
         $this->vista('ventas/nueva', get_defined_vars());
     }
@@ -218,34 +223,96 @@ class VentaController extends Controller
             $this->prohibido('Solo un cajero puede registrar ventas.');
             return;
         }
+        $usuario = $this->usuario;
+        $registrar = fn(): array => $this->servicio->registrar(
+            $usuario,
+            $this->campo($post, 'tipo'),
+            $this->campo($post, 'documento'),
+            $this->lineasDelFormulario($post),
+            [
+                'tarjeta_monto'        => $this->campo($post, 'tarjeta_monto'),
+                'tarjeta_tipo'         => $this->campo($post, 'tarjeta_tipo'),
+                'tarjeta_marca'        => $this->campo($post, 'tarjeta_marca'),
+                'tarjeta_ultimos4'     => $this->campo($post, 'tarjeta_ultimos4'),
+                'tarjeta_autorizacion' => $this->campo($post, 'tarjeta_autorizacion'),
+                'sip_monto'            => $this->campo($post, 'sip_monto'),
+                'sip_modalidad'        => $this->campo($post, 'sip_modalidad'),
+                'sip_operacion'        => $this->campo($post, 'sip_operacion'),
+                'efectivo_recibido'    => $this->campo($post, 'efectivo_recibido'),
+            ]
+        );
+        $clave = $this->claveValida($this->campo($post, 'clave_operacion'));
+        $repetida = false;
         try {
-            $r = $this->servicio->registrar(
-                $this->usuario,
-                $this->campo($post, 'tipo'),
-                $this->campo($post, 'documento'),
-                $this->lineasDelFormulario($post),
-                [
-                    'tarjeta_monto'        => $this->campo($post, 'tarjeta_monto'),
-                    'tarjeta_tipo'         => $this->campo($post, 'tarjeta_tipo'),
-                    'tarjeta_marca'        => $this->campo($post, 'tarjeta_marca'),
-                    'tarjeta_ultimos4'     => $this->campo($post, 'tarjeta_ultimos4'),
-                    'tarjeta_autorizacion' => $this->campo($post, 'tarjeta_autorizacion'),
-                    'sip_monto'            => $this->campo($post, 'sip_monto'),
-                    'sip_modalidad'        => $this->campo($post, 'sip_modalidad'),
-                    'sip_operacion'        => $this->campo($post, 'sip_operacion'),
-                    'efectivo_recibido'    => $this->campo($post, 'efectivo_recibido'),
-                ]
-            );
+            if ($clave !== null && $this->operaciones !== null) {
+                // La clave y la venta se guardan en la misma transaccion: o quedan las dos o ninguna
+                $resultado = $this->operaciones->unaVez($usuario, $clave, 'VENTA', fn(): array => [
+                    'origen' => 'web',
+                ] + array_intersect_key($registrar(), ['serie' => true, 'numero' => true]));
+                $r = $resultado['respuesta'];
+                $repetida = $resultado['repetida'];
+            } else {
+                $r = $registrar();
+            }
         } catch (ReglaNegocioException $ex) {
             // Se vuelve a mostrar el formulario con lo que escribio y el error
             http_response_code(422);
             $this->nueva($post, $ex->getMessage());
             return;
         }
+        if (!is_string($r['serie'] ?? null) || !is_numeric($r['numero'] ?? null)) {
+            // La clave ya se uso en la app para otra venta (no deberia pasar: cada formulario trae una nueva)
+            http_response_code(422);
+            $this->nueva(['clave_operacion' => ''] + $post, 'No se pudo confirmar esta venta. Revisa Ventas antes de cobrar otra vez.');
+            return;
+        }
         $this->redirigir(
-            '/?ruta=comprobante&serie=' . urlencode($r['serie']) . '&numero=' . $r['numero'],
-            'Venta registrada.'
+            // &registrada=: app.js borra la copia de esta venta que guardaba el navegador por si se cortaba la red
+            '/?ruta=comprobante&serie=' . urlencode($r['serie']) . '&numero=' . (int) $r['numero']
+                . ($clave !== null ? '&registrada=' . $clave : ''),
+            $repetida ? 'Esta venta ya estaba registrada (se envió dos veces): no se cobró ni se descontó el stock otra vez.' : 'Venta registrada.',
+            $repetida ? 'alerta' : 'ok'
         );
+    }
+
+    /**
+     * GET /?ruta=venta_estado&clave=...  (JSON, la usa app.js al volver la conexion)
+     * Dice si la venta con esa clave quedo registrada: asi el cajero sabe si la cobro o si debe registrarla.
+     */
+    public function estado(?string $clave): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        if ($this->usuario === null || !$this->usuario->puedeVender() || $this->operaciones === null) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Solo un cajero puede consultar sus ventas.']);
+            return;
+        }
+        $clave = $this->claveValida($clave ?? '');
+        $respuesta = $clave !== null ? $this->operaciones->respuestaDe($this->usuario, $clave, 'VENTA') : null;
+        if ($respuesta === null) {
+            echo json_encode(['registrada' => false]);
+            return;
+        }
+        // La app guarda la respuesta completa ("B001-12"); la web guarda serie y numero
+        $serie = $respuesta['serie'] ?? null;
+        $numero = $respuesta['numero'] ?? null;
+        if (!is_string($serie) && is_string($respuesta['comprobante'] ?? null)
+            && preg_match('/^([BF][0-9]{3})-([0-9]{1,8})$/', $respuesta['comprobante'], $m) === 1) {
+            [$serie, $numero] = [$m[1], $m[2]];
+        }
+        $numero = is_numeric($numero) ? (int) $numero : 0;
+        echo json_encode([
+            'registrada'  => true,
+            'comprobante' => is_string($serie) ? sprintf('%s-%08d', $serie, $numero) : null,
+            'url'         => is_string($serie) ? '/?ruta=comprobante&serie=' . urlencode($serie) . '&numero=' . $numero : null,
+        ]);
+    }
+
+    // La clave que manda el formulario (32 hex de random_bytes); otra cosa se ignora
+    private function claveValida(string $clave): ?string
+    {
+        return preg_match('/^[A-Za-z0-9-]{8,64}$/', $clave) === 1 ? $clave : null;
     }
 
     // POST /?ruta=venta_anular (desde el comprobante)
