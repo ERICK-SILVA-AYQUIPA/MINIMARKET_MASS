@@ -8,7 +8,7 @@ require_once __DIR__ . '/../models/Paginacion.php';
 require_once __DIR__ . '/../models/servicios/ClienteServicio.php';
 
 /**
- * C: clientes (DNI y RUC), sus compras y completar el documento que les falta.
+ * C: clientes (DNI y RUC, nombre, direccion y telefono), registrarlos a mano, sus compras y completar el documento que les falta.
  * El DNI y el RUC son datos personales: solo los ven el cajero y el administrador.
  */
 class ClienteController extends Controller
@@ -24,15 +24,17 @@ class ClienteController extends Controller
         parent::__construct($tiendas, $sesion, $usuario);
     }
 
-    // GET /?ruta=clientes&documento=7012&pagina=2
-    public function lista(?string $documento, ?string $pagina, ?string $ver = null): void
+    // GET /?ruta=clientes&documento=7012&pagina=2 (documento: inicio del DNI/RUC, o parte del nombre)
+    public function lista(?string $documento, ?string $pagina, ?string $ver = null, array $viejo = [], ?string $error = null): void
     {
         if (!$this->puedeVerClientes()) {
             $this->prohibido('Los clientes los ven el cajero y el administrador.');
             return;
         }
-        // Solo digitos: el inicio de un DNI o de un RUC
-        $documento = $documento !== null && preg_match('/^[0-9]{1,11}$/', $documento) === 1 ? $documento : null;
+        // Digitos: el inicio de un DNI o de un RUC. Texto: parte del nombre
+        $documento = $documento !== null ? trim($documento) : null;
+        $documento = $documento !== null && (preg_match('/^[0-9]{1,11}$/', $documento) === 1
+            || (!ctype_digit($documento) && mb_strlen($documento) >= 2 && mb_strlen($documento) <= 60)) ? $documento : null;
         $paginacion = new Paginacion($this->clientes->contar($documento), $pagina);
         $filas = $this->clientes->buscar($documento, $paginacion->getPorPagina(), $paginacion->offset(), $this->tiendaRestringida());
         $urlPagina = '/?' . http_build_query(['ruta' => 'clientes', 'documento' => $documento]);
@@ -78,6 +80,54 @@ class ClienteController extends Controller
             $compras[] = ['venta' => $venta, 'serie' => $serie, 'tienda' => $this->tiendas->buscarPorId($serie->getIdTienda())];
         }
         return ['cliente' => $cliente, 'compras' => $compras];
+    }
+
+    // POST /?ruta=cliente_crear
+    public function crear(array $post): void
+    {
+        if (!$this->puedeVerClientes()) {
+            $this->prohibido('Los clientes los ven el cajero y el administrador.');
+            return;
+        }
+        try {
+            $id = $this->servicio->crear(
+                $this->usuario,
+                $this->campo($post, 'nombre'),
+                $this->campo($post, 'dni'),
+                $this->campo($post, 'ruc'),
+                $this->campo($post, 'direccion'),
+                $this->campo($post, 'telefono')
+            );
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->lista(null, null, null, $post, $ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=clientes&ver=' . $id, 'Cliente registrado.');
+    }
+
+    // POST /?ruta=cliente_contacto
+    public function guardarContacto(array $post): void
+    {
+        if (!$this->puedeVerClientes()) {
+            $this->prohibido('Los clientes los ven el cajero y el administrador.');
+            return;
+        }
+        $id = $this->campo($post, 'id');
+        try {
+            $this->servicio->editarContacto(
+                $this->usuario,
+                $this->leerId($id),
+                $this->campo($post, 'nombre'),
+                $this->campo($post, 'direccion'),
+                $this->campo($post, 'telefono')
+            );
+        } catch (ReglaNegocioException $ex) {
+            http_response_code(422);
+            $this->detalle($id, $ex->getMessage());
+            return;
+        }
+        $this->redirigir('/?ruta=cliente&id=' . $this->leerId($id), 'Datos del cliente guardados.');
     }
 
     // POST /?ruta=cliente_documento

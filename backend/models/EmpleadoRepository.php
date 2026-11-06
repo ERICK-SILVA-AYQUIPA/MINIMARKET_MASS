@@ -11,7 +11,7 @@ require_once __DIR__ . '/Almacenero.php';
  */
 class EmpleadoRepository
 {
-    private const COLUMNAS = 'id_empleado, nombres, apellidos, dni, estado, id_tienda, id_rol';
+    private const COLUMNAS = 'id_empleado, nombres, apellidos, dni, direccion, telefono, estado, id_tienda, id_rol';
 
     public function __construct(private PDO $db) {}
 
@@ -83,6 +83,8 @@ class EmpleadoRepository
             $fila['dni'],
             $fila['estado'],
             (int) $fila['id_tienda'],
+            $fila['direccion'],
+            $fila['telefono'],
         ];
         return match ((int) $fila['id_rol']) {
             1 => new Administrador(...$datos),

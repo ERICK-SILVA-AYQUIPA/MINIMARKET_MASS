@@ -10,7 +10,7 @@ require __DIR__ . '/../layout_inicio.php';
 <a class="volver" href="/?ruta=clientes"><?= icono('volver') ?>Volver a clientes</a>
 <div class="cabecera">
     <div>
-        <h1>Cliente <?= $cliente->getIdCliente() ?></h1>
+        <h1><?= e($cliente->nombreParaMostrar()) ?></h1>
         <p class="sutil"><?= e($cliente->getRuc() !== null ? 'RUC ' . $cliente->getRuc() : 'DNI ' . ($cliente->getDni() ?? '-')) ?></p>
     </div>
 </div>

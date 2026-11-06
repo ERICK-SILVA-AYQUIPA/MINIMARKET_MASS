@@ -629,6 +629,21 @@ rechaza('Rosa no se desactiva a sí misma', fn() => $personal->editar($rosa, 1, 
 rechaza('No se desactiva a un cajero con turno abierto', fn() => $personal->editar($rosa, 2, 'Luis', 'Cáceres Pinto', 2, 'INACTIVO'));
 $personal->editar($rosa, $idNuevo, 'Diana', 'Torres Lazo', 3, 'INACTIVO');
 revisar('Diana pasa a almacenera INACTIVA', valor($db, 'SELECT CONCAT(id_rol, estado) FROM empleado WHERE id_empleado = ?', [$idNuevo]) === '3INACTIVO');
+$idConContacto = $personal->crear($rosa, 'Raúl', 'Mamani Soto', '70000012', 3, 'Almacen2026x', 'Calle Lima 120, Cayma', '959 123 456');
+revisar('Al registrar se guardan dirección y teléfono (sin espacios)', valor($db,
+    'SELECT CONCAT(direccion, \'|\', telefono) FROM empleado WHERE id_empleado = ?', [$idConContacto]) === 'Calle Lima 120, Cayma|959123456');
+$personal->editar($rosa, $idConContacto, 'Raúl', 'Mamani Soto', 3, 'ACTIVO', ['dni' => '70000013', 'direccion' => 'Av. Ejército 500', 'telefono' => '054123456']);
+revisar('Rosa corrige DNI, dirección y teléfono de Raúl', valor($db,
+    'SELECT CONCAT(dni, \'|\', direccion, \'|\', telefono) FROM empleado WHERE id_empleado = ?', [$idConContacto]) === '70000013|Av. Ejército 500|054123456');
+revisar('...y la bitácora dice qué cambió, sin copiar el DNI', valor($db,
+    "SELECT detalle FROM auditoria WHERE accion = 'EMPLEADO_EDITADO' ORDER BY id_auditoria DESC LIMIT 1") === $idConContacto . ' Raúl Mamani Soto, ALMACENERO, ACTIVO; cambió DNI, dirección, teléfono');
+$personal->editar($rosa, $idConContacto, 'Raúl', 'Mamani Soto', 3, 'ACTIVO', ['dni' => '70000013', 'direccion' => '', 'telefono' => '']);
+revisar('...y puede borrar la dirección y el teléfono', valor($db,
+    'SELECT COUNT(*) FROM empleado WHERE id_empleado = ? AND direccion IS NULL AND telefono IS NULL', [$idConContacto]) === '1');
+rechaza('Editar con un DNI de otro empleado', fn() => $personal->editar($rosa, $idConContacto, 'Raúl', 'Mamani Soto', 3, 'ACTIVO', ['dni' => '70000002']));
+rechaza('Editar con un DNI de 7 dígitos', fn() => $personal->editar($rosa, $idConContacto, 'Raúl', 'Mamani Soto', 3, 'ACTIVO', ['dni' => '7000001']));
+rechaza('Teléfono con letras', fn() => $personal->editar($rosa, $idConContacto, 'Raúl', 'Mamani Soto', 3, 'ACTIVO', ['telefono' => '95912abc']));
+rechaza('Teléfono de 10 dígitos', fn() => $personal->crear($rosa, 'Otra', 'Persona', '70000014', 2, 'Caja2026x', '', '9591234567'));
 rechaza('Luis no se queda con la clave de prueba', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'mass2026!', 'mass2026!'));
 rechaza('...ni con una que lleva su DNI', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'Luis70000002', 'Luis70000002'));
 rechaza('...ni con una de las más usadas', fn() => $personal->cambiarMiClave($luis, 'Mass2026!', 'Password123', 'Password123'));
@@ -707,6 +722,19 @@ $clientesServicio->completarDocumento($luis, $idCliente, '', '10123456781');
 revisar('Se agrega el RUC al cliente 12345678', valor($db, 'SELECT ruc FROM cliente WHERE id_cliente = ?', [$idCliente]) === '10123456781');
 rechaza('No se cambia un documento ya registrado', fn() => $clientesServicio->completarDocumento($luis, $idCliente, '87654321', ''));
 rechaza('Un almacenero no edita clientes', fn() => $clientesServicio->completarDocumento($carmen, $idCliente, '', '10999999991'));
+$idClienteNuevo = $clientesServicio->crear($luis, 'María Flores Quispe', '41234567', '', 'Jr. Moquegua 210', '958-111-222');
+revisar('Luis registra a mano a la clienta ' . $idClienteNuevo, valor($db,
+    'SELECT CONCAT(nombre, \'|\', dni, \'|\', direccion, \'|\', telefono) FROM cliente WHERE id_cliente = ?', [$idClienteNuevo])
+    === 'María Flores Quispe|41234567|Jr. Moquegua 210|958111222');
+rechaza('Cliente con DNI repetido', fn() => $clientesServicio->crear($rosa, 'Otra', '41234567', '', '', ''));
+rechaza('Cliente sin DNI ni RUC', fn() => $clientesServicio->crear($rosa, 'Sin documento', '', '', '', ''));
+rechaza('Cliente sin nombre', fn() => $clientesServicio->crear($rosa, '  ', '41234568', '', '', ''));
+rechaza('Cliente con DNI de 9 dígitos', fn() => $clientesServicio->crear($rosa, 'Pepe', '412345689', '', '', ''));
+rechaza('Cliente con teléfono de 5 dígitos', fn() => $clientesServicio->crear($rosa, 'Pepe', '41234568', '', '', '12345'));
+rechaza('Un almacenero no registra clientes', fn() => $clientesServicio->crear($carmen, 'Pepe', '41234568', '', '', ''));
+$clientesServicio->editarContacto($rosa, $idCliente, 'Comercial Pérez', 'Av. Arequipa 1', '987654321');
+revisar('Rosa pone nombre, dirección y teléfono a un cliente que nació en una venta', valor($db,
+    'SELECT CONCAT(nombre, \'|\', telefono) FROM cliente WHERE id_cliente = ?', [$idCliente]) === 'Comercial Pérez|987654321');
 
 echo "Ingreso, reportes y páginas\n";
 $intentos = new IntentoLoginRepository($db);

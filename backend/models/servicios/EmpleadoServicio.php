@@ -13,27 +13,29 @@ class EmpleadoServicio extends Servicio
     private const ROLES = [1 => 'ADMINISTRADOR', 2 => 'CAJERO', 3 => 'ALMACENERO'];
 
     // El administrador da de alta a un empleado en SU tienda. Devuelve el id del empleado.
-    public function crear(Usuario $admin, string $nombres, string $apellidos, string $dni, int $idRol, string $clave): int
-    {
+    // Direccion y telefono son opcionales (migracion 026).
+    public function crear(
+        Usuario $admin, string $nombres, string $apellidos, string $dni, int $idRol, string $clave,
+        string $direccion = '', string $telefono = ''
+    ): int {
         $this->exigirAdministrador($admin, $admin->getIdTienda());
         $nombres = $this->textoObligatorio($nombres, 60, 'Nombres');
         $apellidos = $this->textoObligatorio($apellidos, 60, 'Apellidos');
-        $dni = trim($dni);
-        if (preg_match('/^[0-9]{8}$/', $dni) !== 1) {
-            throw new ReglaNegocioException('El DNI debe tener 8 dígitos.');
-        }
+        $dni = $this->exigirDni($dni);
+        $direccion = $this->textoOpcional($direccion, 120, 'Dirección');
+        $telefono = $this->telefonoOpcional($telefono);
         $this->exigirRol($idRol);
         $this->exigirClave($clave);
 
-        return $this->enTransaccion(function () use ($admin, $nombres, $apellidos, $dni, $idRol, $clave): int {
+        return $this->enTransaccion(function () use ($admin, $nombres, $apellidos, $dni, $direccion, $telefono, $idRol, $clave): int {
             try {
                 $this->db->prepare(
                     // La clave la eligio el administrador: el empleado la cambia en su primer ingreso
-                    'INSERT INTO empleado (nombres, apellidos, dni, clave_hash, debe_cambiar_clave, estado, id_tienda, id_rol)
-                     VALUES (:nombres, :apellidos, :dni, :hash, \'S\', \'ACTIVO\', :tienda, :rol)'
+                    'INSERT INTO empleado (nombres, apellidos, dni, direccion, telefono, clave_hash, debe_cambiar_clave, estado, id_tienda, id_rol)
+                     VALUES (:nombres, :apellidos, :dni, :direccion, :telefono, :hash, \'S\', \'ACTIVO\', :tienda, :rol)'
                 )->execute([
-                    'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'hash' => Clave::hash($clave),
-                    'tienda' => $admin->getIdTienda(), 'rol' => $idRol,
+                    'nombres' => $nombres, 'apellidos' => $apellidos, 'dni' => $dni, 'direccion' => $direccion,
+                    'telefono' => $telefono, 'hash' => Clave::hash($clave), 'tienda' => $admin->getIdTienda(), 'rol' => $idRol,
                 ]);
             } catch (PDOException $ex) {
                 if ($this->esDuplicado($ex)) {
@@ -48,10 +50,13 @@ class EmpleadoServicio extends Servicio
     }
 
     /**
-     * Cambia nombres, rol y estado de un empleado de la tienda del administrador.
+     * Cambia nombres, rol, estado, DNI, direccion y telefono de un empleado de la tienda del administrador.
      * El administrador no cambia su propio rol ni se desactiva (no se queda sin acceso).
+     * $contacto: 'dni', 'direccion' y 'telefono'; el que no viene queda como estaba.
+     * El DNI es el usuario con el que entra: si cambia, entra con el nuevo (su clave sigue igual).
+     * @param array{dni?: string, direccion?: string, telefono?: string} $contacto
      */
-    public function editar(Usuario $admin, int $idEmpleado, string $nombres, string $apellidos, int $idRol, string $estado): void
+    public function editar(Usuario $admin, int $idEmpleado, string $nombres, string $apellidos, int $idRol, string $estado, array $contacto = []): void
     {
         $nombres = $this->textoObligatorio($nombres, 60, 'Nombres');
         $apellidos = $this->textoObligatorio($apellidos, 60, 'Apellidos');
@@ -59,8 +64,14 @@ class EmpleadoServicio extends Servicio
         if (!in_array($estado, ['ACTIVO', 'INACTIVO'], true)) {
             throw new ReglaNegocioException('Estado no válido.');
         }
+        $dni = isset($contacto['dni']) ? $this->exigirDni($contacto['dni']) : null;
+        $tocaDireccion = array_key_exists('direccion', $contacto);
+        $tocaTelefono = array_key_exists('telefono', $contacto);
+        $direccion = $tocaDireccion ? $this->textoOpcional($contacto['direccion'], 120, 'Dirección') : null;
+        $telefono = $tocaTelefono ? $this->telefonoOpcional($contacto['telefono']) : null;
 
-        $this->enTransaccion(function () use ($admin, $idEmpleado, $nombres, $apellidos, $idRol, $estado): void {
+        $this->enTransaccion(function () use ($admin, $idEmpleado, $nombres, $apellidos, $idRol, $estado,
+            $dni, $tocaDireccion, $direccion, $tocaTelefono, $telefono): void {
             $empleado = $this->empleadoDeLaTienda($admin, $idEmpleado);
             $esElMismo = $idEmpleado === $admin->getIdEmpleado();
             if ($esElMismo && ($idRol !== (int) $empleado['id_rol'] || $estado !== 'ACTIVO')) {
@@ -88,7 +99,29 @@ class EmpleadoServicio extends Servicio
                 'UPDATE empleado SET nombres = :nombres, apellidos = :apellidos, id_rol = :rol, estado = :estado
                   WHERE id_empleado = :id'
             )->execute(['nombres' => $nombres, 'apellidos' => $apellidos, 'rol' => $idRol, 'estado' => $estado, 'id' => $idEmpleado]);
-            $this->auditar($admin, 'EMPLEADO_EDITADO', sprintf('%d %s %s, %s, %s', $idEmpleado, $nombres, $apellidos, self::ROLES[$idRol], $estado));
+
+            $cambios = [];
+            if ($dni !== null && $dni !== $empleado['dni']) {
+                try {
+                    $this->db->prepare('UPDATE empleado SET dni = :dni WHERE id_empleado = :id')->execute(['dni' => $dni, 'id' => $idEmpleado]);
+                } catch (PDOException $ex) {
+                    throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un empleado con ese DNI.') : $ex;
+                }
+                $cambios[] = 'DNI';
+            }
+            if ($tocaDireccion && $direccion !== $empleado['direccion']) {
+                $this->db->prepare('UPDATE empleado SET direccion = :direccion WHERE id_empleado = :id')
+                    ->execute(['direccion' => $direccion, 'id' => $idEmpleado]);
+                $cambios[] = 'dirección';
+            }
+            if ($tocaTelefono && $telefono !== $empleado['telefono']) {
+                $this->db->prepare('UPDATE empleado SET telefono = :telefono WHERE id_empleado = :id')
+                    ->execute(['telefono' => $telefono, 'id' => $idEmpleado]);
+                $cambios[] = 'teléfono';
+            }
+            // El DNI, la direccion y el telefono son datos personales: la bitacora anota que cambiaron, no su valor
+            $this->auditar($admin, 'EMPLEADO_EDITADO', sprintf('%d %s %s, %s, %s%s', $idEmpleado, $nombres, $apellidos, self::ROLES[$idRol], $estado,
+                $cambios === [] ? '' : '; cambió ' . implode(', ', $cambios)));
         });
     }
 
@@ -167,7 +200,9 @@ class EmpleadoServicio extends Servicio
     // Bloquea la fila del empleado y revisa que sea de la tienda del administrador
     private function empleadoDeLaTienda(Usuario $admin, int $idEmpleado): array
     {
-        $consulta = $this->db->prepare('SELECT id_tienda, id_rol FROM empleado WHERE id_empleado = :id FOR UPDATE');
+        $consulta = $this->db->prepare(
+            'SELECT id_tienda, id_rol, dni, direccion, telefono FROM empleado WHERE id_empleado = :id FOR UPDATE'
+        );
         $consulta->execute(['id' => $idEmpleado]);
         $empleado = $consulta->fetch();
         if ($empleado === false) {

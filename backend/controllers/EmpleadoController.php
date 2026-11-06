@@ -67,7 +67,9 @@ class EmpleadoController extends Controller
                 $this->campo($post, 'apellidos'),
                 $this->campo($post, 'dni'),
                 $this->leerId($this->campo($post, 'rol')),
-                $this->campo($post, 'clave')
+                $this->campo($post, 'clave'),
+                $this->campo($post, 'direccion'),
+                $this->campo($post, 'telefono')
             );
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);
@@ -93,7 +95,12 @@ class EmpleadoController extends Controller
                 $this->campo($post, 'nombres'),
                 $this->campo($post, 'apellidos'),
                 $this->leerId($this->campo($post, 'rol')),
-                $this->campo($post, 'estado')
+                $this->campo($post, 'estado'),
+                [
+                    'dni'       => $this->campo($post, 'dni'),
+                    'direccion' => $this->campo($post, 'direccion'),
+                    'telefono'  => $this->campo($post, 'telefono'),
+                ]
             );
         } catch (ReglaNegocioException $ex) {
             http_response_code(422);

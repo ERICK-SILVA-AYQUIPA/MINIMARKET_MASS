@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: datos de un cliente, el formulario para completar su documento y sus compras.
+ * V: datos de un cliente, sus datos de contacto (nombre, dirección, teléfono), el formulario para completar su documento y sus compras.
  * La usan la pagina del cliente y el panel lateral de la lista.
  * @var Cliente $cliente
  * @var array<int, array{venta: Venta, serie: SerieComprobante, tienda: ?Tienda}> $compras
@@ -12,10 +12,26 @@ $error ??= null;
 $totalCompras = array_sum(array_map(static fn (array $f): float => $f['venta']->estaAnulada() ? 0.0 : $f['venta']->getTotal(), $compras));
 ?>
 <dl class="datos">
+    <dt>Nombre</dt><dd><?= e($cliente->getNombre() ?? '-') ?></dd>
     <dt>DNI</dt><dd><?= e($cliente->getDni() ?? '-') ?></dd>
     <dt>RUC</dt><dd><?= e($cliente->getRuc() ?? '-') ?><?= $cliente->puedeRecibirFactura() ? '' : ' (sin RUC no recibe factura)' ?></dd>
+    <dt>Dirección</dt><dd><?= e($cliente->getDireccion() ?? '-') ?></dd>
+    <dt>Teléfono</dt><dd><?= e($cliente->getTelefono() ?? '-') ?></dd>
     <dt>Compras</dt><dd><?= count($compras) ?> comprobantes · <?= e(soles($totalCompras)) ?> sin contar anuladas</dd>
 </dl>
+
+<form class="formulario bloque" method="post" action="/?ruta=cliente_contacto" autocomplete="off">
+    <h3>Datos de contacto</h3>
+    <?= campoCsrf($csrf) ?>
+    <input type="hidden" name="id" value="<?= $cliente->getIdCliente() ?>">
+    <label for="nombre-<?= $cliente->getIdCliente() ?>">Nombre</label>
+    <input id="nombre-<?= $cliente->getIdCliente() ?>" name="nombre" maxlength="100" value="<?= e($cliente->getNombre() ?? '') ?>">
+    <label for="direccion-<?= $cliente->getIdCliente() ?>">Dirección</label>
+    <input id="direccion-<?= $cliente->getIdCliente() ?>" name="direccion" maxlength="120" value="<?= e($cliente->getDireccion() ?? '') ?>">
+    <label for="telefono-<?= $cliente->getIdCliente() ?>">Teléfono <span class="ayuda">celular de 9 dígitos o fijo de 6 a 9</span></label>
+    <input id="telefono-<?= $cliente->getIdCliente() ?>" name="telefono" type="tel" inputmode="numeric" maxlength="11" value="<?= e($cliente->getTelefono() ?? '') ?>">
+    <div class="botones-formulario"><button type="submit">Guardar datos</button></div>
+</form>
 
 <?php if ($cliente->getDni() === null || $cliente->getRuc() === null): ?>
 <form class="formulario bloque" method="post" action="/?ruta=cliente_documento">

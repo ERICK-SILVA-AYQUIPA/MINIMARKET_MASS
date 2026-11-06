@@ -271,6 +271,32 @@ abstract class Servicio
         return ($ex->errorInfo[1] ?? null) === 1062;
     }
 
+    /**
+     * Telefono opcional de una persona (empleado o cliente): se aceptan espacios y guiones al escribirlo
+     * ("959 123 456") y se guardan solo los digitos, de 6 a 9 (fijo o celular). Vacio -> null.
+     */
+    protected function telefonoOpcional(?string $texto): ?string
+    {
+        $digitos = preg_replace('/[\s-]+/', '', trim((string) $texto)) ?? '';
+        if ($digitos === '') {
+            return null;
+        }
+        if (preg_match('/^[0-9]{6,9}$/', $digitos) !== 1) {
+            throw new ReglaNegocioException('El teléfono debe tener de 6 a 9 dígitos (celular: 9).');
+        }
+        return $digitos;
+    }
+
+    // DNI peruano: exactamente 8 digitos
+    protected function exigirDni(string $dni): string
+    {
+        $dni = trim($dni);
+        if (preg_match('/^[0-9]{8}$/', $dni) !== 1) {
+            throw new ReglaNegocioException('El DNI debe tener 8 dígitos.');
+        }
+        return $dni;
+    }
+
     // Texto opcional del formulario: vacio -> null; mas largo que la columna -> error
     protected function textoOpcional(?string $texto, int $maximo, string $campo): ?string
     {
