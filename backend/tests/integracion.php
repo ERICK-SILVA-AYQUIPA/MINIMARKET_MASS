@@ -459,16 +459,32 @@ revisar('...y el producto guarda que vino de la app, quién y desde qué sucursa
     [$idEscaneado]) === 'APP/3/1/1'
     && valor($db, 'SELECT CONCAT(origen, \'/\', id_empleado_registro) FROM producto WHERE id_producto = ?', [$idProducto]) === 'WEB/1');
 $productosRepo = new ProductoRepository($db);
-$desdeApp = $productosRepo->paginaDesdeApp(null, null, null, '', 50, 0);
-revisar('La pantalla "Desde la app" lo lista primero, con Carmen y su sucursal', (int) ($desdeApp[0]['id_producto'] ?? 0) === $idEscaneado
-    && $desdeApp[0]['empleado'] === valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 3")
-    && (int) $desdeApp[0]['id_tienda'] === 1 && $desdeApp[0]['stock'] === '0.000'
-    && !in_array($idProducto, array_map('intval', array_column($desdeApp, 'id_producto')), true));
-revisar('...y se filtra por sucursal, fecha y texto (% se busca como letra)',
-    $productosRepo->contarDesdeApp(2, null, null, '') === 0 && $productosRepo->contarDesdeApp(1, date('Y-m-d'), date('Y-m-d'), 'chifles inka') === 1
-    && $productosRepo->contarDesdeApp(null, null, date('Y-m-d', strtotime('-1 day')), '') === 0
-    && $productosRepo->contarDesdeApp(null, null, null, '%') === 0 && $productosRepo->contarDesdeApp(null, null, null, '7750000000141') === 1
-    && $productosRepo->resumenDesdeApp(null, null, null, '')['semana'] === $productosRepo->contarDesdeApp(null, null, null, ''));
+$recientes = $productosRepo->paginaNuevos([], 50, 0);
+revisar('Recién agregados lo lista primero, con Carmen, su sucursal y el origen App', (int) ($recientes[0]['id_producto'] ?? 0) === $idEscaneado
+    && $recientes[0]['empleado'] === valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 3")
+    && (int) $recientes[0]['id_tienda'] === 1 && $recientes[0]['stock'] === '0.000' && $recientes[0]['origen'] === 'APP'
+    && (int) ($recientes[1]['id_producto'] ?? 0) === $idProducto && $recientes[1]['origen'] === 'WEB');
+revisar('...lo de Carmen queda por revisar; lo que creó Rosa (administradora) ya nace revisado',
+    $recientes[0]['fecha_revision'] === null && $recientes[1]['fecha_revision'] !== null
+    && $recientes[1]['revisor'] === valor($db, "SELECT CONCAT(nombres, ' ', apellidos) FROM empleado WHERE id_empleado = 1"));
+$hoyTexto = date('Y-m-d');
+revisar('...y se filtra por sucursal, fecha, texto (% se busca como letra), origen y revisión',
+    $productosRepo->contarNuevos(['tienda' => 2]) === 0 && $productosRepo->contarNuevos(['tienda' => 1, 'desde' => $hoyTexto, 'hasta' => $hoyTexto, 'texto' => 'chifles inka']) === 1
+    && $productosRepo->contarNuevos(['hasta' => date('Y-m-d', strtotime('-1 day'))]) === 0
+    && $productosRepo->contarNuevos(['texto' => '%']) === 0 && $productosRepo->contarNuevos(['texto' => '7750000000141']) === 1
+    && $productosRepo->contarNuevos(['origen' => 'APP']) === 1 && $productosRepo->contarNuevos(['origen' => 'WEB', 'estado' => 'revisados']) === 1
+    && $productosRepo->contarNuevos(['estado' => 'pendientes']) === 1
+    && $productosRepo->resumenNuevos([]) === ['total' => 2, 'hoy' => 2, 'semana' => 2, 'app' => 1, 'pendientes' => 1]
+    && isset($productosRepo->idsNuevos($hoyTexto)[$idEscaneado]) && !isset($productosRepo->idsNuevos('2000-01-01')[8]));
+rechaza('Un cajero no marca productos como revisados', fn() => $catalogo->marcarRevisados($luis, [$idEscaneado]));
+rechaza('El almacenero tampoco', fn() => $catalogo->marcarRevisados($carmen, [$idEscaneado]));
+rechaza('Marcar como revisado sin elegir productos', fn() => $catalogo->marcarRevisados($rosa, [0, -3]));
+revisar('Rosa marca el producto de Carmen como revisado; los ya revisados y los de la base inicial no cuentan',
+    $catalogo->marcarRevisados($rosa, [$idEscaneado, $idProducto, 8, $idEscaneado]) === 1
+    && $catalogo->marcarRevisados($rosa, [$idEscaneado]) === 0
+    && valor($db, 'SELECT CONCAT(id_empleado_revision, \'/\', fecha_revision IS NOT NULL) FROM producto WHERE id_producto = ?', [$idEscaneado]) === '1/1'
+    && valor($db, 'SELECT fecha_revision FROM producto WHERE id_producto = 8') === ''
+    && (int) valor($db, "SELECT COUNT(*) FROM auditoria WHERE accion = 'PRODUCTO_REVISADO' AND id_empleado = 1") === 1);
 $otraMarca = (int) valor($db, 'SELECT COUNT(*) FROM marca');
 $catalogo->crearAlEscanear($rosa, ['codigo' => '7750000000158', 'nombre' => 'Chifles salados 80 g', 'marca_nombre' => 'marca escaneada prueba'] + $escaneado);
 revisar('Una marca escrita que ya existe (sin importar mayúsculas) no se repite', (int) valor($db, 'SELECT COUNT(*) FROM marca') === $otraMarca);

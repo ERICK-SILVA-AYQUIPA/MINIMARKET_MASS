@@ -45,11 +45,11 @@ if ($usuarioActual !== null) {
     if ($usuarioActual->puedeVender() || $usuarioActual->puedeAdministrarPromociones($idTiendaActual)) { $ventasMenu['promociones'] = ['Promociones', 'oferta']; }
 
     // Inventario en dos opciones; sus pantallas salen como pestañas arriba del contenido. [ruta => [texto, icono]]
-    $productosPestanas = ['productos' => ['Catálogo', 'catalogo'], 'stock' => ['Stock', 'stock']];
+    // Recien agregados: lo nuevo del catalogo (app, formulario o CSV); cada rol lo ve, el cajero y el almacenero solo de su sede
+    $productosPestanas = ['productos' => ['Catálogo', 'catalogo'], 'productos_nuevos' => ['Recién agregados', 'codigo'], 'stock' => ['Stock', 'stock']];
     $movimientosPestanas = [];
     if ($usuarioActual->puedeVerIngresos($idTiendaActual)) {
-        $productosPestanas += ['vencimientos' => ['Por vencer', 'vence'], 'reponer' => ['Reponer', 'alerta'],
-            'productos_app' => ['Desde la app', 'codigo']];
+        $productosPestanas += ['vencimientos' => ['Por vencer', 'vence'], 'reponer' => ['Reponer', 'alerta']];
         $movimientosPestanas['ingresos'] = ['Ingresos', 'ingresos'];
     }
     $movimientosPestanas += ['traslados' => ['Traslados', 'traslados'], 'mermas' => ['Mermas', 'mermas']];
@@ -67,7 +67,8 @@ if ($usuarioActual !== null) {
     // Numeros de aviso: en la pestaña y, sumados, en la opcion Productos del menu
     $alertasInventario ??= [];
     $alertasMenu = ['productos' => array_sum($alertasInventario)];
-    $avisoPestana = ['vencimientos' => 'lotes vencen en 7 días o ya vencieron', 'reponer' => 'productos llegaron a su stock mínimo'];
+    $avisoPestana = ['vencimientos' => 'lotes vencen en 7 días o ya vencieron', 'reponer' => 'productos llegaron a su stock mínimo',
+        'productos_nuevos' => 'productos nuevos por revisar'];
 
     $adminMenu = [];
     if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) {
@@ -123,7 +124,7 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=1">
-    <link rel="stylesheet" href="/css/estilos.css?v=22">
+    <link rel="stylesheet" href="/css/estilos.css?v=23">
     <script src="/js/app.js?v=12" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">

@@ -13,6 +13,9 @@ declare(strict_types=1);
  * @var ?int $categoriaElegida
  * @var array<int, int> $porCategoria     id de categoria => productos
  * @var ?array<string, mixed> $ficha  datos de la ficha abierta (ver ProductoController::datosFicha)
+ * @var array<int, true> $nuevos          ids registrados en los ultimos $diasNuevo dias: etiqueta NUEVO
+ * @var int $diasNuevo
+ * @var array{semana: int, pendientes: int} $avisoNuevos  para el aviso de arriba (pendientes: solo el administrador)
  */
 $titulo = 'Catálogo';
 require __DIR__ . '/../layout_inicio.php';
@@ -50,6 +53,24 @@ if ($puedeEditar) {
 }
 require __DIR__ . '/../parciales/guia.php';
 
+?>
+<?php if ($avisoNuevos['semana'] > 0 || $avisoNuevos['pendientes'] > 0): ?>
+<div class="aviso info aviso-nuevos">
+    <span>
+        <?php if ($avisoNuevos['semana'] > 0): ?>
+            <strong><?= e($avisoNuevos['semana'] === 1 ? '1 producto recién agregado' : $avisoNuevos['semana'] . ' productos recién agregados') ?></strong> en los últimos <?= (int) $diasNuevo ?> días<?= count($tiendas) === 1 ? ' en tu sucursal' : '' ?>.
+        <?php endif; ?>
+        <?php if ($avisoNuevos['pendientes'] > 0): ?>
+            <?= e($avisoNuevos['pendientes'] === 1 ? '1 está por revisar.' : $avisoNuevos['pendientes'] . ' están por revisar.') ?>
+        <?php endif; ?>
+    </span>
+    <span class="acciones">
+        <?php if ($avisoNuevos['pendientes'] > 0): ?><a class="boton secundario chico" href="/?ruta=productos_nuevos&amp;periodo=todo&amp;estado=pendientes"><?= icono('ok') ?>Revisar</a><?php endif; ?>
+        <a class="boton secundario chico" href="/?ruta=productos_nuevos&amp;periodo=7"><?= icono('ver') ?>Ver recién agregados</a>
+    </span>
+</div>
+<?php endif; ?>
+<?php
 // Enlaces que conservan la tienda, la vista y la categoria elegidas
 $base = '/?ruta=productos&tienda=' . $tienda->getIdTienda();
 $conVista = $vista === 'tabla' ? '&vista=tabla' : '';
@@ -97,6 +118,7 @@ require __DIR__ . '/../parciales/buscador.php';
         ?>
         <li id="fila-<?= $p->getIdProducto() ?>" data-categoria="<?= (int) $p->getIdCategoria() ?>">
             <a class="tarjeta-producto<?= $p->estaActivo() ? '' : ' inactivo' ?>" href="<?= e($enlace) ?>">
+                <?php if (isset($nuevos[$p->getIdProducto()])): ?><span class="etiqueta nuevo">NUEVO</span><?php endif; ?>
                 <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
                 <span class="tarjeta-categoria"><?= e($foto['categoria']) ?></span>
                 <strong class="tarjeta-nombre"><?= e($p->getNombreProducto()) ?></strong>
@@ -111,7 +133,7 @@ require __DIR__ . '/../parciales/buscador.php';
         </li>
     <?php endforeach; ?>
 </ul>
-<p class="sutil">Verde: hay stock · Amarillo: llegó a su mínimo (REPONER) · Rojo: sin stock. Toca un producto para ver su ficha.</p>
+<p class="sutil">Verde: hay stock · Amarillo: llegó a su mínimo (REPONER) · Rojo: sin stock · NUEVO: agregado en los últimos <?= (int) $diasNuevo ?> días. Toca un producto para ver su ficha.</p>
 <?php else: ?>
 <div class="tabla">
 <table>
@@ -140,6 +162,7 @@ require __DIR__ . '/../parciales/buscador.php';
                     <?php require __DIR__ . '/../parciales/foto_producto.php'; ?>
                     <div>
                         <a class="fila-enlace" href="<?= e($enlace) ?>"><?= e($p->getNombreProducto()) ?></a>
+                        <?php if (isset($nuevos[$p->getIdProducto()])): ?><span class="etiqueta nuevo">NUEVO</span><?php endif; ?>
                         <br><small><?= $p->esAlPeso() ? 'Se vende por kg' : 'Se vende por unidad' ?></small>
                     </div>
                 </div>
