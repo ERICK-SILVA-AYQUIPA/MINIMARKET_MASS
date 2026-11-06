@@ -125,6 +125,78 @@ class ReporteRepository
         );
     }
 
+    /**
+     * Mapa de calor: comprobantes y total de cada dia de la semana (1 lunes ... 7 domingo) y cada hora (0 a 23).
+     * Solo vienen las casillas con ventas; las demas son 0.
+     */
+    public function porDiaSemanaYHora(int|array $tiendas, string $desde, string $hasta): array
+    {
+        return $this->filas(
+            'SELECT WEEKDAY(v.fecha_hora) + 1 AS dia, HOUR(v.fecha_hora) AS hora, COUNT(*) AS comprobantes, SUM(v.total) AS total '
+            . $this->ventas() . ' GROUP BY dia, hora ORDER BY dia, hora',
+            $tiendas, $desde, $hasta
+        );
+    }
+
+    /** Lo vendido de cada producto en las fechas: cantidad, importe, en cuantos comprobantes y la ultima vez */
+    public function ventasPorProducto(int|array $tiendas, string $desde, string $hasta): array
+    {
+        return $this->filas(
+            'SELECT d.id_producto, SUM(d.cantidad) AS cantidad, SUM(d.importe - d.descuento - d.descuento_general) AS importe,
+                    COUNT(DISTINCT v.id_venta) AS comprobantes, MAX(v.fecha_hora) AS ultima '
+            . $this->ventas('JOIN detalle_venta d ON d.id_venta = v.id_venta')
+            . ' GROUP BY d.id_producto',
+            $tiendas, $desde, $hasta
+        );
+    }
+
+    /** Importe de cada producto por dia de la semana (1 lunes ... 7 domingo), para el mapa de calor de productos */
+    public function productoPorDiaSemana(int|array $tiendas, string $desde, string $hasta): array
+    {
+        return $this->filas(
+            'SELECT d.id_producto, WEEKDAY(v.fecha_hora) + 1 AS dia, SUM(d.importe - d.descuento - d.descuento_general) AS importe '
+            . $this->ventas('JOIN detalle_venta d ON d.id_venta = v.id_venta')
+            . ' GROUP BY d.id_producto, dia',
+            $tiendas, $desde, $hasta
+        );
+    }
+
+    /**
+     * Productos ACTIVOS que las tiendas tienen en su catalogo (fila en stock), con el stock sumado,
+     * su precio y la ultima vez que se vendieron en esas tiendas (en cualquier fecha; null si nunca).
+     * Sirve para ver lo que NO se vende: lo que esta en el estante y no sale.
+     * @return array<int, array<string, mixed>>
+     */
+    public function catalogoConStock(int|array $tiendas): array
+    {
+        $ids = array_values(array_map('intval', is_array($tiendas) ? $tiendas : [$tiendas])) ?: [0];
+        $marcas = static fn(string $p): string => implode(', ', array_map(fn(int $i): string => ':' . $p . $i, array_keys($ids)));
+        $sql = str_replace(['(:tiendasStock)', '(:tiendasVenta)'], ['(' . $marcas('s') . ')', '(' . $marcas('u') . ')'],
+            "SELECT p.id_producto, p.nombre_producto AS producto, u.abreviatura AS unidad, c.nombre_categoria AS categoria,
+                    p.precio_venta AS precio, p.se_vende_por_peso, SUM(st.cantidad_actual) AS stock, ult.ultima
+               FROM producto p
+               JOIN stock st        ON st.id_producto = p.id_producto AND st.id_tienda IN (:tiendasStock)
+               JOIN unidad_medida u ON u.id_unidad = p.id_unidad
+               JOIN categoria c     ON c.id_categoria = p.id_categoria
+               LEFT JOIN (SELECT d.id_producto, MAX(v.fecha_hora) AS ultima
+                            FROM venta v
+                            JOIN serie_comprobante s ON s.id_serie = v.id_serie
+                            JOIN detalle_venta d ON d.id_venta = v.id_venta
+                           WHERE v.estado = 'EMITIDA' AND s.id_tienda IN (:tiendasVenta)
+                           GROUP BY d.id_producto) ult ON ult.id_producto = p.id_producto
+              WHERE p.estado = 'ACTIVO'
+              GROUP BY p.id_producto, p.nombre_producto, u.abreviatura, c.nombre_categoria, p.precio_venta, p.se_vende_por_peso, ult.ultima"
+        );
+        $consulta = $this->db->prepare($sql);
+        $parametros = [];
+        foreach ($ids as $i => $id) {
+            $parametros['s' . $i] = $id;
+            $parametros['u' . $i] = $id;
+        }
+        $consulta->execute($parametros);
+        return $consulta->fetchAll();
+    }
+
     /** Consolidado de la cadena: comprobantes, total y ticket promedio de cada tienda */
     public function porTienda(int|array $tiendas, string $desde, string $hasta): array
     {

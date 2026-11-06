@@ -109,6 +109,7 @@ $tendencia = static function (?float $v) use ($porcentaje): string {
     <div class="acciones">
         <a class="boton secundario" href="<?= e($enlace(['ruta' => 'reporte_excel', 'desde' => $desde, 'hasta' => $hasta])) ?>"><?= icono('descarga') ?>Excel</a>
         <a class="boton secundario" href="<?= e($enlace(['ruta' => 'reporte_pdf', 'desde' => $desde, 'hasta' => $hasta])) ?>"><?= icono('imprimir') ?>PDF</a>
+        <a class="boton secundario" href="<?= e($enlace(['ruta' => 'estadisticas', 'desde' => $desde, 'hasta' => $hasta])) ?>"><?= icono('calor') ?>Estadísticas</a>
         <a class="boton secundario" href="/?ruta=utilidad&amp;desde=<?= e($desde) ?>&amp;hasta=<?= e($hasta) ?>"><?= icono('utilidad') ?>Ver utilidad</a>
     </div>
 </div>

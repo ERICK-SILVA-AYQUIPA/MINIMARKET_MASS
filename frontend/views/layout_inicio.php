@@ -78,7 +78,7 @@ if ($usuarioActual !== null) {
 
     $adminMenu = [];
     if ($usuarioActual->puedeAdministrarTienda($idTiendaActual)) {
-        $adminMenu += ['reportes' => ['Reportes', 'reportes'], 'utilidad' => ['Utilidad', 'utilidad'], 'empleados' => ['Personal', 'personal'], 'auditoria' => ['Auditoría', 'auditoria']];
+        $adminMenu += ['reportes' => ['Reportes', 'reportes'], 'estadisticas' => ['Estadísticas', 'calor'], 'utilidad' => ['Utilidad', 'utilidad'], 'empleados' => ['Personal', 'personal'], 'auditoria' => ['Auditoría', 'auditoria']];
     }
     if ($usuarioActual->puedeAdministrarCatalogo()) { $adminMenu['catalogo'] = ['Categorías y marcas', 'categorias']; }
     // La lista de tiendas de la cadena (con su personal) es del administrador; los demas solo trabajan en la suya

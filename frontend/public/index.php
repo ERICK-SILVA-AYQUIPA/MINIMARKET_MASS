@@ -418,6 +418,10 @@ try {
                 $reporteController->ventas($leer('desde'), $leer('hasta'), $leer('alcance'));
                 break;
 
+            case 'estadisticas':
+                $reporteController->estadisticas($leer('desde'), $leer('hasta'), $leer('alcance'));
+                break;
+
             case 'utilidad':
                 $reporteController->utilidad($leer('desde'), $leer('hasta'));
                 break;

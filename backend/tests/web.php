@@ -280,6 +280,9 @@ $matriz = [
     'productos_nuevos&q[]=x&origen[]=APP&periodo=hoy' => [200, 200, 200],
     'reponer_csv'          => [200, 403, 200],
     'utilidad'             => [200, 403, 403],
+    'estadisticas'         => [200, 403, 403],
+    'estadisticas&alcance=cadena&desde=2026-01-01' => [200, 403, 403],
+    'estadisticas&desde=%3Cx%3E&hasta=2026-02-30&alcance=x' => [200, 403, 403],
     'reporte_csv&tipo=utilidad' => [200, 403, 403],
     'catalogo_importar'    => [200, 403, 403],
     'catalogo_plantilla'   => [200, 403, 403],
@@ -397,6 +400,12 @@ revisar('El PDF se descarga como application/pdf con el consolidado',
     $rosa->get('ruta=reporte_pdf&alcance=cadena&desde=2026-01-01') === 200 && ($rosa->cabeceras['content-type'] ?? '') === 'application/pdf'
     && str_starts_with($rosa->cuerpo, '%PDF-') && str_contains($rosa->cuerpo, '(Por tienda)') && str_contains($rosa->cuerpo, '(Mass Cerro Colorado)'));
 revisar('El CSV por hora sale con su encabezado', $rosa->get('ruta=reporte_csv&tipo=horas&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'hora,comprobantes,total'));
+revisar('Estadísticas: opiniones, mapa de calor día x hora y producto x día, lo que más y menos se vende y lo que no se vendió',
+    $rosa->get('ruta=estadisticas&desde=2026-01-01') === 200 && $rosa->tiene('Qué nos dicen los números') && $rosa->tiene('Hora pico')
+    && $rosa->tiene('Mapa de calor: día y hora') && $rosa->tiene('productos estrella por día') && $rosa->tiene('class="calor-casilla')
+    && $rosa->tiene('Lo que más se vende') && $rosa->tiene('No se vendió nada') && $rosa->tiene('ruta=estadisticas"'));
+revisar('Estadísticas de toda la cadena', $rosa->get('ruta=estadisticas&alcance=cadena&desde=2026-01-01') === 200
+    && $rosa->tiene('Estadísticas de toda la cadena') && $rosa->tiene('3 tiendas'));
 revisar('El CSV de utilidad trae el margen', $rosa->get('ruta=reporte_csv&tipo=utilidad&desde=2026-01-01') === 200 && str_contains($rosa->cuerpo, 'margen_%'));
 revisar('El catálogo ofrece Importar CSV solo al administrador', $rosa->get('ruta=productos') === 200 && $rosa->tiene('ruta=catalogo_importar"')
     && $carmen->get('ruta=productos') === 200 && !$carmen->tiene('catalogo_importar'));
