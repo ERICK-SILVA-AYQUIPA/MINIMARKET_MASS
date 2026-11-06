@@ -322,6 +322,19 @@ revisar('El comprobante tiene el botón de imprimir en ticketera y muestra el IG
     && $luis->tiene('ruta=comprobante_imprimir&amp;serie=B001&amp;numero=1&amp;auto=1') && $luis->tiene('Op. gravada') && $luis->tiene('Ticket interno'));
 revisar('El ticket de una venta anulada lo dice', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=2') === 200 && $luis->tiene('>ANULADA<'));
 revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comprobante_imprimir&serie=B001&numero=99999') === 404);
+revisar('El comprobante ofrece enviarlo por WhatsApp y Gmail (sin SMTP en el .env)', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
+    && $luis->tiene('id="enviar"') && $luis->tiene('href="https://wa.me/') && $luis->tiene('Abrir en Gmail')
+    && $luis->tiene('action="/?ruta=comprobante_correo"'));
+revisar('Una venta anulada no ofrece enviarla', $luis->get('ruta=comprobante&serie=B001&numero=2') === 200 && !$luis->tiene('id="enviar"'));
+revisar('Enviar por correo sin un correo válido vuelve al comprobante con el aviso', $luis->post('comprobante_correo',
+    ['serie' => 'B001', 'numero' => '1', 'correo' => 'no-es-correo']) === 303
+    && str_contains($luis->cabeceras['location'] ?? '', 'ruta=comprobante&serie=B001&numero=1#enviar')
+    && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('Escribe un correo válido'));
+revisar('Sin SMTP en el .env el correo no sale del sistema y lo dice', $luis->post('comprobante_correo',
+    ['serie' => 'B001', 'numero' => '1', 'correo' => 'ana@gmail.com']) === 303
+    && $luis->get('ruta=comprobante&serie=B001&numero=1') === 200 && $luis->tiene('usa el botón Abrir en Gmail'));
+revisar('El cajero no envía comprobantes de otra tienda: 404', $luis->post('comprobante_correo',
+    ['serie' => 'B002', 'numero' => '1', 'correo' => 'ana@gmail.com']) === 404);
 revisar('El stock y el kardex se descargan en CSV', $carmen->get('ruta=stock_csv') === 200 && str_starts_with($carmen->cabeceras['content-type'] ?? '', 'text/csv')
     && $carmen->get('ruta=kardex_csv&tienda=1&producto=1') === 200 && str_contains($carmen->cuerpo, 'stock_nuevo'));
 revisar('Etiquetas QR: la hoja de todo el catálogo trae un QR con el código, nombre y precio de cada producto (sin los al peso)',

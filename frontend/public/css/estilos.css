@@ -1735,3 +1735,8 @@ button.asistente-chip:hover { background: var(--marca-suave); border-color: var(
 .calor tbody tr:hover { background: none; }
 .calor-leyenda { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); font-size: .8rem; color: var(--suave); }
 .calor-leyenda i { width: 160px; height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--superficie-2), var(--marca)); }
+
+/* Enviar el comprobante al cliente (ventas/comprobante.php) */
+.enviar-comprobante h2 { display: flex; align-items: center; gap: var(--s-2); }
+.boton.whatsapp { background: #128c4a; border-color: #128c4a; color: #fff; }
+.boton.whatsapp:hover { background: #0e733c; border-color: #0e733c; }
