@@ -196,6 +196,22 @@ data class PagoPedido(
     @SerialName("sip_operacion") val sipOperacion: String? = null,
 )
 
+/** Pide al servidor el total del carrito con las promociones de hoy, sin registrar nada. */
+@Serializable
+data class CotizacionPedido(val lineas: List<LineaPedido>)
+
+@Serializable
+data class DescuentoCotizado(val texto: String, val monto: String)
+
+/** El total con promociones que cobrara el servidor ("73.10" - "16.53" = "56.57") y de donde sale cada descuento. */
+@Serializable
+data class Cotizacion(
+    val subtotal: String,
+    val descuento: String,
+    val total: String,
+    val descuentos: List<DescuentoCotizado> = emptyList(),
+)
+
 @Serializable
 data class VentaPedido(
     @SerialName("tipo_comprobante") val tipoComprobante: String,

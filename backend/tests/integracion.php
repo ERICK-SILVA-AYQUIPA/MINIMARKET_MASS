@@ -43,6 +43,8 @@ require __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 
 $db = Database::conexion();
+// Las promociones de ejemplo (migracion 026) cambiarian los totales que se esperan: se pausan
+$db->exec("UPDATE promocion SET estado = 'PAUSADA' WHERE nombre IN ('Semana del lácteo', 'Inca Kola 2 x S/ 11.90', 'Papa a S/ 1.99 el kg', '5 % desde S/ 100')");
 
 // Los casos esperan los datos de datos.sql tal cual (por ejemplo, que B001 vaya en el 4)
 if ((int) $db->query("SELECT ultimo_numero FROM serie_comprobante WHERE serie = 'B001'")->fetchColumn() !== 4) {

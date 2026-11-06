@@ -56,8 +56,8 @@ require __DIR__ . '/../parciales/guia.php';
 <div class="tabla">
 <table>
     <thead>
-        <tr><th scope="col">Promoción</th><th scope="col">Producto</th><th scope="col">Descuento</th><th scope="col">Vigencia</th><th scope="col">Alcance</th>
-            <th scope="col" class="num">Ventas</th><th scope="col" class="num">Ahorro dado</th><th scope="col">Estado</th><?php if ($puedeCrear): ?><th scope="col"><span class="visualmente-oculto">Acción</span></th><?php endif; ?></tr>
+        <tr><th scope="col">Promoción</th><th scope="col">Producto</th><th scope="col">Descuento</th><th scope="col">Vigencia</th>
+            <th scope="col" class="num">Ahorro dado</th><th scope="col">Estado</th><?php if ($puedeCrear): ?><th scope="col"><span class="visualmente-oculto">Acción</span></th><?php endif; ?></tr>
     </thead>
     <tbody>
     <?php foreach ($filas as $fila): ?>
@@ -70,10 +70,8 @@ require __DIR__ . '/../parciales/guia.php';
             <td><strong><?= e($pr->getNombre()) ?></strong><br><small class="sutil">Creó <?= e($nombresEmpleado[$pr->getIdEmpleado()] ?? '-') ?></small></td>
             <td><?= e($fila['producto'] ?? 'Toda la compra') ?></td>
             <td><?= e($pr->descripcion($fila['al_peso'])) ?></td>
-            <td class="fecha"><?= e(fecha($pr->getFechaInicio())) ?> al <?= e(fecha($pr->getFechaFin())) ?></td>
-            <td><?= $pr->getIdTienda() === null ? 'Toda la cadena' : 'Esta tienda' ?></td>
-            <td class="num"><?= (int) $fila['usos'] ?></td>
-            <td class="num"><?= e(soles($fila['descontado'] / 100)) ?></td>
+            <td class="fecha"><?= e(fecha($pr->getFechaInicio())) ?> al <?= e(fecha($pr->getFechaFin())) ?><br><small class="sutil"><?= $pr->getIdTienda() === null ? 'Toda la cadena' : 'Solo esta tienda' ?></small></td>
+            <td class="num"><?= e(soles($fila['descontado'] / 100)) ?><br><small class="sutil"><?= (int) $fila['usos'] ?> <?= (int) $fila['usos'] === 1 ? 'venta' : 'ventas' ?></small></td>
             <td><span class="etiqueta <?= e($claseSituacion[$situacion]) ?>"><?= e(ucfirst(mb_strtolower($situacion))) ?></span></td>
             <?php if ($puedeCrear): ?>
             <td>

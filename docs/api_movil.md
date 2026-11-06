@@ -89,6 +89,7 @@ La cámara lee códigos de barras (EAN-13, EAN-8, UPC-A, UPC-E, Code 128, ITF-14
 |---|---|---|
 | `GET v1/caja` | Cajero | Turno abierto y cajas libres |
 | `POST v1/caja/turno` `{"id_caja": 1, "monto_inicial": "100.00"}` | Cajero | Abre el turno (201) con `CajaServicio::abrirTurno` |
+| `POST v1/ventas/cotizacion` `{"lineas": [...]}` | Cajero | El total con las promociones de hoy, sin registrar nada: `subtotal`, `descuento`, `total` y `descuentos` (`texto` y `monto` de cada uno). La app lo pide cada vez que cambia el carrito |
 | `POST v1/ventas` | Cajero con turno | Registra la venta con `VentaServicio::registrar` (ver abajo) |
 | `GET v1/ventas?desde=2026-10-01&hasta=2026-10-31&estado=EMITIDA&comprobante=B001-5&pagina=1` | Cajero, administrador | Historial de su tienda |
 | `GET v1/ventas/{id}` | Cajero, administrador | Comprobante con líneas, pagos, anulación y `puede_anular`. Otra tienda: 403 |

@@ -278,6 +278,26 @@ $luis->get('productos?filtro=agotados');
 revisar('Filtro agotados: todos con stock 0', array_filter($luis->datos()['productos'] ?? [], fn(array $p): bool => $p['agotado'] !== true) === []);
 revisar('Ficha del producto con sus movimientos', $luis->get('productos/1') === 200 && is_array($luis->datos()['movimientos'] ?? null));
 
+echo "Total con las promociones de hoy (cotización)\n";
+// "Semana del lácteo" (migracion 026): Leche Gloria 400 g -15 %. Se deja vigente hoy para que la prueba no dependa de la fecha.
+$db->exec("UPDATE promocion SET estado = 'ACTIVA', fecha_inicio = CURDATE(), fecha_fin = CURDATE() WHERE nombre = 'Semana del lácteo'");
+$db->exec("UPDATE promocion SET estado = 'PAUSADA' WHERE nombre IN ('Inca Kola 2 x S/ 11.90', 'Papa a S/ 1.99 el kg', '5 % desde S/ 100')");
+$luis->get('productos/1');
+$precioLeche = (int) round(100 * (float) ($luis->datos()['precio_venta'] ?? 0));
+$descuentoLeche = intdiv(2 * $precioLeche * 1500 + 5000, 10000);
+$cotizada = $luis->post('ventas/cotizacion', ['lineas' => [['id_producto' => '1', 'cantidad' => '2']]]);
+revisar('Cotizar: 200 con subtotal, descuento y total ya rebajado', $cotizada === 200
+    && ($luis->datos()['subtotal'] ?? '') === number_format(2 * $precioLeche / 100, 2, '.', '')
+    && ($luis->datos()['descuento'] ?? '') === number_format($descuentoLeche / 100, 2, '.', '')
+    && ($luis->datos()['total'] ?? '') === number_format((2 * $precioLeche - $descuentoLeche) / 100, 2, '.', '')
+    && str_contains((string) ($luis->datos()['descuentos'][0]['texto'] ?? ''), 'Semana del lácteo'), $luis->mensaje());
+revisar('Cotizar sin productos: 400', $luis->post('ventas/cotizacion', ['lineas' => []]) === 400);
+revisar('El almacenero no cotiza ventas: 403', $carmen->post('ventas/cotizacion', ['lineas' => [['id_producto' => '1', 'cantidad' => '1']]]) === 403);
+// El resto de la prueba espera los totales sin descuentos
+$db->exec("UPDATE promocion SET estado = 'PAUSADA' WHERE nombre = 'Semana del lácteo'");
+$luis->post('ventas/cotizacion', ['lineas' => [['id_producto' => '1', 'cantidad' => '2']]]);
+revisar('Con la promoción pausada, el total es el de lista', ($luis->datos()['descuento'] ?? '') === '0.00');
+
 echo "Venta desde la app\n";
 $web = new Web();
 $web->entrar('70000001');   // Rosa mira la pagina web

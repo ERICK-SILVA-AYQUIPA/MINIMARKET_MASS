@@ -77,6 +77,43 @@ class VentaApiController extends ApiController
         });
     }
 
+    /**
+     * POST /api/v1/ventas/cotizacion {"lineas": [{"id_producto": 1, "cantidad": "2"}]}
+     * El total con las promociones de hoy, sin guardar nada: la app lo muestra antes de cobrar
+     * (el mismo calculo que hace VentaServicio al registrar).
+     */
+    public function cotizar(array $datos): array
+    {
+        $cajero = $this->usuario();
+        if (!$cajero->puedeVender()) {
+            $this->prohibido('Solo un cajero puede registrar ventas.');
+        }
+        $lineas = $this->lineas($datos);
+        $calculo = $this->servicio->cotizar($cajero, $lineas);
+        $nombres = [];
+        foreach ($lineas as $linea) {
+            $producto = ctype_digit($linea['id_producto']) ? $this->consultas->productoPorId((int) $linea['id_producto'], $cajero->getIdTienda()) : null;
+            if ($producto !== null) {
+                $nombres[(int) $linea['id_producto']] = (string) $producto['nombre'];
+            }
+        }
+        $descuentos = [];
+        foreach ($calculo['lineas'] as $idProducto => $l) {
+            if ($l['descuento'] > 0) {
+                $descuentos[] = ['texto' => ($nombres[$idProducto] ?? 'Producto') . ' · ' . $l['promocion'], 'monto' => Dinero::aTexto($l['descuento'])];
+            }
+        }
+        if ($calculo['general'] !== null) {
+            $descuentos[] = ['texto' => $calculo['general']['nombre'], 'monto' => Dinero::aTexto($calculo['general']['monto'])];
+        }
+        return [
+            'subtotal'   => Dinero::aTexto($calculo['subtotal']),
+            'descuento'  => Dinero::aTexto($calculo['descuentoTotal']),
+            'total'      => Dinero::aTexto($calculo['total']),
+            'descuentos' => $descuentos,
+        ];
+    }
+
     // GET /api/v1/ventas?desde=2026-10-01&hasta=2026-10-31&estado=EMITIDA&comprobante=B001-5&pagina=1
     public function lista(?string $desde, ?string $hasta, ?string $estado, ?string $comprobante, ?string $pagina): array
     {

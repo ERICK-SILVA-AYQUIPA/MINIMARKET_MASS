@@ -5,6 +5,14 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Promociones de ejemplo** (migración `026_promociones_demo.sql`, solo en la base de ejemplo): una de cada tipo,
+  vigentes del 01/11 al 31/12/2026: Leche Gloria 400 g −15 % y Inca Kola 1.5 L 2 x S/ 11.90 en toda la cadena,
+  papa a S/ 1.99 el kg solo en Mass Cayma y 5 % a toda la compra desde S/ 100. Así Promociones y Nueva venta
+  ya muestran cómo funcionan. Las pruebas automáticas las pausan para que sus totales no cambien.
+- **Corregido en la app**: antes de cobrar mostraba el total sin promociones; si el cliente pagaba el monto rebajado,
+  decía "el efectivo no alcanza" y no dejaba cobrar. Ahora pide el total al servidor (`POST v1/ventas/cotizacion`)
+  cada vez que cambia el carrito y muestra el subtotal, cada descuento y el total que se cobra.
+- **Corregido**: en la lista de Promociones el botón Pausar / Reactivar ya no se corta en el borde derecho.
 - **Solo para la demo: la misma clave para los 12 empleados de ejemplo** (migración `025_clave_demo_para_todos.sql`):
   todos vuelven a entrar con `Mass2026!` (en la base solo el hash bcrypt) y ya no se les pide cambiarla en el primer
   ingreso. A quien ya la había cambiado se le cierran las sesiones abiertas. Solo cambia la base de ejemplo; en una
