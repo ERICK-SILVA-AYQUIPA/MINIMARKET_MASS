@@ -212,8 +212,8 @@ $db = (function (): PDO {
     require_once __DIR__ . '/../config/Database.php';
     return Database::conexion();
 })();
-// Los empleados de ejemplo tienen la clave de prueba y deben cambiarla (migracion 013).
-// Primero se prueba eso con uno; despues se usan como si ya la hubieran cambiado.
+// Con debe_cambiar_clave = 'S' la app no da token. En la base de ejemplo la migracion 025 lo deja en 'N':
+// aqui se marca a proposito para probarlo con uno y despues se quita.
 $marcarClaveDePrueba = static function (string $debe) use ($db): void {
     $db->prepare("UPDATE empleado SET debe_cambiar_clave = :debe WHERE dni BETWEEN '70000001' AND '70000009'")->execute(['debe' => $debe]);
 };

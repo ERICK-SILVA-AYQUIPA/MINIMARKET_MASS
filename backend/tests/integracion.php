@@ -132,9 +132,9 @@ $segundos = $db->query(
 revisar('Diego, Elena y Raúl son cajeros activos de Cayma, Cerro Colorado y Yanahuara',
     array_map(static fn(array $f): string => $f['dni'] . '/' . $f['id_tienda'] . '/' . $f['nombre_rol'] . '/' . $f['estado'], $segundos)
         === ['70000101/1/CAJERO/ACTIVO', '70000102/2/CAJERO/ACTIVO', '70000103/3/CAJERO/ACTIVO']);
-revisar('...con la clave de prueba solo como hash y obligados a cambiarla al entrar',
+revisar('...con la clave de prueba solo como hash',
     count($segundos) === 3 && array_reduce($segundos, static fn(bool $ok, array $f): bool => $ok
-        && $f['debe_cambiar_clave'] === 'S' && password_verify('Mass2026!', (string) $f['clave_hash']), true));
+        && password_verify('Mass2026!', (string) $f['clave_hash']) && !str_contains((string) $f['clave_hash'], 'Mass2026'), true));
 revisar('Cada sede tiene tantos cajeros activos como cajas',
     valor($db, "SELECT COUNT(*) FROM tienda t
                  WHERE (SELECT COUNT(*) FROM caja c WHERE c.id_tienda = t.id_tienda AND c.estado = 'ACTIVA')
@@ -145,6 +145,21 @@ foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../datab
     $cambiadas += (int) $db->exec($sentencia);
 }
 revisar('Correr la migración 024 otra vez no agrega ni cambia a nadie', $cambiadas === 0);
+
+echo "Clave de demo para los 12 (migración 025)\n";
+$demo = static fn(): array => $db->query(
+    "SELECT dni, clave_hash, version_clave, debe_cambiar_clave FROM empleado
+      WHERE dni IN ('70000001','70000002','70000003','70000004','70000005','70000006',
+                    '70000007','70000008','70000009','70000101','70000102','70000103') ORDER BY dni")->fetchAll();
+$antes = $demo();
+revisar('Los 12 empleados de ejemplo entran con Mass2026! (solo el hash en la base)', count($antes) === 12
+    && array_reduce($antes, static fn(bool $ok, array $f): bool => $ok && password_verify('Mass2026!', (string) $f['clave_hash'])
+        && !str_contains((string) $f['clave_hash'], 'Mass2026'), true));
+revisar('...y no se les pide cambiarla al entrar', array_column($antes, 'debe_cambiar_clave') === array_fill(0, 12, 'N'));
+foreach (Migraciones::sentencias((string) file_get_contents(__DIR__ . '/../database/migraciones/025_clave_demo_para_todos.sql')) as $sentencia) {
+    $db->exec($sentencia);
+}
+revisar('Correr la migración 025 otra vez deja todo igual (no vuelve a cerrar sesiones)', $demo() === $antes);
 
 echo "Sucursal elegida por el administrador\n";
 $rosaEnCerro = $rosa->enTienda(2);

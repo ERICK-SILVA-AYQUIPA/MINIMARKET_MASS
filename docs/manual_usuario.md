@@ -25,7 +25,7 @@ Lo mismo sale dentro del sistema en **Ayuda** (pie de cada página), solo con lo
 
 ### Usuarios de prueba
 
-La clave de los 12 es `Mass2026!`. Al entrar por primera vez el sistema pide cambiarla (en la web y en la app); la nueva no puede ser `Mass2026!`.
+La clave de los 12 es `Mass2026!`. En la base de ejemplo (demo) se entra directo, sin cambiarla (migración 025). Si el administrador reinicia la clave de alguien en **Personal**, el sistema pide cambiarla al entrar (en la web y en la app); la nueva no puede ser `Mass2026!`.
 
 | Tienda | Administrador | Cajero (caja 1) | Cajero (caja 2) | Almacenero |
 |---|---|---|---|---|

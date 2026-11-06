@@ -179,8 +179,8 @@ for ($i = 0; $i < 6; $i++) {
 revisar('Muchas claves erradas para un DNI: 429', in_array(429, $codigos, true));
 
 echo "Clave de prueba: primero se cambia\n";
-// Los 9 empleados de ejemplo tienen debe_cambiar_clave = 'S' (migracion 013): solo pueden ir a Mi clave o salir.
-// Se vuelve a marcar aqui para que la prueba tambien sirva si se corre otra vez sobre la misma base.
+// Con debe_cambiar_clave = 'S' (clave reiniciada en Personal) solo se puede ir a Mi clave o salir.
+// En la base de ejemplo la migracion 025 lo deja en 'N': aqui se marca a proposito para probarlo y despues se quita.
 $marcarClaveDePrueba = static function (string $debe): void {
     require_once __DIR__ . '/../config/Database.php';
     Database::conexion()->prepare("UPDATE empleado SET debe_cambiar_clave = :debe WHERE dni BETWEEN '70000001' AND '70000009'")
