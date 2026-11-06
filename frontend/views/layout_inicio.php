@@ -143,8 +143,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=2">
-    <link rel="stylesheet" href="/css/estilos.css?v=26">
-    <script src="/js/app.js?v=16" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=27">
+    <script src="/js/app.js?v=17" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>

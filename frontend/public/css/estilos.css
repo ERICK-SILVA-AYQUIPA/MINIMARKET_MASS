@@ -1735,3 +1735,50 @@ button.asistente-chip:hover { background: var(--marca-suave); border-color: var(
 .calor tbody tr:hover { background: none; }
 .calor-leyenda { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-2); font-size: .8rem; color: var(--suave); }
 .calor-leyenda i { width: 160px; height: 10px; border-radius: 4px; background: linear-gradient(90deg, var(--superficie-2), var(--marca)); }
+
+/* ---------- Venta: ventana flotante de pago (public/js/app.js mete .ventana-pago en este <dialog>) ---------- */
+dialog.ventana-pago-dialogo {
+    width: min(480px, calc(100% - 2 * var(--s-4))); max-height: calc(100dvh - 2 * var(--s-4)); padding: 0; overflow: hidden;
+    border: 1px solid var(--borde); border-radius: var(--radio-3xl); background: var(--superficie); color: var(--texto);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, .4);
+}
+dialog.ventana-pago-dialogo[open] { display: flex; flex-direction: column; animation: modal-entra var(--dur-3) cubic-bezier(.16, 1, .3, 1); }
+dialog.ventana-pago-dialogo::backdrop { background: var(--velo); -webkit-backdrop-filter: var(--velo-desenfoque); backdrop-filter: var(--velo-desenfoque); animation: velo-entra var(--dur-3) ease-out; }
+dialog.ventana-pago-dialogo .ventana-pago { display: grid; gap: var(--s-2); padding: 0 var(--s-5) var(--s-5); overflow-y: auto; overscroll-behavior: contain; }
+.ventana-pago-cabeza {
+    position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+    margin: 0 calc(-1 * var(--s-5)); padding: var(--s-4) var(--s-5) var(--s-3); background: var(--superficie); border-bottom: 1px solid var(--borde);
+}
+.ventana-pago-cabeza h2 { margin: 0; font-size: 1.2rem; }
+.ventana-pago-cerrar {
+    display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 50%;
+    background: var(--superficie-2); border: 1px solid var(--borde); color: var(--tinta);
+}
+.ventana-pago-total, .ventana-pago-vuelto {
+    display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-3);
+    padding: var(--s-3) var(--s-4); border-radius: var(--radio); border: 1px solid var(--borde);
+}
+.ventana-pago-total { margin-top: var(--s-2); background: linear-gradient(135deg, var(--oscuro-1), var(--oscuro-2)); }
+.ventana-pago-total span, .ventana-pago-vuelto span { font-weight: 600; color: var(--suave); }
+.ventana-pago-total small { display: block; font-weight: 500; }
+.ventana-pago-total strong { font: 700 2.1rem/1.1 var(--mono); color: var(--marca); font-variant-numeric: tabular-nums; }
+.ventana-pago-vuelto strong { font: 700 1.6rem/1.1 var(--mono); color: var(--tinta); font-variant-numeric: tabular-nums; }
+.ventana-pago-vuelto.con-vuelto { background: var(--verde-fondo); border-color: transparent; }
+.ventana-pago-vuelto.con-vuelto strong, .ventana-pago-vuelto.con-vuelto span { color: var(--verde); }
+dialog.ventana-pago-dialogo .avisos-vivo { margin: 0; }
+.venta .venta-carrito dialog .botones-formulario {
+    position: sticky; bottom: calc(-1 * var(--s-5)); margin: var(--s-2) calc(-1 * var(--s-5)) calc(-1 * var(--s-5));
+    padding: var(--s-3) var(--s-5) var(--s-5); background: var(--superficie); border-top: 1px solid var(--borde);
+}
+.abrir-pago button span { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* Celular: la ventana sale desde abajo, a todo lo ancho */
+@media (max-width: 640px) {
+    dialog.ventana-pago-dialogo {
+        width: 100%; max-width: 100%; margin: auto 0 0; max-height: 92dvh;
+        border-radius: var(--radio-3xl) var(--radio-3xl) 0 0; border-bottom: 0;
+    }
+    dialog.ventana-pago-dialogo[open] { animation: hoja-sube var(--dur-3) cubic-bezier(.16, 1, .3, 1); }
+    dialog.ventana-pago-dialogo .ventana-pago { padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom, 0px)); }
+}
+@keyframes hoja-sube { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { dialog.ventana-pago-dialogo[open], dialog.ventana-pago-dialogo::backdrop { animation: none; } }

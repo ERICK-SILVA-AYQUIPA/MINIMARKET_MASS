@@ -70,18 +70,18 @@ test.describe('Caja en el celular', () => {
         await listo(page);
         await expect(page).toHaveScreenshot('celular-venta-productos.png');
 
-        // "Cobrar" baja al carrito y la barra se va (ya no tapa el botón de registrar)
+        // "Cobrar" abre la ventana de pago desde abajo, con el cursor en el efectivo
         await cobroFijo.getByRole('link', { name: 'Cobrar' }).click();
-        await expect(cobroFijo).toHaveClass(/cobro-a-la-vista/);
-        await expect(cobroFijo).toBeHidden();
-        await expect(page.getByLabel(/Efectivo que entrega/)).toBeFocused();
+        const ventanaPago = page.getByRole('dialog', { name: 'Cobrar' });
+        await expect(ventanaPago).toBeVisible();
+        await expect(ventanaPago.getByLabel(/Efectivo que entrega/)).toBeFocused();
 
-        await page.locator('[data-efectivo-rapido]').getByRole('button', { name: /^Exacto/ }).click();
-        await expect(page.locator('[data-vuelto]')).toHaveText('S/ 0.00');
+        await ventanaPago.locator('[data-efectivo-rapido]').getByRole('button', { name: /^Exacto/ }).click();
+        await expect(ventanaPago.locator('[data-pago-vuelto]')).toHaveText('S/ 0.00');
         await listo(page);
-        await expect(page.locator('.venta-carrito')).toHaveScreenshot('celular-venta-cobro.png');
+        await expect(ventanaPago).toHaveScreenshot('celular-venta-cobro.png');
 
-        await page.getByRole('button', { name: 'Registrar venta' }).click();
+        await ventanaPago.getByRole('button', { name: 'Registrar venta' }).click();
         await expect(page).toHaveURL(/ruta=comprobante/);
         await expect(page.locator('.aviso.ok')).toBeVisible();
     });
