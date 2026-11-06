@@ -5,6 +5,10 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Solo para la demo: la misma clave para los 12 empleados de ejemplo** (migración `025_clave_demo_para_todos.sql`):
+  todos vuelven a entrar con `Mass2026!` (en la base solo el hash bcrypt) y ya no se les pide cambiarla en el primer
+  ingreso. A quien ya la había cambiado se le cierran las sesiones abiertas. Solo cambia la base de ejemplo; en una
+  tienda real cada empleado debe tener su propia clave y `verificar_instalacion.php` sigue marcando la de prueba como FALLA.
 - **Un segundo cajero por sede** (migración `024_cajero_caja_2_por_sede.sql`): Diego (Cayma), Elena (Cerro Colorado)
   y Raúl (Yanahuara), uno para la caja 2 de cada tienda. Los dos cajeros de una sede pueden tener su turno abierto
   a la vez. Solo se agregan en la base de ejemplo y no tocan a los empleados que ya estaban.
