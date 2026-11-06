@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Producto.php';
 require_once __DIR__ . '/Stock.php';
+require_once __DIR__ . '/CodigoProductoRepository.php';
 
 /**
  * De donde salen los datos de producto y stock: la base MySQL, con PDO.
@@ -24,13 +25,32 @@ class ProductoRepository
         return array_map(fn(array $fila): Producto => $this->crear($fila), $consulta->fetchAll());
     }
 
-    // null cuando no existe: el que llama decide que hacer (por ejemplo, un 404)
+    /**
+     * null cuando no existe: el que llama decide que hacer (por ejemplo, un 404).
+     * Lo encuentra por su codigo o por uno de sus otros codigos, aunque venga con otros ceros adelante o como UPC-E.
+     */
     public function buscarPorCodigo(string $codigoBarras): ?Producto
     {
-        $consulta = $this->db->prepare('SELECT ' . self::COLUMNAS . ' FROM producto WHERE codigo_barras = :codigo');
-        $consulta->execute(['codigo' => $codigoBarras]);
-        $fila = $consulta->fetch();
-        return $fila === false ? null : $this->crear($fila);
+        $id = (new CodigoProductoRepository($this->db))->idPorCodigo($codigoBarras);
+        return $id === null ? null : $this->buscarPorId($id);
+    }
+
+    /**
+     * Los otros codigos de un producto (migracion 023), con quien y donde los vinculo.
+     * @return array<int, array{id: int, codigo: string, fecha: string, empleado: string, tienda: string}>
+     */
+    public function otrosCodigos(int $idProducto): array
+    {
+        return (new CodigoProductoRepository($this->db))->codigosDe($idProducto);
+    }
+
+    /**
+     * Los otros codigos de todos los productos, para el lector de codigos de la venta web.
+     * @return array<int, string[]> id_producto => codigos
+     */
+    public function otrosCodigosTodos(): array
+    {
+        return (new CodigoProductoRepository($this->db))->todos();
     }
 
     // Los productos al peso no tienen codigo de barras: se buscan por id

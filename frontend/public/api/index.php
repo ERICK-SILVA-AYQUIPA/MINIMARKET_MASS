@@ -111,7 +111,8 @@ $tiendas = new TiendaRepository($db);
 $consultas = new ConsultaMovilRepository($db);
 $operaciones = new OperacionMovilServicio($db);
 $auth = new AuthApiController($usuario, $empleados, new IntentoLoginRepository($db), $tokens, $tiendas);
-$productos = new ProductoApiController($usuario, $consultas, new CatalogoRepository($db), new ProductoServicio($db));
+$productos = new ProductoApiController($usuario, $consultas, new CatalogoRepository($db), new ProductoServicio($db),
+    new CodigoProductoRepository($db));
 $ventas = new VentaApiController($usuario, $consultas, new VentaRepository($db), new CajaRepository($db), $tiendas,
     new VentaServicio($db), new CajaServicio($db), $operaciones);
 $ingresos = new IngresoApiController($usuario, $consultas, new InventarioServicio($db), $operaciones);
@@ -131,6 +132,7 @@ $rutas = [
     ['GET',  '#^v1/catalogo$#',                 true,  fn(array $p): array => $productos->opciones()],
     ['GET',  '#^v1/productos/codigo/([^/]{1,40})$#', true, fn(array $p): array => $productos->porCodigo(rawurldecode($p[1]))],
     ['GET',  '#^v1/productos/([0-9]{1,9})$#',   true,  fn(array $p): array => $productos->detalle($p[1])],
+    ['POST', '#^v1/productos/([0-9]{1,9})/codigos$#', true, fn(array $p): array => $productos->vincularCodigo($p[1], $datos)],
     ['GET',  '#^v1/movimientos$#',              true,  fn(array $p): array => $productos->movimientos($leer('producto'), $leer('pagina'))],
     ['GET',  '#^v1/caja$#',                     true,  fn(array $p): array => $ventas->caja()],
     ['POST', '#^v1/caja/turno$#',               true,  fn(array $p): array => $ventas->abrirTurno($datos)],

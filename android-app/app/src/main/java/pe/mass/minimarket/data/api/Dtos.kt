@@ -81,8 +81,10 @@ data class Producto(
     @SerialName("stock_registrado") val stockRegistrado: Boolean = false,
     val agotado: Boolean = false,
     @SerialName("stock_bajo") val stockBajo: Boolean = false,
-    // Solo en la ficha (GET /productos/{id})
+    // Solo en la ficha (GET /productos/{id}) y al vincular un codigo
     val movimientos: List<Movimiento> = emptyList(),
+    // Otros codigos con los que el escaner tambien lo reconoce (empaque nuevo, pack, caja del distribuidor)
+    @SerialName("otros_codigos") val otrosCodigos: List<String> = emptyList(),
 ) {
     val activo: Boolean get() = estado == "ACTIVO"
 }
@@ -112,6 +114,10 @@ data class ProductoNuevoPedido(
     // Cuantos hay ya en la tienda (vacio: 0). Queda como ajuste de conteo en el kardex.
     @SerialName("stock_inicial") val stockInicial: String = "",
 )
+
+// POST /productos/{id}/codigos: el codigo escaneado que no estaba en el catalogo es de este producto
+@Serializable
+data class VincularCodigoPedido(val codigo: String)
 
 @Serializable
 data class PaginaProductos(

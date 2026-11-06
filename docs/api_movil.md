@@ -58,8 +58,9 @@ Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en ca
 | Ruta | Qué hace |
 |---|---|
 | `GET v1/productos?q=leche&filtro=bajo&pagina=1` | Lista con stock. `filtro`: `todos`, `bajo` o `agotados` |
-| `GET v1/productos/codigo/{código}` | El escáner. Un UPC-A de 12 dígitos también encuentra el mismo producto guardado como EAN-13 con un 0 adelante, y al revés |
-| `GET v1/productos/{id}` | Ficha con los últimos 15 movimientos del kardex |
+| `GET v1/productos/codigo/{código}` | El escáner. Encuentra el producto aunque el catálogo tenga el código con otros ceros adelante (UPC-A ↔ EAN-13 ↔ GTIN-14 de un QR), como UPC-A cuando se lee el UPC-E corto de los empaques chicos, escrito con espacios o guiones, o como uno de sus **otros códigos** (`backend/models/CodigoBarras.php`). Gana la coincidencia exacta |
+| `GET v1/productos/{id}` | Ficha con los últimos 15 movimientos del kardex y `otros_codigos` |
+| `POST v1/productos/{id}/codigos` | Cualquier empleado. El código escaneado que no estaba en el catálogo es de este producto (empaque nuevo, pack, caja ITF-14 del distribuidor): `{"codigo": "17751271011010"}`. Desde ahí el escáner lo reconoce en todas las tiendas. 409 `YA_EXISTE` si ya es de un producto (con cualquiera de sus variantes); 404 si el producto no existe; 422 si no tiene de 8 a 14 dígitos o el producto está descontinuado. Queda en `producto_codigo` (migración 023) con quién y desde qué sede, y en la auditoría `CODIGO_VINCULADO`. El administrador lo ve y lo puede quitar en la ficha web del producto (`CODIGO_QUITADO`) |
 | `GET v1/movimientos?producto={id}&pagina=1` | Kardex de la tienda |
 | `GET v1/catalogo` | Cualquier empleado. Categorías, marcas y unidades (sin `kg`) para el formulario de producto nuevo |
 | `POST v1/productos` | Cualquier empleado (el cajero también, desde la venta). Registra el código escaneado que no existe (201) con `ProductoServicio::crearAlEscanear`: siempre por unidad, stock 0 en todas las tiendas y auditoría `PRODUCTO_CREADO ... (app)`. Cuerpo: `{"codigo": "7750000000999", "nombre": "...", "precio": "4.50", "categoria": 1, "marca": 3, "unidad": 1}`; con una marca nueva, `"marca": ""` y `"marca_nombre": "Gloria"` (si ya existe con otras mayúsculas, se usa esa). Opcional `"stock_inicial": "5"`: cuántos hay en la tienda de quien lo registra, en unidades enteras; queda como un ajuste `CONTEO_FISICO` en el kardex con su nombre (así el cajero lo vende en el momento) |
@@ -72,14 +73,15 @@ Los permisos son solo para armar el menú: el servidor vuelve a revisarlos en ca
 | Consultar precio y stock | Sí | Sí | Sí |
 | Entrada de stock | No | Sí, en su tienda | Sí, en su tienda |
 | Registrar un producto nuevo al escanear | Sí, desde la venta, con cuántos hay en el estante | Sí | Sí |
+| Vincular un código nuevo a un producto que ya existe | Sí | Sí | Sí (y quitarlo en la web) |
 | Cambiar el precio o los datos de un producto que ya existe | No | No | Sí, en la web (Catálogo) |
 | Ajuste por conteo | No | Sí | Sí |
 
 No hay restricción por horario: las ventas ya dependen del turno de caja abierto, y cada operación queda en la auditoría con quién la hizo y a qué hora.
 
-En la app, si el código no está registrado, cualquier empleado ve el formulario ahí mismo: en Nueva venta (y el producto entra al carrito), en Entrada de stock y en Consultar producto.
+En la app, si el código no está registrado, cualquier empleado ve el formulario ahí mismo: en Nueva venta (y el producto entra al carrito), en Entrada de stock y en Consultar producto. Si es un producto que ya se vende con otro código, **Ya existe con otro código: vincular** lo busca por nombre y le enseña el código nuevo, en vez de crearlo dos veces.
 
-La cámara lee códigos de barras (EAN-13, EAN-8, UPC-A, UPC-E, Code 128) y también **QR y Data Matrix** con el código GS1 del producto adentro (`https://id.gs1.org/01/07751271011013`, `(01)07751271011013...`), que traen los empaques nuevos. La app saca de ahí el código del producto y revisa su dígito de control. Un QR de publicidad, de pago o un enlace cualquiera no se toma por un producto: la app avisa que se escanee el código de barras (`dominio/CodigoLeido.kt`). La app busca el código en [Open Food Facts](https://world.openfoodfacts.org) (base pública y gratuita) para sugerir el nombre y la marca; esa consulta sale directo del celular a internet, sin el token de la tienda, y si no hay internet o no lo conoce simplemente se escribe a mano. El precio siempre lo pone el trabajador.
+La cámara lee códigos de barras (EAN-13, EAN-8, UPC-A, UPC-E, Code 128, ITF-14 de las cajas, Code 39, Code 93 y Codabar; estos cuatro solo cuentan si traen un número de producto, para que una lectura a medias no dé un aviso falso) y también **QR y Data Matrix** con el código GS1 del producto adentro (`https://id.gs1.org/01/07751271011013`, `(01)07751271011013...`), que traen los empaques nuevos. La app saca de ahí el código del producto y revisa su dígito de control. Un QR de publicidad, de pago o un enlace cualquiera no se toma por un producto: la app avisa que se escanee el código de barras (`dominio/CodigoLeido.kt`). La app busca el código en [Open Food Facts](https://world.openfoodfacts.org) (base pública y gratuita) para sugerir el nombre y la marca; esa consulta sale directo del celular a internet, sin el token de la tienda, y si no hay internet o no lo conoce simplemente se escribe a mano. El precio siempre lo pone el trabajador.
 
 ## Caja y ventas
 

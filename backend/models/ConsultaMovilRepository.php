@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/CodigoProductoRepository.php';
+
 /**
  * Lecturas para la app Android (API /api/v1): productos con su stock, ventas, kardex e ingresos.
  * Lee las MISMAS tablas que la pagina web; devuelve arreglos listos para JSON.
@@ -54,9 +56,18 @@ class ConsultaMovilRepository
         if ($texto !== '') {
             // % y _ escritos por el usuario se buscan tal cual, no como comodines
             $patron = '%' . addcslashes($texto, '\\%_') . '%';
-            $condiciones[] = '(p.nombre_producto LIKE :texto OR p.codigo_barras LIKE :codigo)';
             $parametros['texto'] = $patron;
-            $parametros['codigo'] = $patron;
+            $numero = CodigoBarras::limpiar($texto);
+            if (ctype_digit($numero)) {
+                // Un numero (con espacios o guiones): el codigo limpio, tambien entre sus otros codigos (migracion 023)
+                $condiciones[] = '(p.nombre_producto LIKE :texto OR p.codigo_barras LIKE :codigo
+                    OR EXISTS (SELECT 1 FROM producto_codigo pc WHERE pc.id_producto = p.id_producto AND pc.codigo LIKE :otro))';
+                $parametros['codigo'] = '%' . $numero . '%';
+                $parametros['otro'] = '%' . $numero . '%';
+            } else {
+                $condiciones[] = '(p.nombre_producto LIKE :texto OR p.codigo_barras LIKE :codigo)';
+                $parametros['codigo'] = $patron;
+            }
         }
         if ($filtro === 'agotados') {
             $condiciones[] = "p.estado = 'ACTIVO' AND COALESCE(s.cantidad_actual, 0) = 0";
@@ -78,28 +89,14 @@ class ConsultaMovilRepository
     }
 
     /**
-     * El producto con ese codigo de barras. Una camara lee UPC-A con 12 digitos y el catalogo puede
-     * tenerlo como EAN-13 (con un 0 adelante), o al reves: se prueban las dos formas.
+     * El producto con ese codigo de barras: el suyo o uno de sus otros codigos (migracion 023), aunque venga
+     * con otros ceros adelante, como UPC-E o con espacios (CodigoBarras::variantes). Gana la coincidencia exacta.
      * @return array<string, mixed>|null
      */
     public function productoPorCodigo(string $codigo, int $idTienda): ?array
     {
-        if (preg_match('/^[0-9]{8,14}$/', $codigo) !== 1) {
-            return null;
-        }
-        $otra = match (true) {
-            strlen($codigo) === 12                            => '0' . $codigo,
-            strlen($codigo) === 13 && str_starts_with($codigo, '0') => substr($codigo, 1),
-            default                                           => $codigo,
-        };
-        $consulta = $this->db->prepare(
-            'SELECT ' . self::COLUMNAS_PRODUCTO . ' FROM ' . self::DESDE_PRODUCTO . '
-              WHERE p.codigo_barras IN (:codigo, :otra)
-              ORDER BY p.codigo_barras = :exacto DESC LIMIT 1'
-        );
-        $consulta->execute(['tienda' => $idTienda, 'codigo' => $codigo, 'otra' => $otra, 'exacto' => $codigo]);
-        $fila = $consulta->fetch();
-        return $fila === false ? null : $this->producto($fila);
+        $id = (new CodigoProductoRepository($this->db))->idPorCodigo($codigo);
+        return $id === null ? null : $this->productoPorId($id, $idTienda);
     }
 
     /** @return array<string, mixed> */

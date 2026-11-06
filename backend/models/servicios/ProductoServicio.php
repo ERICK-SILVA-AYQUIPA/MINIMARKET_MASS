@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/Servicio.php';
 require_once __DIR__ . '/../Usuario.php';
 require_once __DIR__ . '/../FotoProducto.php';
+require_once __DIR__ . '/../CodigoProductoRepository.php';
 
 /**
  * Mantenimiento del catalogo: productos, categorias, marcas y el stock minimo de cada tienda.
@@ -13,6 +14,14 @@ require_once __DIR__ . '/../FotoProducto.php';
 class ProductoServicio extends Servicio
 {
     private const UNIDAD_KG = 'kg';
+
+    // Mensajes que la API convierte en 409 YA_EXISTE y 404
+    public const CODIGO_OCUPADO = 'Ese código ya es de un producto del catálogo.';
+    public const PRODUCTO_NO_EXISTE = 'El producto no existe.';
+    private const CODIGO_REPETIDO = 'Ya hay un producto con ese código de barras.';
+
+    // Otros codigos por producto (migracion 023): de sobra para empaques, packs y cajas; frena un error en bucle
+    public const MAXIMO_OTROS_CODIGOS = 20;
 
     /**
      * Crea un producto ACTIVO y su fila de stock (en 0) en cada tienda. Devuelve el id.
@@ -77,6 +86,82 @@ class ProductoServicio extends Servicio
     }
 
     /**
+     * Le ensena al catalogo otro codigo de un producto que ya existe (migracion 023): el empaque nuevo, el pack,
+     * la caja del distribuidor (ITF-14) o el codigo del proveedor. Lo hace quien escanea un codigo desconocido
+     * desde la app y reconoce el producto (cualquier empleado activo, como registrar un producto nuevo).
+     * Desde ese momento el escaner lo reconoce en todas las tiendas. Queda en la auditoria con quien y desde donde.
+     * Devuelve el codigo como se guardo (sin espacios ni guiones).
+     */
+    public function vincularCodigo(Usuario $usuario, int $idProducto, string $codigo): string
+    {
+        if (!$usuario->puedeCrearProducto()) {
+            throw new ReglaNegocioException('Tu usuario no puede cambiar el catálogo.');
+        }
+        $codigo = CodigoBarras::limpiar($codigo);
+        if (!CodigoBarras::esValido($codigo)) {
+            throw new ReglaNegocioException('El código de barras debe tener de 8 a 14 dígitos.');
+        }
+
+        return $this->enTransaccion(function () use ($usuario, $idProducto, $codigo): string {
+            // FOR UPDATE: dos celulares que le agregan codigos al mismo producto van uno detras del otro
+            $consulta = $this->db->prepare('SELECT nombre_producto, estado FROM producto WHERE id_producto = :id FOR UPDATE');
+            $consulta->execute(['id' => $idProducto]);
+            $producto = $consulta->fetch();
+            if ($producto === false) {
+                throw new ReglaNegocioException(self::PRODUCTO_NO_EXISTE);
+            }
+            if ($producto['estado'] !== 'ACTIVO') {
+                throw new ReglaNegocioException($producto['nombre_producto'] . ' está descontinuado: no se le agregan códigos.');
+            }
+            if ($this->codigos()->idPorCodigo($codigo, null, true) !== null) {
+                throw new ReglaNegocioException(self::CODIGO_OCUPADO);
+            }
+            $cuantos = $this->db->prepare('SELECT COUNT(*) FROM producto_codigo WHERE id_producto = :id');
+            $cuantos->execute(['id' => $idProducto]);
+            if ((int) $cuantos->fetchColumn() >= self::MAXIMO_OTROS_CODIGOS) {
+                throw new ReglaNegocioException(sprintf('%s ya tiene %d códigos. Pídele al administrador que revise los que sobran.',
+                    $producto['nombre_producto'], self::MAXIMO_OTROS_CODIGOS));
+            }
+            try {
+                $this->db->prepare(
+                    'INSERT INTO producto_codigo (id_producto, codigo, fecha_registro, id_empleado_registro, id_tienda_registro)
+                     VALUES (:producto, :codigo, NOW(), :empleado, :tienda)'
+                )->execute(['producto' => $idProducto, 'codigo' => $codigo,
+                    'empleado' => $usuario->getIdEmpleado(), 'tienda' => $usuario->getIdTienda()]);
+            } catch (PDOException $ex) {
+                // Otro celular vinculo el mismo codigo en el mismo instante
+                throw $this->esDuplicado($ex) ? new ReglaNegocioException(self::CODIGO_OCUPADO) : $ex;
+            }
+            $this->auditar($usuario, 'CODIGO_VINCULADO', sprintf('%d %s: %s', $idProducto, $producto['nombre_producto'], $codigo));
+            return $codigo;
+        });
+    }
+
+    /**
+     * El administrador quita un codigo vinculado que estaba mal (el escaner deja de reconocerlo).
+     * Devuelve el id del producto, para volver a su ficha.
+     */
+    public function quitarCodigo(Usuario $admin, int $idProductoCodigo): int
+    {
+        $this->exigirAdministrador($admin);
+        return $this->enTransaccion(function () use ($admin, $idProductoCodigo): int {
+            $consulta = $this->db->prepare(
+                'SELECT pc.id_producto, pc.codigo, p.nombre_producto
+                   FROM producto_codigo pc JOIN producto p ON p.id_producto = pc.id_producto
+                  WHERE pc.id_producto_codigo = :id FOR UPDATE'
+            );
+            $consulta->execute(['id' => $idProductoCodigo]);
+            $fila = $consulta->fetch();
+            if ($fila === false) {
+                throw new ReglaNegocioException('Ese código ya no está vinculado.');
+            }
+            $this->db->prepare('DELETE FROM producto_codigo WHERE id_producto_codigo = :id')->execute(['id' => $idProductoCodigo]);
+            $this->auditar($admin, 'CODIGO_QUITADO', sprintf('%d %s: %s', (int) $fila['id_producto'], $fila['nombre_producto'], $fila['codigo']));
+            return (int) $fila['id_producto'];
+        });
+    }
+
+    /**
      * El administrador da por revisados productos recien agregados (migracion 022): nombre, categoria, precio y foto
      * estan bien. Solo cuentan los que estaban pendientes; los ya revisados o de la base inicial se ignoran.
      * Devuelve cuantos se marcaron. Queda en la auditoria con sus ids.
@@ -122,6 +207,7 @@ class ProductoServicio extends Servicio
     private function insertarProducto(Usuario $usuario, array $campos, string $porPeso, string $origen): int
     {
         $revisor = $usuario->puedeAdministrarCatalogo() ? $usuario->getIdEmpleado() : null;
+        $this->exigirCodigoLibre($campos['codigo'], null);
         try {
             $this->db->prepare(
                 'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado,
@@ -135,7 +221,7 @@ class ProductoServicio extends Servicio
                 // Lo que registra el administrador ya nace revisado; lo de un cajero o almacenero queda por revisar (migracion 022)
                 'revisor' => $revisor, 'revisor2' => $revisor]);
         } catch (PDOException $ex) {
-            throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
+            throw $this->esDuplicado($ex) ? new ReglaNegocioException(self::CODIGO_REPETIDO) : $ex;
         }
         $id = (int) $this->db->lastInsertId();
 
@@ -158,7 +244,7 @@ class ProductoServicio extends Servicio
         $this->exigirAdministrador($admin);
         $this->enTransaccion(function () use ($admin, $idProducto, $datos): void {
             $consulta = $this->db->prepare(
-                'SELECT se_vende_por_peso, nombre_producto, precio_venta FROM producto WHERE id_producto = :id FOR UPDATE'
+                'SELECT se_vende_por_peso, nombre_producto, precio_venta, codigo_barras FROM producto WHERE id_producto = :id FOR UPDATE'
             );
             $consulta->execute(['id' => $idProducto]);
             $antes = $consulta->fetch();
@@ -166,6 +252,10 @@ class ProductoServicio extends Servicio
                 throw new ReglaNegocioException('El producto no existe.');
             }
             $campos = $this->leerDatos($datos, $antes['se_vende_por_peso']);
+            // Solo si cambia: un producto que ya tenia su codigo se puede editar aunque otro tenga una variante
+            if ($campos['codigo'] !== $antes['codigo_barras']) {
+                $this->exigirCodigoLibre($campos['codigo'], $idProducto);
+            }
 
             try {
                 $this->db->prepare(
@@ -175,7 +265,12 @@ class ProductoServicio extends Servicio
                       WHERE id_producto = :id'
                 )->execute($campos + ['id' => $idProducto]);
             } catch (PDOException $ex) {
-                throw $this->esDuplicado($ex) ? new ReglaNegocioException('Ya hay un producto con ese código de barras.') : $ex;
+                throw $this->esDuplicado($ex) ? new ReglaNegocioException(self::CODIGO_REPETIDO) : $ex;
+            }
+            // Si su codigo nuevo era uno de sus otros codigos, ya no hace falta tenerlo dos veces
+            if ($campos['codigo'] !== null) {
+                $this->db->prepare('DELETE FROM producto_codigo WHERE id_producto = :id AND codigo = :codigo')
+                    ->execute(['id' => $idProducto, 'codigo' => $campos['codigo']]);
             }
             // Un cambio de precio queda aparte: es el que mas se revisa
             if ($antes['precio_venta'] !== $campos['precio']) {
@@ -359,6 +454,7 @@ class ProductoServicio extends Servicio
         $actual = $consulta->fetch();
 
         if ($actual === false) {
+            $this->exigirCodigoLibre($campos['codigo'], null);
             $this->db->prepare(
                 'INSERT INTO producto (nombre_producto, codigo_barras, precio_venta, se_vende_por_peso, estado, id_categoria, id_marca, id_unidad,
                                        origen, fecha_registro, id_empleado_registro, id_tienda_registro, fecha_revision, id_empleado_revision)
@@ -427,7 +523,8 @@ class ProductoServicio extends Servicio
     {
         $nombre = $this->textoObligatorio($datos['nombre'] ?? '', 100, 'Nombre del producto');
 
-        $codigo = trim((string) ($datos['codigo'] ?? ''));
+        // Escrito a mano o pegado: "775 1271-011013" se guarda como 7751271011013
+        $codigo = CodigoBarras::limpiar((string) ($datos['codigo'] ?? ''));
         $codigo = $codigo === '' ? null : $codigo;
         if ($codigo !== null && preg_match('/^[0-9]{8,14}$/', $codigo) !== 1) {
             throw new ReglaNegocioException('El código de barras debe tener de 8 a 14 dígitos.');
@@ -490,6 +587,22 @@ class ProductoServicio extends Servicio
             $this->auditar($admin, $accion, $id . ' ' . $nombre);
             return $id;
         });
+    }
+
+    private function codigos(): CodigoProductoRepository
+    {
+        return new CodigoProductoRepository($this->db);
+    }
+
+    /**
+     * Un codigo nuevo no puede ser de otro producto: ni su codigo, ni uno de sus otros codigos, ni la misma
+     * cifra con otros ceros adelante o como UPC-E (el escaner los toma por el mismo producto).
+     */
+    private function exigirCodigoLibre(?string $codigo, ?int $excepto): void
+    {
+        if ($codigo !== null && $this->codigos()->idPorCodigo($codigo, $excepto, true) !== null) {
+            throw new ReglaNegocioException(self::CODIGO_REPETIDO);
+        }
     }
 
     private function exigirAdministrador(Usuario $admin): void

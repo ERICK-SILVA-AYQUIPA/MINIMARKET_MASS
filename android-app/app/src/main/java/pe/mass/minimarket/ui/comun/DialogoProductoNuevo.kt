@@ -3,13 +3,16 @@ package pe.mass.minimarket.ui.comun
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -41,6 +44,7 @@ import pe.mass.minimarket.data.api.OpcionesCatalogo
 import pe.mass.minimarket.data.api.Producto
 import pe.mass.minimarket.data.api.ProductoNuevoPedido
 import pe.mass.minimarket.dominio.Validar
+import pe.mass.minimarket.dominio.soles
 
 /**
  * Producto nuevo con el codigo recien escaneado (cualquier empleado: en la venta, la entrada o la consulta).
@@ -50,7 +54,19 @@ import pe.mass.minimarket.dominio.Validar
  *              en la entrada de mercaderia no se pregunta, porque la cantidad va en la linea del documento
  */
 @Composable
-fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar: () -> Unit, stock: PreguntaStock = PreguntaStock.OPCIONAL) {
+fun DialogoProductoNuevo(
+    codigo: String,
+    onCreado: (Producto) -> Unit,
+    onCerrar: () -> Unit,
+    stock: PreguntaStock = PreguntaStock.OPCIONAL,
+    onVinculado: (Producto) -> Unit = onCreado,
+) {
+    // "Ya esta en el catalogo con otro codigo": en vez de crearlo otra vez, se le ensena este codigo
+    var vincular by remember { mutableStateOf(false) }
+    if (vincular) {
+        DialogoVincularCodigo(codigo, onVinculado = onVinculado, onVolver = { vincular = false }, onCerrar = onCerrar)
+        return
+    }
     val pedirStock = stock == PreguntaStock.OBLIGATORIO
     val repo = repositorio()
     val alcance = rememberCoroutineScope()
@@ -145,6 +161,12 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             } else Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Código $codigo: no está en el catálogo.", style = MaterialTheme.typography.bodyMedium)
+                // Empaque nuevo, pack o caja de un producto que ya se vende: no se crea dos veces
+                OutlinedButton(onClick = { vincular = true }, enabled = !guardando, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Filled.Link, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Ya existe con otro código: vincular", modifier = Modifier.weight(1f))
+                }
                 if (sugerido) {
                     Text("Nombre sugerido por Open Food Facts: revísalo antes de guardar.",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -208,6 +230,72 @@ fun DialogoProductoNuevo(codigo: String, onCreado: (Producto) -> Unit, onCerrar:
 }
 
 enum class PreguntaStock { NO, OPCIONAL, OBLIGATORIO }
+
+/**
+ * El codigo escaneado es de un producto que ya esta en el catalogo (empaque nuevo, pack, caja del distribuidor):
+ * se busca por nombre y se vincula. Desde ese momento el escaner lo reconoce en todas las tiendas;
+ * el administrador ve quien lo vinculo y lo puede quitar en la ficha web del producto.
+ */
+@Composable
+private fun DialogoVincularCodigo(codigo: String, onVinculado: (Producto) -> Unit, onVolver: () -> Unit, onCerrar: () -> Unit) {
+    val repo = repositorio()
+    val alcance = rememberCoroutineScope()
+    var elegido by remember { mutableStateOf<Producto?>(null) }
+    var guardando by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    // 1. Buscar el producto por nombre (la misma hoja de "Buscar producto")
+    val producto = elegido
+    if (producto == null) {
+        DialogoBuscarProducto(onElegir = { elegido = it; error = null }, onCerrar = onVolver)
+        return
+    }
+
+    // 2. Confirmar: queda en el catalogo de toda la cadena, con el nombre de quien lo vinculo
+    fun vincular() {
+        if (guardando) return
+        guardando = true
+        error = null
+        alcance.launch {
+            when (val r = repo.vincularCodigo(producto.idProducto, codigo)) {
+                is Resultado.Ok -> onVinculado(r.datos)
+                is Resultado.Error -> {
+                    // 409: el codigo ya es de un producto. Si es el elegido (otro celular lo vinculo antes), listo;
+                    // si es OTRO producto, se avisa cual es: no se toma por bueno uno que no se eligio
+                    val yaEsta = if (r.http == 409) repo.productoPorCodigo(codigo) else null
+                    if (yaEsta is Resultado.Ok && yaEsta.datos.idProducto == producto.idProducto) {
+                        onVinculado(yaEsta.datos)
+                    } else {
+                        error = if (yaEsta is Resultado.Ok) {
+                            "Ese código ya es de ${yaEsta.datos.nombre}. Si está mal, pídele al administrador que lo corrija en la web."
+                        } else r.mensaje
+                    }
+                }
+            }
+            guardando = false
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!guardando) onCerrar() },
+        title = { Text("Vincular código") },
+        confirmButton = {
+            TextButton(onClick = { vincular() }, enabled = !guardando) { Text(if (guardando) "Vinculando…" else "Vincular") }
+        },
+        dismissButton = { TextButton(onClick = { elegido = null }, enabled = !guardando) { Text("Elegir otro") } },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("El código $codigo es de:", style = MaterialTheme.typography.bodyMedium)
+                Text(producto.nombre, style = MaterialTheme.typography.titleMedium)
+                Text(listOfNotNull(producto.precioVenta.soles(), producto.codigoBarras).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                error?.let { TarjetaAviso(Aviso(it, TipoAviso.ERROR)) }
+                Text("Desde ahora el escáner lo reconocerá con este código en todas las tiendas. El administrador lo ve en la ficha del producto.",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+        },
+    )
+}
 
 /** Un boton que abre la lista para elegir (categoria o unidad). */
 @Composable

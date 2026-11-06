@@ -9,12 +9,14 @@ declare(strict_types=1);
  * @var bool $conVence                 true en el ingreso: fecha de vencimiento opcional del lote
  * @var bool $conImporte               true en la venta: columna de importe que llena public/app.js
  * @var array<int, float> $stockPorProducto  stock de la tienda, para que app.js avise si no alcanza (opcional)
+ * @var array<int, string[]> $otrosCodigos   otros codigos de cada producto, para el lector de la venta (opcional)
  */
 $conCosto ??= false;
 $conImporte ??= false;
 $conVence ??= false;
 $vencesViejos = is_array($viejo['vence'] ?? null) ? $viejo['vence'] : [];
 $stockPorProducto ??= [];
+$otrosCodigos ??= [];
 $productosViejos = is_array($viejo['producto'] ?? null) ? $viejo['producto'] : [];
 $cantidadesViejas = is_array($viejo['cantidad'] ?? null) ? $viejo['cantidad'] : [];
 $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
@@ -43,6 +45,8 @@ $costosViejos = is_array($viejo['costo'] ?? null) ? $viejo['costo'] : [];
                         <option value="<?= $p->getIdProducto() ?>" <?= $elegido === (string) $p->getIdProducto() ? 'selected' : '' ?>
                                 data-precio="<?= e(number_format($p->getPrecioVenta(), 2, '.', '')) ?>" data-peso="<?= $p->esAlPeso() ? '1' : '0' ?>"
                                 <?php if ($p->getCodigoBarras() !== null): ?>data-codigo="<?= e($p->getCodigoBarras()) ?>"<?php endif; ?>
+                                <?php $codigosLector = array_merge($p->getCodigoBarras() !== null ? [$p->getCodigoBarras()] : [], $otrosCodigos[$p->getIdProducto()] ?? []); ?>
+                                <?php if ($codigosLector !== []): ?>data-codigos="<?= e(implode(' ', $codigosLector)) ?>"<?php endif; ?>
                                 <?php if (isset($stockPorProducto[$p->getIdProducto()])): ?>data-stock="<?= e(number_format($stockPorProducto[$p->getIdProducto()], 3, '.', '')) ?>"<?php endif; ?>>
                             <?= e($p->getNombreProducto()) ?> · <?= e(soles($p->getPrecioVenta())) ?><?= $p->esAlPeso() ? ' /kg' : '' ?>
                         </option>

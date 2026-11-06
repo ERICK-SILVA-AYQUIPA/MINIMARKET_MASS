@@ -226,6 +226,8 @@ class VentaController extends Controller
             }
         }
         asort($categorias);
+        // El lector de codigos de la venta tambien reconoce los otros codigos de cada producto (migracion 023)
+        $otrosCodigos = $this->productos->otrosCodigosTodos();
 
         // Promociones de hoy: el cartel de oferta en cada producto y las de toda la compra arriba del cobro
         $ofertas = [];
