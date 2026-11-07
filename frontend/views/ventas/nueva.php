@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 /**
- * V: pantalla de venta del cajero. Izquierda: productos con su foto; derecha: carrito, comprobante y cobro.
+ * V: pantalla de venta del cajero. Izquierda: productos con su foto; derecha: carrito y "Cobrar", que abre la ventana flotante de pago.
  * Sin JavaScript se vende con las filas de producto y cantidad; con JavaScript esas filas se llenan desde la
  * cuadricula y se ven como un carrito (public/js/app.js), pero siguen siendo lo que se envia.
  * El total lo calcula el servidor con el precio de la base.
@@ -77,7 +77,7 @@ $conDescuento = $v('descuento_valor') !== '';
             $guiaPasos = [
                 'Escanea el código de barras (el cursor ya está en el campo) o toca su foto: entra al carrito de la derecha. Tocarlo otra vez suma 1; en el carrito cambias la cantidad o lo quitas.',
                 'Para lo que va al peso (papa, plátano…), tócalo y escribe en el carrito los kg que marca la balanza, por ejemplo 1.250.',
-                'Debajo del carrito ves el total (ya con las promociones del día) y el vuelto al momento. Elige boleta o factura y el medio de pago: efectivo, débito, crédito o Sip.',
+                'Debajo del carrito ves el total (ya con las promociones del día). Toca Cobrar (o F9): se abre la ventana de pago, donde eliges boleta o factura, el medio de pago (efectivo, débito, crédito o Sip) y ves el vuelto al momento.',
             ];
             require __DIR__ . '/../parciales/guia.php';
             ?>
@@ -179,21 +179,6 @@ $conDescuento = $v('descuento_valor') !== '';
                 <ul class="avisos-vivo" data-avisos></ul>
                 <p class="ayuda">Cálculo de ayuda: al registrar, el servidor vuelve a calcular con los precios y promociones de la base.</p>
             </div>
-            <fieldset class="sin-borde">
-                <legend>Comprobante</legend>
-                <div class="opciones">
-                    <label><input type="radio" name="tipo" value="B" <?= $v('tipo') !== 'F' ? 'checked' : '' ?>> Boleta</label>
-                    <label><input type="radio" name="tipo" value="F" <?= $v('tipo') === 'F' ? 'checked' : '' ?>> Factura</label>
-                </div>
-            </fieldset>
-
-            <div class="rotulo-con-estado">
-                <label for="documento">DNI o RUC del cliente</label>
-                <span class="etiqueta neutra" data-cliente aria-live="polite" hidden>Cliente varios</span>
-            </div>
-            <span class="ayuda">Vacío = CLIENTE VARIOS. La factura exige RUC.</span>
-            <input id="documento" name="documento" inputmode="numeric" maxlength="11" autocomplete="off" value="<?= e($v('documento')) ?>">
-
             <?php if ($topeDescuento > 0): ?>
             <details class="pago" data-descuento<?= $conDescuento ? ' open' : '' ?>>
                 <summary>Descuento a toda la compra</summary>
@@ -216,60 +201,98 @@ $conDescuento = $v('descuento_valor') !== '';
             </details>
             <?php endif; ?>
 
-            <fieldset class="sin-borde">
-                <legend>Medio de pago</legend>
-                <div class="opciones medios-pago" data-medios-pago>
-                    <?php foreach ($medios as $valorMedio => [$textoMedio, $iconoMedio]): ?>
-                        <label><input type="radio" name="medio_pago" value="<?= e($valorMedio) ?>" <?= $medioElegido === $valorMedio ? 'checked' : '' ?>><?php if ($iconoMedio === 'billete'): ?><?= icono('billete') ?><?php elseif ($iconoMedio === 'qr'): ?><?= icono('qr') ?><?php else: ?><?= icono('tarjeta') ?><?php endif; ?><?= e($textoMedio) ?></label>
-                    <?php endforeach; ?>
+            <!-- Ventana flotante de pago: con JavaScript se abre con "Cobrar" (o F9) encima de la pantalla
+                 (public/js/app.js la mete en un <dialog>). Sin JavaScript se ve aqui mismo, debajo del carrito. -->
+            <div class="ventana-pago" data-ventana-pago>
+                <div class="ventana-pago-cabeza" data-solo-js hidden>
+                    <h2 id="ventana-pago-titulo">Cobrar</h2>
+                    <button type="button" class="ventana-pago-cerrar" data-cerrar-pago aria-label="Volver al carrito"><?= icono('cerrar') ?></button>
                 </div>
-            </fieldset>
-
-            <div class="pago-medio" data-pago="tarjeta">
-                <p class="sutil" data-sin-js>Solo para débito o crédito.</p>
-                <label for="tarjeta_marca">Marca de la tarjeta</label>
-                <input id="tarjeta_marca" name="tarjeta_marca" maxlength="20" list="marcas-tarjeta" autocomplete="off" value="<?= e($v('tarjeta_marca')) ?>">
-                <datalist id="marcas-tarjeta"><option value="VISA"><option value="MASTERCARD"><option value="AMEX"><option value="DINERS"></datalist>
-                <div class="descuento-valor">
-                    <div>
-                        <label for="tarjeta_ultimos4">Últimos 4 dígitos</label>
-                        <input id="tarjeta_ultimos4" name="tarjeta_ultimos4" inputmode="numeric" maxlength="4" autocomplete="off" value="<?= e($v('tarjeta_ultimos4')) ?>">
-                    </div>
-                    <div>
-                        <label for="tarjeta_autorizacion">Autorización</label>
-                        <input id="tarjeta_autorizacion" name="tarjeta_autorizacion" maxlength="10" autocomplete="off" value="<?= e($v('tarjeta_autorizacion')) ?>">
-                    </div>
+                <div class="ventana-pago-total" data-solo-js hidden>
+                    <span>Total a cobrar <small data-pago-cuenta></small></span>
+                    <strong data-pago-total>S/ 0.00</strong>
                 </div>
-                <label for="tarjeta_monto">Monto con tarjeta <span class="ayuda">vacío = todo el total; si es menos, el resto en efectivo</span></label>
-                <input id="tarjeta_monto" name="tarjeta_monto" inputmode="decimal" autocomplete="off" value="<?= e($v('tarjeta_monto')) ?>">
+                <fieldset class="sin-borde">
+                    <legend>Comprobante</legend>
+                    <div class="opciones">
+                        <label><input type="radio" name="tipo" value="B" <?= $v('tipo') !== 'F' ? 'checked' : '' ?>> Boleta</label>
+                        <label><input type="radio" name="tipo" value="F" <?= $v('tipo') === 'F' ? 'checked' : '' ?>> Factura</label>
+                    </div>
+                </fieldset>
+
+                <div class="rotulo-con-estado">
+                    <label for="documento">DNI o RUC del cliente</label>
+                    <span class="etiqueta neutra" data-cliente aria-live="polite" hidden>Cliente varios</span>
+                </div>
+                <span class="ayuda">Vacío = CLIENTE VARIOS. La factura exige RUC.</span>
+                <input id="documento" name="documento" inputmode="numeric" maxlength="11" autocomplete="off" value="<?= e($v('documento')) ?>">
+
+                <fieldset class="sin-borde">
+                    <legend>Medio de pago</legend>
+                    <div class="opciones medios-pago" data-medios-pago>
+                        <?php foreach ($medios as $valorMedio => [$textoMedio, $iconoMedio]): ?>
+                            <label><input type="radio" name="medio_pago" value="<?= e($valorMedio) ?>" <?= $medioElegido === $valorMedio ? 'checked' : '' ?>><?php if ($iconoMedio === 'billete'): ?><?= icono('billete') ?><?php elseif ($iconoMedio === 'qr'): ?><?= icono('qr') ?><?php else: ?><?= icono('tarjeta') ?><?php endif; ?><?= e($textoMedio) ?></label>
+                        <?php endforeach; ?>
+                    </div>
+                </fieldset>
+
+                <div class="pago-medio" data-pago="tarjeta">
+                    <p class="sutil" data-sin-js>Solo para débito o crédito.</p>
+                    <label for="tarjeta_marca">Marca de la tarjeta</label>
+                    <input id="tarjeta_marca" name="tarjeta_marca" maxlength="20" list="marcas-tarjeta" autocomplete="off" value="<?= e($v('tarjeta_marca')) ?>">
+                    <datalist id="marcas-tarjeta"><option value="VISA"><option value="MASTERCARD"><option value="AMEX"><option value="DINERS"></datalist>
+                    <div class="descuento-valor">
+                        <div>
+                            <label for="tarjeta_ultimos4">Últimos 4 dígitos</label>
+                            <input id="tarjeta_ultimos4" name="tarjeta_ultimos4" inputmode="numeric" maxlength="4" autocomplete="off" value="<?= e($v('tarjeta_ultimos4')) ?>">
+                        </div>
+                        <div>
+                            <label for="tarjeta_autorizacion">Autorización</label>
+                            <input id="tarjeta_autorizacion" name="tarjeta_autorizacion" maxlength="10" autocomplete="off" value="<?= e($v('tarjeta_autorizacion')) ?>">
+                        </div>
+                    </div>
+                    <label for="tarjeta_monto">Monto con tarjeta <span class="ayuda">vacío = todo el total; si es menos, el resto en efectivo</span></label>
+                    <input id="tarjeta_monto" name="tarjeta_monto" inputmode="decimal" autocomplete="off" value="<?= e($v('tarjeta_monto')) ?>">
+                </div>
+
+                <div class="pago-medio" data-pago="sip">
+                    <p class="sutil" data-sin-js>Solo para Sip.</p>
+                    <label for="sip_modalidad">Modalidad</label>
+                    <select id="sip_modalidad" name="sip_modalidad">
+                        <option value="QR" <?= $v('sip_modalidad') !== 'TARJETA_SIP' ? 'selected' : '' ?>>QR</option>
+                        <option value="TARJETA_SIP" <?= $v('sip_modalidad') === 'TARJETA_SIP' ? 'selected' : '' ?>>Tarjeta Sip</option>
+                    </select>
+                    <label for="sip_operacion">Código de operación</label>
+                    <input id="sip_operacion" name="sip_operacion" maxlength="30" autocomplete="off" value="<?= e($v('sip_operacion')) ?>">
+                    <label for="sip_monto">Monto con Sip <span class="ayuda">vacío = todo el total; si es menos, el resto en efectivo</span></label>
+                    <input id="sip_monto" name="sip_monto" inputmode="decimal" autocomplete="off" value="<?= e($v('sip_monto')) ?>">
+                </div>
+
+                <div class="pago-medio" data-pago="efectivo">
+                    <label for="efectivo_recibido">Efectivo que entrega el cliente (S/)</label>
+                    <span class="ayuda">Cubre lo que falte del total; el vuelto sale en el comprobante.</span>
+                    <input id="efectivo_recibido" name="efectivo_recibido" inputmode="decimal" value="<?= e($v('efectivo_recibido')) ?>">
+                    <div class="efectivo-rapido" data-efectivo-rapido role="group" aria-label="Montos rápidos de efectivo" hidden></div>
+                </div>
+
+                <div class="ventana-pago-vuelto" data-pago-vuelto-caja data-solo-js hidden aria-live="polite">
+                    <span>Vuelto</span>
+                    <strong data-pago-vuelto>S/ 0.00</strong>
+                </div>
+                <ul class="avisos-vivo" data-pago-avisos hidden></ul>
+
+                <div class="botones-formulario">
+                    <button class="acento grande" type="submit" aria-keyshortcuts="F9"><?= icono('ok') ?>Registrar venta</button>
+                    <small>El sistema calcula el total con los precios vigentes y valida el stock. <span class="solo-teclado">Atajo: <kbd>F9</kbd>.</span></small>
+                </div>
             </div>
 
-            <div class="pago-medio" data-pago="sip">
-                <p class="sutil" data-sin-js>Solo para Sip.</p>
-                <label for="sip_modalidad">Modalidad</label>
-                <select id="sip_modalidad" name="sip_modalidad">
-                    <option value="QR" <?= $v('sip_modalidad') !== 'TARJETA_SIP' ? 'selected' : '' ?>>QR</option>
-                    <option value="TARJETA_SIP" <?= $v('sip_modalidad') === 'TARJETA_SIP' ? 'selected' : '' ?>>Tarjeta Sip</option>
-                </select>
-                <label for="sip_operacion">Código de operación</label>
-                <input id="sip_operacion" name="sip_operacion" maxlength="30" autocomplete="off" value="<?= e($v('sip_operacion')) ?>">
-                <label for="sip_monto">Monto con Sip <span class="ayuda">vacío = todo el total; si es menos, el resto en efectivo</span></label>
-                <input id="sip_monto" name="sip_monto" inputmode="decimal" autocomplete="off" value="<?= e($v('sip_monto')) ?>">
-            </div>
-
-            <div class="pago-medio" data-pago="efectivo">
-                <label for="efectivo_recibido">Efectivo que entrega el cliente (S/)</label>
-                <span class="ayuda">Cubre lo que falte del total; el vuelto sale en el comprobante.</span>
-                <input id="efectivo_recibido" name="efectivo_recibido" inputmode="decimal" value="<?= e($v('efectivo_recibido')) ?>">
-                <div class="efectivo-rapido" data-efectivo-rapido role="group" aria-label="Montos rápidos de efectivo" hidden></div>
-            </div>
-
-            <div class="botones-formulario">
-                <button class="acento grande" type="submit" aria-keyshortcuts="F9"><?= icono('ok') ?>Registrar venta</button>
-                <small>El sistema calcula el total con los precios vigentes y valida el stock. <span class="solo-teclado">Atajo: <kbd>F9</kbd>.</span></small>
+            <div class="botones-formulario abrir-pago" data-abrir-pago-caja data-solo-js hidden>
+                <button type="button" class="acento grande" data-abrir-pago aria-haspopup="dialog" aria-keyshortcuts="F9"><?= icono('venta') ?>Cobrar <span data-abrir-pago-monto></span></button>
+                <small>Se abre la ventana de pago: comprobante, medio de pago y vuelto. <span class="solo-teclado">Atajo: <kbd>F9</kbd>.</span></small>
             </div>
         </aside>
-        <!-- Celular: el total siempre a la vista; "Cobrar" baja al carrito y al cobro (app.js la muestra con productos) -->
+        <!-- Celular: el total siempre a la vista; "Cobrar" abre la ventana de pago (app.js la muestra con productos) -->
         <div class="cobro-fijo" data-cobro-fijo hidden>
             <div class="cobro-fijo-total">
                 <span data-cobro-fijo-cuenta>0 productos</span>
