@@ -117,12 +117,8 @@ jobs:
   e2e:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
 
       # Base recien creada: las pruebas abren un turno, venden y cierran la caja de verdad
       - name: Levantar MySQL 8.4.11
@@ -133,16 +129,7 @@ jobs:
 
       # Mismo script que en las PCs del equipo: misma imagen, mismas letras, mismos pixeles
       - name: Pruebas E2E y capturas (Playwright en Docker)
-        run: bash tests/e2e/correr_en_docker.sh --update-snapshots
-
-      - name: TEMPORAL guardar las capturas nuevas en la rama del PR
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/e2e
-          git status --short
-          git commit -m "E2E: capturas base nuevas (menú con Asistente), generadas en la CI" || exit 0
-          git push origin HEAD:${{ github.head_ref }}
+        run: bash tests/e2e/correr_en_docker.sh
 
       # Si una captura no coincide, el informe muestra la esperada, la nueva y la diferencia
       - name: Subir el informe de Playwright si algo fallo
