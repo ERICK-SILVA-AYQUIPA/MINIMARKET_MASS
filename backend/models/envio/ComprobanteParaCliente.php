@@ -29,7 +29,11 @@ final class ComprobanteParaCliente
         private float $descuentoVenta,  // descuento de toda la venta (no el de cada producto)
         private float $total,
         private array $pagos,
-        private bool $interno           // ticket interno: aun no vale ante SUNAT
+        private bool $interno,          // ticket interno: aun no vale ante SUNAT
+        private string $ruc = '',       // RUC de la empresa (vacio si no esta en el .env)
+        private ?float $gravada = null, // op. gravada e IGV (DesgloseIgv), si se conocen
+        private ?float $igv = null,
+        private ?string $enlacePdf = null // enlace publico al PDF (solo si la pagina se abre desde internet)
     ) {
     }
 
@@ -56,41 +60,71 @@ final class ComprobanteParaCliente
         return 'Tu ' . mb_strtolower($this->tipo) . ' ' . $this->numero . ' de ' . $this->empresa;
     }
 
-    // El mismo texto para WhatsApp y para el correo (en WhatsApp *texto* sale en negrita)
+    /**
+     * El mensaje para el cliente, ordenado como el ticket de una tienda: cabecera, cada producto en su linea,
+     * totales y forma de pago. Sin tablas ni bloques de codigo (en WhatsApp salen como cuadros grises):
+     * solo *negrita* y _cursiva_ de WhatsApp. Para el correo va igual pero sin esas marcas.
+     */
     public function texto(bool $paraWhatsApp = true): string
     {
-        $n = $paraWhatsApp ? '*' : '';
+        $b = fn(string $t): string => $paraWhatsApp ? '*' . $t . '*' : $t;
+        $i = fn(string $t): string => $paraWhatsApp ? '_' . $t . '_' : $t;
         $s = fn(float $monto): string => 'S/ ' . Dinero::aTexto(Dinero::centimos($monto));
-        $filas = [
-            $n . $this->empresa . $n,
-            $this->tienda . ($this->direccion !== '' ? ' · ' . $this->direccion : ''),
-            '',
-            $n . $this->tipo . ' ' . $this->numero . $n,
-            'Fecha: ' . $this->fecha,
-            'Cliente: ' . $this->cliente,
-            '',
-        ];
+        $raya = '------------------------------';
+
+        $filas = [$b($this->empresa)];
+        if ($this->ruc !== '') {
+            $filas[] = 'RUC ' . $this->ruc;
+        }
+        $filas[] = $this->tienda;
+        if ($this->direccion !== '') {
+            $filas[] = $this->direccion;
+        }
+        array_push($filas, $raya, $b(mb_strtoupper($this->tipo)), $b($this->numero), 'Fecha: ' . $this->fecha, 'Cliente: ' . $this->cliente, $raya);
+
+        $descuentos = $this->descuentoVenta;
         foreach ($this->lineas as $l) {
-            $filas[] = $l['cantidad'] . ' x ' . $l['nombre'] . ' (' . $s($l['precio']) . ') = ' . $s($l['importe']);
+            $filas[] = $b($l['nombre']);
+            $filas[] = $l['cantidad'] . ' x ' . $s($l['precio']) . '  =  ' . $s($l['importe']);
             if ($l['descuento'] > 0) {
-                $filas[] = '   Descuento: -' . $s($l['descuento']);
+                $filas[] = $i('Descuento -' . $s($l['descuento']));
+                $descuentos += $l['descuento'];
             }
+            $filas[] = '';
         }
-        if ($this->descuentoVenta > 0) {
-            $filas[] = 'Descuento de la compra: -' . $s($this->descuentoVenta);
+        array_pop($filas);
+        $filas[] = $raya;
+        if ($descuentos > 0) {
+            $filas[] = 'Subtotal: ' . $s($this->total + $descuentos);
+            $filas[] = 'Descuentos: -' . $s($descuentos);
         }
-        $filas[] = '';
-        $filas[] = $n . 'TOTAL: ' . $s($this->total) . $n;
+        if ($this->gravada !== null && $this->igv !== null) {
+            $filas[] = 'Op. gravada: ' . $s($this->gravada);
+            $filas[] = 'IGV 18%: ' . $s($this->igv);
+        }
+        $filas[] = $b('TOTAL: ' . $s($this->total));
         foreach ($this->pagos as $p) {
-            $filas[] = 'Pagado con ' . $p['metodo'] . ': ' . $s($p['monto']);
+            $filas[] = 'Pago: ' . self::nombrePago($p['metodo']) . ' ' . $s($p['monto']);
+        }
+        $filas[] = $raya;
+        if ($this->enlacePdf !== null) {
+            $filas[] = 'Descarga tu comprobante en PDF:';
+            $filas[] = $this->enlacePdf;
+            $filas[] = '';
         }
         if ($this->interno) {
+            $filas[] = $i('Ticket interno, no válido como comprobante de pago ante SUNAT.');
             $filas[] = '';
-            $filas[] = 'Ticket interno: no es un comprobante de pago ante SUNAT.';
         }
-        $filas[] = '';
-        $filas[] = '¡Gracias por tu compra!';
+        $filas[] = 'Gracias por tu compra en ' . $this->empresa . '. ¡Te esperamos pronto!';
         return implode("\n", $filas);
+    }
+
+    // EFECTIVO => Efectivo, TARJETA DE DEBITO => Tarjeta de debito (como lo escribiria una persona)
+    private static function nombrePago(string $metodo): string
+    {
+        $texto = mb_strtolower($metodo);
+        return mb_strtoupper(mb_substr($texto, 0, 1)) . mb_substr($texto, 1);
     }
 
     // Sin celular, WhatsApp pregunta a que contacto mandarlo
@@ -149,6 +183,9 @@ final class ComprobanteParaCliente
         $s = fn(float $monto): string => 'S/ ' . Dinero::aTexto(Dinero::centimos($monto));
         $pdf = new DocumentoPdf($this->tipo . ' ' . $this->numero, $this->empresa);
         $pdf->titulo($this->empresa);
+        if ($this->ruc !== '') {
+            $pdf->texto('RUC ' . $this->ruc, 9, false);
+        }
         $pdf->texto($this->tienda . ($this->direccion !== '' ? ' · ' . $this->direccion : ''));
         $pdf->subtitulo($this->tipo . ' ' . $this->numero);
         $pdf->texto('Fecha: ' . $this->fecha . '   ·   Cliente: ' . $this->cliente, 9, false);
@@ -159,6 +196,9 @@ final class ComprobanteParaCliente
         $pdf->tabla([['Cant.', 1, 'der'], ['Producto', 5, 'izq'], ['P. unit.', 1.5, 'der'], ['Descuento', 1.5, 'der'], ['Importe', 1.5, 'der']], $filas, 'Sin productos.');
         if ($this->descuentoVenta > 0) {
             $pdf->texto('Descuento de la compra: -' . $s($this->descuentoVenta), 10, false);
+        }
+        if ($this->gravada !== null && $this->igv !== null) {
+            $pdf->texto('Op. gravada: ' . $s($this->gravada) . '   ·   IGV 18%: ' . $s($this->igv), 9, false);
         }
         $pdf->subtitulo('TOTAL: ' . $s($this->total));
         foreach ($this->pagos as $p) {

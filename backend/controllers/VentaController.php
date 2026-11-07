@@ -19,6 +19,7 @@ require_once __DIR__ . '/../models/AnchoTicket.php';
 require_once __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 require_once __DIR__ . '/../models/envio/ComprobanteParaCliente.php';
 require_once __DIR__ . '/../models/envio/CorreoSmtp.php';
+require_once __DIR__ . '/../models/envio/EnlaceComprobante.php';
 
 /**
  * C: ventas por tienda, comprobante (boleta o factura), registrar una venta, anularla o devolver parte.
@@ -195,7 +196,7 @@ class VentaController extends Controller
         $ticketInterno = FacturacionElectronica::ticketEsInterno(FacturacionElectronica::desdeEntorno());
 
         // Enviar al cliente por WhatsApp o correo: el celular de su ficha ya viene escrito
-        $envio = $this->paraCliente($venta, $serie, $tienda, $cliente, $lineas, $pagos, $descuentoVenta, $emisor, $ticketInterno);
+        $envio = $this->paraCliente($venta, $serie, $tienda, $cliente, $lineas, $pagos, $descuentoVenta, $emisor, $ticketInterno, $desglose);
         $celularCliente = $venta->getIdCliente() !== null ? $this->clientes->buscarPorId($venta->getIdCliente())?->getTelefono() : null;
         $correoDesdeServidor = CorreoSmtp::desdeEntorno() !== null;
 
@@ -210,7 +211,7 @@ class VentaController extends Controller
      * @param ?array{monto: float} $descuentoVenta
      */
     private function paraCliente(Venta $venta, SerieComprobante $serie, Tienda $tienda, string $cliente, array $lineas, array $pagos,
-        ?array $descuentoVenta, Emisor $emisor, bool $interno): ComprobanteParaCliente
+        ?array $descuentoVenta, Emisor $emisor, bool $interno, DesgloseIgv $desglose): ComprobanteParaCliente
     {
         $filas = [];
         foreach ($lineas as $linea) {
@@ -237,8 +238,34 @@ class VentaController extends Controller
             (float) ($descuentoVenta['monto'] ?? 0),
             $venta->getTotal(),
             array_map(fn(PagoVenta $p): array => ['metodo' => $p->getNombreMetodo(), 'monto' => $p->getMontoPagado()], $validos),
-            $interno
+            $interno,
+            $emisor->estaConfigurado() ? $emisor->getRuc() : '',
+            $desglose->getGravada() / 100,
+            $desglose->getIgv() / 100,
+            EnlaceComprobante::url($serie->getSerie(), $venta->getNumeroCorrelativo())
         );
+    }
+
+    /**
+     * GET /?ruta=boleta&serie=B001&numero=12&f=<firma>: el PDF del comprobante para el cliente, sin entrar al sistema.
+     * El enlace va en el mensaje de WhatsApp (EnlaceComprobante); sin la firma correcta es como si no existiera.
+     */
+    public function pdfPublico(?string $serieTexto, ?string $numeroTexto, ?string $firma): void
+    {
+        $venta = $serieTexto !== null && preg_match('/^[BF][0-9]{3}$/', $serieTexto) === 1
+            && $numeroTexto !== null && preg_match('/^[0-9]{1,8}$/', $numeroTexto) === 1
+            && EnlaceComprobante::esValida($serieTexto, (int) $numeroTexto, $firma)
+            ? $this->ventas->buscarPorComprobante($serieTexto, (int) $numeroTexto) : null;
+        if ($venta === null || $venta->estaAnulada()) {
+            $this->noEncontrado('Este enlace no es válido o el comprobante fue anulado.');
+            return;
+        }
+        $envio = $this->datosComprobante($venta)['envio'];
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $envio->nombrePdf() . '"');
+        header('Cache-Control: private, no-store');
+        header('X-Robots-Tag: noindex');
+        echo $envio->pdf();
     }
 
     // POST /?ruta=comprobante_correo: manda el comprobante (con su PDF) al correo del cliente por el SMTP del .env
