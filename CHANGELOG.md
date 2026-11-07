@@ -5,6 +5,12 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Asistente: sistema inteligente de la tienda** (sin IA ni clave, desde la base): *¿Qué pido al proveedor y
+  cuánto?* (lo que se vende por día, para cuántos días alcanza y cuánto pedir, con el botón para armar la orden de
+  compra), *¿Cuánto venderemos esta semana?* (pronóstico de cada día con el mismo día de las últimas 8 semanas y si
+  las ventas suben o bajan), *¿Qué productos están por vencer?*, *¿Cuáles son las horas punta?* (para armar los
+  turnos) y *¿Qué alertas hay en la tienda?* (stock bajo, por vencer y lo que no se vende, juntos). Claude también
+  las usa cuando hay `ANTHROPIC_API_KEY`. Cada rol ve solo lo suyo.
 - **Asistente: preguntas rápidas de la tienda, sin IA**: botones con las preguntas de siempre (ventas de hoy, ayer y
   del mes, más vendidos, por cajero, medios de pago, cada tienda, stock bajo, lo que no se vende hace 30 días, mejores
   clientes, hacer una venta) que se responden al instante desde la base, sin clave ni internet. Sin clave, lo escrito

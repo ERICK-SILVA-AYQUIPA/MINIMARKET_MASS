@@ -805,6 +805,12 @@ revisar('Escrito libre sin clave: se entiende por palabras ("cuánto vendimos ay
     && $json($rosa)['ok'] === true && str_starts_with($json($rosa)['respuesta'], 'Ayer'));
 revisar('...o se busca como producto ("precio de la leche gloria")', $luis->postJson('asistente_preguntar', ['pregunta' => 'precio de la leche gloria']) === 200
     && str_contains($json($luis)['respuesta'], 'Leche evaporada Gloria') && str_contains($json($luis)['respuesta'], 'S/ 4.50'));
+revisar('Preguntas inteligentes: Rosa pide el pronóstico de la semana y las alertas de la tienda', $rosa->get('ruta=asistente') === 200 && $rosa->tiene('data-asistente-rapida="pronostico"')
+    && $rosa->postJson('asistente_preguntar', ['rapida' => 'pronostico']) === 200 && $json($rosa)['ok'] === true
+    && $rosa->postJson('asistente_preguntar', ['pregunta' => '¿Qué alertas hay?']) === 200 && $json($rosa)['ok'] === true
+    && $json($rosa)['pregunta'] === '¿Qué alertas hay?');
+revisar('El cajero no tiene el pronóstico ni qué pedir, aunque mande la clave', $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-rapida="pedido"')
+    && $luis->postJson('asistente_preguntar', ['rapida' => 'pedido']) === 200 && $json($luis)['ok'] === false);
 revisar('Sin JavaScript la pregunta rápida recarga el chat con la respuesta', $luis->post('asistente_preguntar', ['rapida' => 'stock_bajo']) === 303
     && str_contains($luis->cabeceras['location'] ?? '', 'ruta=asistente') && $luis->get('ruta=asistente') === 200 && $luis->tiene('stock mínimo'));
 revisar('Preguntar sin el token CSRF: 403', $luis->postJson('asistente_preguntar', ['pregunta' => 'hola', 'csrf' => 'x']) === 403);

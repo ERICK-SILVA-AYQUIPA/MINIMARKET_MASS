@@ -15,11 +15,17 @@ Cada rol ve solo las que puede usar:
 | ¿Cuánto vendió cada tienda este mes? | administrador de la cadena |
 | ¿Qué productos tienen stock bajo? · ¿Qué productos no se venden hace 30 días? | todos (su tienda) |
 | ¿Quiénes son los mejores clientes del mes? | cajero y administrador |
+| ¿Qué alertas hay en la tienda? (stock bajo, por vencer y lo que no se vende, en un solo mensaje) | todos (su tienda) |
+| ¿Qué pido al proveedor y cuánto? · ¿Qué productos están por vencer? | almacenero y administrador |
+| ¿Cuánto venderemos esta semana? · ¿Cuáles son las horas punta? | administrador de la tienda |
 | Quiero hacer una venta (botón a Nueva venta) | quien vende |
 
 Sin clave, lo que se escribe también funciona: se reconoce por palabras clave ("cuánto vendimos ayer", "stock bajo",
 "clientes", "yape") y, si no, se busca como producto ("precio del arroz Costeño"). Con clave, lo escrito lo responde
 Claude; si Claude no responde (sin internet, clave mala), se usa este mismo modo.
+
+Las respuestas "inteligentes" (qué pedir, pronóstico, horas punta, alertas) son cuentas sobre las ventas guardadas,
+no IA: funcionan sin clave y terminan con una idea concreta (pedir, poner en promoción, poner más cajeros).
 
 ## Qué se le puede preguntar
 
@@ -31,6 +37,10 @@ Claude; si Claude no responde (sin internet, clave mala), se usa este mismo modo
 | ¿Cuánto cuesta la leche Gloria? ¿Hay arroz Costeño? | `buscar_productos` (precio y stock) | todos; el cajero y el almacenero solo ven su tienda |
 | ¿Qué productos tienen stock bajo? | `productos_por_reponer` (PanelRepository) | todos, de su tienda |
 | ¿Qué no se vende? | `productos_sin_venta` (ReporteRepository::catalogoConStock) | todos, de su tienda |
+| ¿Qué pido y cuánto? | `sugerencia_pedido`: Reposicion (venta por día de 14 días, para cuántos días alcanza, cuánto pedir para 14 días) y botón *Armar la orden de compra* | almacenero y administrador |
+| ¿Qué vence pronto? | `productos_por_vencer`: Vencimiento (reparto FIFO de los lotes), con su valor al costo | almacenero y administrador |
+| ¿Cuánto venderemos esta semana? | `pronostico_ventas`: AnalisisVentas::pronostico, el promedio del mismo día de la semana en las últimas 8 semanas y la tendencia | administrador de la tienda |
+| ¿A qué hora viene más gente? | `horas_punta`: AnalisisVentas::horasPunta, con el mapa día × hora de 28 días | administrador de la tienda |
 | ¿Quiénes compran más? | `mejores_clientes` (AsistenteRepository) | cajero y administrador |
 | Quiero hacer una venta / registrar un ingreso | `abrir_pagina`: botón a esa pantalla | según el menú de cada rol |
 

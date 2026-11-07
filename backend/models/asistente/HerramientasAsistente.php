@@ -6,11 +6,17 @@ require_once __DIR__ . '/../TiendaRepository.php';
 require_once __DIR__ . '/../ReporteRepository.php';
 require_once __DIR__ . '/../PanelRepository.php';
 require_once __DIR__ . '/../AsistenteRepository.php';
+require_once __DIR__ . '/../IngresoRepository.php';
+require_once __DIR__ . '/../AnalisisVentas.php';
+require_once __DIR__ . '/../Reposicion.php';
+require_once __DIR__ . '/../Vencimiento.php';
+require_once __DIR__ . '/../Cantidad.php';
 require_once __DIR__ . '/Herramientas.php';
 
 /**
  * Lo que el asistente puede consultar o hacer: cada herramienta es una consulta del sistema que ya existia
- * (reportes, stock, por reponer) o un enlace a una pantalla. Claude elige cual usar; los permisos se revisan
+ * (reportes, stock, por reponer, por vencer) o un enlace a una pantalla. Las "inteligentes" (cuanto pedir,
+ * pronostico de la semana, horas punta) hacen sus cuentas con Reposicion y AnalisisVentas, sin IA. Claude elige cual usar; los permisos se revisan
  * AQUI, en PHP, con el mismo Usuario que usa el resto de la pagina: el cajero no ve los reportes ni otra tienda
  * aunque se lo pida al asistente. Ninguna herramienta cambia datos: para vender, ingresar o ajustar, el asistente
  * lleva a la pantalla y el empleado lo confirma ahi.
@@ -51,6 +57,8 @@ class HerramientasAsistente implements Herramientas
         private ReporteRepository $reportes,
         private PanelRepository $panel,
         private AsistenteRepository $consultas,
+        private IngresoRepository $ingresos,
+        private DateTimeImmutable $hoy = new DateTimeImmutable('today'),
     ) {}
 
     /** @return array<int, array{texto: string, url: string}> */
@@ -113,6 +121,37 @@ class HerramientasAsistente implements Herramientas
                 'dias' => ['type' => 'integer', 'description' => 'Días sin venderse (7 a 180; por defecto 30)'],
             ], 'additionalProperties' => false],
         ];
+        if ($this->puedeVerAlmacen()) {
+            $lista[] = [
+                'name' => 'sugerencia_pedido',
+                'description' => 'Qué pedir al proveedor y cuánto: para cada producto en stock mínimo de la tienda actual, lo que se vende '
+                    . 'por día (últimos ' . Reposicion::DIAS_VENTA . ' días), para cuántos días alcanza lo que queda y la cantidad sugerida '
+                    . 'para cubrir ' . Reposicion::DIAS_OBJETIVO . ' días. Los que se acaban antes van primero.',
+                'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
+            ];
+            $lista[] = [
+                'name' => 'productos_por_vencer',
+                'description' => 'Lotes de la tienda actual que vencen pronto o ya vencieron, con cuánto queda y su valor al costo.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'dias' => ['type' => 'integer', 'description' => 'Que venzan en estos días o antes (7 a 60; por defecto 30)'],
+                ], 'additionalProperties' => false],
+            ];
+        }
+        if ($this->puedeVerReportes()) {
+            $lista[] = [
+                'name' => 'pronostico_ventas',
+                'description' => 'Cuánto se espera vender en la tienda actual cada uno de los próximos 7 días (desde hoy), según lo vendido '
+                    . 'el mismo día de la semana en las últimas ' . AnalisisVentas::SEMANAS_PRONOSTICO . ' semanas, y si las ventas van '
+                    . 'subiendo o bajando. Es una estimación, no una promesa.',
+                'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
+            ];
+            $lista[] = [
+                'name' => 'horas_punta',
+                'description' => 'Horas y día de la semana con más clientes (comprobantes) en la tienda actual en los últimos '
+                    . AnalisisVentas::DIAS_HORAS_PUNTA . ' días, y las horas más tranquilas. Sirve para armar los turnos de caja.',
+                'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
+            ];
+        }
         if ($this->puedeVerClientes()) {
             $lista[] = [
                 'name' => 'mejores_clientes',
@@ -146,6 +185,10 @@ class HerramientasAsistente implements Herramientas
             'productos_por_reponer' => $this->porReponer(),
             'productos_sin_venta'   => $this->sinVenta($entrada),
             'mejores_clientes'      => $this->mejoresClientes($entrada),
+            'sugerencia_pedido'     => $this->sugerenciaPedido(),
+            'productos_por_vencer'  => $this->porVencer($entrada),
+            'pronostico_ventas'     => $this->pronostico(),
+            'horas_punta'           => $this->horasPunta(),
             'abrir_pagina'          => $this->abrirPagina($entrada),
             default                 => ['error' => 'Esa herramienta no existe.'],
         };
@@ -319,6 +362,118 @@ class HerramientasAsistente implements Herramientas
             'mostrados' => $filas];
     }
 
+    // Quien recibe la mercaderia y su administrador (los que ven Reponer, Ingresos y Por vencer)
+    private function puedeVerAlmacen(): bool
+    {
+        return $this->usuario->puedeVerIngresos($this->usuario->getIdTienda());
+    }
+
+    private function nombreTienda(): ?string
+    {
+        return $this->tiendas->buscarPorId($this->usuario->getIdTienda())?->getNombreTienda();
+    }
+
+    private function sugerenciaPedido(): array
+    {
+        if (!$this->puedeVerAlmacen()) {
+            return ['error' => 'Lo que hay que pedir lo ven el almacenero y el administrador de la tienda.'];
+        }
+        $filas = [];
+        foreach ($this->panel->reposicion($this->usuario->getIdTienda(), Reposicion::DIAS_VENTA) as $f) {
+            $diaria = Reposicion::ventaDiaria($f['vendido']);
+            $pedir = Reposicion::sugerido($f['actual'], $f['minimo'], $diaria, $f['al_peso']);
+            if ($pedir <= 0) {
+                continue;
+            }
+            $filas[] = [
+                'producto'         => $f['nombre'],
+                'unidad'           => $f['unidad'],
+                'queda'            => $f['actual'] / 1000,
+                'minimo'           => $f['minimo'] / 1000,
+                'venta_por_dia'    => round($diaria / 1000, 2),
+                'alcanza_dias'     => Reposicion::diasCobertura($f['actual'], $diaria),
+                'pedir'            => $pedir / 1000,
+                'otras_tiendas'    => array_slice($f['otras'], 0, 2),
+            ];
+        }
+        // Lo que se acaba antes primero; lo que no se vende (sin dias) al final
+        usort($filas, fn(array $a, array $b): int => [$a['alcanza_dias'] ?? PHP_INT_MAX, $a['producto']]
+            <=> [$b['alcanza_dias'] ?? PHP_INT_MAX, $b['producto']]);
+        foreach ($filas as &$fila) {
+            $fila['otras_tiendas'] = array_map(fn(array $o): array => ['tienda' => $o['tienda'], 'le_sobra' => $o['sobrante'] / 1000],
+                $fila['otras_tiendas']);
+        }
+        unset($fila);
+        if ($filas !== []) {
+            $this->enlace('Armar la orden de compra', '/?ruta=ordenes&desde=reponer');
+        }
+        $this->enlace('Ver productos por reponer', '/?ruta=reponer');
+        return ['tienda' => $this->nombreTienda(), 'dias_que_debe_durar' => Reposicion::DIAS_OBJETIVO, 'total' => count($filas),
+            'mostrados' => array_slice($filas, 0, 20)];
+    }
+
+    private function porVencer(array $entrada): array
+    {
+        if (!$this->puedeVerAlmacen()) {
+            return ['error' => 'Los productos por vencer los ven el almacenero y el administrador de la tienda.'];
+        }
+        $dias = is_int($entrada['dias'] ?? null) ? max(7, min(60, $entrada['dias'])) : Vencimiento::DIAS_POR_DEFECTO;
+        $hoy = $this->hoy->format('Y-m-d');
+        $lotes = [];
+        foreach ($this->ingresos->lotesConVencimiento($this->usuario->getIdTienda()) as $idProducto => $datos) {
+            foreach (Vencimiento::porVencer(Vencimiento::repartirStock($datos['lotes'], $datos['stock']), $hoy, $dias) as $lote) {
+                $lotes[] = ['id' => $idProducto, 'vence' => (string) $lote['fecha_vencimiento'], 'dias' => (int) $lote['dias'],
+                    'queda' => $lote['restante'] / 1000, 'valor' => round($lote['restante'] / 1000 * $lote['costo'], 2)];
+            }
+        }
+        usort($lotes, fn(array $a, array $b): int => [$a['vence'], $a['id']] <=> [$b['vence'], $b['id']]);
+        $nombres = $this->consultas->nombresProductos(array_column($lotes, 'id'));
+        $filas = array_map(fn(array $l): array => [
+            'producto' => $nombres[$l['id']]['nombre'] ?? 'Producto ' . $l['id'],
+            'unidad'   => $nombres[$l['id']]['unidad'] ?? '',
+            'vence'    => $l['vence'],
+            'estado'   => Vencimiento::describir($l['dias']),
+            'vencido'  => $l['dias'] < 0,
+            'queda'    => $l['queda'],
+            'valor'    => $l['valor'],
+        ], $lotes);
+        $this->enlace('Ver productos por vencer', '/?ruta=vencimientos&dias=' . (in_array($dias, Vencimiento::DIAS_PERMITIDOS, true) ? $dias : 30));
+        return ['tienda' => $this->nombreTienda(), 'dias' => $dias, 'total' => count($filas),
+            'vencidos' => count(array_filter($filas, fn(array $f): bool => $f['vencido'])),
+            'valor_en_riesgo' => round(array_sum(array_column($filas, 'valor')), 2), 'moneda' => 'PEN (soles)',
+            'mostrados' => array_slice($filas, 0, 20)];
+    }
+
+    private function pronostico(): array
+    {
+        if (!$this->puedeVerReportes()) {
+            return ['error' => 'Tu rol no puede ver los reportes de ventas.'];
+        }
+        $hoy = $this->hoy;
+        $desde = $hoy->modify('-' . (7 * AnalisisVentas::SEMANAS_PRONOSTICO) . ' days')->format('Y-m-d');
+        $porDia = $this->reportes->porDia($this->usuario->getIdTienda(), $desde, $hoy->modify('-1 day')->format('Y-m-d'));
+        if ($porDia === []) {
+            return ['tienda' => $this->nombreTienda(), 'sin_historia' => true,
+                'nota' => 'No hay ventas en las últimas semanas para estimar.'];
+        }
+        $this->enlace('Ver estadísticas', '/?ruta=estadisticas');
+        return ['tienda' => $this->nombreTienda(), 'moneda' => 'PEN (soles)']
+            + AnalisisVentas::pronostico($porDia, $hoy)
+            + ['nota' => 'Promedio del mismo día de la semana; feriados y quincenas pueden cambiarlo.'];
+    }
+
+    private function horasPunta(): array
+    {
+        if (!$this->puedeVerReportes()) {
+            return ['error' => 'Tu rol no puede ver los reportes de ventas.'];
+        }
+        $hoy = $this->hoy;
+        $filas = $this->reportes->porDiaSemanaYHora($this->usuario->getIdTienda(),
+            $hoy->modify('-' . AnalisisVentas::DIAS_HORAS_PUNTA . ' days')->format('Y-m-d'), $hoy->modify('-1 day')->format('Y-m-d'));
+        $this->enlace('Ver estadísticas', '/?ruta=estadisticas');
+        return ['tienda' => $this->nombreTienda(), 'dias' => AnalisisVentas::DIAS_HORAS_PUNTA] + AnalisisVentas::horasPunta($filas);
+    }
+
     private function puedeVerClientes(): bool
     {
         return $this->usuario->puedeVender() || $this->puedeVerReportes();
@@ -328,7 +483,7 @@ class HerramientasAsistente implements Herramientas
     {
         $dias = is_int($entrada['dias'] ?? null) ? max(7, min(180, $entrada['dias'])) : 30;
         $id = $this->usuario->getIdTienda();
-        $limite = (new DateTimeImmutable('today'))->modify('-' . $dias . ' days')->format('Y-m-d');
+        $limite = $this->hoy->modify('-' . $dias . ' days')->format('Y-m-d');
         $quietos = [];
         foreach ($this->reportes->catalogoConStock($id) as $f) {
             $ultima = is_string($f['ultima'] ?? null) ? substr($f['ultima'], 0, 10) : null;
@@ -377,7 +532,7 @@ class HerramientasAsistente implements Herramientas
     private function enlace(string $texto, string $url): void
     {
         foreach ($this->enlaces as $enlace) {
-            if ($enlace['url'] === $url) {
+            if ($enlace['url'] === $url || $enlace['texto'] === $texto) {
                 return;
             }
         }

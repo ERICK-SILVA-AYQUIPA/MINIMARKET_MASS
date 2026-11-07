@@ -6,7 +6,8 @@ require_once __DIR__ . '/Herramientas.php';
 /**
  * Preguntas predeterminadas de la tienda, respondidas al instante desde la base, SIN inteligencia artificial
  * (no necesitan ANTHROPIC_API_KEY ni internet): ventas de hoy, ayer y del mes, mas vendidos, por cajero,
- * medios de pago, cada tienda, stock bajo, lo que no se vende, mejores clientes y abrir Nueva venta.
+ * medios de pago, cada tienda, stock bajo, lo que no se vende, mejores clientes y abrir Nueva venta. Y las "inteligentes":
+ * que pedir y cuanto, pronostico de la semana, productos por vencer, horas punta y las alertas de la tienda juntas.
  *
  * Usa las mismas herramientas (y permisos) que Claude: si un rol no tiene la herramienta, la pregunta no se le ofrece.
  * Tambien entiende una pregunta escrita con palabras clave ("cuanto vendimos ayer", "stock bajo", "precio del arroz")
@@ -16,6 +17,7 @@ final class RespuestasRapidas
 {
     // clave => [texto del boton, herramienta que necesita]
     private const PREGUNTAS = [
+        'alertas'          => ['¿Qué alertas hay en la tienda?', 'productos_por_reponer'],
         'ventas_hoy'       => ['¿Cuánto vendimos hoy?', 'resumen_ventas'],
         'ventas_ayer'      => ['¿Cuánto vendimos ayer?', 'resumen_ventas'],
         'ventas_mes'       => ['¿Cuánto llevamos vendido este mes?', 'resumen_ventas'],
@@ -26,6 +28,10 @@ final class RespuestasRapidas
         'stock_bajo'       => ['¿Qué productos tienen stock bajo?', 'productos_por_reponer'],
         'sin_venta'        => ['¿Qué productos no se venden hace 30 días?', 'productos_sin_venta'],
         'mejores_clientes' => ['¿Quiénes son los mejores clientes del mes?', 'mejores_clientes'],
+        'pedido'           => ['¿Qué pido al proveedor y cuánto?', 'sugerencia_pedido'],
+        'por_vencer'       => ['¿Qué productos están por vencer?', 'productos_por_vencer'],
+        'pronostico'       => ['¿Cuánto venderemos esta semana?', 'pronostico_ventas'],
+        'horas_punta'      => ['¿Cuáles son las horas punta?', 'horas_punta'],
         'hacer_venta'      => ['Quiero hacer una venta', 'nueva_venta'],
     ];
 
@@ -94,6 +100,11 @@ final class RespuestasRapidas
             'stock_bajo'       => $this->stockBajo(),
             'sin_venta'        => $this->sinVenta(),
             'mejores_clientes' => $this->clientes($mes, $hoy),
+            'alertas'          => $this->alertas(),
+            'pedido'           => $this->pedido(),
+            'por_vencer'       => $this->porVencer(),
+            'pronostico'       => $this->pronostico(),
+            'horas_punta'      => $this->horasPunta(),
             'hacer_venta'      => $this->abrir('nueva_venta', 'Listo: abre Nueva venta con el botón de abajo.'),
             default            => $this->fin('No conozco esa pregunta.', false),
         };
@@ -131,6 +142,21 @@ final class RespuestasRapidas
         $hay = static fn(string ...$palabras): bool => array_filter($palabras, fn(string $p): bool => str_contains($t, $p)) !== [];
         if ($hay('hacer una venta', 'quiero vender', 'nueva venta', 'registrar una venta', 'cobrar a')) {
             return 'hacer_venta';
+        }
+        if ($hay('alerta', 'aviso', 'problema', 'que hay que hacer', 'que debo hacer', 'pendiente', 'como esta la tienda')) {
+            return 'alertas';
+        }
+        if ($hay('vence', 'vencer', 'vencid', 'vencimiento', 'caduc', 'malogr')) {
+            return 'por_vencer';
+        }
+        if ($hay('hora punta', 'horas punta', 'hora pico', 'horas pico', 'mas gente', 'mas movid', 'mas concurr', 'turno', 'a que hora')) {
+            return 'horas_punta';
+        }
+        if ($hay('pronostic', 'venderemos', 'vamos a vender', 'se va a vender', 'proxima semana', 'estim', 'prediccion', 'predec', 'esperamos vender')) {
+            return 'pronostico';
+        }
+        if ($hay('pedir', ' pido ', 'pedido', 'comprar al', 'orden de compra', 'proveedor', 'cuanto repon')) {
+            return 'pedido';
         }
         if ($hay('stock bajo', 'poco stock', 'reponer', 'agotad', 'se acab', 'falta stock', 'faltan', 'minimo')) {
             return 'stock_bajo';
@@ -302,6 +328,127 @@ final class RespuestasRapidas
                 . ($c['compras'] === 1 ? ' compra' : ' compras');
         }
         return $this->fin("Los mejores clientes del mes:\n" . implode("\n", $lineas), true);
+    }
+
+    // Todo lo que pide atencion en la tienda, en un solo mensaje: lo que cada rol puede ver
+    private function alertas(): array
+    {
+        $lineas = [];
+        $r = $this->herramientas->ejecutar('productos_por_reponer', []);
+        if (!isset($r['error']) && (int) $r['total'] > 0) {
+            $nombres = implode(', ', array_slice(array_column($r['mostrados'], 'producto'), 0, 3));
+            $lineas[] = '- Stock bajo: ' . $r['total'] . ' productos (' . $nombres . ((int) $r['total'] > 3 ? '…' : '') . ').';
+        }
+        if (isset($this->tiene['productos_por_vencer'])) {
+            $v = $this->herramientas->ejecutar('productos_por_vencer', ['dias' => 15]);
+            if (!isset($v['error']) && (int) $v['total'] > 0) {
+                $lineas[] = '- Por vencer en 15 días: ' . $v['total'] . ' lotes' . ((int) $v['vencidos'] > 0 ? ' (' . $v['vencidos'] . ' ya vencidos)' : '')
+                    . ', ' . $this->soles((float) $v['valor_en_riesgo']) . ' al costo.';
+            }
+        }
+        $q = $this->herramientas->ejecutar('productos_sin_venta', ['dias' => 30]);
+        if (!isset($q['error']) && (int) $q['total'] > 0) {
+            $lineas[] = '- Sin venderse hace 30 días: ' . $q['total'] . ' productos con stock.';
+        }
+        if ($lineas === []) {
+            return $this->fin('Todo en orden en ' . ($r['tienda'] ?? 'la tienda') . ': nada en stock mínimo, nada por vencer y todo se vende.', true);
+        }
+        $idea = isset($this->tiene['sugerencia_pedido'])
+            ? 'Idea: pregunta «¿Qué pido al proveedor y cuánto?» para armar el pedido.'
+            : 'Idea: avisa al almacenero para reponer lo que falta.';
+        return $this->fin('Esto necesita atención en ' . ($r['tienda'] ?? 'la tienda') . ":\n" . implode("\n", $lineas) . "\n" . $idea, true);
+    }
+
+    private function pedido(): array
+    {
+        $r = $this->herramientas->ejecutar('sugerencia_pedido', []);
+        if (isset($r['error'])) {
+            return $this->fin((string) $r['error'], false);
+        }
+        if ((int) $r['total'] === 0) {
+            return $this->fin('No hace falta pedir nada: ningún producto está en su stock mínimo.', true);
+        }
+        $lineas = array_map(fn(array $f): string => '- ' . $f['producto'] . ': pedir ' . $this->cantidad((float) $f['pedir'], (string) $f['unidad'])
+            . ' (quedan ' . $this->cantidad((float) $f['queda'], (string) $f['unidad'])
+            . ($f['alcanza_dias'] === null ? ', no se vendió en 2 semanas' : ', alcanza ' . $this->dias((int) $f['alcanza_dias'])) . ')'
+            . ($f['otras_tiendas'] !== [] ? '. Le sobra a ' . $f['otras_tiendas'][0]['tienda'] . ': pide un traslado' : ''),
+            array_slice($r['mostrados'], 0, 8));
+        $resto = (int) $r['total'] - count($lineas);
+        return $this->fin('Para que dure ' . $r['dias_que_debe_durar'] . " días, pide esto (lo que se acaba antes, primero):\n"
+            . implode("\n", $lineas) . ($resto > 0 ? "\n… y " . $resto . ' más.' : '')
+            . "\nIdea: con el botón de abajo se arma la orden de compra con estas cantidades.", true);
+    }
+
+    private function porVencer(): array
+    {
+        $r = $this->herramientas->ejecutar('productos_por_vencer', ['dias' => 30]);
+        if (isset($r['error'])) {
+            return $this->fin((string) $r['error'], false);
+        }
+        if ((int) $r['total'] === 0) {
+            return $this->fin('Nada vence en los próximos 30 días en ' . $r['tienda'] . '.', true);
+        }
+        $lineas = array_map(fn(array $f): string => '- ' . $f['producto'] . ': ' . $this->cantidad((float) $f['queda'], (string) $f['unidad'])
+            . ', ' . mb_strtolower($f['estado']) . ' (' . $this->fecha((string) $f['vence']) . ')', array_slice($r['mostrados'], 0, 8));
+        $resto = (int) $r['total'] - count($lineas);
+        return $this->fin($r['total'] . ' lotes vencen en 30 días o ya vencieron en ' . $r['tienda'] . ' (' . $this->soles((float) $r['valor_en_riesgo'])
+            . " al costo):\n" . implode("\n", $lineas) . ($resto > 0 ? "\n… y " . $resto . ' más.' : '')
+            . "\nIdea: " . ((int) $r['vencidos'] > 0 ? 'retira lo vencido (merma) y ' : '') . 'pon en promoción lo que vence primero.', true);
+    }
+
+    private function pronostico(): array
+    {
+        $r = $this->herramientas->ejecutar('pronostico_ventas', []);
+        if (isset($r['error'])) {
+            return $this->fin((string) $r['error'], false);
+        }
+        if (isset($r['sin_historia'])) {
+            return $this->fin('Todavía no hay ventas suficientes en ' . $r['tienda'] . ' para estimar la semana.', true);
+        }
+        $mejor = $r['dias'][0];
+        foreach ($r['dias'] as $d) {
+            if ($d['estimado'] > $mejor['estimado']) {
+                $mejor = $d;
+            }
+        }
+        $lineas = array_map(fn(array $d): string => '- ' . ucfirst($d['dia']) . ' ' . $this->fecha($d['fecha']) . ': ' . $this->soles((float) $d['estimado']),
+            $r['dias']);
+        $tendencia = $r['tendencia'] === null ? ''
+            : ($r['tendencia'] >= 0 ? "\nLas ventas vienen subiendo " : "\nLas ventas vienen bajando ") . number_format(abs((float) $r['tendencia']), 1)
+              . '% en las 2 últimas semanas.';
+        return $this->fin('En los próximos 7 días ' . $r['tienda'] . ' vendería unos ' . $this->soles((float) $r['total'])
+            . ' (la semana pasada: ' . $this->soles((float) $r['ultimos7']) . "):\n" . implode("\n", $lineas) . $tendencia
+            . "\nIdea: el " . $mejor['dia'] . ' es el día más fuerte; ten stock y caja lista. Es una estimación con las últimas '
+            . $r['semanas'] . ($r['semanas'] === 1 ? ' semana.' : ' semanas.'), true);
+    }
+
+    private function horasPunta(): array
+    {
+        $r = $this->herramientas->ejecutar('horas_punta', []);
+        if (isset($r['error'])) {
+            return $this->fin((string) $r['error'], false);
+        }
+        if ((int) $r['comprobantes'] === 0) {
+            return $this->fin('No hubo ventas en los últimos ' . $r['dias'] . ' días en ' . $r['tienda'] . ' para ver las horas punta.', true);
+        }
+        $horas = fn(array $filas): string => implode(', ', array_map(fn(array $h): string => $h['hora'] . ' (' . $h['comprobantes'] . ')', $filas));
+        $texto = 'En los últimos ' . $r['dias'] . ' días, en ' . $r['tienda'] . ":\n- Horas punta: " . $horas($r['horas_punta']);
+        if ($r['horas_tranquilas'] !== []) {
+            $texto .= "\n- Horas tranquilas: " . $horas($r['horas_tranquilas']);
+        }
+        if ($r['dia_mas_movido'] !== null) {
+            $texto .= "\n- Día más movido: " . $r['dia_mas_movido'] . ($r['dia_mas_tranquilo'] !== null ? '; el más tranquilo: ' . $r['dia_mas_tranquilo'] : '') . '.';
+        }
+        return $this->fin($texto . "\n(Entre paréntesis, los comprobantes.)\nIdea: pon más cajeros en las horas punta y usa las tranquilas para reponer y ordenar.", true);
+    }
+
+    private function dias(int $dias): string
+    {
+        return match (true) {
+            $dias <= 0 => 'menos de 1 día',
+            $dias === 1 => '1 día',
+            default => $dias . ' días',
+        };
     }
 
     private function buscar(string $texto): ?array
