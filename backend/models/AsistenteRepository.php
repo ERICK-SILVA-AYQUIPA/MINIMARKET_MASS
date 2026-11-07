@@ -52,4 +52,26 @@ class AsistenteRepository
         $consulta->execute($parametros);
         return $consulta->fetchAll();
     }
+
+    /**
+     * Los clientes que mas compraron en la tienda entre dos fechas (ventas EMITIDAS con cliente).
+     * @return array<int, array{cliente: string, documento: ?string, compras: string, total: string}>
+     */
+    public function mejoresClientes(int $idTienda, string $desde, string $hasta, int $limite = 10): array
+    {
+        $consulta = $this->db->prepare(
+            "SELECT COALESCE(NULLIF(c.nombre, ''), c.dni, c.ruc) AS cliente, COALESCE(c.dni, c.ruc) AS documento,
+                    COUNT(*) AS compras, SUM(v.total) AS total
+               FROM venta v
+               JOIN serie_comprobante s ON s.id_serie = v.id_serie
+               JOIN cliente c           ON c.id_cliente = v.id_cliente
+              WHERE v.estado = 'EMITIDA' AND s.id_tienda = :tienda
+                AND v.fecha_hora >= :desde AND v.fecha_hora < :hasta + INTERVAL 1 DAY
+              GROUP BY c.id_cliente, c.nombre, c.dni, c.ruc
+              ORDER BY total DESC
+              LIMIT " . max(1, min($limite, 30))
+        );
+        $consulta->execute(['tienda' => $idTienda, 'desde' => $desde . ' 00:00:00', 'hasta' => $hasta]);
+        return $consulta->fetchAll();
+    }
 }

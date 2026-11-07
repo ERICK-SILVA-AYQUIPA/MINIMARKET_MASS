@@ -36,6 +36,7 @@ class HerramientasAsistente implements Herramientas
         'kardex'        => ['Kardex', 'kardex'],
         'compras'       => ['Órdenes de compra', 'ordenes'],
         'reportes'      => ['Reportes de ventas', 'reportes'],
+        'estadisticas'  => ['Estadísticas', 'estadisticas'],
         'utilidad'      => ['Utilidad', 'utilidad'],
         'personal'      => ['Personal', 'empleados'],
         'ayuda'         => ['Ayuda', 'ayuda'],
@@ -105,6 +106,21 @@ class HerramientasAsistente implements Herramientas
             'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
         ];
         $lista[] = [
+            'name' => 'productos_sin_venta',
+            'description' => 'Productos de la tienda actual con stock que no se venden hace varios días (o nunca): lo que está '
+                . 'en el estante y no sale. Útil para promociones o para dejar de pedirlos.',
+            'input_schema' => ['type' => 'object', 'properties' => [
+                'dias' => ['type' => 'integer', 'description' => 'Días sin venderse (7 a 180; por defecto 30)'],
+            ], 'additionalProperties' => false],
+        ];
+        if ($this->puedeVerClientes()) {
+            $lista[] = [
+                'name' => 'mejores_clientes',
+                'description' => 'Los clientes (con DNI o RUC) que más compraron en la tienda actual entre dos fechas: compras y total.',
+                'input_schema' => ['type' => 'object', 'properties' => $fechas, 'required' => ['desde', 'hasta'], 'additionalProperties' => false],
+            ];
+        }
+        $lista[] = [
             'name' => 'abrir_pagina',
             'description' => 'Muestra al usuario un botón para ir a una pantalla del sistema. Úsalo cuando pida HACER algo '
                 . '(vender, registrar un ingreso, ver un reporte completo): la acción se hace y se confirma en esa pantalla.',
@@ -128,6 +144,8 @@ class HerramientasAsistente implements Herramientas
             'detalle_ventas'        => $this->detalleVentas($entrada),
             'buscar_productos'      => $this->buscarProductos($entrada),
             'productos_por_reponer' => $this->porReponer(),
+            'productos_sin_venta'   => $this->sinVenta($entrada),
+            'mejores_clientes'      => $this->mejoresClientes($entrada),
             'abrir_pagina'          => $this->abrirPagina($entrada),
             default                 => ['error' => 'Esa herramienta no existe.'],
         };
@@ -164,6 +182,7 @@ class HerramientasAsistente implements Herramientas
             'compras'     => $u->puedeVerIngresos($id),
             'reportes'    => $this->puedeVerReportes(),
             'utilidad'    => $this->puedeVerReportes(),
+            'estadisticas' => $this->puedeVerReportes(),
             'personal'    => $this->puedeVerReportes(),
         ];
         return array_filter(self::PAGINAS, fn(string $clave): bool => $permiso[$clave] ?? true, ARRAY_FILTER_USE_KEY);
@@ -298,6 +317,48 @@ class HerramientasAsistente implements Herramientas
         }
         return ['tienda' => $this->tiendas->buscarPorId($id)?->getNombreTienda(), 'total' => $this->panel->contarPorReponer($id),
             'mostrados' => $filas];
+    }
+
+    private function puedeVerClientes(): bool
+    {
+        return $this->usuario->puedeVender() || $this->puedeVerReportes();
+    }
+
+    private function sinVenta(array $entrada): array
+    {
+        $dias = is_int($entrada['dias'] ?? null) ? max(7, min(180, $entrada['dias'])) : 30;
+        $id = $this->usuario->getIdTienda();
+        $limite = (new DateTimeImmutable('today'))->modify('-' . $dias . ' days')->format('Y-m-d');
+        $quietos = [];
+        foreach ($this->reportes->catalogoConStock($id) as $f) {
+            $ultima = is_string($f['ultima'] ?? null) ? substr($f['ultima'], 0, 10) : null;
+            if ((float) $f['stock'] > 0 && ($ultima === null || $ultima < $limite)) {
+                $quietos[] = ['producto' => (string) $f['producto'], 'stock' => (float) $f['stock'], 'unidad' => (string) $f['unidad'],
+                    'precio' => (float) $f['precio'], 'ultima_venta' => $ultima];
+            }
+        }
+        // Los que mas plata tienen parada en el estante primero
+        usort($quietos, fn(array $a, array $b): int => $b['stock'] * $b['precio'] <=> $a['stock'] * $a['precio']);
+        if ($this->puedeVerReportes()) {
+            $this->enlace('Ver estadísticas', '/?ruta=estadisticas');
+        }
+        return ['tienda' => $this->tiendas->buscarPorId($id)?->getNombreTienda(), 'dias' => $dias, 'total' => count($quietos),
+            'mostrados' => array_slice($quietos, 0, 15)];
+    }
+
+    private function mejoresClientes(array $entrada): array
+    {
+        if (!$this->puedeVerClientes()) {
+            return ['error' => 'Tu rol no puede ver los clientes.'];
+        }
+        [$desde, $hasta, $error] = $this->rango($entrada);
+        if ($error !== null) {
+            return ['error' => $error];
+        }
+        $filas = array_map(fn(array $f): array => ['cliente' => (string) $f['cliente'], 'compras' => (int) $f['compras'],
+            'total' => (float) $f['total']], $this->consultas->mejoresClientes($this->usuario->getIdTienda(), $desde, $hasta));
+        $this->enlace('Ver clientes', '/?ruta=clientes');
+        return ['desde' => $desde, 'hasta' => $hasta, 'clientes' => $filas];
     }
 
     private function abrirPagina(array $entrada): array

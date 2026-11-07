@@ -5,6 +5,11 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Asistente: preguntas rápidas de la tienda, sin IA**: botones con las preguntas de siempre (ventas de hoy, ayer y
+  del mes, más vendidos, por cajero, medios de pago, cada tienda, stock bajo, lo que no se vende hace 30 días, mejores
+  clientes, hacer una venta) que se responden al instante desde la base, sin clave ni internet. Sin clave, lo escrito
+  se entiende por palabras clave o se busca como producto. El asistente ya está en el menú de todos; con
+  `ANTHROPIC_API_KEY`, Claude responde lo escrito libre y solo habla de la tienda.
 - **Asistente inteligente** (menú *Asistente* y botón amarillo abajo a la derecha): cualquier empleado pregunta en
   español, escribiendo o con el micrófono, y responde con datos del sistema: cuánto se vendió (hoy, ayer, el mes), los
   más vendidos, por cajero o método de pago, precio y stock de un producto, qué falta reponer. Si se le pide *hacer*

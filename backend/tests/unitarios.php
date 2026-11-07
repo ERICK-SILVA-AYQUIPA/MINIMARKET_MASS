@@ -702,5 +702,66 @@ revisar('El correo lleva texto, HTML y el PDF adjunto', str_contains($mensaje, "
 putenv('CORREO_SMTP_HOST=');
 revisar('Sin servidor de correo en el .env, el envío desde el sistema queda apagado', CorreoSmtp::desdeEntorno() === null);
 
+echo "Preguntas rápidas del asistente (sin IA: palabras clave y datos de la base)\n";
+require_once __DIR__ . '/../models/asistente/RespuestasRapidas.php';
+$herramientasDe = static fn(bool $admin): Herramientas => new class($admin) implements Herramientas {
+    /** @var array<int, array{0: string, 1: array<string, mixed>}> */
+    public array $llamadas = [];
+    public function __construct(private bool $admin) {}
+    public function definiciones(): array
+    {
+        $lista = $this->admin ? [['name' => 'resumen_ventas', 'input_schema' => ['properties' => ['desde' => [], 'alcance' => []]]],
+            ['name' => 'detalle_ventas']] : [];
+        return array_merge($lista, [['name' => 'buscar_productos'], ['name' => 'productos_por_reponer'], ['name' => 'productos_sin_venta'],
+            ['name' => 'abrir_pagina', 'input_schema' => ['properties' => ['pagina' => ['enum' => $this->admin ? ['reportes'] : ['nueva_venta']]]]]]);
+    }
+    public function ejecutar(string $nombre, array $entrada): array
+    {
+        $this->llamadas[] = [$nombre, $entrada];
+        return match ($nombre) {
+            'resumen_ventas' => ['alcance' => 'Mass Cayma', 'comprobantes' => 12, 'total' => 141.88, 'ticketPromedio' => 11.82, 'devuelto' => 0.0,
+                'neto' => 141.88, 'anuladas' => 2],
+            'buscar_productos' => $entrada['texto'] === 'arroz costeno' ? ['encontrados' => 1, 'productos' => [['producto' => 'Arroz Costeño 1 kg',
+                'precio' => 4.2, 'unidad' => 'und', 'stock' => [['tienda' => 'Mass Cayma', 'cantidad' => 3.0, 'minimo' => 10.0, 'bajo' => true]]]]]
+                : ['encontrados' => 0, 'productos' => []],
+            'productos_por_reponer' => ['tienda' => 'Mass Cayma', 'total' => 0, 'mostrados' => []],
+            default => ['listo' => true],
+        };
+    }
+    public function contexto(): string { return ''; }
+    public function enlaces(): array { return []; }
+};
+$admin = new RespuestasRapidas($herramientasDe(true), new DateTimeImmutable('2026-11-07'));
+$cajeroH = $herramientasDe(false);
+$cajero = new RespuestasRapidas($cajeroH, new DateTimeImmutable('2026-11-07'));
+revisar('El administrador tiene las de ventas y la de cada tienda; no la de hacer venta', isset($admin->disponibles()['ventas_hoy'], $admin->disponibles()['tiendas_mes'])
+    && !isset($admin->disponibles()['hacer_venta']));
+revisar('El cajero: stock bajo, sin venta y hacer venta; nada de ventas ni clientes (sin esa herramienta)',
+    array_keys($cajero->disponibles()) === ['stock_bajo', 'sin_venta', 'hacer_venta']);
+$casos = [
+    '¿Cuánto vendimos hoy?' => 'ventas_hoy', 'cuanto vendimos AYER' => 'ventas_ayer', 'ventas del mes' => 'ventas_mes',
+    'qué es lo más vendido' => 'mas_vendidos', 'cuánto vendió cada cajero' => 'por_cajero', 'ventas por tienda' => 'tiendas_mes',
+    '¿Cómo pagaron los clientes?' => 'medios_pago', 'pagos con yape' => 'medios_pago', 'mejores clientes' => 'mejores_clientes',
+    'qué productos tienen stock bajo' => 'stock_bajo', 'qué hay que reponer' => 'stock_bajo', 'lo que no se vende' => 'sin_venta',
+    'quiero hacer una venta' => 'hacer_venta', 'precio del arroz' => null, 'hola' => null,
+];
+$malas = [];
+foreach ($casos as $texto => $esperada) {
+    if ($admin->claveDe($texto) !== $esperada) {
+        $malas[] = $texto . ' -> ' . var_export($admin->claveDe($texto), true);
+    }
+}
+revisar('Las palabras clave llevan a la pregunta correcta (' . count($casos) . ' frases)' . ($malas === [] ? '' : ': ' . implode('; ', $malas)), $malas === []);
+$r = $admin->responder('ventas_ayer');
+revisar('Ventas de ayer: pide el día anterior y lo cuenta en soles', $r['ok'] && str_contains($r['respuesta'], 'S/ 141.88') && str_contains($r['respuesta'], '12 comprobantes')
+    && str_contains($r['respuesta'], 'anuladas: 2'));
+$r = $cajero->interpretar('¿Cuánto cuesta el arroz Costeño?');
+revisar('Lo que no es una pregunta conocida se busca como producto, sin palabras de relleno ni tildes', $r['ok']
+    && end($cajeroH->llamadas) === ['buscar_productos', ['texto' => 'arroz costeno']] && str_contains($r['respuesta'], 'S/ 4.20') && str_contains($r['respuesta'], '(bajo)'));
+revisar('El cajero que pregunta por ventas recibe un "no puedes", sin datos', !$cajero->interpretar('cuánto vendimos hoy')['ok']);
+revisar('Si no entiende, sugiere preguntas de la tienda', !$cajero->interpretar('cuéntame un chiste')['ok']
+    && str_contains($cajero->interpretar('cuéntame un chiste')['respuesta'], '¿Qué productos tienen stock bajo?'));
+revisar('Una clave inventada no responde datos', !$admin->responder('borrar_todo')['ok']);
+
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

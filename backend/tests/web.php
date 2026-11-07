@@ -787,19 +787,29 @@ revisar('El administrador sí ve las pestañas, el stock de todas y la lista de 
     && $rosa->get('ruta=stock') === 200 && $rosa->tiene('Mass Yanahuara')
     && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=tiendas"'));
 
-echo "Asistente (sin ANTHROPIC_API_KEY en el .env de las pruebas)\n";
-revisar('La página del asistente abre y dice que falta la clave', $rosa->get('ruta=asistente') === 200 && $rosa->tiene('aún no está configurado')
-    && !$rosa->tiene('data-asistente-form'));
-revisar('Sin clave el menú no ofrece el asistente ni el botón flotante', $luis->get('ruta=inicio') === 200
-    && !$luis->tiene('ruta=asistente"') && !$luis->tiene('asistente-flotante'));
-revisar('Preguntar sin clave responde JSON con el aviso (sin llamar a internet)', $luis->postJson('asistente_preguntar', ['pregunta' => '¿cuánto vendimos?']) === 200
-    && str_starts_with($luis->cabeceras['content-type'] ?? '', 'application/json')
-    && ($r = json_decode($luis->cuerpo, true)) !== null && $r['ok'] === false && str_contains($r['respuesta'], 'ANTHROPIC_API_KEY'));
-revisar('Sin JavaScript vuelve al chat con el aviso', $luis->post('asistente_preguntar', ['pregunta' => 'hola']) === 303
-    && str_contains($luis->cabeceras['location'] ?? '', 'ruta=asistente') && $luis->get('ruta=asistente') === 200 && $luis->tiene('ANTHROPIC_API_KEY'));
+echo "Asistente: preguntas rápidas desde la base (sin ANTHROPIC_API_KEY en el .env de las pruebas)\n";
+revisar('El menú ofrece el asistente a todos, y el botón flotante solo en Inicio', $luis->get('ruta=inicio') === 200
+    && $luis->tiene('ruta=asistente"') && $luis->tiene('asistente-flotante')
+    && $luis->get('ruta=caja') === 200 && !$luis->tiene('asistente-flotante'));
+revisar('Rosa ve las preguntas de ventas; Luis (cajero) no, pero sí stock bajo y clientes', $rosa->get('ruta=asistente') === 200
+    && $rosa->tiene('data-asistente-rapida="ventas_hoy"') && $rosa->tiene('data-asistente-rapida="tiendas_mes"')
+    && $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-rapida="ventas_hoy"')
+    && $luis->tiene('data-asistente-rapida="stock_bajo"') && $luis->tiene('data-asistente-rapida="mejores_clientes"'));
+$json = fn(Navegador $n): array => json_decode($n->cuerpo, true) ?? [];
+revisar('Pregunta rápida: responde JSON con datos de la base, sin IA', $rosa->postJson('asistente_preguntar', ['rapida' => 'stock_bajo']) === 200
+    && str_starts_with($rosa->cabeceras['content-type'] ?? '', 'application/json')
+    && $json($rosa)['ok'] === true && str_contains($json($rosa)['respuesta'], 'stock mínimo') && $json($rosa)['pregunta'] === '¿Qué productos tienen stock bajo?');
+revisar('El cajero no puede pedir la pregunta de ventas aunque mande la clave', $luis->postJson('asistente_preguntar', ['rapida' => 'ventas_hoy']) === 200
+    && $json($luis)['ok'] === false);
+revisar('Escrito libre sin clave: se entiende por palabras ("cuánto vendimos ayer")', $rosa->postJson('asistente_preguntar', ['pregunta' => '¿Cuánto vendimos ayer?']) === 200
+    && $json($rosa)['ok'] === true && str_starts_with($json($rosa)['respuesta'], 'Ayer'));
+revisar('...o se busca como producto ("precio de la leche gloria")', $luis->postJson('asistente_preguntar', ['pregunta' => 'precio de la leche gloria']) === 200
+    && str_contains($json($luis)['respuesta'], 'Leche evaporada Gloria') && str_contains($json($luis)['respuesta'], 'S/ 4.50'));
+revisar('Sin JavaScript la pregunta rápida recarga el chat con la respuesta', $luis->post('asistente_preguntar', ['rapida' => 'stock_bajo']) === 303
+    && str_contains($luis->cabeceras['location'] ?? '', 'ruta=asistente') && $luis->get('ruta=asistente') === 200 && $luis->tiene('stock mínimo'));
 revisar('Preguntar sin el token CSRF: 403', $luis->postJson('asistente_preguntar', ['pregunta' => 'hola', 'csrf' => 'x']) === 403);
 revisar('Preguntar por GET no existe (es POST)', $luis->get('ruta=asistente_preguntar') === 404);
-revisar('Borrar la conversación', $luis->post('asistente_borrar', []) === 303);
+revisar('Borrar la conversación', $luis->post('asistente_borrar', []) === 303 && $luis->get('ruta=asistente') === 200 && !$luis->tiene('id="ultima"'));
 
 echo "Salir\n";
 revisar('Salir cierra la sesión', $carmen->post('salir', []) === 303 && $carmen->get('ruta=inicio') === 303);

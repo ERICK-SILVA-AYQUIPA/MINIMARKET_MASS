@@ -42,6 +42,7 @@ require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/asistente/HerramientasAsistente.php';
+require_once __DIR__ . '/../models/asistente/RespuestasRapidas.php';
 
 $db = Database::conexion();
 
@@ -100,7 +101,10 @@ $hRosa = $herramientasDe($rosa);
 $hLuis = $herramientasDe($luis);
 $hCarmen = $herramientasDe($carmen);
 revisar('Al administrador se le ofrecen los reportes de ventas', array_intersect(['resumen_ventas', 'detalle_ventas'], $nombres($hRosa)) === ['resumen_ventas', 'detalle_ventas']);
-revisar('Al cajero no: solo productos, por reponer y abrir pantallas', $nombres($hLuis) === ['buscar_productos', 'productos_por_reponer', 'abrir_pagina']);
+revisar('Al cajero no: productos, por reponer, sin venta, clientes y abrir pantallas', $nombres($hLuis)
+    === ['buscar_productos', 'productos_por_reponer', 'productos_sin_venta', 'mejores_clientes', 'abrir_pagina']);
+revisar('El almacenero no ve clientes', !in_array('mejores_clientes', $nombres($hCarmen), true)
+    && isset($hCarmen->ejecutar('mejores_clientes', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
 revisar('Aunque el cajero pida el resumen, PHP lo rechaza', isset($hLuis->ejecutar('resumen_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
 $resumen = $hRosa->ejecutar('resumen_ventas', ['desde' => '2026-10-31', 'hasta' => '2026-10-01']);
 revisar('Resumen de octubre de Cayma (fechas al revés se ordenan) con comprobantes y total',
@@ -128,6 +132,21 @@ revisar('Abrir Nueva venta: el cajero sí (botón), el almacenero no', !isset($h
     && in_array('/?ruta=venta_nueva', array_column($hLuis->enlaces(), 'url'), true)
     && isset($hCarmen->ejecutar('abrir_pagina', ['pagina' => 'nueva_venta'])['error']));
 revisar('Una herramienta inventada responde error', isset($hLuis->ejecutar('borrar_todo', [])['error']));
+$quietos = $hRosa->ejecutar('productos_sin_venta', ['dias' => 30]);
+revisar('Sin venta en 30 días: solo productos con stock, la plata parada más grande primero', $quietos['total'] > 0
+    && array_filter($quietos['mostrados'], fn(array $q): bool => $q['stock'] <= 0) === []
+    && $quietos['mostrados'][0]['stock'] * $quietos['mostrados'][0]['precio'] >= end($quietos['mostrados'])['stock'] * end($quietos['mostrados'])['precio']);
+$clientesOct = $hLuis->ejecutar('mejores_clientes', ['desde' => '2026-10-01', 'hasta' => '2026-10-31']);
+revisar('Mejores clientes de octubre: nombre o documento, compras y total, de mayor a menor', !isset($clientesOct['error'])
+    && $clientesOct['clientes'] !== [] && $clientesOct['clientes'][0]['cliente'] !== ''
+    && $clientesOct['clientes'][0]['total'] >= end($clientesOct['clientes'])['total']);
+$rapidasRosa = new RespuestasRapidas($herramientasDe($rosa), new DateTimeImmutable('2026-10-31'));
+$rapidaMes = $rapidasRosa->responder('ventas_mes');
+revisar('Pregunta rápida "este mes" con la base real (octubre)', $rapidaMes['ok'] && str_contains($rapidaMes['respuesta'], 'S/ ')
+    && str_contains($rapidaMes['respuesta'], 'comprobantes'));
+$rapidaTop = $rapidasRosa->responder('mas_vendidos');
+revisar('Pregunta rápida "más vendidos" responde una lista numerada o dice que no hubo ventas', $rapidaTop['ok']
+    && (str_contains($rapidaTop['respuesta'], '1. ') || str_contains($rapidaTop['respuesta'], 'no hubo ventas')));
 
 echo "Tildes y utf8mb4\n";
 revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',
