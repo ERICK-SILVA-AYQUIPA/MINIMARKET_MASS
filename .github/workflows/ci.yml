@@ -129,7 +129,15 @@ jobs:
 
       # Mismo script que en las PCs del equipo: misma imagen, mismas letras, mismos pixeles
       - name: Pruebas E2E y capturas (Playwright en Docker)
-        run: bash tests/e2e/correr_en_docker.sh
+        run: bash tests/e2e/correr_en_docker.sh --update-snapshots
+
+      - name: TEMPORAL subir las capturas nuevas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-nuevas
+          path: tests/e2e/
+          retention-days: 1
 
       # Si una captura no coincide, el informe muestra la esperada, la nueva y la diferencia
       - name: Subir el informe de Playwright si algo fallo
