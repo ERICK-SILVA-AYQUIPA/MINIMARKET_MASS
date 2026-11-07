@@ -152,20 +152,21 @@ final class Sesion
     /**
      * La conversacion con el asistente (solo texto, las ultimas preguntas): vive en la sesion,
      * asi que se borra al salir y nadie mas la ve.
-     * @return array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>}>
+     * @return array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>, bloques: array<int, array<string, mixed>>}>
      */
     public function conversacionAsistente(): array
     {
         $turnos = [];
         foreach (is_array($_SESSION['asistente'] ?? null) ? $_SESSION['asistente'] : [] as $t) {
             if (is_array($t) && is_string($t['rol'] ?? null) && is_string($t['texto'] ?? null)) {
-                $turnos[] = ['rol' => $t['rol'], 'texto' => $t['texto'], 'enlaces' => is_array($t['enlaces'] ?? null) ? $t['enlaces'] : []];
+                $turnos[] = ['rol' => $t['rol'], 'texto' => $t['texto'], 'enlaces' => is_array($t['enlaces'] ?? null) ? $t['enlaces'] : [],
+                    'bloques' => is_array($t['bloques'] ?? null) ? $t['bloques'] : []];
             }
         }
         return $turnos;
     }
 
-    /** @param array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>}> $turnos */
+    /** @param array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>, bloques?: array<int, array<string, mixed>>}> $turnos */
     public function guardarConversacionAsistente(array $turnos, int $maximo): void
     {
         $_SESSION['asistente'] = array_slice(array_values($turnos), -$maximo);

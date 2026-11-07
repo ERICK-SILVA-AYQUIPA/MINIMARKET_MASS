@@ -5,6 +5,10 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Asistente: respuestas con cuadros, no solo texto**: cada respuesta trae debajo tarjetas con las cifras clave
+  (total vendido, comprobantes, ticket promedio), tablas (más vendidos, stock bajo, qué pedir, por vencer, productos)
+  y gráficos de barras (ventas por hora, día, cajero, medio de pago o tienda, pronóstico de la semana, horas punta).
+  El texto queda en la conclusión. Igual en la ventanita, en la pantalla completa y con o sin `ANTHROPIC_API_KEY`.
 - **Asistente en ventanita y con el conocimiento de la tienda**: el asistente se abre abajo a la derecha sin tapar
   la pantalla (botón amarillo en cada pantalla menos Caja y Nueva venta, o desde el menú) y sigue abierto al cambiar
   de pantalla. Responde "¿cómo…?" con los pasos del manual de cada rol (abrir y cerrar caja, devolver, anular, recibir

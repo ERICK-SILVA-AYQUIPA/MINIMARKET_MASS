@@ -2068,7 +2068,74 @@
         const bajar = () => { lista.scrollTop = lista.scrollHeight; };
         bajar();
 
-        const burbuja = (rol, texto, enlaces) => {
+        // Tarjetas, tablas y barras de la respuesta (Presentacion.php); igual que views/asistente/bloques.php, solo con textContent
+        const nuevo = (etiqueta, clase, texto) => {
+            const el = document.createElement(etiqueta);
+            if (clase) {
+                el.className = clase;
+            }
+            if (texto !== undefined) {
+                el.textContent = String(texto);
+            }
+            return el;
+        };
+        const dibujarBloques = (bloques) => {
+            const caja = nuevo('div', 'asistente-bloques');
+            bloques.forEach((b) => {
+                if (!b || typeof b !== 'object') {
+                    return;
+                }
+                if (b.tipo === 'tarjetas' && Array.isArray(b.items)) {
+                    const fila = nuevo('div', 'asistente-tarjetas');
+                    b.items.forEach((i) => {
+                        const tono = ['marca', 'bien', 'alerta'].includes(i.tono) ? ' tono-' + i.tono : '';
+                        const t = nuevo('div', 'asistente-tarjeta' + tono);
+                        t.append(nuevo('span', 'asistente-tarjeta-etiqueta', i.etiqueta || ''), nuevo('strong', 'asistente-tarjeta-valor', i.valor || ''));
+                        if (i.nota) {
+                            t.appendChild(nuevo('span', 'asistente-tarjeta-nota', i.nota));
+                        }
+                        fila.appendChild(t);
+                    });
+                    caja.appendChild(fila);
+                } else if (b.tipo === 'tabla' && Array.isArray(b.filas)) {
+                    const cuadro = nuevo('figure', 'asistente-cuadro');
+                    cuadro.appendChild(nuevo('figcaption', '', b.titulo || ''));
+                    const columnas = Array.isArray(b.columnas) ? b.columnas : [];
+                    const tabla = nuevo('table', 'asistente-tabla');
+                    const cabeza = nuevo('tr');
+                    columnas.forEach((c) => cabeza.appendChild(nuevo('th', c.numero ? 'num' : '', c.texto || '')));
+                    tabla.appendChild(nuevo('thead')).appendChild(cabeza);
+                    const cuerpo = tabla.appendChild(nuevo('tbody'));
+                    b.filas.forEach((f) => {
+                        const tr = nuevo('tr');
+                        (Array.isArray(f) ? f : []).forEach((celda, i) => tr.appendChild(nuevo('td', columnas[i] && columnas[i].numero ? 'num' : '', celda)));
+                        cuerpo.appendChild(tr);
+                    });
+                    cuadro.appendChild(nuevo('div', 'asistente-tabla-caja')).appendChild(tabla);
+                    if (Number(b.mas) > 0) {
+                        cuadro.appendChild(nuevo('p', 'asistente-cuadro-mas', '… y ' + Number(b.mas) + ' más'));
+                    }
+                    caja.appendChild(cuadro);
+                } else if (b.tipo === 'barras' && Array.isArray(b.items)) {
+                    const cuadro = nuevo('figure', 'asistente-cuadro');
+                    cuadro.appendChild(nuevo('figcaption', '', b.titulo || ''));
+                    const lista = nuevo('div', 'asistente-barras');
+                    b.items.forEach((i) => {
+                        const fila = nuevo('div', 'asistente-barra' + (i.resaltar ? ' resaltada' : ''));
+                        const pista = nuevo('span', 'asistente-barra-pista');
+                        const relleno = pista.appendChild(nuevo('span', 'asistente-barra-relleno'));
+                        relleno.style.width = Math.max(0, Math.min(100, Number(i.ancho) || 0)) + '%';
+                        fila.append(nuevo('span', 'asistente-barra-etiqueta', i.etiqueta || ''), pista, nuevo('span', 'asistente-barra-valor', i.texto || ''));
+                        lista.appendChild(fila);
+                    });
+                    cuadro.appendChild(lista);
+                    caja.appendChild(cuadro);
+                }
+            });
+            return caja;
+        };
+
+        const burbuja = (rol, texto, enlaces, bloques) => {
             const caja = document.createElement('div');
             caja.className = 'asistente-burbuja ' + (rol === 'user' ? 'asistente-tu' : 'asistente-ia');
             if (rol !== 'user') {
@@ -2085,6 +2152,10 @@
             const parrafo = document.createElement('p');
             parrafo.textContent = texto;
             caja.appendChild(parrafo);
+            if (Array.isArray(bloques) && bloques.length > 0) {
+                caja.classList.add('con-bloques');
+                caja.appendChild(dibujarBloques(bloques));
+            }
             const validos = (enlaces || []).filter((e) => e && typeof e.url === 'string' && e.url.startsWith('/?ruta='));
             if (validos.length > 0) {
                 const fila = document.createElement('div');
@@ -2099,7 +2170,12 @@
                 caja.appendChild(fila);
             }
             lista.appendChild(caja);
-            bajar();
+            // Una respuesta con cuadros se lee desde arriba: se muestra su comienzo, no el final
+            if (caja.classList.contains('con-bloques')) {
+                lista.scrollTop = Math.max(0, caja.offsetTop - 8);
+            } else {
+                bajar();
+            }
             return caja;
         };
 
@@ -2125,6 +2201,7 @@
             }
             let mensaje = 'No pude enviar la pregunta. Revisa la conexión e inténtalo otra vez.';
             let enlaces = [];
+            let bloques = [];
             try {
                 const respuesta = await fetch('/?ruta=asistente_preguntar', {
                     method: 'POST', body: datos, headers: { Accept: 'application/json' }, credentials: 'same-origin',
@@ -2132,11 +2209,12 @@
                 const json = await respuesta.json();
                 mensaje = String(json.respuesta || 'Sin respuesta.');
                 enlaces = Array.isArray(json.enlaces) ? json.enlaces : [];
+                bloques = Array.isArray(json.bloques) ? json.bloques : [];
             } catch (error) {
                 // se queda el aviso de arriba
             }
             lista.removeChild(pensando);
-            burbuja('assistant', mensaje, enlaces);
+            burbuja('assistant', mensaje, enlaces, bloques);
             ocupado = false;
             enviar.disabled = false;
             // Despues de un boton no se enfoca la caja: en el celular abriria el teclado sobre la respuesta
@@ -2193,7 +2271,8 @@
                     const json = await respuesta.json();
                     (Array.isArray(json.conversacion) ? json.conversacion : []).forEach((turno) => {
                         if (turno && typeof turno.texto === 'string') {
-                            burbuja(turno.rol === 'user' ? 'user' : 'assistant', turno.texto, Array.isArray(turno.enlaces) ? turno.enlaces : []);
+                            burbuja(turno.rol === 'user' ? 'user' : 'assistant', turno.texto, Array.isArray(turno.enlaces) ? turno.enlaces : [],
+                                Array.isArray(turno.bloques) ? turno.bloques : []);
                         }
                     });
                     (Array.isArray(json.preguntas) ? json.preguntas : []).forEach((p) => {

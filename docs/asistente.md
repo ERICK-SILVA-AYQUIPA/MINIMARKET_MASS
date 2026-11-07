@@ -67,7 +67,12 @@ se confirma como siempre.
 3. `Asistente` llama a la API de Claude (`ClienteClaude`, curl a `api.anthropic.com`). Claude elige qué herramienta
    usar; PHP la ejecuta con los permisos del usuario (los mismos de `Usuario`) y le devuelve el resultado; Claude
    arma la respuesta en español. Máximo 6 vueltas por pregunta.
-4. La conversación (solo texto, las últimas 8 preguntas) se guarda en la sesión: se borra al salir.
+4. Cada herramienta que se usa deja también sus **cuadros** (`Presentacion.php`): tarjetas con las cifras clave,
+   tablas (hasta 10 filas, con "… y N más") y gráficos de barras (por hora, día, cajero, tienda, pronóstico). Van debajo
+   del texto, que queda en la conclusión de 2 a 4 líneas. Se ven igual en la ventanita y en la pantalla completa:
+   `views/asistente/bloques.php` los dibuja sin JavaScript y `app.js` con las mismas clases (solo `textContent`).
+   Máximo 4 cuadros por respuesta.
+5. La conversación (texto y cuadros, las últimas 8 preguntas) se guarda en la sesión: se borra al salir.
 
 Límite: 20 preguntas a Claude cada 10 minutos por sesión (cada una se paga a la API). Las rápidas no cuentan.
 Claude solo habla de la tienda: si se le pregunta otra cosa, lo dice y sugiere una pregunta de la tienda.

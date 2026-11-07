@@ -20,4 +20,7 @@ interface Herramientas
 
     /** @return array<int, array{texto: string, url: string}> */
     public function enlaces(): array;
+
+    /** @return array<int, array<string, mixed>> tarjetas, tablas y graficos de lo consultado (Presentacion) */
+    public function bloques(): array;
 }
