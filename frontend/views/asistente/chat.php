@@ -3,7 +3,7 @@ declare(strict_types=1);
 /**
  * V: el asistente. Conversacion en burbujas, sugerencias para empezar y la caja para escribir (o dictar con el
  * microfono: app.js lo muestra si el navegador sabe reconocer voz). Sin JavaScript cada pregunta recarga la pagina.
- * @var array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>}> $conversacion
+ * @var array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>, bloques: array<int, array<string, mixed>>}> $conversacion
  * @var bool $conIa  hay ANTHROPIC_API_KEY en el .env: lo escrito libre lo responde Claude
  * @var array<string, string> $preguntas  preguntas predeterminadas de este rol (clave => texto), se responden desde la base
  */
@@ -32,9 +32,10 @@ $ultimo = count($conversacion) - 1;
             <p>Hola, <?= e($usuarioActual->getNombres()) ?>. ¿Qué quieres saber de la tienda hoy? Toca una pregunta rápida o escríbela.</p>
         </div>
         <?php foreach ($conversacion as $i => $turno): ?>
-        <div class="asistente-burbuja <?= $turno['rol'] === 'user' ? 'asistente-tu' : 'asistente-ia' ?>"<?= $i === $ultimo ? ' id="ultima"' : '' ?>>
+        <div class="asistente-burbuja <?= $turno['rol'] === 'user' ? 'asistente-tu' : 'asistente-ia' ?><?= ($turno['bloques'] ?? []) !== [] ? ' con-bloques' : '' ?>"<?= $i === $ultimo ? ' id="ultima"' : '' ?>>
             <?php if ($turno['rol'] !== 'user'): ?><span class="asistente-quien"><?= icono('asistente') ?>Asistente</span><?php endif; ?>
             <p><?= e($turno['texto']) ?></p>
+            <?php if (($turno['bloques'] ?? []) !== []): ?><?php $bloquesTurno = $turno['bloques']; require __DIR__ . '/bloques.php'; ?><?php endif; ?>
             <?php if (($turno['enlaces'] ?? []) !== []): ?>
             <div class="asistente-enlaces">
                 <?php foreach ($turno['enlaces'] as $enlace): ?>

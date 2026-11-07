@@ -73,15 +73,16 @@ class AsistenteController extends Controller
             : $this->responder($pregunta, $rapidas);
         if ($resultado['guardar']) {
             $conversacion = $this->sesion->conversacionAsistente();
-            $conversacion[] = ['rol' => 'user', 'texto' => $pregunta, 'enlaces' => []];
-            $conversacion[] = ['rol' => 'assistant', 'texto' => $resultado['respuesta'], 'enlaces' => $resultado['enlaces']];
+            $conversacion[] = ['rol' => 'user', 'texto' => $pregunta, 'enlaces' => [], 'bloques' => []];
+            $conversacion[] = ['rol' => 'assistant', 'texto' => $resultado['respuesta'], 'enlaces' => $resultado['enlaces'],
+                'bloques' => $resultado['bloques']];
             $this->sesion->guardarConversacionAsistente($conversacion, Asistente::TURNOS_GUARDADOS * 2);
         }
         if ($comoJson) {
             header('Content-Type: application/json; charset=UTF-8');
             header('Cache-Control: no-store');
             echo json_encode(['ok' => $resultado['ok'], 'pregunta' => $pregunta, 'respuesta' => $resultado['respuesta'],
-                'enlaces' => $resultado['enlaces']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                'enlaces' => $resultado['enlaces'], 'bloques' => $resultado['bloques']], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             return;
         }
         if (!$resultado['guardar']) {
@@ -102,7 +103,7 @@ class AsistenteController extends Controller
         return new RespuestasRapidas(($this->herramientas)($this->usuario));
     }
 
-    /** @return array{ok: bool, respuesta: string, enlaces: array<int, array{texto: string, url: string}>, guardar: bool} */
+    /** @return array{ok: bool, respuesta: string, enlaces: array<int, array{texto: string, url: string}>, guardar: bool, bloques: array<int, array<string, mixed>>} */
     private function responder(string $pregunta, RespuestasRapidas $rapidas): array
     {
         if ($pregunta === '') {
@@ -135,9 +136,9 @@ class AsistenteController extends Controller
         }
     }
 
-    /** @return array{ok: bool, respuesta: string, enlaces: array<int, array{texto: string, url: string}>, guardar: bool} */
+    /** @return array{ok: bool, respuesta: string, enlaces: array<int, array{texto: string, url: string}>, guardar: bool, bloques: array<int, array<string, mixed>>} */
     private function aviso(string $texto): array
     {
-        return ['ok' => false, 'respuesta' => $texto, 'enlaces' => [], 'guardar' => false];
+        return ['ok' => false, 'respuesta' => $texto, 'enlaces' => [], 'guardar' => false, 'bloques' => []];
     }
 }

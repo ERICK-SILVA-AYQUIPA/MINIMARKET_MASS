@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Herramientas.php';
 require_once __DIR__ . '/Conocimiento.php';
+require_once __DIR__ . '/Presentacion.php';
 
 /**
  * Preguntas predeterminadas de la tienda, respondidas al instante desde la base, SIN inteligencia artificial
@@ -45,6 +46,11 @@ final class RespuestasRapidas
         'buscar', 'producto', 'productos', 'me', 'dime', 'dame', 'por', 'favor', 'y', 'a', 'en', 'cuantos', 'cuantas', 'quiero', 'saber',
         'unidades', 'todavia', 'aun', 'algo', 'sobre', 'info', 'informacion', 'con', 'para', 'mi', 'nuestra', 'tienda'];
 
+    public const BLOQUES_MAXIMO = 4;
+
+    /** @var int los bloques de las herramientas que ya estaban antes de esta pregunta (no son de esta respuesta) */
+    private int $desde = 0;
+
     /** @var array<string, bool> herramientas (y permisos especiales) que tiene este usuario */
     private array $tiene = [];
 
@@ -82,10 +88,11 @@ final class RespuestasRapidas
 
     /**
      * Responde una pregunta predeterminada.
-     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool}
+     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>}
      */
     public function responder(string $clave): array
     {
+        $this->desde = count($this->herramientas->bloques());
         if ($this->texto($clave) === null) {
             return $this->fin('Esa pregunta no está disponible para tu usuario.', false);
         }
@@ -119,10 +126,11 @@ final class RespuestasRapidas
 
     /**
      * Lo escrito libre, sin IA: si se parece a una pregunta predeterminada la responde; si no, lo busca como producto.
-     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool}
+     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>}
      */
     public function interpretar(string $pregunta): array
     {
+        $this->desde = count($this->herramientas->bloques());
         // "¿Cómo cierro la caja?", "¿dónde veo el kardex?": primero la guía del sistema
         if (isset($this->tiene['como_usar']) && Conocimiento::esComoHacer($pregunta)) {
             $r = $this->herramientas->ejecutar('como_usar', ['pregunta' => $pregunta]);
@@ -377,12 +385,18 @@ final class RespuestasRapidas
             $lineas[] = '- Sin venderse hace 30 días: ' . $q['total'] . ' productos con stock.';
         }
         if ($lineas === []) {
-            return $this->fin('Todo en orden en ' . ($r['tienda'] ?? 'la tienda') . ': nada en stock mínimo, nada por vencer y todo se vende.', true);
+            return $this->fin('Todo en orden en ' . ($r['tienda'] ?? 'la tienda') . ': nada en stock mínimo, nada por vencer y todo se vende.', true, []);
         }
+        $tarjetas = [Presentacion::tarjetas(array_values(array_filter([
+            ['etiqueta' => 'Stock bajo', 'valor' => (string) (int) ($r['total'] ?? 0), 'tono' => (int) ($r['total'] ?? 0) > 0 ? 'alerta' : 'bien'],
+            isset($v) && !isset($v['error']) ? ['etiqueta' => 'Por vencer (15 días)', 'valor' => (string) (int) $v['total'],
+                'nota' => Presentacion::soles((float) $v['valor_en_riesgo']) . ' al costo', 'tono' => (int) $v['total'] > 0 ? 'alerta' : 'bien'] : null,
+            !isset($q['error']) ? ['etiqueta' => 'Sin venderse (30 días)', 'valor' => (string) (int) $q['total'], 'tono' => 'alerta'] : null,
+        ])))];
         $idea = isset($this->tiene['sugerencia_pedido'])
             ? 'Idea: pregunta «¿Qué pido al proveedor y cuánto?» para armar el pedido.'
             : 'Idea: avisa al almacenero para reponer lo que falta.';
-        return $this->fin('Esto necesita atención en ' . ($r['tienda'] ?? 'la tienda') . ":\n" . implode("\n", $lineas) . "\n" . $idea, true);
+        return $this->fin('Esto necesita atención en ' . ($r['tienda'] ?? 'la tienda') . ":\n" . implode("\n", $lineas) . "\n" . $idea, true, $tarjetas);
     }
 
     private function pedido(): array
@@ -550,9 +564,19 @@ final class RespuestasRapidas
         return preg_match('/^(\d{4})-(\d{2})-(\d{2})/', $iso, $m) === 1 ? $m[3] . '/' . $m[2] . '/' . $m[1] : $iso;
     }
 
-    /** @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool} */
-    private function fin(string $texto, bool $ok): array
+    /**
+     * Con tarjetas, tablas o graficos (los arma Presentacion con lo consultado) el texto queda en la conclusion:
+     * las lineas de lista ("- ...", "1. ...") ya estan en el cuadro de abajo.
+     * @param array<int, array<string, mixed>>|null $bloques null = los de las herramientas consultadas
+     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>}
+     */
+    private function fin(string $texto, bool $ok, ?array $bloques = null): array
     {
-        return ['respuesta' => $texto, 'enlaces' => $this->herramientas->enlaces(), 'ok' => $ok];
+        $bloques = $ok ? array_slice($bloques ?? array_slice($this->herramientas->bloques(), $this->desde), 0, self::BLOQUES_MAXIMO) : [];
+        if ($bloques !== []) {
+            $lineas = array_filter(explode("\n", $texto), fn(string $l): bool => preg_match('/^(- |\d+\. |… y |\()/u', $l) !== 1);
+            $texto = trim(implode("\n", array_map(fn(string $l): string => preg_replace('/:\s*$/u', '.', $l) ?? $l, $lineas)));
+        }
+        return ['respuesta' => $texto, 'enlaces' => $this->herramientas->enlaces(), 'ok' => $ok, 'bloques' => $bloques];
     }
 }

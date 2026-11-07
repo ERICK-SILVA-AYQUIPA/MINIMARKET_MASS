@@ -811,9 +811,14 @@ revisar('El cajero no puede pedir la pregunta de ventas aunque mande la clave', 
 revisar('Escrito libre sin clave: se entiende por palabras ("cuánto vendimos ayer")', $rosa->postJson('asistente_preguntar', ['pregunta' => '¿Cuánto vendimos ayer?']) === 200
     && $json($rosa)['ok'] === true && str_starts_with($json($rosa)['respuesta'], 'Ayer'));
 revisar('...o se busca como producto ("precio de la leche gloria")', $luis->postJson('asistente_preguntar', ['pregunta' => 'precio de la leche gloria']) === 200
-    && str_contains($json($luis)['respuesta'], 'Leche evaporada Gloria') && str_contains($json($luis)['respuesta'], 'S/ 4.50'));
+    && str_contains($json($luis)['respuesta'], 'Encontré') && ($json($luis)['bloques'][0]['tipo'] ?? '') === 'tabla'
+    && str_contains(json_encode($json($luis)['bloques'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', 'Leche evaporada Gloria')
+    && str_contains(json_encode($json($luis)['bloques'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '', 'S/ 4.50'));
+revisar('Sin JavaScript, la pantalla completa dibuja la tabla de la respuesta (escapada)', $luis->get('ruta=asistente') === 200
+    && $luis->tiene('class="asistente-tabla"') && $luis->tiene('Leche evaporada Gloria'));
 revisar('Preguntas inteligentes: Rosa pide el pronóstico de la semana y las alertas de la tienda', $rosa->get('ruta=asistente') === 200 && $rosa->tiene('data-asistente-rapida="pronostico"')
     && $rosa->postJson('asistente_preguntar', ['rapida' => 'pronostico']) === 200 && $json($rosa)['ok'] === true
+    && in_array('tarjetas', array_column($json($rosa)['bloques'] ?? [], 'tipo'), true)
     && $rosa->postJson('asistente_preguntar', ['pregunta' => '¿Qué alertas hay?']) === 200 && $json($rosa)['ok'] === true
     && $json($rosa)['pregunta'] === '¿Qué alertas hay?');
 revisar('Guía de uso sin IA: "¿cómo cierro la caja?" responde los pasos', $luis->postJson('asistente_preguntar', ['pregunta' => '¿cómo cierro la caja?']) === 200

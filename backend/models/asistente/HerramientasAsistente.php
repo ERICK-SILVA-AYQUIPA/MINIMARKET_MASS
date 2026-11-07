@@ -13,6 +13,7 @@ require_once __DIR__ . '/../Vencimiento.php';
 require_once __DIR__ . '/../Cantidad.php';
 require_once __DIR__ . '/Herramientas.php';
 require_once __DIR__ . '/Conocimiento.php';
+require_once __DIR__ . '/Presentacion.php';
 
 /**
  * Lo que el asistente puede consultar o hacer: cada herramienta es una consulta del sistema que ya existia
@@ -66,6 +67,15 @@ class HerramientasAsistente implements Herramientas
     public function enlaces(): array
     {
         return $this->enlaces;
+    }
+
+    /** @var array<int, array<string, mixed>> lo consultado en esta pregunta, en tarjetas, tablas y graficos */
+    private array $bloques = [];
+
+    /** @return array<int, array<string, mixed>> todos, en orden: quien pregunta toma los de su pregunta (los ultimos) */
+    public function bloques(): array
+    {
+        return $this->bloques;
     }
 
     /**
@@ -204,6 +214,17 @@ class HerramientasAsistente implements Herramientas
      * @return array<string, mixed>
      */
     public function ejecutar(string $nombre, array $entrada): array
+    {
+        $resultado = $this->resultado($nombre, $entrada);
+        array_push($this->bloques, ...Presentacion::de($nombre, $entrada, $resultado));
+        return $resultado;
+    }
+
+    /**
+     * @param array<string, mixed> $entrada
+     * @return array<string, mixed>
+     */
+    private function resultado(string $nombre, array $entrada): array
     {
         return match ($nombre) {
             'resumen_ventas'        => $this->resumenVentas($entrada),

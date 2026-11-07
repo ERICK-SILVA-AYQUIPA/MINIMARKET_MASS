@@ -17,6 +17,10 @@ final class Asistente
     private const VUELTAS_MAXIMO = 6;
     public const TURNOS_GUARDADOS = 8;
     public const LARGO_PREGUNTA = 500;
+    public const BLOQUES_MAXIMO = 4;
+
+    /** @var int bloques de las herramientas que ya habia antes de esta pregunta */
+    private int $desde = 0;
 
     // Modelos que aceptan fallbacks "default" (si uno declina por seguridad, la API reintenta con otro)
     private const CON_RESPALDO = ['claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-sonnet-5-5'];
@@ -40,7 +44,9 @@ final class Asistente
         - Si preguntan cómo o dónde se hace algo en el sistema, usa como_usar y explica los pasos en orden.
         - Para direcciones, cajas o promociones de hoy usa datos_tienda; para combos, se_compran_juntos.
         - Interpreta fechas relativas (hoy, ayer, esta semana, este mes, el mes pasado) con la fecha de hoy que se te da.
-        - Puedes usar listas con guiones. No uses tablas ni títulos.
+        - Las cifras de lo que consultas se muestran solas debajo de tu respuesta en tarjetas, tablas y gráficos:
+          no las repitas todas; da la conclusión en 2 a 4 líneas (lo más importante y qué hacer).
+        - Puedes usar listas con guiones. No uses tablas de texto ni títulos.
         TXT;
 
     public function __construct(
@@ -52,13 +58,13 @@ final class Asistente
 
     /**
      * @param array<int, array{rol: string, texto: string}> $historial las preguntas y respuestas anteriores (solo texto)
-     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool}
+     * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>}
      */
     public function preguntar(string $pregunta, array $historial = []): array
     {
         $pregunta = trim(mb_substr($pregunta, 0, self::LARGO_PREGUNTA));
         if ($pregunta === '') {
-            return ['respuesta' => 'Escribe o dicta tu pregunta.', 'enlaces' => [], 'ok' => false];
+            return ['respuesta' => 'Escribe o dicta tu pregunta.', 'enlaces' => [], 'ok' => false, 'bloques' => []];
         }
         $mensajes = [];
         foreach (array_slice($historial, -self::TURNOS_GUARDADOS * 2) as $turno) {
@@ -73,6 +79,7 @@ final class Asistente
             array_pop($mensajes);
         }
         $mensajes[] = ['role' => 'user', 'content' => $pregunta];
+        $this->desde = count($this->herramientas->bloques());
 
         $peticion = [
             'model'         => $this->nombreModelo,
@@ -139,9 +146,10 @@ final class Asistente
 
     private const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 
-    /** @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool} */
+    /** @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>} */
     private function fin(string $texto, bool $ok): array
     {
-        return ['respuesta' => $texto, 'enlaces' => $this->herramientas->enlaces(), 'ok' => $ok];
+        return ['respuesta' => $texto, 'enlaces' => $this->herramientas->enlaces(), 'ok' => $ok,
+            'bloques' => $ok ? array_slice($this->herramientas->bloques(), $this->desde, self::BLOQUES_MAXIMO) : []];
     }
 }

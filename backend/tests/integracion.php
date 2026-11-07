@@ -205,15 +205,23 @@ $rapidasLuis31 = new RespuestasRapidas($hLuis31, $el31);
 revisar('Escrito libre sin IA: "¿cómo cierro la caja?" responde la guía', str_starts_with($rapidasLuis31->interpretar('¿cómo cierro la caja?')['respuesta'], 'Cerrar la caja')
     && str_contains($rapidasLuis31->interpretar('¿dónde registro la mercadería que llegó?')['respuesta'], 'pídeselo al almacenero'));
 $rapidasRosa31 = new RespuestasRapidas($hRosa31, $el31);
-foreach (['alertas' => 'Esto necesita atención', 'pedido' => 'pedir ', 'por_vencer' => 'lotes vencen', 'pronostico' => 'En los próximos 7 días',
-    'horas_punta' => 'Horas punta: ', 'juntos' => ' veces juntos'] as $clave => $esperado) {
+// Texto corto con la conclusión y la idea; las cifras van en tarjetas, tablas y gráficos (Presentacion)
+$tiposDe = fn(array $r): array => array_column($r['bloques'], 'tipo');
+foreach (['alertas' => ['Esto necesita atención', 'tarjetas'], 'pedido' => ['pide esto', 'tabla'], 'por_vencer' => ['lotes vencen', 'tabla'],
+    'pronostico' => ['En los próximos 7 días', 'barras'], 'horas_punta' => ['En los últimos 28 días', 'barras'], 'juntos' => ['Lo que se compra junto', 'tabla']]
+    as $clave => [$esperado, $tipo]) {
     $r = $rapidasRosa31->responder($clave);
-    revisar('Pregunta rápida "' . $clave . '" con la base real responde en español con datos y una idea', $r['ok']
-        && str_contains($r['respuesta'], $esperado) && str_contains($r['respuesta'], 'Idea:'));
+    revisar('Pregunta rápida "' . $clave . '" con la base real: conclusión e idea en texto, y los datos en ' . $tipo, $r['ok']
+        && str_contains($r['respuesta'], $esperado) && str_contains($r['respuesta'], 'Idea:') && in_array($tipo, $tiposDe($r), true)
+        && !str_contains($r['respuesta'], "\n- "));
 }
+$r = $rapidasRosa31->responder('pronostico');
+$barrasPron = array_values(array_filter($r['bloques'], fn(array $b): bool => $b['tipo'] === 'barras'))[0] ?? [];
+revisar('...el pronóstico trae 3 tarjetas y 7 barras (una por día), anchos de 0 a 100', count($r['bloques'][0]['items'] ?? []) === 3
+    && count($barrasPron['items'] ?? []) === 7 && max(array_column($barrasPron['items'] ?? [], 'ancho')) <= 100);
 $r = $rapidasRosa31->responder('datos_tienda');
-revisar('Pregunta rápida "Datos de nuestras tiendas": las 3 sedes, la suya marcada', $r['ok'] && str_contains($r['respuesta'], '3 tiendas')
-    && str_contains($r['respuesta'], '(aquí estás)'));
+revisar('Pregunta rápida "Datos de nuestras tiendas": las 3 sedes en una tabla, la suya marcada', $r['ok'] && str_contains($r['respuesta'], '3 tiendas')
+    && count($r['bloques'][0]['filas'] ?? []) === 3 && count(array_filter($r['bloques'][0]['filas'], fn(array $f): bool => str_ends_with($f[0], '(aquí)'))) === 1);
 $r = $rapidasRosa31->responder('como_usar');
 revisar('Pregunta rápida "¿Cómo se usa el sistema?": qué hace el asistente y ejemplos de guías', $r['ok'] && str_contains($r['respuesta'], '¿cómo cierro la caja?'));
 

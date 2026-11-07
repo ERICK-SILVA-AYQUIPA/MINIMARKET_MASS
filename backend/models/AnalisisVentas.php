@@ -78,6 +78,7 @@ final class AnalisisVentas
      * @param array<int, array{dia: string|int, hora: string|int, comprobantes: string|int, total: string|float}> $filas
      * @return array{horas_punta: array<int, array{hora: string, comprobantes: int, total: float}>,
      *         horas_tranquilas: array<int, array{hora: string, comprobantes: int, total: float}>,
+     *         por_hora: array<int, array{hora: string, comprobantes: int, total: float}>, hora_mas_movida: ?string,
      *         dia_mas_movido: ?string, dia_mas_tranquilo: ?string, comprobantes: int}
      */
     public static function horasPunta(array $filas, int $cuantas = 3): array
@@ -121,7 +122,10 @@ final class AnalisisVentas
             $diaMas = self::DIAS[array_key_first($porDia)] ?? null;
             $diaMenos = self::DIAS[array_key_last($porDia)] ?? null;
         }
-        return ['horas_punta' => $quitar($punta), 'horas_tranquilas' => $quitar($tranquilas), 'dia_mas_movido' => $diaMas,
+        $todas = $lista;
+        usort($todas, static fn(array $a, array $b): int => $a['h'] <=> $b['h']);
+        return ['horas_punta' => $quitar($punta), 'horas_tranquilas' => $quitar($tranquilas), 'por_hora' => $quitar($todas),
+            'hora_mas_movida' => $mas === [] ? null : $mas[0]['hora'], 'dia_mas_movido' => $diaMas,
             'dia_mas_tranquilo' => $diaMenos === $diaMas ? null : $diaMenos, 'comprobantes' => array_sum($porDia)];
     }
 

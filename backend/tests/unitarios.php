@@ -595,6 +595,12 @@ $herramientasFalsas = new class implements Herramientas {
     }
     public function contexto(): string { return 'Usuario: Rosa (administrador).'; }
     public function enlaces(): array { return [['texto' => 'Ver Leche Gloria', 'url' => '/?ruta=producto&id=1']]; }
+    // Un cuadro por cada busqueda que salio bien (como HerramientasAsistente con Presentacion)
+    public function bloques(): array
+    {
+        return array_values(array_map(fn(array $l): array => ['tipo' => 'tarjetas', 'items' => [['etiqueta' => 'Precio', 'valor' => 'S/ 4.50']]],
+            array_filter($this->llamadas, fn(array $l): bool => $l[0] === 'buscar_productos')));
+    }
 };
 $modeloFalso->respuestas = [
     ['stop_reason' => 'tool_use', 'content' => [
@@ -611,6 +617,7 @@ $r = $asistente->preguntar('  ¿cuánto cuesta la leche gloria?  ', [
 ]);
 revisar('Responde con el texto final de Claude', $r['respuesta'] === 'La leche Gloria cuesta S/ 4.50.' && $r['ok']);
 revisar('Devuelve los botones que dejaron las herramientas', $r['enlaces'] === [['texto' => 'Ver Leche Gloria', 'url' => '/?ruta=producto&id=1']]);
+revisar('Debajo del texto van los cuadros de lo consultado en ESTA pregunta', count($r['bloques']) === 1 && $r['bloques'][0]['tipo'] === 'tarjetas');
 revisar('Ejecuta cada herramienta pedida con su entrada', $herramientasFalsas->llamadas === [['buscar_productos', ['texto' => 'leche gloria']], ['productos_por_reponer', []]]);
 $segunda = $modeloFalso->peticiones[1] ?? [];
 $ultimo = end($segunda['messages']);
@@ -730,6 +737,7 @@ $herramientasDe = static fn(bool $admin): Herramientas => new class($admin) impl
     }
     public function contexto(): string { return ''; }
     public function enlaces(): array { return []; }
+    public function bloques(): array { return []; }
 };
 $admin = new RespuestasRapidas($herramientasDe(true), new DateTimeImmutable('2026-11-07'));
 $cajeroH = $herramientasDe(false);
@@ -806,6 +814,23 @@ revisar('El día más movido es el sábado y el más tranquilo el martes', $h['d
 $vacio = AnalisisVentas::horasPunta([]);
 revisar('Sin ventas no hay horas punta ni días', $vacio['horas_punta'] === [] && $vacio['dia_mas_movido'] === null && $vacio['comprobantes'] === 0);
 revisar('La franja de las 23 termina a las 0:00', AnalisisVentas::franja(23) === '23:00 a 0:00');
+
+echo "Respuestas con cuadros: tarjetas, tablas y barras (Presentacion)\n";
+require_once __DIR__ . '/../models/asistente/Presentacion.php';
+$pres = Presentacion::de('resumen_ventas', [], ['alcance' => 'Mass Cayma', 'comprobantes' => 12, 'total' => 141.88, 'ticketPromedio' => 11.82,
+    'devuelto' => 0.0, 'neto' => 141.88, 'anuladas' => 2, 'por_tienda' => [['tienda' => 'Cayma', 'total' => '100'], ['tienda' => 'Yanahuara', 'total' => '50']]]);
+revisar('Resumen de ventas: tarjetas (total, comprobantes, ticket, anuladas) y barras por tienda', $pres[0]['tipo'] === 'tarjetas'
+    && array_column($pres[0]['items'], 'valor') === ['S/ 141.88', '12', 'S/ 11.82', '2'] && $pres[0]['items'][3]['tono'] === 'alerta'
+    && $pres[1]['tipo'] === 'barras' && array_column($pres[1]['items'], 'ancho') === [100, 50]);
+$filasLargas = array_map(fn(int $i): array => ['producto' => 'P' . $i, 'cantidad' => '1', 'minimo' => '5', 'unidad' => 'und'], range(1, 14));
+$tablaR = Presentacion::de('productos_por_reponer', [], ['tienda' => 'Cayma', 'total' => 30, 'mostrados' => $filasLargas])[0];
+revisar('Tabla: hasta 10 filas de texto y cuántas más quedan', $tablaR['tipo'] === 'tabla' && count($tablaR['filas']) === 10
+    && $tablaR['filas'][0] === ['P1', '1 und', '5 und'] && $tablaR['mas'] === 20 && $tablaR['columnas'][1] === ['texto' => 'Queda', 'numero' => true]);
+$barrasP = Presentacion::barras('x', [['a', 0.0, '0'], ['b', 1.0, '1'], ['c', 200.0, '200', true]]);
+revisar('Barras: ancho contra el más alto, una barra mínima visible y la resaltada', array_column($barrasP['items'], 'ancho') === [0, 2, 100]
+    && $barrasP['items'][2]['resaltar'] === true);
+revisar('Con error o sin datos no hay cuadros', Presentacion::de('resumen_ventas', [], ['error' => 'x']) === []
+    && Presentacion::de('productos_por_reponer', [], ['total' => 0, 'mostrados' => []]) === [] && Presentacion::de('abrir_pagina', [], ['listo' => 'x']) === []);
 
 echo "Conocimiento de la tienda: guía de uso del sistema (sin IA)\n";
 require_once __DIR__ . '/../models/asistente/Conocimiento.php';

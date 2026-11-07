@@ -1710,6 +1710,44 @@ button.asistente-chip:hover { background: var(--marca-suave); border-color: var(
 .asistente-flotante:hover { background: var(--marca-fuerte); color: var(--sobre-marca); }
 .con-barra-inferior .asistente-flotante { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 600px) { .asistente-flotante span { display: none; } .asistente-flotante { padding: var(--s-3); } }
+/* Respuestas con cuadros (views/asistente/bloques.php y app.js): tarjetas, tablas y barras */
+.asistente-mensajes { position: relative; }
+.asistente-burbuja.con-bloques { max-width: 100%; width: 100%; }
+.asistente-bloques { display: flex; flex-direction: column; gap: var(--s-3); margin-top: var(--s-3); }
+.asistente-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--s-2); }
+.asistente-tarjeta { display: flex; flex-direction: column; gap: 2px; padding: var(--s-2) var(--s-3); border-radius: var(--radio-xl);
+    background: var(--superficie); border: 1px solid var(--borde); min-width: 0; }
+.asistente-tarjeta-etiqueta { font-size: .72rem; color: var(--suave); text-transform: uppercase; letter-spacing: .03em; }
+.asistente-tarjeta-valor { font-size: 1.15rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asistente-tarjeta-nota { font-size: .75rem; color: var(--suave); }
+.asistente-tarjeta.tono-marca { border-color: rgba(255, 196, 0, .45); background: var(--marca-suave); }
+.asistente-tarjeta.tono-marca .asistente-tarjeta-valor { color: var(--marca); }
+.asistente-tarjeta.tono-bien .asistente-tarjeta-valor { color: var(--verde, #22c55e); }
+.asistente-tarjeta.tono-alerta { border-color: var(--rojo-borde); }
+.asistente-tarjeta.tono-alerta .asistente-tarjeta-valor { color: var(--rojo); }
+.asistente-cuadro { margin: 0; padding: var(--s-2) var(--s-3) var(--s-3); border-radius: var(--radio-xl); background: var(--superficie); border: 1px solid var(--borde); }
+.asistente-cuadro figcaption { font-size: .78rem; font-weight: 700; color: var(--suave); margin-bottom: var(--s-2); }
+.asistente-tabla-caja { overflow-x: auto; }
+table.asistente-tabla { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.asistente-tabla th, .asistente-tabla td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--borde); vertical-align: top; }
+.asistente-tabla th { font-size: .72rem; color: var(--suave); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; }
+.asistente-tabla tbody tr:last-child td { border-bottom: 0; }
+.asistente-tabla tbody tr:nth-child(even) td { background: var(--superficie-2); }
+.asistente-tabla .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.asistente-cuadro-mas { margin: var(--s-2) 0 0; font-size: .78rem; color: var(--suave); }
+.asistente-barras { display: flex; flex-direction: column; gap: 6px; }
+.asistente-barra { display: grid; grid-template-columns: minmax(70px, 34%) 1fr auto; align-items: center; gap: var(--s-2); font-size: .82rem; }
+.asistente-barra-etiqueta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.asistente-barra-pista { height: 10px; border-radius: var(--radio-full); background: var(--superficie-2); overflow: hidden; }
+.asistente-barra-relleno { display: block; height: 100%; border-radius: inherit; background: var(--suave); }
+.asistente-barra.resaltada .asistente-barra-relleno, .asistente-barras:not(:has(.resaltada)) .asistente-barra-relleno { background: var(--marca); }
+.asistente-barra.resaltada .asistente-barra-etiqueta { font-weight: 700; }
+.asistente-barra-valor { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--suave); }
+.asistente-compacto .asistente-burbuja.con-bloques { max-width: 100%; }
+.asistente-compacto .asistente-tarjeta-valor { font-size: 1rem; }
+.asistente-compacto table.asistente-tabla { font-size: .8rem; }
+.asistente-compacto .asistente-tabla th, .asistente-compacto .asistente-tabla td { padding: 5px 6px; }
+
 /* Ventanita del asistente abajo a la derecha (layout_fin.php): no tapa la pantalla, se cierra con la X o Escape */
 .asistente-ventana { position: fixed; right: var(--s-5, 20px); bottom: calc(var(--s-5, 20px) + 60px); z-index: 45; width: min(400px, calc(100vw - 32px));
     height: min(580px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--superficie); border: 1px solid var(--borde-fuerte);
