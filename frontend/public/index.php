@@ -163,7 +163,7 @@ if ($usuario !== null) {
 // Rutas que cambian datos: solo por POST y con el token CSRF del formulario
 $rutasPost = [
     'login', 'salir', 'mi_clave_guardar',
-    'venta_registrar', 'venta_anular', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
+    'venta_registrar', 'venta_anular', 'comprobante_correo', 'ingreso_registrar', 'traslado_registrar', 'merma_registrar', 'turno_abrir', 'turno_cerrar',
     'venta_devolver', 'caja_movimiento', 'catalogo_subir',
     'turno_recontar', 'turno_pausa', 'turno_revisar', 'arqueo_sorpresa', 'regla_caja_guardar',
     'producto_guardar', 'producto_estado', 'productos_revisar', 'producto_foto', 'producto_codigo_quitar', 'stock_minimo', 'categoria_crear', 'marca_crear',
@@ -197,6 +197,7 @@ try {
                 'venta_registrar'    => $ventaController->registrar($_POST),
                 'venta_anular'       => $ventaController->anular($_POST),
                 'venta_devolver'     => $ventaController->devolver($_POST),
+                'comprobante_correo' => $ventaController->enviarCorreo($_POST),
                 'ingreso_registrar'  => $inventarioController->registrarIngreso($_POST),
                 'traslado_registrar' => $inventarioController->registrarTraslado($_POST),
                 'merma_registrar'    => $inventarioController->registrarMerma($_POST),

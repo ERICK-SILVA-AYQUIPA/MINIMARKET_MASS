@@ -17,6 +17,8 @@ require_once __DIR__ . '/../models/Emisor.php';
 require_once __DIR__ . '/../models/DesgloseIgv.php';
 require_once __DIR__ . '/../models/AnchoTicket.php';
 require_once __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
+require_once __DIR__ . '/../models/envio/ComprobanteParaCliente.php';
+require_once __DIR__ . '/../models/envio/CorreoSmtp.php';
 
 /**
  * C: ventas por tienda, comprobante (boleta o factura), registrar una venta, anularla o devolver parte.
@@ -192,8 +194,87 @@ class VentaController extends Controller
         // Hasta que la venta se envie a un OSE/PSE, el ticket dice que es interno y no vale ante SUNAT
         $ticketInterno = FacturacionElectronica::ticketEsInterno(FacturacionElectronica::desdeEntorno());
 
+        // Enviar al cliente por WhatsApp o correo: el celular de su ficha ya viene escrito
+        $envio = $this->paraCliente($venta, $serie, $tienda, $cliente, $lineas, $pagos, $descuentoVenta, $emisor, $ticketInterno);
+        $celularCliente = $venta->getIdCliente() !== null ? $this->clientes->buscarPorId($venta->getIdCliente())?->getTelefono() : null;
+        $correoDesdeServidor = CorreoSmtp::desdeEntorno() !== null;
+
         unset($producto, $detalle, $turno);
         return get_defined_vars();
+    }
+
+    /**
+     * El comprobante en textos para el cliente (WhatsApp, correo y PDF).
+     * @param array<int, array{detalle: DetalleVenta, producto: ?Producto, unidad: string}> $lineas
+     * @param PagoVenta[] $pagos
+     * @param ?array{monto: float} $descuentoVenta
+     */
+    private function paraCliente(Venta $venta, SerieComprobante $serie, Tienda $tienda, string $cliente, array $lineas, array $pagos,
+        ?array $descuentoVenta, Emisor $emisor, bool $interno): ComprobanteParaCliente
+    {
+        $filas = [];
+        foreach ($lineas as $linea) {
+            $d = $linea['detalle'];
+            $alPeso = $linea['producto']?->esAlPeso() ?? true;
+            $filas[] = [
+                'nombre'    => $linea['producto']?->getNombreProducto() ?? '(producto)',
+                'cantidad'  => ($alPeso ? number_format($d->getCantidad(), 3, '.', '') . ' ' . $linea['unidad'] : (string) (int) round($d->getCantidad())),
+                'precio'    => $d->getPrecioUnitario(),
+                'importe'   => $d->getImporte(),
+                'descuento' => $d->getDescuento(),
+            ];
+        }
+        $validos = array_values(array_filter($pagos, fn(PagoVenta $p): bool => $p->esValido()));
+        return new ComprobanteParaCliente(
+            $emisor->getNombreComercial() !== '' ? $emisor->getNombreComercial() : 'TIENDA MASS',
+            $tienda->getNombreTienda(),
+            $tienda->getDireccion(),
+            $serie->nombreComprobante(),
+            $serie->formatear($venta->getNumeroCorrelativo()),
+            date('d/m/Y H:i', strtotime($venta->getFechaHora()) ?: time()),
+            $cliente,
+            $filas,
+            (float) ($descuentoVenta['monto'] ?? 0),
+            $venta->getTotal(),
+            array_map(fn(PagoVenta $p): array => ['metodo' => $p->getNombreMetodo(), 'monto' => $p->getMontoPagado()], $validos),
+            $interno
+        );
+    }
+
+    // POST /?ruta=comprobante_correo: manda el comprobante (con su PDF) al correo del cliente por el SMTP del .env
+    public function enviarCorreo(array $post): void
+    {
+        $serieTexto = $this->campo($post, 'serie');
+        $numeroTexto = $this->campo($post, 'numero');
+        $venta = preg_match('/^[BF][0-9]{3}$/', $serieTexto) === 1 && preg_match('/^[0-9]{1,8}$/', $numeroTexto) === 1
+            ? $this->ventas->buscarPorComprobante($serieTexto, (int) $numeroTexto) : null;
+        if ($venta === null || !$this->esDeTiendaVisible($venta)) {
+            $this->noEncontrado('No existe un comprobante con esa serie y correlativo.');
+            return;
+        }
+        $url = '/?ruta=comprobante&serie=' . urlencode($serieTexto) . '&numero=' . (int) $numeroTexto . '#enviar';
+        $correo = ComprobanteParaCliente::correo($this->campo($post, 'correo'));
+        $smtp = CorreoSmtp::desdeEntorno();
+        if ($venta->estaAnulada()) {
+            $this->redirigir($url, 'Este comprobante está anulado: no se envía al cliente.', 'alerta');
+            return;
+        }
+        if ($correo === null) {
+            $this->redirigir($url, 'Escribe un correo válido del cliente (ej.: nombre@gmail.com).', 'alerta');
+            return;
+        }
+        if ($smtp === null) {
+            $this->redirigir($url, 'El correo del sistema no está configurado: usa el botón Abrir en Gmail.', 'alerta');
+            return;
+        }
+        $envio = $this->datosComprobante($venta)['envio'];
+        try {
+            $smtp->enviar($correo, $envio->asunto(), $envio->texto(false), $envio->html(), [$envio->nombrePdf() => $envio->pdf()]);
+        } catch (RuntimeException $ex) {
+            $this->redirigir($url, 'No se pudo enviar el correo: ' . $ex->getMessage(), 'alerta');
+            return;
+        }
+        $this->redirigir($url, 'Comprobante ' . $envio->getNumero() . ' enviado a ' . $correo . '.');
     }
 
     // GET /?ruta=venta_nueva: formulario del cajero (con su turno abierto)

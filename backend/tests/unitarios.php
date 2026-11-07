@@ -46,6 +46,8 @@ require __DIR__ . '/../models/facturacion/FacturacionElectronica.php';
 require_once __DIR__ . '/../models/exportar/LibroExcel.php';
 require_once __DIR__ . '/../models/exportar/DocumentoPdf.php';
 require_once __DIR__ . '/../controllers/ReporteController.php';
+require_once __DIR__ . '/../models/envio/ComprobanteParaCliente.php';
+require_once __DIR__ . '/../models/envio/CorreoSmtp.php';
 
 $ok = 0;
 $fallas = 0;
@@ -665,6 +667,40 @@ revisar('Las opiniones dicen la hora pico, el mejor y peor día, la franja, el p
     && str_contains($titulos, '1 productos no se vendieron nada'));
 $vacias = ReporteController::opiniones(ReporteController::mapaCalorHoras([]), ['conVentas' => 0, 'top' => 0, 'porcentajeTop' => null, 'valorParado' => 0.0], [], [], [], ['filas' => [], 'maximo' => 0.0]);
 revisar('Sin ventas, una sola opinión que pide otras fechas', count($vacias) === 1 && $vacias[0]['titulo'] === 'Sin ventas en estas fechas');
+
+echo PHP_EOL . 'Enviar el comprobante al cliente (WhatsApp y correo)' . PHP_EOL;
+revisar('El celular acepta 987654321, +51 987 654 321 y 51987654321', ComprobanteParaCliente::celular('987654321') === '987654321'
+    && ComprobanteParaCliente::celular('+51 987 654 321') === '987654321' && ComprobanteParaCliente::celular('51987654321') === '987654321');
+revisar('Un fijo, un número corto o vacío no es celular', ComprobanteParaCliente::celular('014567890') === null
+    && ComprobanteParaCliente::celular('98765') === null && ComprobanteParaCliente::celular(null) === null);
+revisar('El correo se valida y no acepta saltos de línea', ComprobanteParaCliente::correo(' ana@gmail.com ') === 'ana@gmail.com'
+    && ComprobanteParaCliente::correo("ana@gmail.com\r\nBcc: x@y.com") === null && ComprobanteParaCliente::correo('ana') === null);
+$envio = new ComprobanteParaCliente('TIENDA MASS', 'Mass Lince', 'Av. Arequipa 123', 'Boleta', 'B001-00000012', '06/11/2026 17:30',
+    'DNI 12345678', [
+        ['nombre' => 'Leche Gloria', 'cantidad' => '2', 'precio' => 4.5, 'importe' => 9.0, 'descuento' => 1.0],
+        ['nombre' => 'Arroz', 'cantidad' => '1.500 kg', 'precio' => 3.8, 'importe' => 5.7, 'descuento' => 0.0],
+    ], 0.7, 13.0, [['metodo' => 'EFECTIVO', 'monto' => 13.0]], true);
+$textoEnvio = $envio->texto();
+revisar('El texto trae número, productos, descuentos, total y pago', str_contains($textoEnvio, '*Boleta B001-00000012*')
+    && str_contains($textoEnvio, '2 x Leche Gloria (S/ 4.50) = S/ 9.00') && str_contains($textoEnvio, 'Descuento: -S/ 1.00')
+    && str_contains($textoEnvio, 'Descuento de la compra: -S/ 0.70') && str_contains($textoEnvio, '*TOTAL: S/ 13.00*')
+    && str_contains($textoEnvio, 'Pagado con EFECTIVO: S/ 13.00') && str_contains($textoEnvio, 'Ticket interno'));
+revisar('Para el correo el texto va sin asteriscos', !str_contains($envio->texto(false), '*'));
+revisar('WhatsApp va al celular con +51; sin celular deja elegir el contacto',
+    str_starts_with($envio->enlaceWhatsApp('987 654 321'), 'https://wa.me/51987654321?text=%2ATIENDA%20MASS%2A')
+    && str_starts_with($envio->enlaceWhatsApp(''), 'https://wa.me/?text='));
+revisar('Gmail se abre con destinatario, asunto y cuerpo', str_contains($envio->enlaceGmail('ana@gmail.com'), 'to=ana%40gmail.com')
+    && str_contains($envio->enlaceGmail('ana@gmail.com'), 'su=Tu%20boleta%20B001-00000012%20de%20TIENDA%20MASS'));
+revisar('El HTML escapa los nombres', !str_contains((new ComprobanteParaCliente('T', 'S', '', 'Boleta', 'B001-1', 'hoy', 'X',
+    [['nombre' => '<script>', 'cantidad' => '1', 'precio' => 1.0, 'importe' => 1.0, 'descuento' => 0.0]], 0.0, 1.0, [], false))->html(), '<script>'));
+revisar('El PDF del comprobante es un PDF', str_starts_with($envio->pdf(), '%PDF-') && $envio->nombrePdf() === 'B001-00000012.pdf');
+$mensaje = CorreoSmtp::armarMensaje('mass@gmail.com', 'TIENDA MASS', 'ana@gmail.com', $envio->asunto(), $envio->texto(false), $envio->html(),
+    [$envio->nombrePdf() => $envio->pdf()]);
+revisar('El correo lleva texto, HTML y el PDF adjunto', str_contains($mensaje, "To: <ana@gmail.com>\r\n")
+    && str_contains($mensaje, 'Content-Type: text/plain; charset=UTF-8') && str_contains($mensaje, 'Content-Type: text/html; charset=UTF-8')
+    && str_contains($mensaje, 'filename="B001-00000012.pdf"') && str_contains($mensaje, "Subject: Tu boleta B001-00000012 de TIENDA MASS\r\n"));
+putenv('CORREO_SMTP_HOST=');
+revisar('Sin servidor de correo en el .env, el envío desde el sistema queda apagado', CorreoSmtp::desdeEntorno() === null);
 
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

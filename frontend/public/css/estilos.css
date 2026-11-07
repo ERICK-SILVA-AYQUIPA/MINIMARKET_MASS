@@ -1782,3 +1782,8 @@ dialog.ventana-pago-dialogo .avisos-vivo { margin: 0; }
 }
 @keyframes hoja-sube { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) { dialog.ventana-pago-dialogo[open], dialog.ventana-pago-dialogo::backdrop { animation: none; } }
+
+/* Enviar el comprobante al cliente (ventas/comprobante.php) */
+.enviar-comprobante h2 { display: flex; align-items: center; gap: var(--s-2); }
+.boton.whatsapp { background: #128c4a; border-color: #128c4a; color: #fff; }
+.boton.whatsapp:hover { background: #0e733c; border-color: #0e733c; }

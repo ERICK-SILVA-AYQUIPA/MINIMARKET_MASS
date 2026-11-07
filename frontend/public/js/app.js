@@ -2200,5 +2200,77 @@
         }
     }
 
+    // ---------- Enviar el comprobante al cliente (ventas/comprobante.php): WhatsApp, Gmail o los dos ----------
+    // Los enlaces se arman con lo que se escribe; el texto es el de ComprobanteParaCliente (PHP)
+    const formEnvio = $('[data-enviar-comprobante]');
+    if (formEnvio) {
+        const celular = $('[data-envio-celular]', formEnvio);
+        const correo = $('[data-envio-correo]', formEnvio);
+        const whatsapp = $('[data-envio-whatsapp]', formEnvio);
+        const gmail = $('[data-envio-gmail]', formEnvio);
+        const ambos = $('[data-envio-ambos]', formEnvio);
+        const ayuda = $('[data-envio-ayuda]', formEnvio);
+        // Igual que ComprobanteParaCliente::celular(): 9 digitos que empiezan en 9 (se quita el +51)
+        const celularPeru = () => {
+            let digitos = celular.value.replace(/\D+/g, '');
+            if (digitos.length === 11 && digitos.startsWith('51')) {
+                digitos = digitos.slice(2);
+            }
+            return /^9\d{8}$/.test(digitos) ? digitos : '';
+        };
+        const correoValido = () => (correo.checkValidity() && correo.value.trim() !== '' ? correo.value.trim() : '');
+        const enlaceWhatsApp = () => {
+            const numero = celularPeru();
+            return formEnvio.dataset.urlWhatsapp + (numero ? '51' + numero : '') + '?text=' + encodeURIComponent(formEnvio.dataset.texto);
+        };
+        const enlaceGmail = () => formEnvio.dataset.urlGmail + '?' + new URLSearchParams({
+            view: 'cm', fs: '1', to: correoValido(), su: formEnvio.dataset.asunto, body: formEnvio.dataset.textoCorreo,
+        }).toString();
+        const actualizar = () => {
+            whatsapp.href = enlaceWhatsApp();
+            if (gmail) {
+                gmail.href = enlaceGmail();
+            }
+        };
+        const pedirCorreo = (evento) => {
+            if (correoValido() === '') {
+                evento.preventDefault();
+                correo.setCustomValidity('Escribe el correo del cliente.');
+                correo.reportValidity();
+                correo.addEventListener('input', () => correo.setCustomValidity(''), { once: true });
+                return false;
+            }
+            return true;
+        };
+        celular.addEventListener('input', actualizar);
+        correo.addEventListener('input', actualizar);
+        actualizar();
+        $('[data-envio-correo-boton]', formEnvio)?.addEventListener('click', pedirCorreo);
+        if (gmail) {
+            gmail.addEventListener('click', pedirCorreo);
+        }
+        if (ambos) {
+            ambos.hidden = false;
+            ambos.addEventListener('click', (evento) => {
+                if (!pedirCorreo(evento)) {
+                    return;
+                }
+                // Primero WhatsApp en otra pestaña; luego el correo (el formulario o Gmail)
+                // (sin 'noopener': con el, window.open siempre devuelve null y no se sabria si se bloqueo)
+                const abrir = (url) => {
+                    const pestana = window.open(url, '_blank');
+                    if (pestana) {
+                        pestana.opener = null;
+                    }
+                    return pestana !== null;
+                };
+                abrir(enlaceWhatsApp());
+                if (gmail && !abrir(enlaceGmail())) {
+                    ayuda.textContent = 'WhatsApp ya se abrió. El navegador bloqueó la segunda pestaña: toca Abrir en Gmail.';
+                }
+            });
+        }
+    }
+
     enfocarDrawer();
 }());

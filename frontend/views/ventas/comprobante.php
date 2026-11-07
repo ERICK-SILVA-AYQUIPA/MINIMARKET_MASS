@@ -19,6 +19,9 @@ declare(strict_types=1);
  * @var float $totalDevuelto
  * @var bool $aTiempo  la venta tiene menos de VentaServicio::DIAS_DEVOLUCION dias
  * @var bool $puedeDevolver  el usuario actual (cajero con turno) puede devolver parte
+ * @var ComprobanteParaCliente $envio  el comprobante en texto para WhatsApp, Gmail y correo
+ * @var ?string $celularCliente  el telefono de la ficha del cliente (si tiene)
+ * @var bool $correoDesdeServidor  hay SMTP en el .env: el correo sale desde el sistema con el PDF adjunto
  */
 $numero = $serie->formatear($venta->getNumeroCorrelativo());
 $titulo = $numero;
@@ -46,6 +49,37 @@ require __DIR__ . '/../layout_inicio.php';
 </div>
 
 <div>
+    <?php if (!$venta->estaAnulada()): ?>
+    <section class="panel enviar-comprobante" id="enviar">
+        <h2><?= icono('enviar') ?>Enviar al cliente</h2>
+        <form class="formulario" method="post" action="/?ruta=comprobante_correo" data-enviar-comprobante
+            data-texto="<?= e($envio->texto()) ?>" data-texto-correo="<?= e($envio->texto(false)) ?>" data-asunto="<?= e($envio->asunto()) ?>"
+            data-url-whatsapp="<?= e(ComprobanteParaCliente::URL_WHATSAPP) ?>" data-url-gmail="<?= e(ComprobanteParaCliente::URL_GMAIL) ?>">
+            <?= campoCsrf($csrf) ?>
+            <input type="hidden" name="serie" value="<?= e($serie->getSerie()) ?>">
+            <input type="hidden" name="numero" value="<?= $venta->getNumeroCorrelativo() ?>">
+            <label for="envio_celular">Celular (WhatsApp)</label>
+            <input id="envio_celular" name="celular" type="tel" inputmode="tel" maxlength="15" placeholder="987654321"
+                value="<?= e(ComprobanteParaCliente::celular($celularCliente) ?? '') ?>" data-envio-celular>
+            <label for="envio_correo">Correo (Gmail u otro)</label>
+            <input id="envio_correo" name="correo" type="email" maxlength="120" placeholder="cliente@gmail.com" autocomplete="off" data-envio-correo>
+            <div class="botones-formulario">
+                <a class="boton whatsapp" href="<?= e($envio->enlaceWhatsApp($celularCliente)) ?>" target="_blank" rel="noopener" data-envio-whatsapp><?= icono('enviar') ?>WhatsApp</a>
+                <?php if ($correoDesdeServidor): ?>
+                    <button class="secundario" type="submit" name="canal" value="correo" data-envio-correo-boton>Enviar correo</button>
+                <?php else: ?>
+                    <a class="boton secundario" href="<?= e($envio->enlaceGmail(null)) ?>" target="_blank" rel="noopener" data-envio-gmail>Abrir en Gmail</a>
+                <?php endif; ?>
+                <button class="secundario" type="<?= $correoDesdeServidor ? 'submit' : 'button' ?>" name="canal" value="ambos" data-envio-ambos hidden>Los dos</button>
+            </div>
+            <p class="ayuda" data-envio-ayuda>
+                <?php if ($correoDesdeServidor): ?>El correo sale desde el sistema con el comprobante en PDF.<?php else: ?>Gmail se abre con el comprobante ya escrito: solo toca Enviar.<?php endif; ?>
+                Sin celular, WhatsApp te deja elegir el contacto.
+            </p>
+        </form>
+    </section>
+    <?php endif; ?>
+
     <section class="panel">
         <h2>Revisión</h2>
         <ul class="lista-revision">
