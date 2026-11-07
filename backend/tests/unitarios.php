@@ -48,6 +48,7 @@ require_once __DIR__ . '/../models/exportar/DocumentoPdf.php';
 require_once __DIR__ . '/../controllers/ReporteController.php';
 require_once __DIR__ . '/../models/envio/ComprobanteParaCliente.php';
 require_once __DIR__ . '/../models/envio/CorreoSmtp.php';
+require_once __DIR__ . '/../models/envio/EnlaceComprobante.php';
 
 $ok = 0;
 $fallas = 0;
@@ -681,10 +682,32 @@ $envio = new ComprobanteParaCliente('TIENDA MASS', 'Mass Lince', 'Av. Arequipa 1
         ['nombre' => 'Arroz', 'cantidad' => '1.500 kg', 'precio' => 3.8, 'importe' => 5.7, 'descuento' => 0.0],
     ], 0.7, 13.0, [['metodo' => 'EFECTIVO', 'monto' => 13.0]], true);
 $textoEnvio = $envio->texto();
-revisar('El texto trae número, productos, descuentos, total y pago', str_contains($textoEnvio, '*Boleta B001-00000012*')
-    && str_contains($textoEnvio, '2 x Leche Gloria (S/ 4.50) = S/ 9.00') && str_contains($textoEnvio, 'Descuento: -S/ 1.00')
-    && str_contains($textoEnvio, 'Descuento de la compra: -S/ 0.70') && str_contains($textoEnvio, '*TOTAL: S/ 13.00*')
-    && str_contains($textoEnvio, 'Pagado con EFECTIVO: S/ 13.00') && str_contains($textoEnvio, 'Ticket interno'));
+revisar('El texto de WhatsApp va como un ticket: cabecera, cada producto con su cantidad, descuentos, total y pago',
+    str_contains($textoEnvio, "*TIENDA MASS*\nMass Lince\nAv. Arequipa 123") && str_contains($textoEnvio, "*BOLETA*\n*B001-00000012*")
+    && str_contains($textoEnvio, "*Leche Gloria*\n2 x S/ 4.50  =  S/ 9.00\n_Descuento -S/ 1.00_")
+    && str_contains($textoEnvio, 'Subtotal: S/ 14.70') && str_contains($textoEnvio, 'Descuentos: -S/ 1.70')
+    && str_contains($textoEnvio, '*TOTAL: S/ 13.00*') && str_contains($textoEnvio, 'Pago: Efectivo S/ 13.00')
+    && str_contains($textoEnvio, 'Ticket interno') && !str_contains($textoEnvio, 'Descarga tu comprobante'));
+revisar('Sin tablas ni bloques de código (en WhatsApp salen como cuadros)', !str_contains($textoEnvio, '```') && !str_contains($textoEnvio, '|'));
+$conTodo = new ComprobanteParaCliente('TIENDA MASS', 'Mass Lince', '', 'Factura', 'F001-00000003', 'hoy', 'RUC 20100047218',
+    [['nombre' => 'Arroz', 'cantidad' => '1', 'precio' => 11.8, 'importe' => 11.8, 'descuento' => 0.0]], 0.0, 11.8,
+    [['metodo' => 'TARJETA DE DEBITO', 'monto' => 11.8]], false, '20123456789', 10.0, 1.8, 'https://tiendamass.pe/?ruta=boleta&serie=F001&numero=3&f=abc');
+$textoTodo = $conTodo->texto();
+revisar('Con RUC, IGV y enlace: el mensaje los muestra y no repite el subtotal sin descuentos', str_contains($textoTodo, "*TIENDA MASS*\nRUC 20123456789")
+    && str_contains($textoTodo, "Op. gravada: S/ 10.00\nIGV 18%: S/ 1.80") && str_contains($textoTodo, 'Pago: Tarjeta de debito S/ 11.80')
+    && str_contains($textoTodo, "Descarga tu comprobante en PDF:\nhttps://tiendamass.pe/?ruta=boleta") && !str_contains($textoTodo, 'Subtotal')
+    && !str_contains($textoTodo, 'Ticket interno'));
+putenv('PAGINA_PUBLICA_URL=');
+revisar('Sin PAGINA_PUBLICA_URL no hay enlace público', EnlaceComprobante::url('B001', 12) === null);
+putenv('PAGINA_PUBLICA_URL=https://tiendamass.pe/');
+putenv('ENLACES_CLAVE=clave-de-prueba');
+$enlace = EnlaceComprobante::url('B001', 12);
+parse_str((string) parse_url((string) $enlace, PHP_URL_QUERY), $partesEnlace);
+revisar('El enlace público lleva la firma y solo vale para ese comprobante', str_starts_with((string) $enlace, 'https://tiendamass.pe/?ruta=boleta&serie=B001&numero=12&f=')
+    && EnlaceComprobante::esValida('B001', 12, $partesEnlace['f'] ?? null) && !EnlaceComprobante::esValida('B001', 13, $partesEnlace['f'] ?? null)
+    && !EnlaceComprobante::esValida('B001', 12, null));
+putenv('PAGINA_PUBLICA_URL');
+putenv('ENLACES_CLAVE');
 revisar('Para el correo el texto va sin asteriscos', !str_contains($envio->texto(false), '*'));
 revisar('WhatsApp va al celular con +51; sin celular deja elegir el contacto',
     str_starts_with($envio->enlaceWhatsApp('987 654 321'), 'https://wa.me/51987654321?text=%2ATIENDA%20MASS%2A')

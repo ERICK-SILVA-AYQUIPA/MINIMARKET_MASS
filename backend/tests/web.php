@@ -25,6 +25,8 @@ putenv('EMPRESA_RUC=20600000005');
 putenv('EMPRESA_DIRECCION_FISCAL=Calle de Prueba 123, Arequipa');
 putenv('TICKET_ANCHO_MM=80');
 putenv('FACTURACION_PROVEEDOR=ninguno');
+// El mensaje de WhatsApp lleva el enlace publico al PDF del comprobante
+putenv('PAGINA_PUBLICA_URL=' . BASE);
 
 $servidor = proc_open(
     [PHP_BINARY, '-S', '127.0.0.1:8099', '-t', __DIR__ . '/../../frontend/public'],
@@ -325,6 +327,13 @@ revisar('Ticket de un comprobante que no existe: 404', $luis->get('ruta=comproba
 revisar('El comprobante ofrece enviarlo por WhatsApp y Gmail (sin SMTP en el .env)', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
     && $luis->tiene('id="enviar"') && $luis->tiene('href="https://wa.me/') && $luis->tiene('Abrir en Gmail')
     && $luis->tiene('action="/?ruta=comprobante_correo"'));
+revisar('El mensaje de WhatsApp lleva el enlace firmado al PDF', $luis->get('ruta=comprobante&serie=B001&numero=1') === 200
+    && preg_match('/ruta%3Dboleta%26serie%3DB001%26numero%3D1%26f%3D([0-9a-f]{20})/', $luis->cuerpo, $firmaPdf) === 1);
+$firmaPdf = $firmaPdf[1] ?? '';
+revisar('El cliente abre el PDF del enlace sin entrar al sistema', $anonimo->get('ruta=boleta&serie=B001&numero=1&f=' . $firmaPdf) === 200
+    && str_starts_with($anonimo->cuerpo, '%PDF-') && str_contains($anonimo->cabeceras['content-type'] ?? '', 'application/pdf'));
+revisar('Con otra firma u otro número el enlace no abre nada: 404', $anonimo->get('ruta=boleta&serie=B001&numero=3&f=' . $firmaPdf) === 404
+    && $anonimo->get('ruta=boleta&serie=B001&numero=1&f=0000') === 404 && $anonimo->get('ruta=boleta&serie=B001&numero=1') === 404);
 revisar('Una venta anulada no ofrece enviarla', $luis->get('ruta=comprobante&serie=B001&numero=2') === 200 && !$luis->tiene('id="enviar"'));
 revisar('Enviar por correo sin un correo válido vuelve al comprobante con el aviso', $luis->post('comprobante_correo',
     ['serie' => 'B001', 'numero' => '1', 'correo' => 'no-es-correo']) === 303

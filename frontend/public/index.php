@@ -244,6 +244,9 @@ try {
                 'asistente_borrar'   => $asistenteController->borrar(),
             };
         }
+    } elseif ($ruta === 'boleta') {
+        // El PDF del comprobante que abre el cliente desde WhatsApp: sin login, pero con la firma del enlace
+        $ventaController->pdfPublico($leer('serie'), $leer('numero'), $leer('f'));
     } elseif ($ruta === 'login' && $usuario === null) {
         $auth->formulario();
     } elseif ($ruta === 'login') {
