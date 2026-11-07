@@ -1,0 +1,26 @@
+# TEMPORAL: genera las capturas base E2E en la imagen de Docker de Playwright y las sube como artefacto.
+# Se borra en el mismo PR antes de unirlo.
+name: Capturas E2E (temporal)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  capturas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Levantar MySQL
+        run: |
+          cp .env.example .env
+          docker compose up -d --wait mysql
+          sleep 5
+      - name: Generar capturas
+        run: bash tests/e2e/correr_en_docker.sh --update-snapshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: capturas-nuevas
+          path: tests/e2e/*-snapshots/
+          retention-days: 3
