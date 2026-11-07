@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/ModeloLenguaje.php';
 require_once __DIR__ . '/Herramientas.php';
+require_once __DIR__ . '/Conocimiento.php';
 
 /**
  * El asistente: recibe una pregunta en español ("¿cuánto vendimos ayer?", "¿hay leche Gloria?"),
@@ -42,6 +43,9 @@ final class Asistente
         - Para planificar usa sugerencia_pedido (qué pedir y cuánto), pronostico_ventas, horas_punta y productos_por_vencer.
           Di que el pronóstico es una estimación con lo vendido en las últimas semanas.
         - Si preguntan cómo o dónde se hace algo en el sistema, usa como_usar y explica los pasos en orden.
+        - Si dicen "aquí", "esta pantalla" o "esto", se refieren a la pantalla donde están (te la doy abajo): para explicarla
+          usa como_usar con esa pantalla. Si piden consejo para trabajar mejor (mermas, promociones, turnos, estante), usa
+          como_usar y los datos de la tienda.
         - Para direcciones, cajas o promociones de hoy usa datos_tienda; para combos, se_compran_juntos.
         - Interpreta fechas relativas (hoy, ayer, esta semana, este mes, el mes pasado) con la fecha de hoy que se te da.
         - Las cifras de lo que consultas se muestran solas debajo de tu respuesta en tarjetas, tablas y gráficos:
@@ -58,9 +62,10 @@ final class Asistente
 
     /**
      * @param array<int, array{rol: string, texto: string}> $historial las preguntas y respuestas anteriores (solo texto)
+     * @param string $pantalla la ruta de la pantalla donde esta el usuario ('' = ninguna)
      * @return array{respuesta: string, enlaces: array<int, array{texto: string, url: string}>, ok: bool, bloques: array<int, array<string, mixed>>}
      */
-    public function preguntar(string $pregunta, array $historial = []): array
+    public function preguntar(string $pregunta, array $historial = [], string $pantalla = ''): array
     {
         $pregunta = trim(mb_substr($pregunta, 0, self::LARGO_PREGUNTA));
         if ($pregunta === '') {
@@ -85,7 +90,8 @@ final class Asistente
             'model'         => $this->nombreModelo,
             'max_tokens'    => 4000,
             'system'        => self::INSTRUCCIONES . "\n\n" . $this->herramientas->contexto()
-                . ' Hoy es ' . $this->hoy->format('Y-m-d') . ' (' . self::DIAS[(int) $this->hoy->format('w')] . ').',
+                . ' Hoy es ' . $this->hoy->format('Y-m-d') . ' (' . self::DIAS[(int) $this->hoy->format('w')] . ').'
+                . $this->dondeEsta($pantalla),
             'tools'         => $this->herramientas->definiciones(),
             // Preguntas cortas de chat: poco razonamiento = respuesta mas rapida y barata
             'output_config' => ['effort' => 'low'],
@@ -142,6 +148,12 @@ final class Asistente
             $mensajes[] = ['role' => 'user', 'content' => $resultados];
         }
         return $this->fin('La pregunta necesitó demasiados pasos. Prueba a hacerla más concreta.', false);
+    }
+
+    private function dondeEsta(string $ruta): string
+    {
+        $p = Conocimiento::pantalla($ruta);
+        return $p === null ? '' : ' Ahora está en la pantalla ' . $p['nombre'] . ' (pantalla "' . $ruta . '"): ' . $p['para'] . '.';
     }
 
     private const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];

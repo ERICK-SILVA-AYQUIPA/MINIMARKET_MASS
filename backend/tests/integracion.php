@@ -224,6 +224,16 @@ revisar('Pregunta rápida "Datos de nuestras tiendas": las 3 sedes en una tabla,
     && count($r['bloques'][0]['filas'] ?? []) === 3 && count(array_filter($r['bloques'][0]['filas'], fn(array $f): bool => str_ends_with($f[0], '(aquí)'))) === 1);
 $r = $rapidasRosa31->responder('como_usar');
 revisar('Pregunta rápida "¿Cómo se usa el sistema?": qué hace el asistente y ejemplos de guías', $r['ok'] && str_contains($r['respuesta'], '¿cómo cierro la caja?'));
+$enVentas = (new RespuestasRapidas($hLuis31, $el31))->enPantalla('ventas');
+revisar('En Ventas, la primera pregunta del cajero es «¿Qué hago en Ventas?»', array_key_first($enVentas->disponibles()) === 'esta_pantalla'
+    && $enVentas->texto('esta_pantalla') === '¿Qué hago en Ventas?' && in_array('esta_pantalla', $enVentas->sugeridas(), true));
+$r = $enVentas->responder('esta_pantalla');
+revisar('...responde para qué sirve la pantalla y los pasos de su rol (devolver sí, anular no)', $r['ok']
+    && str_starts_with($r['respuesta'], 'Estás en Ventas:') && str_contains($r['respuesta'], 'Devolver productos') && !str_contains($r['respuesta'], 'Anular una venta'));
+revisar('...y lo escrito "¿qué hago aquí?" también', str_starts_with($enVentas->interpretar('¿qué hago aquí?')['respuesta'], 'Estás en Ventas:'));
+$enKardex = $hRosa31->ejecutar('como_usar', ['pantalla' => 'kardex']);
+revisar('La guía de una pantalla (para Claude): nombre, para qué sirve y sus guías', ($enKardex['pantalla'] ?? '') === 'Kardex'
+    && ($enKardex['encontradas'] ?? 0) >= 1 && ($hRosa31->ejecutar('como_usar', ['pantalla' => 'nada'])['encontradas'] ?? -1) === 0);
 
 echo "Tildes y utf8mb4\n";
 revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',

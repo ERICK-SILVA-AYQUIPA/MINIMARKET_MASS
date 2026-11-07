@@ -768,7 +768,16 @@ $cajero = new RespuestasRapidas($cajeroH, new DateTimeImmutable('2026-11-07'));
 revisar('El administrador tiene las de ventas y la de cada tienda; no la de hacer venta', isset($admin->disponibles()['ventas_hoy'], $admin->disponibles()['tiendas_mes'])
     && !isset($admin->disponibles()['hacer_venta']));
 revisar('El cajero: stock bajo, sin venta y hacer venta; nada de ventas ni clientes (sin esa herramienta)',
-    array_keys($cajero->disponibles()) === ['alertas', 'stock_bajo', 'sin_venta', 'hacer_venta']);
+    array_keys($cajero->disponibles()) === ['hacer_venta', 'stock_bajo', 'alertas', 'sin_venta']);
+revisar('Cada rol ve primero lo suyo: el administrador las alertas y las ventas, el cajero hacer una venta',
+    array_slice(array_keys($admin->disponibles()), 0, 2) === ['alertas', 'ventas_hoy'] && $cajero->sugeridas()[0] === 'hacer_venta'
+    && $admin->rol() === 'admin' && $cajero->rol() === 'vende');
+$adminEnClientes = (new RespuestasRapidas($herramientasDe(true), new DateTimeImmutable('2026-11-07')))->enPantalla('reportes');
+revisar('En una pantalla van primero sus preguntas (Reportes: las del mes y los más vendidos)',
+    array_slice(array_keys($adminEnClientes->disponibles()), 0, 2) === ['ventas_mes', 'mas_vendidos']
+    && count($adminEnClientes->disponibles()) === count($admin->disponibles()));
+revisar('Una pantalla desconocida no cambia nada ni suma preguntas',
+    (new RespuestasRapidas($herramientasDe(true), new DateTimeImmutable('2026-11-07')))->enPantalla('<script>')->disponibles() === $admin->disponibles());
 $casos = [
     '¿Cuánto vendimos hoy?' => 'ventas_hoy', 'cuanto vendimos AYER' => 'ventas_ayer', 'ventas del mes' => 'ventas_mes',
     'qué es lo más vendido' => 'mas_vendidos', 'cuánto vendió cada cajero' => 'por_cajero', 'ventas por tienda' => 'tiendas_mes',
@@ -880,6 +889,30 @@ revisar('Distingue las preguntas de "cómo" de las de datos', Conocimiento::esCo
     && !Conocimiento::esComoHacer('¿Cuánto vendimos hoy?') && !Conocimiento::esComoHacer('stock bajo'));
 revisar('El cajero ve solo sus guías; el administrador, todas', !in_array('Anular una venta', $guiaCajero->titulos(), true)
     && in_array('Abrir la caja (empezar el día)', $guiaCajero->titulos(), true) && count($guiaAdmin->titulos()) > count($guiaCajero->titulos()));
+
+revisar('Sabe qué es cada pantalla y qué se hace ahí, solo con las guías de su rol',
+    Conocimiento::pantalla('kardex')['nombre'] === 'Kardex' && Conocimiento::pantalla('no_existe') === null
+    && array_column($guiaAdmin->deLaPantalla('ventas'), 'clave') === ['imprimir', 'devolucion', 'anular', 'papel_ticket']
+    && !in_array('anular', array_column($guiaCajero->deLaPantalla('ventas'), 'clave'), true)
+    && in_array('mas_vendidos', Conocimiento::preguntasDePantalla('productos'), true));
+$nuevas = ['¿cómo cobro con tarjeta?' => 'cobrar_tarjeta', '¿cómo hago un descuento a toda la compra?' => 'descuento_manual',
+    '¿cómo recibo una orden de compra que llegó?' => 'recibir_orden', '¿cómo bajo las mermas?' => 'consejo_merma',
+    '¿cómo pongo la foto de un producto?' => 'foto', '¿qué significa el error 403?' => 'mensajes', '¿cómo cambio el stock minimo?' => 'stock_minimo'];
+$bien = array_filter($nuevas, fn(string $clave, string $pregunta): bool => ($guiaAdmin->buscar($pregunta)[0]['clave'] ?? '') === $clave, ARRAY_FILTER_USE_BOTH);
+revisar('Las guías nuevas (cobros, descuentos, órdenes, mermas, fotos, errores, mínimos) se encuentran', count($bien) === count($nuevas),
+    array_keys(array_diff_key($nuevas, $bien)));
+
+echo "Panel de inicio: cuentas de los indicadores (Tablero)\n";
+require_once __DIR__ . '/../models/Tablero.php';
+revisar('Variación contra el periodo anterior, sin dividir entre 0', Tablero::variacion(150.0, 100.0) === 50.0
+    && Tablero::variacion(50.0, 200.0) === -75.0 && Tablero::variacion(10.0, 0.0) === null);
+$horas = Tablero::horas([['hora' => '9', 'total' => '20.5'], ['hora' => '23', 'total' => '4']]);
+revisar('Horas de 7 a 22 en orden, con las sin ventas en 0 y las de fuera del horario si vendieron',
+    array_key_first($horas) === 7 && array_key_last($horas) === 23 && $horas[9] === 20.5 && $horas[8] === 0.0 && count($horas) === 17);
+$partes = Tablero::participacion([['monto' => 75], ['monto' => 25]], 'monto');
+revisar('Participación de cada medio de pago y ancho de barra visible', $partes[0]['pct'] === 75 && $partes[1]['pct'] === 25
+    && Tablero::ancho(1.0, 1000.0) === 3 && Tablero::ancho(0.0, 10.0) === 0 && Tablero::ancho(5.0, 10.0) === 50);
+revisar('Saludo según la hora', Tablero::saludo(8) === 'Buenos días' && Tablero::saludo(15) === 'Buenas tardes' && Tablero::saludo(21) === 'Buenas noches');
 
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

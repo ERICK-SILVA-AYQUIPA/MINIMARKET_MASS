@@ -59,6 +59,16 @@ pantalla. Cada rol ve sus guías; si pregunta algo que no le toca, le dice a qui
 El asistente **no cambia datos**: para vender, recibir mercadería o anular, da el botón a la pantalla donde se hace y
 se confirma como siempre.
 
+## Según la pantalla y el rol
+
+La ventanita manda la pantalla donde está el usuario (`pantalla`, la ruta de la URL). `Conocimiento::PANTALLAS` dice
+qué es cada pantalla, sus guías y las preguntas rápidas que más sirven ahí. Así:
+
+- La primera pregunta es *¿Qué hago en …?* (para qué sirve la pantalla y los pasos de lo que su rol hace ahí). También
+  responde a lo escrito "¿qué hago aquí?".
+- Luego van las preguntas de esa pantalla y las de su rol (`RespuestasRapidas::POR_ROL`); las 4 primeras se resaltan.
+- Con IA, Claude recibe la pantalla en sus instrucciones y `como_usar` acepta `pantalla`.
+
 ## Cómo funciona
 
 1. `app.js` envía la pregunta a `POST /?ruta=asistente_preguntar` (con el token CSRF). Sin JavaScript, el formulario

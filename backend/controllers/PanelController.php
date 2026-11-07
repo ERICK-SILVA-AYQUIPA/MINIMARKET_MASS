@@ -12,9 +12,13 @@ require_once __DIR__ . '/../models/IngresoRepository.php';
 require_once __DIR__ . '/../models/Vencimiento.php';
 require_once __DIR__ . '/../models/Reposicion.php';
 require_once __DIR__ . '/../models/CompraRepository.php';
+require_once __DIR__ . '/../models/PromocionRepository.php';
+require_once __DIR__ . '/../models/Tablero.php';
 
 /**
- * C: panel de inicio y lista de reposicion. Cada rol ve los indicadores de SU tienda que le sirven para trabajar.
+ * C: panel de inicio y lista de reposicion. Cada rol ve los indicadores de SU tienda que le sirven para trabajar:
+ * el administrador, las ventas del dia y del mes, por hora, los mas vendidos y los medios de pago; el cajero, su turno,
+ * las promociones de hoy y lo que mas sale; el almacenero, lo agotado, lo que vence y los pedidos por llegar.
  */
 class PanelController extends Controller
 {
@@ -32,7 +36,8 @@ class PanelController extends Controller
         private ProductoRepository $productos,
         private CatalogoRepository $catalogo,
         private IngresoRepository $ingresos,
-        private CompraRepository $compras
+        private CompraRepository $compras,
+        private PromocionRepository $promociones
     ) {
         parent::__construct($tiendas, $sesion, $usuario);
     }
@@ -89,6 +94,49 @@ class PanelController extends Controller
         }
 
         $esAdministrador = $usuario->puedeAdministrarTienda($id);
+        $perfil = match (true) {
+            $esAdministrador => 'admin',
+            $usuario->puedeVender() => 'cajero',
+            default => 'almacen',
+        };
+        $saludo = Tablero::saludo((int) date('G'));
+        $semana = (new DateTimeImmutable('today'))->modify('-6 days')->format('Y-m-d');
+
+        // Lo que se vende mas esta semana (cantidad para el cajero, importe para el administrador)
+        $topSemana = $perfil === 'almacen' ? [] : $this->reportes->masVendidos($id, $semana, $hoy, 5);
+        $promocionesHoy = $perfil === 'almacen' ? [] : $this->promociones->vigentes($id, $hoy);
+
+        // Administrador: el mes contra el mismo tramo del mes pasado, las horas de hoy y como pagaron
+        $mesResumen = $mesAnterior = null;
+        $porHora = $pagosHoy = [];
+        if ($perfil === 'admin') {
+            $inicioMes = new DateTimeImmutable('first day of this month');
+            $inicioAnterior = $inicioMes->modify('-1 month');
+            $diasMes = (int) (new DateTimeImmutable('today'))->format('j');
+            $finAnterior = $inicioAnterior->modify('+' . (min($diasMes, (int) $inicioAnterior->format('t')) - 1) . ' days');
+            $mesResumen = $this->reportes->resumen($id, $inicioMes->format('Y-m-d'), $hoy);
+            $mesAnterior = $this->reportes->resumen($id, $inicioAnterior->format('Y-m-d'), $finAnterior->format('Y-m-d'));
+            $porHora = Tablero::horas($this->reportes->porHora($id, $hoy, $hoy));
+            $pagosHoy = Tablero::participacion($this->reportes->porMetodoPago($id, $hoy, $hoy), 'monto');
+        }
+
+        // Cajero: su turno con lo vendido y el efectivo que deberia tener en la gaveta
+        $miTurnoDatos = null;
+        foreach ($turnos as $t) {
+            if ($miTurno !== null && (int) $t['id_caja_turno'] === $miTurno->getIdCajaTurno()) {
+                $miTurnoDatos = $t;
+            }
+        }
+
+        // Almacenero: lo agotado y los pedidos que estan por llegar
+        $agotados = $this->panel->contarAgotados($id);
+        $ordenesAbiertas = $veVencimientos ? $this->compras->ordenes($id, 'ABIERTAS', 5, 0) : [];
+        $totalOrdenes = $veVencimientos ? $this->compras->contarOrdenes($id, 'ABIERTAS') : 0;
+        $proveedores = [];
+        foreach ($ordenesAbiertas !== [] ? $this->compras->proveedores() : [] as $p) {
+            $proveedores[$p->getIdProveedor()] = $p->getRazonSocial();
+        }
+
         $this->vista('panel/inicio', get_defined_vars());
     }
 

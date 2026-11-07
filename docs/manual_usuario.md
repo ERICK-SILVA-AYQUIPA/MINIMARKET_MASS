@@ -55,7 +55,7 @@ Cada empleado trabaja solo en su sede. Los dos cajeros de una sede pueden tener 
 
 | Menú | Para qué |
 |---|---|
-| **Inicio** | Panel de la tienda: vendido hoy contra ayer, comprobantes, ticket promedio, gráfico de 14 días, productos por reponer, lo que vence esta semana (almacenero y administrador), cajas abiertas y últimos movimientos |
+| **Inicio** | Panel de la tienda armado para cada rol. **Administrador**: vendido hoy, comprobantes y ticket promedio contra ayer, lo que va del mes contra el mismo tramo del mes pasado, gráficos de 14 días y de hoy hora por hora, lo más vendido de la semana, cómo pagaron hoy, por reponer, lo que vence, cajas abiertas y últimos movimientos. **Cajero**: su turno (vendido, efectivo cobrado y ticket promedio), promociones de hoy, lo que más sale, por reponer y cajas abiertas. **Almacenero**: por reponer, agotados, lo que vence en 7 días, pedidos por llegar y últimos movimientos, sin montos de venta |
 | **Catálogo** | Productos en tarjetas con su foto (o el ícono de su categoría), precio y stock: verde hay, amarillo llegó al mínimo, rojo agotado. Arriba, los filtros por categoría con cuántos productos tiene cada una y el botón **Tabla** para verlos en lista. Al tocar uno se abre su ficha a la derecha, con la foto grande |
 | **Stock** | Stock de cada producto en las 3 tiendas. **REPONER** marca lo que llegó al mínimo. Botón **Descargar en CSV (Excel)** |
 | **Ventas** | Boletas y facturas por fecha y estado. Al tocar una se ve su detalle y pagos a la derecha; **Abrir comprobante completo** lleva a la página para imprimir o anular |

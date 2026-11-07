@@ -6,6 +6,7 @@ declare(strict_types=1);
  * @var array<int, array{rol: string, texto: string, enlaces: array<int, array{texto: string, url: string}>, bloques: array<int, array<string, mixed>>}> $conversacion
  * @var bool $conIa  hay ANTHROPIC_API_KEY en el .env: lo escrito libre lo responde Claude
  * @var array<string, string> $preguntas  preguntas predeterminadas de este rol (clave => texto), se responden desde la base
+ * @var string[] $sugeridas  las que se resaltan: las primeras de su rol
  */
 require __DIR__ . '/../layout_inicio.php';
 $ultimo = count($conversacion) - 1;
@@ -52,7 +53,7 @@ $ultimo = count($conversacion) - 1;
         <form method="post" action="/?ruta=asistente_preguntar">
             <?= campoCsrf($csrf) ?>
             <input type="hidden" name="rapida" value="<?= e($clave) ?>">
-            <button type="submit" class="asistente-chip" data-asistente-rapida="<?= e($clave) ?>"><?= e($textoPregunta) ?></button>
+            <button type="submit" class="asistente-chip<?= in_array($clave, $sugeridas, true) ? ' sugerida' : '' ?>" data-asistente-rapida="<?= e($clave) ?>"><?= e($textoPregunta) ?></button>
         </form>
         <?php endforeach; ?>
     </div>
