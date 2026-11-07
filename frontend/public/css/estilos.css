@@ -1691,6 +1691,7 @@ form.formulario .conteo-control input, .conteo-control input { border: 0; border
 .asistente-sugerencias form { margin: 0; }
 button.asistente-chip { background: transparent; color: var(--texto); border: 1px solid var(--borde-fuerte); border-radius: var(--radio-full);
     padding: var(--s-1) var(--s-3); font-size: .85rem; font-weight: 500; box-shadow: none; }
+button.asistente-chip.sugerida { border-color: var(--marca); color: var(--tinta); background: var(--marca-suave); }
 button.asistente-chip:hover { background: var(--marca-suave); border-color: var(--marca); color: var(--tinta); box-shadow: none; }
 .asistente-escribir { display: flex; gap: var(--s-2); align-items: flex-end; margin: 0; }
 .asistente-escribir textarea { flex: 1; min-height: 44px; max-height: 160px; resize: none; }
@@ -1852,3 +1853,54 @@ dialog.ventana-pago-dialogo .avisos-vivo { margin: 0; }
 .enviar-comprobante h2 { display: flex; align-items: center; gap: var(--s-2); }
 .boton.whatsapp { background: #128c4a; border-color: #128c4a; color: #fff; }
 .boton.whatsapp:hover { background: #0e733c; border-color: #0e733c; }
+
+/* ---------- Panel de inicio por rol (views/panel/inicio.php) ---------- */
+.tablero-rol {
+    display: inline-flex; align-items: center; gap: var(--s-2); margin: 0 0 var(--s-2); padding: var(--s-1) var(--s-3);
+    border: 1px solid var(--borde-fuerte); border-radius: var(--radio-full); color: var(--suave);
+    font-size: .75rem; font-weight: 600; letter-spacing: var(--tracking-mayusculas); text-transform: uppercase;
+}
+.tablero-rol .icono { width: 14px; height: 14px; color: var(--marca); }
+.tablero-kpi > div::before { background: var(--borde-fuerte); }
+.tablero-kpi > div.kpi-marca::before { background: var(--marca); }
+.tablero-kpi > div.kpi-alerta::before { background: var(--rojo); }
+.tablero-kpi > div.kpi-bien::before { background: var(--verde); }
+.tablero-kpi > div.kpi-alerta strong { color: var(--rojo); }
+.tablero-kpi > div.kpi-marca strong { color: var(--marca); }
+.tablero-kpi .kpi-pie { display: block; color: var(--suave); font-size: .8rem; }
+.delta { display: inline-block; padding: 0 var(--s-2); border-radius: var(--radio-full); font-weight: 700; font-variant-numeric: tabular-nums; }
+.delta.sube { background: var(--verde-fondo); color: var(--verde); }
+.delta.baja { background: var(--rojo-fondo); color: var(--rojo); }
+
+.rejilla-tablero { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: var(--s-4); align-items: stretch; margin-bottom: var(--s-4); }
+.rejilla-tablero > .panel { margin-bottom: 0; }
+.rejilla-tablero > .panel:only-child { grid-column: 1 / -1; }
+@media (max-width: 1100px) { .rejilla-tablero { grid-template-columns: minmax(0, 1fr); } }
+.panel-cabeza { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-3); }
+.panel-cabeza h2 { margin: 0; }
+.enlace-sutil { font-size: .85rem; color: var(--suave); }
+.enlace-sutil:hover { color: var(--marca); }
+.tablero-cifras { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); margin-bottom: var(--s-3); color: var(--suave); font-size: .85rem; }
+.tablero-cifras strong { color: var(--tinta); font-family: var(--mono); font-variant-numeric: tabular-nums; margin-left: var(--s-1); }
+.grafico .barra.hoy span, .grafico .barra.pico span { background: var(--marca); }
+.grafico-horas { height: 150px; }
+.grafico-horas .barra small { font-size: .65rem; }
+
+.ranking { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
+.ranking li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "puesto nombre valor" "puesto pista pista"; gap: var(--s-1) var(--s-3); align-items: center; }
+.ranking.ranking-simple li { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nombre valor" "pista pista"; }
+.ranking-puesto {
+    grid-area: puesto; width: 28px; height: 28px; display: grid; place-items: center; border-radius: var(--radio-full);
+    background: var(--gris-fondo); color: var(--suave); font-weight: 700; font-size: .8rem;
+}
+.ranking li:first-child .ranking-puesto { background: var(--marca); color: var(--sobre-marca); }
+.ranking-nombre { grid-area: nombre; color: var(--tinta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ranking-nombre small { margin-left: var(--s-2); color: var(--suave); }
+.ranking-valor { grid-area: valor; font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--tinta); white-space: nowrap; }
+.ranking-valor small { color: var(--suave); margin-left: var(--s-1); }
+.ranking-pista { grid-area: pista; height: 6px; border-radius: var(--radio-full); background: var(--gris-fondo); overflow: hidden; }
+.ranking-pista span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--marca-fuerte), var(--marca)); }
+.lista-promos, .lista-cajas { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-2); }
+.lista-promos li, .lista-cajas li { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; padding: var(--s-2) 0; border-bottom: 1px solid var(--borde); }
+.lista-promos li:last-child, .lista-cajas li:last-child { border-bottom: 0; }
+.tablero-kpi strong { font-size: clamp(1.2rem, 1.55vw, 1.65rem); white-space: nowrap; }

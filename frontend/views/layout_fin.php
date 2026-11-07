@@ -31,12 +31,14 @@ $soportePie = Aplicacion::soporte();
         <div class="asistente-mensajes" data-asistente-mensajes aria-live="polite">
             <div class="asistente-burbuja asistente-ia" data-asistente-saludo>
                 <span class="asistente-quien"><?= icono('asistente') ?>Asistente</span>
-                <p>Hola, <?= e($usuarioActual->getNombres()) ?>. ¿Qué quieres saber de la tienda? Toca una pregunta o escríbela, también «¿cómo cierro la caja?».</p>
+                <?php require_once __DIR__ . '/../../backend/models/asistente/Conocimiento.php'; $pantallaAsistente = Conocimiento::pantalla($rutaActual ?? ''); ?>
+                <p>Hola, <?= e($usuarioActual->getNombres()) ?>.<?php if ($pantallaAsistente !== null && ($rutaActual ?? '') !== 'inicio'): ?> Estás en <?= e($pantallaAsistente['nombre']) ?>: te ayudo con lo de aquí o con cualquier dato de la tienda.<?php else: ?> ¿Qué quieres saber de la tienda?<?php endif; ?> Toca una pregunta o escríbela, también «¿cómo cierro la caja?».</p>
             </div>
         </div>
         <div class="asistente-sugerencias" data-asistente-sugerencias aria-label="Preguntas rápidas"></div>
         <form class="asistente-escribir" method="post" action="/?ruta=asistente_preguntar" data-asistente-form>
             <?= campoCsrf($csrf) ?>
+            <input type="hidden" name="pantalla" value="<?= e($rutaActual ?? '') ?>" data-asistente-pantalla>
             <label class="visualmente-oculto" for="asistente-ventana-pregunta">Tu pregunta</label>
             <textarea id="asistente-ventana-pregunta" name="pregunta" rows="1" maxlength="500" required placeholder="Escribe tu pregunta…" autocomplete="off"></textarea>
             <button type="button" class="boton secundario asistente-micro" data-asistente-micro hidden aria-label="Dictar la pregunta" title="Dictar la pregunta"><?= icono('microfono') ?></button>

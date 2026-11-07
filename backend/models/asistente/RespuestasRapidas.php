@@ -19,6 +19,7 @@ final class RespuestasRapidas
 {
     // clave => [texto del boton, herramienta que necesita]
     private const PREGUNTAS = [
+        'esta_pantalla'    => ['¿Qué hago en esta pantalla?', 'como_usar'],
         'alertas'          => ['¿Qué alertas hay en la tienda?', 'productos_por_reponer'],
         'ventas_hoy'       => ['¿Cuánto vendimos hoy?', 'resumen_ventas'],
         'ventas_ayer'      => ['¿Cuánto vendimos ayer?', 'resumen_ventas'],
@@ -48,6 +49,17 @@ final class RespuestasRapidas
 
     public const BLOQUES_MAXIMO = 4;
 
+    // Las preguntas que van primero para cada rol (en Inicio, en el chat o en una pantalla sin sugerencias propias)
+    private const POR_ROL = [
+        'admin'   => ['alertas', 'ventas_hoy', 'pronostico', 'mas_vendidos', 'horas_punta', 'tiendas_mes'],
+        'vende'   => ['hacer_venta', 'datos_tienda', 'stock_bajo', 'como_usar'],
+        'almacen' => ['alertas', 'pedido', 'por_vencer', 'stock_bajo', 'sin_venta'],
+    ];
+    private const SUGERIDAS = 4;
+
+    /** @var string la ruta de la pantalla donde esta el usuario ('' = ninguna conocida) */
+    private string $pantalla = '';
+
     /** @var int los bloques de las herramientas que ya estaban antes de esta pregunta (no son de esta respuesta) */
     private int $desde = 0;
 
@@ -69,16 +81,54 @@ final class RespuestasRapidas
         }
     }
 
-    /** @return array<string, string> clave => texto de la pregunta, solo las que este rol puede hacer */
+    /** La pantalla donde esta el usuario (la ruta de la URL): cambia el orden de las preguntas y suma «¿Qué hago en …?» */
+    public function enPantalla(string $ruta): self
+    {
+        $this->pantalla = Conocimiento::pantalla($ruta) !== null ? $ruta : '';
+        return $this;
+    }
+
+    public function rol(): string
+    {
+        return match (true) {
+            isset($this->tiene['resumen_ventas']) => 'admin',
+            isset($this->tiene['sugerencia_pedido']) => 'almacen',
+            default => 'vende',
+        };
+    }
+
+    /**
+     * Las preguntas que este rol puede hacer, las que mas sirven aqui primero: «¿Qué hago en …?», las de la pantalla
+     * y las de su rol. Las primeras SUGERIDAS se resaltan.
+     * @return array<string, string> clave => texto de la pregunta
+     */
     public function disponibles(): array
     {
-        $lista = [];
+        $puede = [];
         foreach (self::PREGUNTAS as $clave => [$texto, $necesita]) {
             if (isset($this->tiene[$necesita])) {
-                $lista[$clave] = $texto;
+                $puede[$clave] = $texto;
             }
         }
-        return $lista;
+        unset($puede['esta_pantalla']);
+        $pantalla = Conocimiento::pantalla($this->pantalla);
+        if ($pantalla !== null && isset($this->tiene['como_usar']) && $this->pantalla !== 'inicio') {
+            $puede = ['esta_pantalla' => '¿Qué hago en ' . $pantalla['nombre'] . '?'] + $puede;
+        }
+        $orden = array_merge(['esta_pantalla'], Conocimiento::preguntasDePantalla($this->pantalla), self::POR_ROL[$this->rol()]);
+        $lista = [];
+        foreach ($orden as $clave) {
+            if (isset($puede[$clave])) {
+                $lista[$clave] = $puede[$clave];
+            }
+        }
+        return $lista + $puede;
+    }
+
+    /** @return string[] las claves que se resaltan (las primeras de disponibles()) */
+    public function sugeridas(): array
+    {
+        return array_slice(array_keys($this->disponibles()), 0, self::SUGERIDAS);
     }
 
     public function texto(string $clave): ?string
@@ -119,6 +169,7 @@ final class RespuestasRapidas
             'juntos'           => $this->juntos(),
             'datos_tienda'     => $this->datosTienda(),
             'como_usar'        => $this->guias(),
+            'esta_pantalla'    => $this->estaPantalla(),
             'hacer_venta'      => $this->abrir('nueva_venta', 'Listo: abre Nueva venta con el botón de abajo.'),
             default            => $this->fin('No conozco esa pregunta.', false),
         };
@@ -131,6 +182,10 @@ final class RespuestasRapidas
     public function interpretar(string $pregunta): array
     {
         $this->desde = count($this->herramientas->bloques());
+        // "¿Qué hago aquí?", "¿para qué sirve esta pantalla?"
+        if ($this->texto('esta_pantalla') !== null && $this->hablaDeEstaPantalla($pregunta)) {
+            return $this->responder('esta_pantalla');
+        }
         // "¿Cómo cierro la caja?", "¿dónde veo el kardex?": primero la guía del sistema
         if (isset($this->tiene['como_usar']) && Conocimiento::esComoHacer($pregunta)) {
             $r = $this->herramientas->ejecutar('como_usar', ['pregunta' => $pregunta]);
@@ -513,6 +568,34 @@ final class RespuestasRapidas
         } else {
             $texto .= "\nPromociones de hoy: " . implode(', ', array_map(fn(array $p): string => $p['nombre'] . ' (hasta ' . $this->fecha($p['hasta']) . ')',
                 $r['promociones'])) . '.';
+        }
+        return $this->fin($texto, true);
+    }
+
+    private function hablaDeEstaPantalla(string $pregunta): bool
+    {
+        $t = ' ' . $this->normalizar($pregunta) . ' ';
+        foreach ([' esta pantalla ', ' aqui ', ' aca ', ' esta pagina ', ' en esta ', ' esto sirve '] as $pista) {
+            if (str_contains($t, $pista)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // «¿Qué hago en Kardex?»: para qué sirve la pantalla donde está y los pasos de lo que se hace ahí
+    private function estaPantalla(): array
+    {
+        $r = $this->herramientas->ejecutar('como_usar', ['pantalla' => $this->pantalla]);
+        if (!isset($r['pantalla'])) {
+            return $this->guias();
+        }
+        $texto = 'Estás en ' . $r['pantalla'] . ': ' . $r['para_que_sirve'] . '.';
+        foreach ($r['guias'] as $g) {
+            $texto .= "\n\n" . $g['titulo'] . ":\n" . $g['pasos'];
+        }
+        if ($r['guias'] === []) {
+            $texto .= "\nAquí solo consultas. Pregúntame por sus datos o escribe «¿cómo …?».";
         }
         return $this->fin($texto, true);
     }

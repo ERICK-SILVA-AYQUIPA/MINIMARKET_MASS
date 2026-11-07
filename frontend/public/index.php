@@ -127,7 +127,7 @@ $empleadoController = new EmpleadoController($tiendas, $sesion, $usuario, $emple
 $clienteController = new ClienteController($tiendas, $sesion, $usuario, $clientes, $ventas, new ClienteServicio($db));
 $reporteController = new ReporteController($tiendas, $sesion, $usuario, $reportes);
 $panelController = new PanelController($tiendas, $sesion, $usuario, $panelRepositorio, $reportes, $inventario, $cajas,
-    $productos, $catalogo, $ingresos, $compras);
+    $productos, $catalogo, $ingresos, $compras, $promociones);
 // Mas los productos recien agregados que el administrador aun no revisa (pestaña Recien agregados, de toda la cadena)
 Controller::usarAlertasInventario(fn(int $idTienda): array => $panelController->alertasInventario($idTienda)
     + ['productos_nuevos' => $usuario?->puedeAdministrarCatalogo() === true ? $productos->contarNuevos(['estado' => 'pendientes']) : 0]);
@@ -471,7 +471,7 @@ try {
                 break;
 
             case 'asistente_datos':
-                $asistenteController->datos();
+                $asistenteController->datos($leer('pantalla'));
                 break;
 
             case 'mi_clave':

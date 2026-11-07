@@ -5,6 +5,18 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Inicio profesional para cada rol**: el administrador ve las ventas de hoy y del mes con su variación (▲ ▼), los
+  gráficos de 14 días y de hoy hora por hora, lo más vendido de la semana y cómo pagaron; el cajero, su turno (vendido,
+  efectivo y ticket promedio), las promociones de hoy y lo que más sale; el almacenero, agotados, lo que vence y los
+  pedidos por llegar, sin montos de venta.
+- **Asistente según la pantalla y el rol**: sabe en qué pantalla estás. La ventanita pone primero *¿Qué hago en …?* y
+  las preguntas de esa pantalla, resaltadas (en Reportes, las ventas del mes; en Por vencer, lo que vence). Cada rol ve
+  primero lo suyo. Con IA, "aquí" o "esta pantalla" se entiende.
+- **Asistente con más conocimiento**: 25 guías nuevas del manual (cobrar con tarjeta o Sip, descuento a toda la compra,
+  retiro de seguridad, venta cortada sin conexión, papel de 58 u 80 mm, recibir una orden, qué pedir, por vencer,
+  proveedores, arqueo, utilidad y margen, fotos, importar con Excel, stock mínimo, cajas, atajos, mensajes de error,
+  soporte) y buenas prácticas de la tienda (ordenar el estante, bajar mermas, qué poner en promoción, armar turnos,
+  atender más rápido).
 - **Asistente: respuestas con cuadros, no solo texto**: cada respuesta trae debajo tarjetas con las cifras clave
   (total vendido, comprobantes, ticket promedio), tablas (más vendidos, stock bajo, qué pedir, por vencer, productos)
   y gráficos de barras (ventas por hora, día, cajero, medio de pago o tienda, pronóstico de la semana, horas punta).

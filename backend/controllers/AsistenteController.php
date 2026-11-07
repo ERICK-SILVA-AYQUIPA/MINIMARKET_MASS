@@ -39,23 +39,28 @@ class AsistenteController extends Controller
     // GET /?ruta=asistente
     public function chat(): void
     {
+        $rapidas = $this->rapidas('');
         $this->vista('asistente/chat', [
             'titulo'       => 'Asistente',
             'conversacion' => $this->sesion->conversacionAsistente(),
             'conIa'        => $this->modelo !== null,
-            'preguntas'    => $this->rapidas()->disponibles(),
+            'preguntas'    => $rapidas->disponibles(),
+            'sugeridas'    => $rapidas->sugeridas(),
         ]);
     }
 
-    // GET /?ruta=asistente_datos: lo que la ventanita del asistente (app.js) necesita al abrirse en cualquier pantalla:
-    // las preguntas rapidas de este rol y la conversacion guardada. Solo texto: app.js lo dibuja con textContent.
-    public function datos(): void
+    // GET /?ruta=asistente_datos&pantalla=...: lo que la ventanita del asistente (app.js) necesita al abrirse en cualquier
+    // pantalla: las preguntas rapidas de este rol (las de esa pantalla primero) y la conversacion guardada.
+    // Solo texto: app.js lo dibuja con textContent.
+    public function datos(?string $pantalla): void
     {
         header('Content-Type: application/json; charset=UTF-8');
         header('Cache-Control: no-store');
+        $rapidas = $this->rapidas((string) $pantalla);
+        $sugeridas = $rapidas->sugeridas();
         $preguntas = [];
-        foreach ($this->rapidas()->disponibles() as $clave => $texto) {
-            $preguntas[] = ['clave' => $clave, 'texto' => $texto];
+        foreach ($rapidas->disponibles() as $clave => $texto) {
+            $preguntas[] = ['clave' => $clave, 'texto' => $texto, 'sugerida' => in_array($clave, $sugeridas, true)];
         }
         echo json_encode(['preguntas' => $preguntas, 'conversacion' => $this->sesion->conversacionAsistente(), 'conIa' => $this->modelo !== null],
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -65,12 +70,13 @@ class AsistenteController extends Controller
     // Con $comoJson responde JSON a app.js; si no, vuelve al chat.
     public function preguntar(array $post, bool $comoJson): void
     {
-        $rapidas = $this->rapidas();
+        $pantalla = $this->campo($post, 'pantalla');
+        $rapidas = $this->rapidas($pantalla);
         $clave = $this->campo($post, 'rapida');
         $pregunta = $clave !== '' ? ($rapidas->texto($clave) ?? '') : trim(mb_substr($this->campo($post, 'pregunta'), 0, Asistente::LARGO_PREGUNTA));
         $resultado = $clave !== ''
             ? ($pregunta === '' ? $this->aviso('Esa pregunta no está disponible para tu usuario.') : $rapidas->responder($clave) + ['guardar' => true])
-            : $this->responder($pregunta, $rapidas);
+            : $this->responder($pregunta, $rapidas, $pantalla);
         if ($resultado['guardar']) {
             $conversacion = $this->sesion->conversacionAsistente();
             $conversacion[] = ['rol' => 'user', 'texto' => $pregunta, 'enlaces' => [], 'bloques' => []];
@@ -98,13 +104,13 @@ class AsistenteController extends Controller
         $this->redirigir('/?ruta=asistente', 'Conversación borrada.');
     }
 
-    private function rapidas(): RespuestasRapidas
+    private function rapidas(string $pantalla): RespuestasRapidas
     {
-        return new RespuestasRapidas(($this->herramientas)($this->usuario));
+        return (new RespuestasRapidas(($this->herramientas)($this->usuario)))->enPantalla($pantalla);
     }
 
     /** @return array{ok: bool, respuesta: string, enlaces: array<int, array{texto: string, url: string}>, guardar: bool, bloques: array<int, array<string, mixed>>} */
-    private function responder(string $pregunta, RespuestasRapidas $rapidas): array
+    private function responder(string $pregunta, RespuestasRapidas $rapidas, string $pantalla): array
     {
         if ($pregunta === '') {
             return $this->aviso('Escribe o dicta tu pregunta.');
@@ -120,7 +126,7 @@ class AsistenteController extends Controller
             $this->sesion->conversacionAsistente());
         $asistente = new Asistente($this->modelo, ($this->herramientas)($this->usuario), ClienteClaude::modelo());
         try {
-            return $asistente->preguntar($pregunta, $historial) + ['guardar' => true];
+            return $asistente->preguntar($pregunta, $historial, $pantalla) + ['guardar' => true];
         } catch (RuntimeException $ex) {
             error_log('Minimarket Mass: asistente: ' . $ex->getMessage());
             // Sin internet, clave mala o API ocupada: igual se responde lo que se pueda desde la base

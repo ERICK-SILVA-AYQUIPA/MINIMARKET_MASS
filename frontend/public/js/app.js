@@ -2194,6 +2194,10 @@
             campo.value = '';
             const datos = new FormData();
             datos.append('csrf', $('input[name="csrf"]', formAsistente).value);
+            const pantalla = $('[data-asistente-pantalla]', formAsistente);
+            if (pantalla instanceof HTMLInputElement) {
+                datos.append('pantalla', pantalla.value);
+            }
             if (rapida !== '') {
                 datos.append('rapida', rapida);
             } else {
@@ -2267,7 +2271,9 @@
                 }
                 cargado = true;
                 try {
-                    const respuesta = await fetch('/?ruta=asistente_datos', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+                    const pantalla = $('[data-asistente-pantalla]', formAsistente);
+                    const donde = pantalla instanceof HTMLInputElement ? '&pantalla=' + encodeURIComponent(pantalla.value) : '';
+                    const respuesta = await fetch('/?ruta=asistente_datos' + donde, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
                     const json = await respuesta.json();
                     (Array.isArray(json.conversacion) ? json.conversacion : []).forEach((turno) => {
                         if (turno && typeof turno.texto === 'string') {
@@ -2281,7 +2287,7 @@
                         }
                         const chip = document.createElement('button');
                         chip.type = 'button';
-                        chip.className = 'asistente-chip';
+                        chip.className = 'asistente-chip' + (p.sugerida === true ? ' sugerida' : '');
                         chip.dataset.asistenteRapida = p.clave;
                         chip.textContent = p.texto;
                         sugerencias.appendChild(chip);

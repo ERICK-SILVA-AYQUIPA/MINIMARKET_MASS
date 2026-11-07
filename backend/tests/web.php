@@ -222,7 +222,8 @@ $marcarClaveDePrueba('N');
 echo "Errores y entrada rara\n";
 $rosa = new Navegador();
 revisar('Rosa entra y va al panel de inicio', $rosa->entrar('70000001') === 303 && str_contains($rosa->cabeceras['location'] ?? '', 'ruta=inicio'));
-revisar('Panel de Rosa (200) con indicadores', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('Vendido hoy') && $rosa->tiene('Ventas de los últimos 14 días'));
+revisar('Panel de Rosa (200) con indicadores', $rosa->get('ruta=inicio') === 200 && $rosa->tiene('Vendido hoy') && $rosa->tiene('Ventas de los últimos 14 días')
+    && $rosa->tiene('En lo que va del mes') && $rosa->tiene('Hoy, hora por hora') && $rosa->tiene('Cómo pagaron hoy') && $rosa->tiene('Lo más vendido de la semana'));
 revisar('La página le dice a app.js tras cuántos minutos sin uso se cierra la sesión', $rosa->tiene('data-inactividad="30"'));
 revisar('Seguir conectado (sesion_activa): 204 sin contenido', $rosa->get('ruta=sesion_activa&t=1') === 204 && $rosa->cuerpo === '');
 revisar('...y sin sesión lleva al login', $anonimo->get('ruta=sesion_activa') === 303
@@ -370,6 +371,11 @@ revisar('El ingreso pide la fecha de vencimiento de cada lote', $carmen->get('ru
 revisar('Por vencer muestra la leche vencida; solo el almacenero ve el botón de baja', $carmen->get('ruta=vencimientos') === 200
     && $carmen->tiene('Vencido hace 1 día') && $carmen->tiene('Dar de baja lo vencido')
     && $rosa->get('ruta=vencimientos') === 200 && $rosa->tiene('Vencido hace 1 día') && !$rosa->tiene('Dar de baja lo vencido'));
+revisar('El inicio de cada rol: el cajero ve su turno y las promociones; el almacenero, agotados y pedidos, sin montos de venta',
+    $luis->get('ruta=inicio') === 200 && $luis->tiene('Vendido en tu turno') && $luis->tiene('Promociones de hoy') && !$luis->tiene('En lo que va del mes')
+    && !$luis->tiene('Últimos movimientos de stock')
+    && $carmen->get('ruta=inicio') === 200 && $carmen->tiene('Agotados') && $carmen->tiene('Pedidos por llegar') && !$carmen->tiene('Vendido hoy')
+    && !$carmen->tiene('Cómo pagaron hoy'));
 revisar('El inicio avisa lo que vence esta semana, no al cajero', $carmen->get('ruta=inicio') === 200 && $carmen->tiene('Vencen esta semana')
     && $carmen->tiene('ruta=vencimientos"') && $luis->get('ruta=inicio') === 200 && !$luis->tiene('Vencen esta semana'));
 revisar('La caja del cajero oculta lo esperado (cierre ciego) y ofrece el retiro', $luis->get('ruta=caja') === 200 && $luis->tiene('cierre ciego')
@@ -807,6 +813,12 @@ revisar('La ventanita pide sus preguntas por JSON: solo las del rol, y la conver
     && in_array('stock_bajo', array_column(json_decode($luis->cuerpo, true)['preguntas'] ?? [], 'clave'), true)
     && !in_array('ventas_hoy', array_column(json_decode($luis->cuerpo, true)['preguntas'] ?? [], 'clave'), true)
     && is_array(json_decode($luis->cuerpo, true)['conversacion'] ?? null));
+$enKardex = $luis->get('ruta=asistente_datos&pantalla=kardex') === 200 ? (json_decode($luis->cuerpo, true)['preguntas'] ?? []) : [];
+revisar('Abierta en una pantalla, la ventanita pone primero «¿Qué hago en …?» y las de esa pantalla, resaltadas',
+    ($enKardex[0]['clave'] ?? '') === 'esta_pantalla' && ($enKardex[0]['texto'] ?? '') === '¿Qué hago en Kardex?' && ($enKardex[0]['sugerida'] ?? false) === true
+    && $luis->get('ruta=kardex') === 200 && $luis->tiene('name="pantalla" value="kardex"') && $luis->tiene('Estás en Kardex'));
+$r = $luis->postJson('asistente_preguntar', ['rapida' => 'esta_pantalla', 'pantalla' => 'clientes']);
+revisar('...y la responde con lo que se hace en esa pantalla', $r === 200 && str_contains(json_decode($luis->cuerpo, true)['respuesta'] ?? '', 'Estás en Clientes'));
 revisar('Rosa ve las preguntas de ventas; Luis (cajero) no, pero sí stock bajo y clientes', $rosa->get('ruta=asistente') === 200
     && $rosa->tiene('data-asistente-rapida="ventas_hoy"') && $rosa->tiene('data-asistente-rapida="tiendas_mes"')
     && $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-rapida="ventas_hoy"')

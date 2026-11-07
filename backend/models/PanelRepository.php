@@ -41,15 +41,27 @@ class PanelRepository
         return (int) $consulta->fetchColumn();
     }
 
+    // Los agotados (en 0 o menos) de la tienda: los que ya se estan dejando de vender
+    public function contarAgotados(int $idTienda): int
+    {
+        $consulta = $this->db->prepare(
+            "SELECT COUNT(*) FROM stock s JOIN producto p ON p.id_producto = s.id_producto
+              WHERE s.id_tienda = :tienda AND p.estado = 'ACTIVO' AND s.cantidad_actual <= 0"
+        );
+        $consulta->execute(['tienda' => $idTienda]);
+        return (int) $consulta->fetchColumn();
+    }
+
     /**
-     * Turnos ABIERTOS de la tienda con quien los atiende y lo cobrado en efectivo hasta ahora.
-     * @return array<int, array{numero_caja: string, cajero: string, fecha_hora_apertura: string, monto_inicial: string, ventas: string, efectivo: string}>
+     * Turnos ABIERTOS de la tienda con quien los atiende, lo vendido y lo cobrado en efectivo hasta ahora.
+     * @return array<int, array{id_caja_turno: string, numero_caja: string, cajero: string, fecha_hora_apertura: string, monto_inicial: string, ventas: string, total: string, efectivo: string}>
      */
     public function turnosAbiertos(int $idTienda): array
     {
         $consulta = $this->db->prepare(
-            "SELECT c.numero_caja, CONCAT(e.nombres, ' ', e.apellidos) AS cajero, ct.fecha_hora_apertura, ct.monto_inicial,
+            "SELECT ct.id_caja_turno, c.numero_caja, CONCAT(e.nombres, ' ', e.apellidos) AS cajero, ct.fecha_hora_apertura, ct.monto_inicial,
                     (SELECT COUNT(*) FROM venta v WHERE v.id_caja_turno = ct.id_caja_turno AND v.estado = 'EMITIDA') AS ventas,
+                    (SELECT COALESCE(SUM(v.total), 0) FROM venta v WHERE v.id_caja_turno = ct.id_caja_turno AND v.estado = 'EMITIDA') AS total,
                     COALESCE((SELECT SUM(pv.monto_pagado) FROM venta v
                                 JOIN pago_venta pv ON pv.id_venta = v.id_venta
                                WHERE v.id_caja_turno = ct.id_caja_turno AND pv.estado = 'VALIDO' AND pv.id_metodo_pago = 1), 0) AS efectivo

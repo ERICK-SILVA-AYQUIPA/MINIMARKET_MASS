@@ -177,11 +177,14 @@ class HerramientasAsistente implements Herramientas
         $lista[] = [
             'name' => 'como_usar',
             'description' => 'Guía del sistema de la tienda: los pasos para hacer una tarea (abrir o cerrar caja, vender, devolver, '
-                . 'anular, recibir mercadería, traslados, mermas, conteo, promociones, productos, personal, clave, qué hacer sin internet). '
-                . 'Úsala siempre que pregunten CÓMO o DÓNDE se hace algo.',
+                . 'anular, recibir mercadería, órdenes de compra, traslados, mermas, conteo, promociones, productos, fotos, importar, '
+                . 'personal, cajas, clave, atajos, mensajes de error, qué hacer sin internet) y buenas prácticas (ordenar el estante, '
+                . 'bajar mermas, qué poner en promoción, armar turnos, atender rápido). '
+                . 'Úsala siempre que pregunten CÓMO o DÓNDE se hace algo. Con "pantalla" (sin pregunta) explica qué se hace en esa pantalla.',
             'input_schema' => ['type' => 'object', 'properties' => [
                 'pregunta' => ['type' => 'string', 'description' => 'Lo que quiere hacer, con sus palabras'],
-            ], 'required' => ['pregunta'], 'additionalProperties' => false],
+                'pantalla' => ['type' => 'string', 'description' => 'La ruta de la pantalla donde está (te la doy arriba) para explicar qué se hace ahí'],
+            ], 'additionalProperties' => false],
         ];
         $lista[] = [
             'name' => 'datos_tienda',
@@ -559,6 +562,13 @@ class HerramientasAsistente implements Herramientas
     {
         $pregunta = is_string($entrada['pregunta'] ?? null) ? mb_substr(trim($entrada['pregunta']), 0, 200) : '';
         $conocimiento = new Conocimiento($this->rolesGuia());
+        $ruta = is_string($entrada['pantalla'] ?? null) ? trim($entrada['pantalla']) : '';
+        $pantalla = Conocimiento::pantalla($ruta);
+        if ($pregunta === '' && $pantalla !== null) {
+            $guias = $conocimiento->deLaPantalla($ruta);
+            return ['pantalla' => $pantalla['nombre'], 'para_que_sirve' => $pantalla['para'], 'encontradas' => count($guias),
+                'guias' => array_map(fn(array $g): array => ['titulo' => $g['titulo'], 'pasos' => $g['pasos']], $guias)];
+        }
         $guias = $pregunta === '' ? [] : $conocimiento->buscar($pregunta);
         if ($guias === []) {
             return ['encontradas' => 0, 'guias_de_este_usuario' => $conocimiento->titulos(),
