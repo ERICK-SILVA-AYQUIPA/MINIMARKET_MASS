@@ -5,6 +5,12 @@ Al entregar una versión nueva: cambiar `VERSION` (formato `1.2.3`) y agregar aq
 
 ## Sin publicar
 
+- **Asistente en ventanita y con el conocimiento de la tienda**: el asistente se abre abajo a la derecha sin tapar
+  la pantalla (botón amarillo en cada pantalla menos Caja y Nueva venta, o desde el menú) y sigue abierto al cambiar
+  de pantalla. Responde "¿cómo…?" con los pasos del manual de cada rol (abrir y cerrar caja, devolver, anular, recibir
+  mercadería, traslados, mermas, conteo, promociones, clave, sin internet) y da los datos de la cadena (sedes,
+  cajas, productos por categoría, promociones de hoy). Nuevo: *¿Qué productos se compran juntos?* (pares que salen en
+  la misma compra, para armar combos y ordenar el estante).
 - **Asistente: sistema inteligente de la tienda** (sin IA ni clave, desde la base): *¿Qué pido al proveedor y
   cuánto?* (lo que se vende por día, para cuántos días alcanza y cuánto pedir, con el botón para armar la orden de
   compra), *¿Cuánto venderemos esta semana?* (pronóstico de cada día con el mismo día de las últimas 8 semanas y si

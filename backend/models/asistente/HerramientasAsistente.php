@@ -12,6 +12,7 @@ require_once __DIR__ . '/../Reposicion.php';
 require_once __DIR__ . '/../Vencimiento.php';
 require_once __DIR__ . '/../Cantidad.php';
 require_once __DIR__ . '/Herramientas.php';
+require_once __DIR__ . '/Conocimiento.php';
 
 /**
  * Lo que el asistente puede consultar o hacer: cada herramienta es una consulta del sistema que ya existia
@@ -152,6 +153,32 @@ class HerramientasAsistente implements Herramientas
                 'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
             ];
         }
+        if ($this->puedeVerReportes()) {
+            $lista[] = [
+                'name' => 'se_compran_juntos',
+                'description' => 'Pares de productos que los clientes compran en la misma compra (la canasta) en la tienda actual: '
+                    . 'cuántas veces juntos y qué parte de las ventas de cada uno. Sirve para armar combos, promociones y '
+                    . 'poner esos productos cerca en el estante.',
+                'input_schema' => ['type' => 'object', 'properties' => [
+                    'dias' => ['type' => 'integer', 'description' => 'Días hacia atrás que se miran (30 a 180; por defecto 90)'],
+                ], 'additionalProperties' => false],
+            ];
+        }
+        $lista[] = [
+            'name' => 'como_usar',
+            'description' => 'Guía del sistema de la tienda: los pasos para hacer una tarea (abrir o cerrar caja, vender, devolver, '
+                . 'anular, recibir mercadería, traslados, mermas, conteo, promociones, productos, personal, clave, qué hacer sin internet). '
+                . 'Úsala siempre que pregunten CÓMO o DÓNDE se hace algo.',
+            'input_schema' => ['type' => 'object', 'properties' => [
+                'pregunta' => ['type' => 'string', 'description' => 'Lo que quiere hacer, con sus palabras'],
+            ], 'required' => ['pregunta'], 'additionalProperties' => false],
+        ];
+        $lista[] = [
+            'name' => 'datos_tienda',
+            'description' => 'Datos de la cadena y de la tienda actual: sedes con dirección y teléfono, cuántas cajas, cuántos productos '
+                . 'por categoría y las promociones vigentes hoy.',
+            'input_schema' => ['type' => 'object', 'properties' => (object) [], 'additionalProperties' => false],
+        ];
         if ($this->puedeVerClientes()) {
             $lista[] = [
                 'name' => 'mejores_clientes',
@@ -189,6 +216,9 @@ class HerramientasAsistente implements Herramientas
             'productos_por_vencer'  => $this->porVencer($entrada),
             'pronostico_ventas'     => $this->pronostico(),
             'horas_punta'           => $this->horasPunta(),
+            'se_compran_juntos'     => $this->compranJuntos($entrada),
+            'como_usar'             => $this->comoUsar($entrada),
+            'datos_tienda'          => $this->datosTienda(),
             'abrir_pagina'          => $this->abrirPagina($entrada),
             default                 => ['error' => 'Esa herramienta no existe.'],
         };
@@ -472,6 +502,77 @@ class HerramientasAsistente implements Herramientas
             $hoy->modify('-' . AnalisisVentas::DIAS_HORAS_PUNTA . ' days')->format('Y-m-d'), $hoy->modify('-1 day')->format('Y-m-d'));
         $this->enlace('Ver estadísticas', '/?ruta=estadisticas');
         return ['tienda' => $this->nombreTienda(), 'dias' => AnalisisVentas::DIAS_HORAS_PUNTA] + AnalisisVentas::horasPunta($filas);
+    }
+
+    private function compranJuntos(array $entrada): array
+    {
+        if (!$this->puedeVerReportes()) {
+            return ['error' => 'Tu rol no puede ver los reportes de ventas.'];
+        }
+        $dias = is_int($entrada['dias'] ?? null) ? max(30, min(180, $entrada['dias'])) : 90;
+        $desde = $this->hoy->modify('-' . $dias . ' days')->format('Y-m-d');
+        $pares = array_map(fn(array $f): array => [
+            'producto_a' => (string) $f['a'],
+            'producto_b' => (string) $f['b'],
+            'veces_juntos' => (int) $f['juntos'],
+            // De las compras que llevan A, que parte lleva tambien B (y al reves)
+            'con_a_llevan_b' => (int) round(100 * (int) $f['juntos'] / max(1, (int) $f['ventas_a'])) . '%',
+            'con_b_llevan_a' => (int) round(100 * (int) $f['juntos'] / max(1, (int) $f['ventas_b'])) . '%',
+        ], $this->consultas->compranJuntos($this->usuario->getIdTienda(), $desde, $this->hoy->format('Y-m-d')));
+        if ($pares !== [] && isset($this->paginasPermitidas()['promociones'])) {
+            $this->enlace('Crear una promoción', '/?ruta=promociones');
+        }
+        return ['tienda' => $this->nombreTienda(), 'dias' => $dias, 'pares' => $pares,
+            'nota' => 'Solo pares que salieron juntos al menos 2 veces.'];
+    }
+
+    /** @return string[] lo que puede este usuario, para las guias de Conocimiento */
+    private function rolesGuia(): array
+    {
+        // El administrador de la tienda supervisa todo: ve todas las guias
+        return $this->puedeVerReportes() ? ['vende', 'almacen', 'admin']
+            : array_keys(array_filter(['vende' => $this->usuario->puedeVender(), 'almacen' => $this->puedeVerAlmacen()]));
+    }
+
+    private function comoUsar(array $entrada): array
+    {
+        $pregunta = is_string($entrada['pregunta'] ?? null) ? mb_substr(trim($entrada['pregunta']), 0, 200) : '';
+        $conocimiento = new Conocimiento($this->rolesGuia());
+        $guias = $pregunta === '' ? [] : $conocimiento->buscar($pregunta);
+        if ($guias === []) {
+            return ['encontradas' => 0, 'guias_de_este_usuario' => $conocimiento->titulos(),
+                'nota' => 'No hay una guía para eso; puede ser algo que su rol no hace.'];
+        }
+        if (!$guias[0]['permitida']) {
+            return ['encontradas' => 0, 'no_es_de_tu_rol' => $guias[0]['titulo'], 'lo_hace' => $guias[0]['quien'],
+                'nota' => 'Tu usuario no hace eso: pídeselo ' . $guias[0]['quien'] . '.'];
+        }
+        $paginas = $this->paginasPermitidas();
+        foreach ($guias as $g) {
+            if ($g['pantalla'] !== null && isset($paginas[$g['pantalla']])) {
+                [$texto, $ruta] = $paginas[$g['pantalla']];
+                $this->enlace('Ir a ' . $texto, '/?ruta=' . $ruta);
+            }
+        }
+        return ['encontradas' => count($guias), 'guias' => array_map(fn(array $g): array => ['titulo' => $g['titulo'], 'pasos' => $g['pasos']], $guias)];
+    }
+
+    private function datosTienda(): array
+    {
+        $id = $this->usuario->getIdTienda();
+        $sedes = [];
+        foreach ($this->tiendas->todas() as $t) {
+            if ($t->getEstado() !== 'ACTIVA') {
+                continue;
+            }
+            $sedes[] = ['tienda' => $t->getNombreTienda(), 'direccion' => $t->getDireccion(), 'telefono' => $t->getTelefono(),
+                'es_la_tuya' => $t->getIdTienda() === $id];
+        }
+        $datos = $this->consultas->datosTienda($id, $this->hoy->format('Y-m-d'));
+        $datos['promociones'] = array_map(fn(array $p): array => ['nombre' => (string) $p['nombre'], 'tipo' => (string) $p['tipo'],
+            'porcentaje' => $p['porcentaje'] !== null ? (float) $p['porcentaje'] : null, 'precio' => $p['precio'] !== null ? (float) $p['precio'] : null,
+            'hasta' => (string) $p['hasta']], $datos['promociones']);
+        return ['cadena' => 'Minimarket Mass (Arequipa)', 'tienda_actual' => $this->nombreTienda(), 'sedes' => $sedes] + $datos;
     }
 
     private function puedeVerClientes(): bool

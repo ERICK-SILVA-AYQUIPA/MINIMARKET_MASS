@@ -47,6 +47,20 @@ class AsistenteController extends Controller
         ]);
     }
 
+    // GET /?ruta=asistente_datos: lo que la ventanita del asistente (app.js) necesita al abrirse en cualquier pantalla:
+    // las preguntas rapidas de este rol y la conversacion guardada. Solo texto: app.js lo dibuja con textContent.
+    public function datos(): void
+    {
+        header('Content-Type: application/json; charset=UTF-8');
+        header('Cache-Control: no-store');
+        $preguntas = [];
+        foreach ($this->rapidas()->disponibles() as $clave => $texto) {
+            $preguntas[] = ['clave' => $clave, 'texto' => $texto];
+        }
+        echo json_encode(['preguntas' => $preguntas, 'conversacion' => $this->sesion->conversacionAsistente(), 'conIa' => $this->modelo !== null],
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     // POST /?ruta=asistente_preguntar (rapida = clave de una pregunta predeterminada, o pregunta = texto libre).
     // Con $comoJson responde JSON a app.js; si no, vuelve al chat.
     public function preguntar(array $post, bool $comoJson): void

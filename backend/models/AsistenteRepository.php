@@ -101,4 +101,70 @@ class AsistenteRepository
         }
         return $resultado;
     }
+
+    /**
+     * Lo basico de una tienda para el asistente: cuantos productos tiene, por categoria, sus cajas y las promociones de hoy.
+     * @return array{productos: int, categorias: array<int, array{categoria: string, productos: int}>, cajas: int,
+     *         promociones: array<int, array{nombre: string, tipo: string, porcentaje: ?string, precio: ?string, hasta: string}>}
+     */
+    public function datosTienda(int $idTienda, string $hoy): array
+    {
+        $categorias = $this->db->prepare(
+            "SELECT c.nombre_categoria AS categoria, COUNT(*) AS productos
+               FROM stock s
+               JOIN producto p  ON p.id_producto = s.id_producto AND p.estado = 'ACTIVO'
+               JOIN categoria c ON c.id_categoria = p.id_categoria
+              WHERE s.id_tienda = :tienda
+              GROUP BY c.id_categoria, c.nombre_categoria
+              ORDER BY productos DESC, c.nombre_categoria"
+        );
+        $categorias->execute(['tienda' => $idTienda]);
+        $filas = array_map(fn(array $f): array => ['categoria' => (string) $f['categoria'], 'productos' => (int) $f['productos']],
+            $categorias->fetchAll());
+
+        $cajas = $this->db->prepare("SELECT COUNT(*) FROM caja WHERE id_tienda = :tienda AND estado = 'ACTIVA'");
+        $cajas->execute(['tienda' => $idTienda]);
+
+        $promociones = $this->db->prepare(
+            "SELECT nombre, tipo, porcentaje, precio, fecha_fin AS hasta FROM promocion
+              WHERE estado = 'ACTIVA' AND fecha_inicio <= :dia1 AND fecha_fin >= :dia2 AND (id_tienda IS NULL OR id_tienda = :tienda)
+              ORDER BY fecha_fin, nombre LIMIT 15"
+        );
+        $promociones->execute(['dia1' => $hoy, 'dia2' => $hoy, 'tienda' => $idTienda]);
+        return ['productos' => array_sum(array_column($filas, 'productos')), 'categorias' => $filas, 'cajas' => (int) $cajas->fetchColumn(),
+            'promociones' => $promociones->fetchAll()];
+    }
+
+    /**
+     * Pares de productos que salen en el mismo comprobante (la "canasta"): cuantas veces juntos y cuantas veces sale
+     * cada uno, para ver que combos armar. Ventas EMITIDAS de la tienda entre las fechas.
+     * @return array<int, array{a: string, b: string, juntos: string, ventas_a: string, ventas_b: string}>
+     */
+    public function compranJuntos(int $idTienda, string $desde, string $hasta, int $limite = 10): array
+    {
+        $sql = "WITH lineas AS (
+                    SELECT DISTINCT d.id_venta, d.id_producto
+                      FROM detalle_venta d
+                      JOIN venta v             ON v.id_venta = d.id_venta
+                      JOIN serie_comprobante s ON s.id_serie = v.id_serie
+                     WHERE v.estado = 'EMITIDA' AND s.id_tienda = :tienda
+                       AND v.fecha_hora >= :desde AND v.fecha_hora < :hasta + INTERVAL 1 DAY
+                ), veces AS (
+                    SELECT id_producto, COUNT(*) AS ventas FROM lineas GROUP BY id_producto
+                )
+                SELECT pa.nombre_producto AS a, pb.nombre_producto AS b, COUNT(*) AS juntos, va.ventas AS ventas_a, vb.ventas AS ventas_b
+                  FROM lineas x
+                  JOIN lineas y    ON y.id_venta = x.id_venta AND y.id_producto > x.id_producto
+                  JOIN producto pa ON pa.id_producto = x.id_producto
+                  JOIN producto pb ON pb.id_producto = y.id_producto
+                  JOIN veces va    ON va.id_producto = x.id_producto
+                  JOIN veces vb    ON vb.id_producto = y.id_producto
+                 GROUP BY x.id_producto, y.id_producto, pa.nombre_producto, pb.nombre_producto, va.ventas, vb.ventas
+                HAVING COUNT(*) >= 2
+                 ORDER BY juntos DESC, pa.nombre_producto, pb.nombre_producto
+                 LIMIT " . max(1, min($limite, 20));
+        $consulta = $this->db->prepare($sql);
+        $consulta->execute(['tienda' => $idTienda, 'desde' => $desde . ' 00:00:00', 'hasta' => $hasta]);
+        return $consulta->fetchAll();
+    }
 }

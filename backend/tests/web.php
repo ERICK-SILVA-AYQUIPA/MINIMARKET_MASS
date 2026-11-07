@@ -788,9 +788,16 @@ revisar('El administrador sí ve las pestañas, el stock de todas y la lista de 
     && $rosa->get('ruta=inicio') === 200 && $rosa->tiene('ruta=tiendas"'));
 
 echo "Asistente: preguntas rápidas desde la base (sin ANTHROPIC_API_KEY en el .env de las pruebas)\n";
-revisar('El menú ofrece el asistente a todos, y el botón flotante solo en Inicio', $luis->get('ruta=inicio') === 200
-    && $luis->tiene('ruta=asistente"') && $luis->tiene('asistente-flotante')
-    && $luis->get('ruta=caja') === 200 && !$luis->tiene('asistente-flotante'));
+revisar('El menú ofrece el asistente a todos; el botón y la ventanita abajo a la derecha en cada pantalla, menos Caja y Nueva venta', $luis->get('ruta=inicio') === 200
+    && $luis->tiene('ruta=asistente"') && $luis->tiene('asistente-flotante') && $luis->tiene('data-asistente-ventana')
+    && $luis->tiene('data-asistente-abrir') && $luis->get('ruta=clientes') === 200 && $luis->tiene('asistente-flotante')
+    && $luis->get('ruta=caja') === 200 && !$luis->tiene('asistente-flotante') && $luis->tiene('data-asistente-ventana')
+    && $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-ventana'));
+revisar('La ventanita pide sus preguntas por JSON: solo las del rol, y la conversación guardada', $luis->get('ruta=asistente_datos') === 200
+    && str_starts_with($luis->cabeceras['content-type'] ?? '', 'application/json')
+    && in_array('stock_bajo', array_column(json_decode($luis->cuerpo, true)['preguntas'] ?? [], 'clave'), true)
+    && !in_array('ventas_hoy', array_column(json_decode($luis->cuerpo, true)['preguntas'] ?? [], 'clave'), true)
+    && is_array(json_decode($luis->cuerpo, true)['conversacion'] ?? null));
 revisar('Rosa ve las preguntas de ventas; Luis (cajero) no, pero sí stock bajo y clientes', $rosa->get('ruta=asistente') === 200
     && $rosa->tiene('data-asistente-rapida="ventas_hoy"') && $rosa->tiene('data-asistente-rapida="tiendas_mes"')
     && $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-rapida="ventas_hoy"')
@@ -809,6 +816,8 @@ revisar('Preguntas inteligentes: Rosa pide el pronóstico de la semana y las ale
     && $rosa->postJson('asistente_preguntar', ['rapida' => 'pronostico']) === 200 && $json($rosa)['ok'] === true
     && $rosa->postJson('asistente_preguntar', ['pregunta' => '¿Qué alertas hay?']) === 200 && $json($rosa)['ok'] === true
     && $json($rosa)['pregunta'] === '¿Qué alertas hay?');
+revisar('Guía de uso sin IA: "¿cómo cierro la caja?" responde los pasos', $luis->postJson('asistente_preguntar', ['pregunta' => '¿cómo cierro la caja?']) === 200
+    && $json($luis)['ok'] === true && str_starts_with($json($luis)['respuesta'], 'Cerrar la caja'));
 revisar('El cajero no tiene el pronóstico ni qué pedir, aunque mande la clave', $luis->get('ruta=asistente') === 200 && !$luis->tiene('data-asistente-rapida="pedido"')
     && $luis->postJson('asistente_preguntar', ['rapida' => 'pedido']) === 200 && $json($luis)['ok'] === false);
 revisar('Sin JavaScript la pregunta rápida recarga el chat con la respuesta', $luis->post('asistente_preguntar', ['rapida' => 'stock_bajo']) === 303

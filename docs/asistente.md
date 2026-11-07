@@ -1,7 +1,10 @@
 # Asistente inteligente
 
-Menú **Asistente** (y el botón amarillo *Asistente* abajo a la derecha del panel de Inicio). El empleado toca una
-**pregunta rápida** o pregunta en español, escribiendo o con el micrófono, y el sistema responde con los datos de la tienda.
+Botón amarillo **Asistente** abajo a la derecha (en todas las pantallas menos Caja y Nueva venta, para no tapar
+botones) o menú **Asistente**: se abre una **ventanita** abajo a la derecha que no tapa la pantalla y sigue abierta al
+cambiar de pantalla (se cierra con la X o Escape). *Ampliar* la abre en pantalla completa; sin JavaScript también se
+usa la pantalla completa. El empleado toca una **pregunta rápida** o pregunta en español, escribiendo o con el
+micrófono, y el sistema responde con los datos de la tienda.
 
 ## Preguntas rápidas (sin IA, sin internet)
 
@@ -18,6 +21,8 @@ Cada rol ve solo las que puede usar:
 | ¿Qué alertas hay en la tienda? (stock bajo, por vencer y lo que no se vende, en un solo mensaje) | todos (su tienda) |
 | ¿Qué pido al proveedor y cuánto? · ¿Qué productos están por vencer? | almacenero y administrador |
 | ¿Cuánto venderemos esta semana? · ¿Cuáles son las horas punta? | administrador de la tienda |
+| ¿Qué productos se compran juntos? (para armar combos) | administrador de la tienda |
+| Datos de nuestras tiendas (sedes, cajas, productos por categoría, promociones de hoy) · ¿Cómo se usa el sistema? | todos |
 | Quiero hacer una venta (botón a Nueva venta) | quien vende |
 
 Sin clave, lo que se escribe también funciona: se reconoce por palabras clave ("cuánto vendimos ayer", "stock bajo",
@@ -26,6 +31,10 @@ Claude; si Claude no responde (sin internet, clave mala), se usa este mismo modo
 
 Las respuestas "inteligentes" (qué pedir, pronóstico, horas punta, alertas) son cuentas sobre las ventas guardadas,
 no IA: funcionan sin clave y terminan con una idea concreta (pedir, poner en promoción, poner más cajeros).
+
+**Conocimiento de la tienda** (`Conocimiento.php`): las preguntas de "¿cómo…?" o "¿dónde…?" ("¿cómo cierro la caja?",
+"¿cómo anulo una venta?", "¿qué hago si se cae el internet?") responden con los pasos del manual y el botón a la
+pantalla. Cada rol ve sus guías; si pregunta algo que no le toca, le dice a quién pedírselo.
 
 ## Qué se le puede preguntar
 
@@ -41,6 +50,9 @@ no IA: funcionan sin clave y terminan con una idea concreta (pedir, poner en pro
 | ¿Qué vence pronto? | `productos_por_vencer`: Vencimiento (reparto FIFO de los lotes), con su valor al costo | almacenero y administrador |
 | ¿Cuánto venderemos esta semana? | `pronostico_ventas`: AnalisisVentas::pronostico, el promedio del mismo día de la semana en las últimas 8 semanas y la tendencia | administrador de la tienda |
 | ¿A qué hora viene más gente? | `horas_punta`: AnalisisVentas::horasPunta, con el mapa día × hora de 28 días | administrador de la tienda |
+| ¿Qué se compra junto? | `se_compran_juntos` (AsistenteRepository::compranJuntos): pares en la misma compra, al menos 2 veces en 90 días | administrador de la tienda |
+| ¿Cómo hago…? ¿Dónde…? | `como_usar` (Conocimiento) | todos, con las guías de su rol |
+| Direcciones, cajas, promociones de hoy | `datos_tienda` | todos |
 | ¿Quiénes compran más? | `mejores_clientes` (AsistenteRepository) | cajero y administrador |
 | Quiero hacer una venta / registrar un ingreso | `abrir_pagina`: botón a esa pantalla | según el menú de cada rol |
 
