@@ -144,7 +144,7 @@ $promocionController = new PromocionController($tiendas, $sesion, $usuario, $pro
 $auditoriaController = new AuditoriaController($tiendas, $sesion, $usuario, new AuditoriaRepository($db));
 // El asistente usa Claude solo si el .env tiene ANTHROPIC_API_KEY; sus herramientas se arman con los permisos de quien pregunta
 $asistenteController = new AsistenteController($tiendas, $sesion, $usuario, ClienteClaude::desdeEntorno(),
-    static fn(Usuario $quien): Herramientas => new HerramientasAsistente($quien, $tiendas, $reportes, $panelRepositorio, new AsistenteRepository($db)));
+    static fn(Usuario $quien): Herramientas => new HerramientasAsistente($quien, $tiendas, $reportes, $panelRepositorio, new AsistenteRepository($db), $ingresos));
 
 // Solo strings: si llega un arreglo (?ruta[]=x) se ignora
 $leer = static function (string $clave): ?string {

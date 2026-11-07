@@ -11,8 +11,8 @@ $soportePie = Aplicacion::soporte();
 </footer>
     </div>
 </div>
-<?php if (($asistenteDisponible ?? false) && ($rutaActual ?? '') !== 'asistente'): ?>
-<!-- El asistente desde cualquier pantalla (solo con ANTHROPIC_API_KEY en el .env) -->
+<?php if (($asistenteDisponible ?? false) && ($rutaActual ?? '') === 'inicio'): ?>
+<!-- El asistente a la mano en el panel de inicio (en las demas pantallas esta en el menu, sin tapar botones) -->
 <a class="asistente-flotante" href="/?ruta=asistente" title="Pregúntale al asistente"><?= icono('asistente') ?><span>Asistente</span></a>
 <?php endif; ?>
 <?php $barraInferior ??= []; ?>

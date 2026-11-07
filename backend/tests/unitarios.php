@@ -702,5 +702,108 @@ revisar('El correo lleva texto, HTML y el PDF adjunto', str_contains($mensaje, "
 putenv('CORREO_SMTP_HOST=');
 revisar('Sin servidor de correo en el .env, el envío desde el sistema queda apagado', CorreoSmtp::desdeEntorno() === null);
 
+echo "Preguntas rápidas del asistente (sin IA: palabras clave y datos de la base)\n";
+require_once __DIR__ . '/../models/asistente/RespuestasRapidas.php';
+$herramientasDe = static fn(bool $admin): Herramientas => new class($admin) implements Herramientas {
+    /** @var array<int, array{0: string, 1: array<string, mixed>}> */
+    public array $llamadas = [];
+    public function __construct(private bool $admin) {}
+    public function definiciones(): array
+    {
+        $lista = $this->admin ? [['name' => 'resumen_ventas', 'input_schema' => ['properties' => ['desde' => [], 'alcance' => []]]],
+            ['name' => 'detalle_ventas']] : [];
+        return array_merge($lista, [['name' => 'buscar_productos'], ['name' => 'productos_por_reponer'], ['name' => 'productos_sin_venta'],
+            ['name' => 'abrir_pagina', 'input_schema' => ['properties' => ['pagina' => ['enum' => $this->admin ? ['reportes'] : ['nueva_venta']]]]]]);
+    }
+    public function ejecutar(string $nombre, array $entrada): array
+    {
+        $this->llamadas[] = [$nombre, $entrada];
+        return match ($nombre) {
+            'resumen_ventas' => ['alcance' => 'Mass Cayma', 'comprobantes' => 12, 'total' => 141.88, 'ticketPromedio' => 11.82, 'devuelto' => 0.0,
+                'neto' => 141.88, 'anuladas' => 2],
+            'buscar_productos' => $entrada['texto'] === 'arroz costeno' ? ['encontrados' => 1, 'productos' => [['producto' => 'Arroz Costeño 1 kg',
+                'precio' => 4.2, 'unidad' => 'und', 'stock' => [['tienda' => 'Mass Cayma', 'cantidad' => 3.0, 'minimo' => 10.0, 'bajo' => true]]]]]
+                : ['encontrados' => 0, 'productos' => []],
+            'productos_por_reponer' => ['tienda' => 'Mass Cayma', 'total' => 0, 'mostrados' => []],
+            default => ['listo' => true],
+        };
+    }
+    public function contexto(): string { return ''; }
+    public function enlaces(): array { return []; }
+};
+$admin = new RespuestasRapidas($herramientasDe(true), new DateTimeImmutable('2026-11-07'));
+$cajeroH = $herramientasDe(false);
+$cajero = new RespuestasRapidas($cajeroH, new DateTimeImmutable('2026-11-07'));
+revisar('El administrador tiene las de ventas y la de cada tienda; no la de hacer venta', isset($admin->disponibles()['ventas_hoy'], $admin->disponibles()['tiendas_mes'])
+    && !isset($admin->disponibles()['hacer_venta']));
+revisar('El cajero: stock bajo, sin venta y hacer venta; nada de ventas ni clientes (sin esa herramienta)',
+    array_keys($cajero->disponibles()) === ['alertas', 'stock_bajo', 'sin_venta', 'hacer_venta']);
+$casos = [
+    '¿Cuánto vendimos hoy?' => 'ventas_hoy', 'cuanto vendimos AYER' => 'ventas_ayer', 'ventas del mes' => 'ventas_mes',
+    'qué es lo más vendido' => 'mas_vendidos', 'cuánto vendió cada cajero' => 'por_cajero', 'ventas por tienda' => 'tiendas_mes',
+    '¿Cómo pagaron los clientes?' => 'medios_pago', 'pagos con yape' => 'medios_pago', 'mejores clientes' => 'mejores_clientes',
+    'qué productos tienen stock bajo' => 'stock_bajo', 'qué hay que reponer' => 'stock_bajo', 'lo que no se vende' => 'sin_venta',
+    'quiero hacer una venta' => 'hacer_venta', 'precio del arroz' => null, 'hola' => null,
+    '¿qué alertas hay?' => 'alertas', 'qué está por vencer' => 'por_vencer', 'productos vencidos' => 'por_vencer',
+    '¿cuáles son las horas punta?' => 'horas_punta', 'a qué hora viene más gente' => 'horas_punta',
+    '¿cuánto venderemos esta semana?' => 'pronostico', 'pronóstico de ventas' => 'pronostico',
+    '¿qué pido al proveedor?' => 'pedido', 'cuánto debo pedir' => 'pedido', 'cuántos comprobantes hicimos hoy' => 'ventas_hoy',
+    'dime rápido cuánto vendimos' => 'ventas_hoy',
+];
+$malas = [];
+foreach ($casos as $texto => $esperada) {
+    if ($admin->claveDe($texto) !== $esperada) {
+        $malas[] = $texto . ' -> ' . var_export($admin->claveDe($texto), true);
+    }
+}
+revisar('Las palabras clave llevan a la pregunta correcta (' . count($casos) . ' frases)' . ($malas === [] ? '' : ': ' . implode('; ', $malas)), $malas === []);
+$r = $admin->responder('ventas_ayer');
+revisar('Ventas de ayer: pide el día anterior y lo cuenta en soles', $r['ok'] && str_contains($r['respuesta'], 'S/ 141.88') && str_contains($r['respuesta'], '12 comprobantes')
+    && str_contains($r['respuesta'], 'anuladas: 2'));
+$r = $cajero->interpretar('¿Cuánto cuesta el arroz Costeño?');
+revisar('Lo que no es una pregunta conocida se busca como producto, sin palabras de relleno ni tildes', $r['ok']
+    && end($cajeroH->llamadas) === ['buscar_productos', ['texto' => 'arroz costeno']] && str_contains($r['respuesta'], 'S/ 4.20') && str_contains($r['respuesta'], '(bajo)'));
+revisar('El cajero que pregunta por ventas recibe un "no puedes", sin datos', !$cajero->interpretar('cuánto vendimos hoy')['ok']);
+revisar('Si no entiende, sugiere preguntas de la tienda', !$cajero->interpretar('cuéntame un chiste')['ok']
+    && str_contains($cajero->interpretar('cuéntame un chiste')['respuesta'], '¿Qué productos tienen stock bajo?'));
+revisar('Una clave inventada no responde datos', !$admin->responder('borrar_todo')['ok']);
+
+echo "Análisis de ventas: pronóstico de la semana y horas punta (sin IA)\n";
+require_once __DIR__ . '/../models/AnalisisVentas.php';
+// 8 semanas antes del sabado 2026-11-07: los sabados se vende 300, los demas dias 100; las 2 ultimas semanas, el doble
+$historia = [];
+$desde = new DateTimeImmutable('2026-11-07');
+for ($d = 1; $d <= 56; $d++) {
+    $dia = $desde->modify('-' . $d . ' days');
+    $base = $dia->format('N') === '6' ? 300.0 : 100.0;
+    $historia[] = ['dia' => $dia->format('Y-m-d'), 'total' => (string) ($d <= 14 ? 2 * $base : $base)];
+}
+$p = AnalisisVentas::pronostico($historia, $desde);
+revisar('El pronóstico da 7 días desde hoy, con el nombre del día', count($p['dias']) === 7 && $p['dias'][0]['fecha'] === '2026-11-07'
+    && $p['dias'][0]['dia'] === 'sábado' && $p['dias'][6]['dia'] === 'viernes');
+revisar('Cada día se estima con el mismo día de la semana (sábado 375 = (2×600 + 6×300) / 8; lunes 125)',
+    $p['dias'][0]['estimado'] === 375.0 && $p['dias'][2]['estimado'] === 125.0 && $p['total'] === 375.0 + 6 * 125.0);
+revisar('La tendencia compara las 2 últimas semanas con las anteriores (+100 %) y da lo de la semana pasada', $p['tendencia'] === 100.0
+    && $p['ultimos7'] === 1800.0 && $p['semanas'] === 8);
+$nueva = AnalisisVentas::pronostico([['dia' => '2026-10-30', 'total' => '50'], ['dia' => '2026-10-31', 'total' => '80']], $desde);
+revisar('Una tienda con 1 semana de ventas no se promedia con ceros de antes de abrir, y no inventa tendencia',
+    $nueva['semanas'] === 1 && $nueva['dias'][0]['estimado'] === 80.0 && $nueva['tendencia'] === null);
+revisar('Sin ventas el pronóstico es 0', AnalisisVentas::pronostico([], $desde)['total'] === 0.0);
+$mapa = [
+    ['dia' => '6', 'hora' => '18', 'comprobantes' => '40', 'total' => '400'], ['dia' => '5', 'hora' => '18', 'comprobantes' => '20', 'total' => '210'],
+    ['dia' => '6', 'hora' => '12', 'comprobantes' => '30', 'total' => '300'], ['dia' => '1', 'hora' => '8', 'comprobantes' => '2', 'total' => '15'],
+    ['dia' => '1', 'hora' => '19', 'comprobantes' => '25', 'total' => '250'], ['dia' => '2', 'hora' => '15', 'comprobantes' => '5', 'total' => '40'],
+    ['dia' => '2', 'hora' => '9', 'comprobantes' => '6', 'total' => '60'],
+];
+$h = AnalisisVentas::horasPunta($mapa);
+revisar('Horas punta: las 3 horas con más comprobantes, en orden de hora', array_column($h['horas_punta'], 'hora') === ['12:00 a 13:00', '18:00 a 19:00', '19:00 a 20:00']
+    && $h['horas_punta'][1]['comprobantes'] === 60 && $h['horas_punta'][1]['total'] === 610.0);
+revisar('Horas tranquilas: las de menos comprobantes, sin repetir las de punta', array_column($h['horas_tranquilas'], 'hora') === ['8:00 a 9:00', '9:00 a 10:00', '15:00 a 16:00']);
+revisar('El día más movido es el sábado y el más tranquilo el martes', $h['dia_mas_movido'] === 'sábado' && $h['dia_mas_tranquilo'] === 'martes'
+    && $h['comprobantes'] === 128);
+$vacio = AnalisisVentas::horasPunta([]);
+revisar('Sin ventas no hay horas punta ni días', $vacio['horas_punta'] === [] && $vacio['dia_mas_movido'] === null && $vacio['comprobantes'] === 0);
+revisar('La franja de las 23 termina a las 0:00', AnalisisVentas::franja(23) === '23:00 a 0:00');
+
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);

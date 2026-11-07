@@ -42,6 +42,7 @@ require __DIR__ . '/../models/Reposicion.php';
 require __DIR__ . '/../models/CatalogoCsv.php';
 require_once __DIR__ . '/../models/FotoProducto.php';
 require_once __DIR__ . '/../models/asistente/HerramientasAsistente.php';
+require_once __DIR__ . '/../models/asistente/RespuestasRapidas.php';
 
 $db = Database::conexion();
 
@@ -94,13 +95,16 @@ $ventasTotales = fn(): string => valor($db, 'SELECT COUNT(*) FROM venta');
 
 echo "Asistente: herramientas con los permisos de cada rol (sin llamar a Claude)\n";
 $herramientasDe = fn(Usuario $u): HerramientasAsistente => new HerramientasAsistente($u, new TiendaRepository($db), new ReporteRepository($db),
-    new PanelRepository($db), new AsistenteRepository($db));
+    new PanelRepository($db), new AsistenteRepository($db), new IngresoRepository($db));
 $nombres = fn(HerramientasAsistente $h): array => array_column($h->definiciones(), 'name');
 $hRosa = $herramientasDe($rosa);
 $hLuis = $herramientasDe($luis);
 $hCarmen = $herramientasDe($carmen);
 revisar('Al administrador se le ofrecen los reportes de ventas', array_intersect(['resumen_ventas', 'detalle_ventas'], $nombres($hRosa)) === ['resumen_ventas', 'detalle_ventas']);
-revisar('Al cajero no: solo productos, por reponer y abrir pantallas', $nombres($hLuis) === ['buscar_productos', 'productos_por_reponer', 'abrir_pagina']);
+revisar('Al cajero no: productos, por reponer, sin venta, clientes y abrir pantallas', $nombres($hLuis)
+    === ['buscar_productos', 'productos_por_reponer', 'productos_sin_venta', 'mejores_clientes', 'abrir_pagina']);
+revisar('El almacenero no ve clientes', !in_array('mejores_clientes', $nombres($hCarmen), true)
+    && isset($hCarmen->ejecutar('mejores_clientes', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
 revisar('Aunque el cajero pida el resumen, PHP lo rechaza', isset($hLuis->ejecutar('resumen_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
 $resumen = $hRosa->ejecutar('resumen_ventas', ['desde' => '2026-10-31', 'hasta' => '2026-10-01']);
 revisar('Resumen de octubre de Cayma (fechas al revés se ordenan) con comprobantes y total',
@@ -128,6 +132,67 @@ revisar('Abrir Nueva venta: el cajero sí (botón), el almacenero no', !isset($h
     && in_array('/?ruta=venta_nueva', array_column($hLuis->enlaces(), 'url'), true)
     && isset($hCarmen->ejecutar('abrir_pagina', ['pagina' => 'nueva_venta'])['error']));
 revisar('Una herramienta inventada responde error', isset($hLuis->ejecutar('borrar_todo', [])['error']));
+$quietos = $hRosa->ejecutar('productos_sin_venta', ['dias' => 30]);
+revisar('Sin venta en 30 días: solo productos con stock, la plata parada más grande primero', $quietos['total'] > 0
+    && array_filter($quietos['mostrados'], fn(array $q): bool => $q['stock'] <= 0) === []
+    && $quietos['mostrados'][0]['stock'] * $quietos['mostrados'][0]['precio'] >= end($quietos['mostrados'])['stock'] * end($quietos['mostrados'])['precio']);
+$clientesOct = $hLuis->ejecutar('mejores_clientes', ['desde' => '2026-10-01', 'hasta' => '2026-10-31']);
+revisar('Mejores clientes de octubre: nombre o documento, compras y total, de mayor a menor', !isset($clientesOct['error'])
+    && $clientesOct['clientes'] !== [] && $clientesOct['clientes'][0]['cliente'] !== ''
+    && $clientesOct['clientes'][0]['total'] >= end($clientesOct['clientes'])['total']);
+$rapidasRosa = new RespuestasRapidas($herramientasDe($rosa), new DateTimeImmutable('2026-10-31'));
+$rapidaMes = $rapidasRosa->responder('ventas_mes');
+revisar('Pregunta rápida "este mes" con la base real (octubre)', $rapidaMes['ok'] && str_contains($rapidaMes['respuesta'], 'S/ ')
+    && str_contains($rapidaMes['respuesta'], 'comprobantes'));
+$rapidaTop = $rapidasRosa->responder('mas_vendidos');
+revisar('Pregunta rápida "más vendidos" responde una lista numerada o dice que no hubo ventas', $rapidaTop['ok']
+    && (str_contains($rapidaTop['respuesta'], '1. ') || str_contains($rapidaTop['respuesta'], 'no hubo ventas')));
+
+echo "Asistente inteligente: qué pedir, por vencer, pronóstico y horas punta (sin IA)\n";
+$el31 = new DateTimeImmutable('2026-10-31');
+$hRosa31 = new HerramientasAsistente($rosa, new TiendaRepository($db), new ReporteRepository($db), new PanelRepository($db),
+    new AsistenteRepository($db), new IngresoRepository($db), $el31);
+$hCarmen31 = new HerramientasAsistente($carmen, new TiendaRepository($db), new ReporteRepository($db), new PanelRepository($db),
+    new AsistenteRepository($db), new IngresoRepository($db), $el31);
+revisar('El almacenero tiene qué pedir y por vencer; no el pronóstico ni las horas punta (son de ventas)',
+    array_intersect(['sugerencia_pedido', 'productos_por_vencer'], $nombres($hCarmen)) === ['sugerencia_pedido', 'productos_por_vencer']
+    && !in_array('pronostico_ventas', $nombres($hCarmen), true) && isset($hCarmen->ejecutar('horas_punta', [])['error']));
+revisar('El cajero no tiene ninguna de las cuatro, y PHP se las niega aunque las pida', array_intersect(['sugerencia_pedido', 'productos_por_vencer',
+    'pronostico_ventas', 'horas_punta'], $nombres($hLuis)) === [] && isset($hLuis->ejecutar('sugerencia_pedido', [])['error'])
+    && isset($hLuis->ejecutar('productos_por_vencer', [])['error']) && isset($hLuis->ejecutar('pronostico_ventas', [])['error']));
+$pedido = $hCarmen31->ejecutar('sugerencia_pedido', []);
+$pedidoEsperado = 0;
+foreach ((new PanelRepository($db))->reposicion($carmen->getIdTienda(), Reposicion::DIAS_VENTA) as $f) {
+    $pedidoEsperado += Reposicion::sugerido($f['actual'], $f['minimo'], Reposicion::ventaDiaria($f['vendido']), $f['al_peso']) > 0 ? 1 : 0;
+}
+revisar('Qué pedir: los mismos productos y cantidades que Reponer, cada uno con algo que pedir', !isset($pedido['error'])
+    && $pedido['total'] === $pedidoEsperado && $pedidoEsperado > 0
+    && array_filter($pedido['mostrados'], fn(array $f): bool => $f['pedir'] <= 0) === []);
+revisar('...lo que se acaba antes va primero y deja el botón para armar la orden de compra',
+    ($pedido['mostrados'][0]['alcanza_dias'] ?? PHP_INT_MAX) <= (end($pedido['mostrados'])['alcanza_dias'] ?? PHP_INT_MAX)
+    && in_array('/?ruta=ordenes&desde=reponer', array_column($hCarmen31->enlaces(), 'url'), true));
+$vence = $hCarmen31->ejecutar('productos_por_vencer', ['dias' => 30]);
+revisar('Por vencer al 31/10: lotes de la tienda con nombre, el que vence antes primero, y su valor al costo', !isset($vence['error'])
+    && $vence['total'] > 0 && $vence['mostrados'][0]['producto'] !== '' && !str_starts_with($vence['mostrados'][0]['producto'], 'Producto ')
+    && $vence['mostrados'][0]['vence'] <= end($vence['mostrados'])['vence'] && $vence['valor_en_riesgo'] > 0
+    && array_filter($vence['mostrados'], fn(array $f): bool => $f['vence'] > '2026-11-30') === []);
+$pron = $hRosa31->ejecutar('pronostico_ventas', []);
+revisar('Pronóstico al 31/10: 7 días desde ese sábado, con el total de la semana', !isset($pron['error']) && !isset($pron['sin_historia'])
+    && count($pron['dias']) === 7 && $pron['dias'][0]['fecha'] === '2026-10-31' && $pron['dias'][0]['dia'] === 'sábado'
+    && abs($pron['total'] - array_sum(array_column($pron['dias'], 'estimado'))) < 0.01);
+$punta = $hRosa31->ejecutar('horas_punta', []);
+revisar('Horas punta al 31/10: hay horas con comprobantes y un día más movido', !isset($punta['error']) && $punta['comprobantes'] > 0
+    && $punta['horas_punta'] !== [] && $punta['dia_mas_movido'] !== null);
+$rapidasCarmen = new RespuestasRapidas($hCarmen31, $el31);
+revisar('El almacenero ve las preguntas de pedir y por vencer, no la del pronóstico', isset($rapidasCarmen->disponibles()['pedido'],
+    $rapidasCarmen->disponibles()['por_vencer']) && !isset($rapidasCarmen->disponibles()['pronostico']));
+$rapidasRosa31 = new RespuestasRapidas($hRosa31, $el31);
+foreach (['alertas' => 'Esto necesita atención', 'pedido' => 'pedir ', 'por_vencer' => 'lotes vencen', 'pronostico' => 'En los próximos 7 días',
+    'horas_punta' => 'Horas punta: '] as $clave => $esperado) {
+    $r = $rapidasRosa31->responder($clave);
+    revisar('Pregunta rápida "' . $clave . '" con la base real responde en español con datos y una idea', $r['ok']
+        && str_contains($r['respuesta'], $esperado) && str_contains($r['respuesta'], 'Idea:'));
+}
 
 echo "Tildes y utf8mb4\n";
 revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',

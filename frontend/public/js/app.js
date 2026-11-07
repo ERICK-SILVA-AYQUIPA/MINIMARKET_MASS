@@ -2104,7 +2104,8 @@
         };
 
         let ocupado = false;
-        const preguntar = async (texto) => {
+        // rapida: clave de una pregunta predeterminada (la responde el servidor desde la base, sin IA)
+        const preguntar = async (texto, rapida = '') => {
             texto = String(texto || '').trim();
             if (texto === '' || ocupado) {
                 return;
@@ -2117,7 +2118,11 @@
             campo.value = '';
             const datos = new FormData();
             datos.append('csrf', $('input[name="csrf"]', formAsistente).value);
-            datos.append('pregunta', texto);
+            if (rapida !== '') {
+                datos.append('rapida', rapida);
+            } else {
+                datos.append('pregunta', texto);
+            }
             let mensaje = 'No pude enviar la pregunta. Revisa la conexión e inténtalo otra vez.';
             let enlaces = [];
             try {
@@ -2134,7 +2139,10 @@
             burbuja('assistant', mensaje, enlaces);
             ocupado = false;
             enviar.disabled = false;
-            campo.focus();
+            // Despues de un boton no se enfoca la caja: en el celular abriria el teclado sobre la respuesta
+            if (rapida === '') {
+                campo.focus();
+            }
         };
 
         formAsistente.addEventListener('submit', (evento) => {
@@ -2148,10 +2156,10 @@
                 preguntar(campo.value);
             }
         });
-        $$('[data-asistente-sugerencia]', asistente).forEach((boton) => {
+        $$('[data-asistente-rapida]', asistente).forEach((boton) => {
             boton.addEventListener('click', (evento) => {
                 evento.preventDefault();
-                preguntar(boton.textContent);
+                preguntar(boton.textContent, boton.dataset.asistenteRapida || '');
             });
         });
 

@@ -52,4 +52,53 @@ class AsistenteRepository
         $consulta->execute($parametros);
         return $consulta->fetchAll();
     }
+
+    /**
+     * Los clientes que mas compraron en la tienda entre dos fechas (ventas EMITIDAS con cliente).
+     * @return array<int, array{cliente: string, documento: ?string, compras: string, total: string}>
+     */
+    public function mejoresClientes(int $idTienda, string $desde, string $hasta, int $limite = 10): array
+    {
+        $consulta = $this->db->prepare(
+            "SELECT COALESCE(NULLIF(c.nombre, ''), c.dni, c.ruc) AS cliente, COALESCE(c.dni, c.ruc) AS documento,
+                    COUNT(*) AS compras, SUM(v.total) AS total
+               FROM venta v
+               JOIN serie_comprobante s ON s.id_serie = v.id_serie
+               JOIN cliente c           ON c.id_cliente = v.id_cliente
+              WHERE v.estado = 'EMITIDA' AND s.id_tienda = :tienda
+                AND v.fecha_hora >= :desde AND v.fecha_hora < :hasta + INTERVAL 1 DAY
+              GROUP BY c.id_cliente, c.nombre, c.dni, c.ruc
+              ORDER BY total DESC
+              LIMIT " . max(1, min($limite, 30))
+        );
+        $consulta->execute(['tienda' => $idTienda, 'desde' => $desde . ' 00:00:00', 'hasta' => $hasta]);
+        return $consulta->fetchAll();
+    }
+
+    /**
+     * Nombre y unidad de cada producto pedido (para los productos por vencer, que llegan solo con su id).
+     * @param int[] $ids
+     * @return array<int, array{nombre: string, unidad: string}> id_producto => datos
+     */
+    public function nombresProductos(array $ids): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === []) {
+            return [];
+        }
+        $parametros = [];
+        foreach ($ids as $i => $id) {
+            $parametros['i' . $i] = $id;
+        }
+        $sql = 'SELECT p.id_producto, p.nombre_producto, u.abreviatura FROM producto p
+                  JOIN unidad_medida u ON u.id_unidad = p.id_unidad
+                 WHERE p.id_producto IN (' . implode(', ', array_map(fn(string $k): string => ':' . $k, array_keys($parametros))) . ')';
+        $consulta = $this->db->prepare($sql);
+        $consulta->execute($parametros);
+        $resultado = [];
+        foreach ($consulta->fetchAll() as $f) {
+            $resultado[(int) $f['id_producto']] = ['nombre' => (string) $f['nombre_producto'], 'unidad' => (string) $f['abreviatura']];
+        }
+        return $resultado;
+    }
 }
