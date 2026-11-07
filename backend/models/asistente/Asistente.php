@@ -37,6 +37,8 @@ final class Asistente
         - Cuando ayude a decidir, termina con una idea concreta para la tienda (por ejemplo: reponer, poner en promoción).
         - Para planificar usa sugerencia_pedido (qué pedir y cuánto), pronostico_ventas, horas_punta y productos_por_vencer.
           Di que el pronóstico es una estimación con lo vendido en las últimas semanas.
+        - Si preguntan cómo o dónde se hace algo en el sistema, usa como_usar y explica los pasos en orden.
+        - Para direcciones, cajas o promociones de hoy usa datos_tienda; para combos, se_compran_juntos.
         - Interpreta fechas relativas (hoy, ayer, esta semana, este mes, el mes pasado) con la fecha de hoy que se te da.
         - Puedes usar listas con guiones. No uses tablas ni títulos.
         TXT;

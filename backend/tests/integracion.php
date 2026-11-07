@@ -101,8 +101,8 @@ $hRosa = $herramientasDe($rosa);
 $hLuis = $herramientasDe($luis);
 $hCarmen = $herramientasDe($carmen);
 revisar('Al administrador se le ofrecen los reportes de ventas', array_intersect(['resumen_ventas', 'detalle_ventas'], $nombres($hRosa)) === ['resumen_ventas', 'detalle_ventas']);
-revisar('Al cajero no: productos, por reponer, sin venta, clientes y abrir pantallas', $nombres($hLuis)
-    === ['buscar_productos', 'productos_por_reponer', 'productos_sin_venta', 'mejores_clientes', 'abrir_pagina']);
+revisar('Al cajero no: productos, por reponer, sin venta, guía, datos de la tienda, clientes y abrir pantallas', $nombres($hLuis)
+    === ['buscar_productos', 'productos_por_reponer', 'productos_sin_venta', 'como_usar', 'datos_tienda', 'mejores_clientes', 'abrir_pagina']);
 revisar('El almacenero no ve clientes', !in_array('mejores_clientes', $nombres($hCarmen), true)
     && isset($hCarmen->ejecutar('mejores_clientes', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
 revisar('Aunque el cajero pida el resumen, PHP lo rechaza', isset($hLuis->ejecutar('resumen_ventas', ['desde' => '2026-10-01', 'hasta' => '2026-10-31'])['error']));
@@ -186,13 +186,36 @@ revisar('Horas punta al 31/10: hay horas con comprobantes y un día más movido'
 $rapidasCarmen = new RespuestasRapidas($hCarmen31, $el31);
 revisar('El almacenero ve las preguntas de pedir y por vencer, no la del pronóstico', isset($rapidasCarmen->disponibles()['pedido'],
     $rapidasCarmen->disponibles()['por_vencer']) && !isset($rapidasCarmen->disponibles()['pronostico']));
+$hLuis31 = new HerramientasAsistente($luis, new TiendaRepository($db), new ReporteRepository($db), new PanelRepository($db),
+    new AsistenteRepository($db), new IngresoRepository($db), $el31);
+$juntos = $hRosa31->ejecutar('se_compran_juntos', []);
+revisar('Se compran juntos (90 días al 31/10): pares de la misma compra, al menos 2 veces, el más frecuente primero', !isset($juntos['error'])
+    && $juntos['dias'] === 90 && $juntos['pares'] !== [] && $juntos['pares'][0]['veces_juntos'] >= 2
+    && $juntos['pares'][0]['producto_a'] !== $juntos['pares'][0]['producto_b'] && str_ends_with($juntos['pares'][0]['con_a_llevan_b'], '%'));
+revisar('...es de reportes: el cajero no lo tiene', !in_array('se_compran_juntos', $nombres($hLuis), true) && isset($hLuis31->ejecutar('se_compran_juntos', [])['error']));
+$datosT = $hLuis31->ejecutar('datos_tienda', []);
+revisar('Datos de la tienda: las sedes activas con dirección, cuál es la suya, cajas y productos por categoría', count($datosT['sedes']) === 3
+    && count(array_filter($datosT['sedes'], fn(array $t): bool => $t['es_la_tuya'])) === 1 && $datosT['cajas'] > 0 && $datosT['productos'] > 0
+    && $datosT['categorias'][0]['productos'] >= end($datosT['categorias'])['productos'] && is_array($datosT['promociones']));
+$guiaLuis = $hLuis31->ejecutar('como_usar', ['pregunta' => '¿cómo cierro la caja?']);
+revisar('Guía: al cajero le da los pasos para cerrar la caja y el botón a Caja', ($guiaLuis['encontradas'] ?? 0) >= 1
+    && str_starts_with($guiaLuis['guias'][0]['titulo'], 'Cerrar la caja') && in_array('/?ruta=caja', array_column($hLuis31->enlaces(), 'url'), true));
+revisar('...pero no los de anular: le dice a quién pedírselo', ($hLuis31->ejecutar('como_usar', ['pregunta' => 'como anulo una venta'])['no_es_de_tu_rol'] ?? '') === 'Anular una venta');
+$rapidasLuis31 = new RespuestasRapidas($hLuis31, $el31);
+revisar('Escrito libre sin IA: "¿cómo cierro la caja?" responde la guía', str_starts_with($rapidasLuis31->interpretar('¿cómo cierro la caja?')['respuesta'], 'Cerrar la caja')
+    && str_contains($rapidasLuis31->interpretar('¿dónde registro la mercadería que llegó?')['respuesta'], 'pídeselo al almacenero'));
 $rapidasRosa31 = new RespuestasRapidas($hRosa31, $el31);
 foreach (['alertas' => 'Esto necesita atención', 'pedido' => 'pedir ', 'por_vencer' => 'lotes vencen', 'pronostico' => 'En los próximos 7 días',
-    'horas_punta' => 'Horas punta: '] as $clave => $esperado) {
+    'horas_punta' => 'Horas punta: ', 'juntos' => ' veces juntos'] as $clave => $esperado) {
     $r = $rapidasRosa31->responder($clave);
     revisar('Pregunta rápida "' . $clave . '" con la base real responde en español con datos y una idea', $r['ok']
         && str_contains($r['respuesta'], $esperado) && str_contains($r['respuesta'], 'Idea:'));
 }
+$r = $rapidasRosa31->responder('datos_tienda');
+revisar('Pregunta rápida "Datos de nuestras tiendas": las 3 sedes, la suya marcada', $r['ok'] && str_contains($r['respuesta'], '3 tiendas')
+    && str_contains($r['respuesta'], '(aquí estás)'));
+$r = $rapidasRosa31->responder('como_usar');
+revisar('Pregunta rápida "¿Cómo se usa el sistema?": qué hace el asistente y ejemplos de guías', $r['ok'] && str_contains($r['respuesta'], '¿cómo cierro la caja?'));
 
 echo "Tildes y utf8mb4\n";
 revisar('La base, la conexión y todas las columnas de texto usan utf8mb4',

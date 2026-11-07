@@ -1710,7 +1710,34 @@ button.asistente-chip:hover { background: var(--marca-suave); border-color: var(
 .asistente-flotante:hover { background: var(--marca-fuerte); color: var(--sobre-marca); }
 .con-barra-inferior .asistente-flotante { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
 @media (max-width: 600px) { .asistente-flotante span { display: none; } .asistente-flotante { padding: var(--s-3); } }
-@media print { .asistente-flotante { display: none; } }
+/* Ventanita del asistente abajo a la derecha (layout_fin.php): no tapa la pantalla, se cierra con la X o Escape */
+.asistente-ventana { position: fixed; right: var(--s-5, 20px); bottom: calc(var(--s-5, 20px) + 60px); z-index: 45; width: min(400px, calc(100vw - 32px));
+    height: min(580px, calc(100vh - 120px)); display: flex; flex-direction: column; background: var(--superficie); border: 1px solid var(--borde-fuerte);
+    border-radius: var(--radio-xl); box-shadow: var(--sombra-xl); overflow: hidden; }
+.asistente-ventana[hidden] { display: none; }
+.asistente-ventana-cabeza { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); padding: var(--s-2) var(--s-3);
+    border-bottom: 1px solid var(--borde); background: var(--superficie-2); }
+.asistente-ventana-cabeza .asistente-quien { margin: 0; font-size: .85rem; }
+.asistente-ventana-acciones { display: inline-flex; align-items: center; gap: var(--s-3); font-size: .85rem; }
+.asistente-ventana-acciones .enlace { background: none; border: 0; padding: 0; color: var(--suave); text-decoration: none; cursor: pointer; font: inherit; box-shadow: none; }
+.asistente-ventana-acciones .enlace:hover { color: var(--marca); background: none; }
+button.asistente-cerrar { background: none; border: 0; padding: var(--s-1); color: var(--texto); box-shadow: none; display: inline-flex; }
+button.asistente-cerrar:hover { color: var(--marca); background: none; }
+.asistente-compacto { flex: 1; min-height: 0; gap: var(--s-2); padding: var(--s-3); }
+.asistente-compacto .asistente-mensajes { flex: 1; max-height: none; min-height: 0; }
+.asistente-compacto .asistente-burbuja { max-width: 92%; padding: var(--s-2) var(--s-3); font-size: .9rem; }
+/* Las preguntas rapidas en una fila que se desliza de lado, para no comerse la ventana */
+.asistente-compacto .asistente-sugerencias { flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--s-1); scrollbar-width: thin; }
+.asistente-compacto button.asistente-chip { white-space: nowrap; flex: 0 0 auto; font-size: .8rem; padding: var(--s-1) var(--s-3); }
+.asistente-compacto .asistente-escribir { flex-wrap: nowrap; }
+.asistente-compacto .asistente-escribir textarea { flex-basis: auto; min-height: 40px; }
+.asistente-compacto .asistente-escribir [data-asistente-enviar] { flex: 0 0 auto; }
+.asistente-abierto .asistente-flotante { box-shadow: 0 0 0 3px var(--marca-suave), var(--sombra-lg); }
+.con-barra-inferior .asistente-ventana { bottom: calc(84px + 60px + env(safe-area-inset-bottom, 0px)); height: min(520px, calc(100vh - 180px)); }
+@media (max-width: 600px) {
+    .asistente-ventana { right: 8px; left: 8px; width: auto; bottom: 76px; height: min(70vh, calc(100vh - 100px)); }
+}
+@media print { .asistente-flotante, .asistente-ventana { display: none; } }
 
 /* Estadísticas (?ruta=estadisticas): opiniones escritas y mapas de calor.
    Cada casilla trae --nivel (0 a 1) y su color va del fondo de la tabla al amarillo de la marca. */

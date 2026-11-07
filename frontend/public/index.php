@@ -467,6 +467,10 @@ try {
                 $asistenteController->chat();
                 break;
 
+            case 'asistente_datos':
+                $asistenteController->datos();
+                break;
+
             case 'mi_clave':
                 $auth->formularioClave(null, $debeCambiarClave);
                 break;

@@ -2056,7 +2056,7 @@
         });
     }
 
-    // ---------- Asistente (views/asistente/chat.php): pregunta sin recargar y dicta con el microfono ----------
+    // ---------- Asistente (views/asistente/chat.php y la ventanita de layout_fin.php): pregunta sin recargar y dicta ----------
     // La respuesta llega como texto (textContent, nunca HTML) y los botones solo van a direcciones /?ruta= de este sitio.
     const asistente = $('[data-asistente]');
     const formAsistente = asistente ? $('[data-asistente-form]', asistente) : null;
@@ -2156,12 +2156,123 @@
                 preguntar(campo.value);
             }
         });
-        $$('[data-asistente-rapida]', asistente).forEach((boton) => {
-            boton.addEventListener('click', (evento) => {
-                evento.preventDefault();
-                preguntar(boton.textContent, boton.dataset.asistenteRapida || '');
+        // Preguntas rapidas: las dibuja el servidor (pantalla completa) o app.js (ventanita); un solo escuchador para todas
+        const sugerencias = $('[data-asistente-sugerencias]', asistente);
+        if (sugerencias) {
+            sugerencias.addEventListener('click', (evento) => {
+                const boton = evento.target instanceof Element ? evento.target.closest('[data-asistente-rapida]') : null;
+                if (boton) {
+                    evento.preventDefault();
+                    preguntar(boton.textContent, boton.dataset.asistenteRapida || '');
+                }
             });
-        });
+        }
+
+        // Ventanita abajo a la derecha: se abre con el boton flotante o el menu, y sigue abierta al cambiar de pantalla
+        const ventana = $('[data-asistente-ventana]');
+        if (ventana && sugerencias) {
+            const recordar = (abierta) => {
+                try {
+                    if (abierta) {
+                        sessionStorage.setItem('asistente-abierto', '1');
+                    } else {
+                        sessionStorage.removeItem('asistente-abierto');
+                    }
+                } catch (error) {
+                    // sin almacenamiento: solo no se recuerda
+                }
+            };
+            let cargado = false;
+            const cargar = async () => {
+                if (cargado) {
+                    return;
+                }
+                cargado = true;
+                try {
+                    const respuesta = await fetch('/?ruta=asistente_datos', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+                    const json = await respuesta.json();
+                    (Array.isArray(json.conversacion) ? json.conversacion : []).forEach((turno) => {
+                        if (turno && typeof turno.texto === 'string') {
+                            burbuja(turno.rol === 'user' ? 'user' : 'assistant', turno.texto, Array.isArray(turno.enlaces) ? turno.enlaces : []);
+                        }
+                    });
+                    (Array.isArray(json.preguntas) ? json.preguntas : []).forEach((p) => {
+                        if (!p || typeof p.clave !== 'string' || typeof p.texto !== 'string') {
+                            return;
+                        }
+                        const chip = document.createElement('button');
+                        chip.type = 'button';
+                        chip.className = 'asistente-chip';
+                        chip.dataset.asistenteRapida = p.clave;
+                        chip.textContent = p.texto;
+                        sugerencias.appendChild(chip);
+                    });
+                } catch (error) {
+                    cargado = false;   // se reintenta la proxima vez que se abra
+                }
+            };
+            const abrir = () => {
+                ventana.hidden = false;
+                document.body.classList.add('asistente-abierto');
+                recordar(true);
+                cargar();
+                if (window.matchMedia('(min-width: 701px)').matches) {
+                    campo.focus();
+                }
+            };
+            const cerrar = () => {
+                ventana.hidden = true;
+                document.body.classList.remove('asistente-abierto');
+                recordar(false);
+            };
+            $$('[data-asistente-abrir]').forEach((enlace) => {
+                enlace.addEventListener('click', (evento) => {
+                    evento.preventDefault();
+                    if (ventana.hidden) {
+                        abrir();
+                    } else {
+                        cerrar();
+                    }
+                    // En el celular el menu lateral se cierra para ver la ventanita
+                    const casilla = $('#menu-casilla');
+                    if (casilla instanceof HTMLInputElement) {
+                        casilla.checked = false;
+                    }
+                });
+            });
+            const botonCerrar = $('[data-asistente-cerrar]', ventana);
+            if (botonCerrar) {
+                botonCerrar.addEventListener('click', cerrar);
+            }
+            ventana.addEventListener('keydown', (evento) => {
+                if (evento.key === 'Escape') {
+                    cerrar();
+                }
+            });
+            // Nueva conversacion: se borra en el servidor y quedan solo el saludo y las preguntas
+            const nueva = $('[data-asistente-nueva]', ventana);
+            if (nueva) {
+                nueva.addEventListener('click', async () => {
+                    const datos = new FormData();
+                    datos.append('csrf', $('input[name="csrf"]', formAsistente).value);
+                    try {
+                        await fetch('/?ruta=asistente_borrar', { method: 'POST', body: datos, credentials: 'same-origin' });
+                    } catch (error) {
+                        // se limpia igual en pantalla
+                    }
+                    $$('.asistente-burbuja:not([data-asistente-saludo])', lista).forEach((b) => lista.removeChild(b));
+                });
+            }
+            let abierta = false;
+            try {
+                abierta = sessionStorage.getItem('asistente-abierto') === '1';
+            } catch (error) {
+                abierta = false;
+            }
+            if (abierta) {
+                abrir();
+            }
+        }
 
         // Dictado por voz: el reconocimiento del navegador (Chrome, Edge, Safari) en español de Peru
         const Reconocedor = window.SpeechRecognition || window.webkitSpeechRecognition;

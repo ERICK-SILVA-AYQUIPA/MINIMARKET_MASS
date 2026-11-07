@@ -142,8 +142,8 @@ if ($usuarioActual !== null) {
     <link rel="preload" href="/fuentes/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
     <!-- tokens.css: colores, espacios 4/8, radios, sombras, vidrio, letras y curvas. estilos.css solo los usa. -->
     <link rel="stylesheet" href="/css/tokens.css?v=2">
-    <link rel="stylesheet" href="/css/estilos.css?v=28">
-    <script src="/js/app.js?v=18" defer></script>
+    <link rel="stylesheet" href="/css/estilos.css?v=29">
+    <script src="/js/app.js?v=19" defer></script>
 </head>
 <body class="<?= e($claseCuerpo) ?>">
 <a class="saltar" href="#contenido">Saltar al contenido</a>
@@ -190,7 +190,7 @@ if ($usuarioActual !== null) {
                 <?php if ($grupo !== ''): ?><div class="grupo"><?= e($grupo) ?></div><?php endif; ?>
                 <?php foreach ($opciones as $rutaMenu => [$textoMenu, $iconoMenu]): ?>
                     <?php $cuentaMenu = (int) ($alertasMenu[$rutaMenu] ?? 0); ?>
-                    <a href="/?ruta=<?= e($rutaMenu) ?>"<?= $rutaMenu === $opcionActual ? ' class="activo" aria-current="page"' : '' ?><?php if (isset($pestanasMenu[$rutaMenu])): ?> data-pestanas="<?= e($pestanasMenu[$rutaMenu][0]) ?>"<?php endif; ?>>
+                    <a href="/?ruta=<?= e($rutaMenu) ?>"<?= $rutaMenu === $opcionActual ? ' class="activo" aria-current="page"' : '' ?><?php if (isset($pestanasMenu[$rutaMenu])): ?> data-pestanas="<?= e($pestanasMenu[$rutaMenu][0]) ?>"<?php endif; ?><?= $rutaMenu === 'asistente' && $opcionActual !== 'asistente' ? ' data-asistente-abrir' : '' ?>>
                         <svg class="icono" aria-hidden="true" focusable="false"><use href="/iconos.svg#<?= e($iconoMenu) ?>"></use></svg><span class="texto-menu"><?= e($textoMenu) ?></span>
                         <?php if ($cuentaMenu > 0): ?><span class="menu-cuenta" title="<?= e($cuentaMenu . ' avisos: por vencer y por reponer') ?>"><?= (int) $cuentaMenu ?></span><?php endif; ?>
                     </a>

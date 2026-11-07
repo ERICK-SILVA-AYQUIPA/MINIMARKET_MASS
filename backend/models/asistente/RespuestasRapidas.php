@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/Herramientas.php';
+require_once __DIR__ . '/Conocimiento.php';
 
 /**
  * Preguntas predeterminadas de la tienda, respondidas al instante desde la base, SIN inteligencia artificial
@@ -32,6 +33,9 @@ final class RespuestasRapidas
         'por_vencer'       => ['¿Qué productos están por vencer?', 'productos_por_vencer'],
         'pronostico'       => ['¿Cuánto venderemos esta semana?', 'pronostico_ventas'],
         'horas_punta'      => ['¿Cuáles son las horas punta?', 'horas_punta'],
+        'juntos'           => ['¿Qué productos se compran juntos?', 'se_compran_juntos'],
+        'datos_tienda'     => ['Datos de nuestras tiendas', 'datos_tienda'],
+        'como_usar'        => ['¿Cómo se usa el sistema?', 'como_usar'],
         'hacer_venta'      => ['Quiero hacer una venta', 'nueva_venta'],
     ];
 
@@ -105,6 +109,9 @@ final class RespuestasRapidas
             'por_vencer'       => $this->porVencer(),
             'pronostico'       => $this->pronostico(),
             'horas_punta'      => $this->horasPunta(),
+            'juntos'           => $this->juntos(),
+            'datos_tienda'     => $this->datosTienda(),
+            'como_usar'        => $this->guias(),
             'hacer_venta'      => $this->abrir('nueva_venta', 'Listo: abre Nueva venta con el botón de abajo.'),
             default            => $this->fin('No conozco esa pregunta.', false),
         };
@@ -116,6 +123,16 @@ final class RespuestasRapidas
      */
     public function interpretar(string $pregunta): array
     {
+        // "¿Cómo cierro la caja?", "¿dónde veo el kardex?": primero la guía del sistema
+        if (isset($this->tiene['como_usar']) && Conocimiento::esComoHacer($pregunta)) {
+            $r = $this->herramientas->ejecutar('como_usar', ['pregunta' => $pregunta]);
+            if ((int) ($r['encontradas'] ?? 0) > 0) {
+                return $this->fin(implode("\n\n", array_map(fn(array $g): string => $g['titulo'] . ":\n" . $g['pasos'], $r['guias'])), true);
+            }
+            if (isset($r['no_es_de_tu_rol'])) {
+                return $this->fin('«' . $r['no_es_de_tu_rol'] . '» no lo hace tu usuario: pídeselo ' . $r['lo_hace'] . '.', true);
+            }
+        }
         $clave = $this->claveDe($pregunta);
         if ($clave !== null && $this->texto($clave) !== null) {
             return $this->responder($clave);
@@ -155,6 +172,9 @@ final class RespuestasRapidas
         if ($hay('pronostic', 'venderemos', 'vamos a vender', 'se va a vender', 'proxima semana', 'estim', 'prediccion', 'predec', 'esperamos vender')) {
             return 'pronostico';
         }
+        if ($hay('juntos', 'junto con', 'combo', 'canasta', 'llevan con')) {
+            return 'juntos';
+        }
         if ($hay('pedir', ' pido ', 'pedido', 'comprar al', 'orden de compra', 'proveedor', 'cuanto repon')) {
             return 'pedido';
         }
@@ -182,6 +202,12 @@ final class RespuestasRapidas
                 $hay('semana') => 'mas_vendidos',
                 default => 'ventas_hoy',
             };
+        }
+        if ($hay('direccion', 'sedes', 'sucursales', 'cuantas tiendas', 'datos de la tienda', 'datos de nuestras', 'telefono de la', 'cuantas cajas', 'promociones vigentes', 'que promociones')) {
+            return 'datos_tienda';
+        }
+        if ($hay('como se usa', 'manual', 'guia', 'que puedes hacer', 'que sabes hacer', 'ayuda')) {
+            return 'como_usar';
         }
         return null;
     }
@@ -440,6 +466,51 @@ final class RespuestasRapidas
             $texto .= "\n- Día más movido: " . $r['dia_mas_movido'] . ($r['dia_mas_tranquilo'] !== null ? '; el más tranquilo: ' . $r['dia_mas_tranquilo'] : '') . '.';
         }
         return $this->fin($texto . "\n(Entre paréntesis, los comprobantes.)\nIdea: pon más cajeros en las horas punta y usa las tranquilas para reponer y ordenar.", true);
+    }
+
+    private function juntos(): array
+    {
+        $r = $this->herramientas->ejecutar('se_compran_juntos', ['dias' => 90]);
+        if (isset($r['error'])) {
+            return $this->fin((string) $r['error'], false);
+        }
+        if ($r['pares'] === []) {
+            return $this->fin('En los últimos ' . $r['dias'] . ' días ningún par de productos salió junto 2 veces o más en ' . $r['tienda']
+                . '. Con más ventas aparecen los combos.', true);
+        }
+        $lineas = array_map(fn(array $p): string => '- ' . $p['producto_a'] . ' + ' . $p['producto_b'] . ': ' . $p['veces_juntos'] . ' veces juntos ('
+            . $p['con_a_llevan_b'] . ' de quienes llevan el primero también llevan el segundo)', array_slice($r['pares'], 0, 6));
+        $primero = $r['pares'][0];
+        return $this->fin('Lo que se compra junto en ' . $r['tienda'] . ' (últimos ' . $r['dias'] . " días):\n" . implode("\n", $lineas)
+            . "\nIdea: arma un combo «" . $primero['producto_a'] . ' + ' . $primero['producto_b'] . '» con un pequeño descuento y ponlos cerca en el estante.', true);
+    }
+
+    private function datosTienda(): array
+    {
+        $r = $this->herramientas->ejecutar('datos_tienda', []);
+        $sedes = array_map(fn(array $s): string => '- ' . $s['tienda'] . ($s['es_la_tuya'] ? ' (aquí estás)' : '') . ': ' . $s['direccion']
+            . ($s['telefono'] !== null && $s['telefono'] !== '' ? ' · tel. ' . $s['telefono'] : ''), $r['sedes']);
+        $categorias = implode(', ', array_map(fn(array $c): string => $c['categoria'] . ' ' . $c['productos'], array_slice($r['categorias'], 0, 6)));
+        $texto = $r['cadena'] . ': ' . count($r['sedes']) . (count($r['sedes']) === 1 ? ' tienda' : ' tiendas') . ":\n" . implode("\n", $sedes)
+            . "\n" . $r['tienda_actual'] . ' tiene ' . $r['cajas'] . ($r['cajas'] === 1 ? ' caja' : ' cajas') . ' y ' . $r['productos'] . ' productos'
+            . ($categorias !== '' ? ' (' . $categorias . ')' : '') . '.';
+        if ($r['promociones'] === []) {
+            $texto .= "\nHoy no hay promociones vigentes.";
+        } else {
+            $texto .= "\nPromociones de hoy: " . implode(', ', array_map(fn(array $p): string => $p['nombre'] . ' (hasta ' . $this->fecha($p['hasta']) . ')',
+                $r['promociones'])) . '.';
+        }
+        return $this->fin($texto, true);
+    }
+
+    private function guias(): array
+    {
+        $r = $this->herramientas->ejecutar('como_usar', ['pregunta' => 'que puedes hacer']);
+        $c = $this->herramientas->ejecutar('como_usar', ['pregunta' => '']);
+        $titulos = $c['guias_de_este_usuario'] ?? [];
+        return $this->fin(($r['guias'][0]['pasos'] ?? '') . "\n\nTe explico paso a paso, por ejemplo:\n- "
+            . implode("\n- ", array_slice($titulos, 0, 8))
+            . "\nEscribe «¿cómo …?», por ejemplo «¿cómo cierro la caja?».", true);
     }
 
     private function dias(int $dias): string

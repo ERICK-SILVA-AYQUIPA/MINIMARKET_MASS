@@ -749,6 +749,8 @@ $casos = [
     '¿cuánto venderemos esta semana?' => 'pronostico', 'pronóstico de ventas' => 'pronostico',
     '¿qué pido al proveedor?' => 'pedido', 'cuánto debo pedir' => 'pedido', 'cuántos comprobantes hicimos hoy' => 'ventas_hoy',
     'dime rápido cuánto vendimos' => 'ventas_hoy',
+    'qué productos se compran juntos' => 'juntos', 'ideas de combos' => 'juntos', 'dirección de las tiendas' => 'datos_tienda',
+    '¿qué promociones hay?' => 'datos_tienda', 'manual del sistema' => 'como_usar',
 ];
 $malas = [];
 foreach ($casos as $texto => $esperada) {
@@ -804,6 +806,32 @@ revisar('El día más movido es el sábado y el más tranquilo el martes', $h['d
 $vacio = AnalisisVentas::horasPunta([]);
 revisar('Sin ventas no hay horas punta ni días', $vacio['horas_punta'] === [] && $vacio['dia_mas_movido'] === null && $vacio['comprobantes'] === 0);
 revisar('La franja de las 23 termina a las 0:00', AnalisisVentas::franja(23) === '23:00 a 0:00');
+
+echo "Conocimiento de la tienda: guía de uso del sistema (sin IA)\n";
+require_once __DIR__ . '/../models/asistente/Conocimiento.php';
+$guiaCajero = new Conocimiento(['vende']);
+$guiaAdmin = new Conocimiento(['vende', 'almacen', 'admin']);
+$primera = fn(Conocimiento $c, string $p): ?string => $c->buscar($p)[0]['clave'] ?? null;
+$casosGuia = ['¿Cómo cierro la caja?' => 'cerrar_caja', 'como abro la caja' => 'abrir_caja', 'cómo hago una devolución' => 'devolucion',
+    '¿Cómo saco plata para el depósito?' => 'movimiento_efectivo', 'como registro un cliente nuevo' => 'cliente', 'olvidé mi clave' => 'clave',
+    '¿qué hago si se cae el internet?' => 'sin_internet', 'cómo hago una venta' => 'vender', 'como imprimo el ticket' => 'imprimir'];
+$malasGuia = [];
+foreach ($casosGuia as $texto => $esperada) {
+    if ($primera($guiaCajero, $texto) !== $esperada) {
+        $malasGuia[] = $texto . ' -> ' . var_export($primera($guiaCajero, $texto), true);
+    }
+}
+revisar('La guía encuentra los pasos correctos (' . count($casosGuia) . ' preguntas)' . ($malasGuia === [] ? '' : ': ' . implode('; ', $malasGuia)), $malasGuia === []);
+$anular = $guiaCajero->buscar('¿cómo anulo una venta?');
+revisar('Al cajero no le da los pasos de anular: le dice que lo hace el administrador', count($anular) === 1 && $anular[0]['clave'] === 'anular'
+    && $anular[0]['permitida'] === false && str_contains($anular[0]['quien'], 'administrador'));
+revisar('Al administrador sí, con la pantalla donde se hace', ($guiaAdmin->buscar('como anulo una venta')[0]['permitida'] ?? false) === true
+    && ($guiaAdmin->buscar('cómo recibo la mercadería del proveedor')[0]['pantalla'] ?? null) === 'ingresos');
+revisar('Una pregunta que no es de cómo usar el sistema no inventa una guía', $guiaCajero->buscar('cuéntame un chiste') === []);
+revisar('Distingue las preguntas de "cómo" de las de datos', Conocimiento::esComoHacer('¿Cómo cierro la caja?') && Conocimiento::esComoHacer('dónde veo el kardex')
+    && !Conocimiento::esComoHacer('¿Cuánto vendimos hoy?') && !Conocimiento::esComoHacer('stock bajo'));
+revisar('El cajero ve solo sus guías; el administrador, todas', !in_array('Anular una venta', $guiaCajero->titulos(), true)
+    && in_array('Abrir la caja (empezar el día)', $guiaCajero->titulos(), true) && count($guiaAdmin->titulos()) > count($guiaCajero->titulos()));
 
 echo PHP_EOL . "$ok correctas, $fallas fallas" . PHP_EOL;
 exit($fallas === 0 ? 0 : 1);
